@@ -1,0 +1,8 @@
+*.DS_Store*
+*.env*
+*env*
+*.sqlite3
+*pycache*
+token.json
+run.sh
+*migrations*
