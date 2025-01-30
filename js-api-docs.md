@@ -189,12 +189,13 @@ POST /posts/{post_id}/comment/
   content: String
 }
 ```
-
 ## Workouts
 
-### Get User's Workouts
+### Workout Templates
+
+#### Get All Templates
 ```javascript
-GET /workouts/workouts/
+GET /workouts/templates/
 
 Response:
 [
@@ -202,9 +203,7 @@ Response:
     id: Number,
     name: String,
     description: String,
-    frequency: String,
-    split_method: String,
-    is_template: Boolean,
+    split_method: String,  // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
     exercises: [
       {
         id: Number,
@@ -222,61 +221,53 @@ Response:
           }
         ]
       }
-    ]
+    ],
+    created_at: String,
+    updated_at: String
   }
 ]
 ```
 
-## Workouts
-
-### Create Workout
+#### Create Template
 ```javascript
-POST /workouts/workouts/
+POST /workouts/templates/
 Content-Type: application/json
 
 Request Body:
 {
   name: String,
   description: String,  // Optional
-  frequency: String,
-  split_method: String, // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
-  is_template: Boolean  // Optional
+  split_method: String  // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
 }
 ```
 
-### Workout Plans
-
-#### Create Plan
+#### Add Exercise to Template
 ```javascript
-POST /workouts/plans/
+POST /workouts/templates/{template_id}/add_exercise/
 Content-Type: application/json
 
 Request Body:
 {
   name: String,
-  description: String,  // Optional
-  focus: String,       // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
-  sessions_per_week: Number,
-  is_active: Boolean   // Optional, defaults to true
-}
-
-Response:
-{
-  id: Number,
-  name: String,
-  description: String,
-  focus: String,
-  sessions_per_week: Number,
-  is_active: Boolean,
-  created_at: String,
-  updated_at: String,
-  plan_workouts: []
+  equipment: String,  // Optional
+  notes: String,      // Optional
+  order: Number,
+  sets: [
+    {
+      reps: Number,
+      weight: Number,
+      rest_time: Number,  // in seconds
+      order: Number
+    }
+  ]
 }
 ```
 
-#### Get All Plans
+### Training Programs
+
+#### Get All Programs
 ```javascript
-GET /workouts/plans/
+GET /workouts/programs/
 
 Query Parameters:
 active: Boolean  // Filter by active status
@@ -287,125 +278,148 @@ Response:
     id: Number,
     name: String,
     description: String,
-    focus: String,
+    focus: String,      // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
     sessions_per_week: Number,
     is_active: Boolean,
-    created_at: String,
-    updated_at: String,
-    plan_workouts: [
+    scheduled_workouts: [
       {
         id: Number,
-        workout: Number,
-        workout_name: String,
-        preferred_weekday: Number,
+        workout_template: Number,
+        workout_template_name: String,
+        preferred_weekday: Number,  // 0-6 (Monday-Sunday)
         weekday_name: String,
         order: Number,
         notes: String
+      }
+    ],
+    created_at: String,
+    updated_at: String
+  }
+]
+```
+
+#### Create Program
+```javascript
+POST /workouts/programs/
+Content-Type: application/json
+
+Request Body:
+{
+  name: String,
+  description: String,     // Optional
+  focus: String,          // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
+  sessions_per_week: Number,
+  is_active: Boolean      // Optional, defaults to true
+}
+```
+
+#### Schedule Workout in Program
+```javascript
+POST /workouts/programs/{program_id}/schedule_workout/
+Content-Type: application/json
+
+Request Body:
+{
+  workout_template: Number,    // Template ID
+  preferred_weekday: Number,   // 0-6 (Monday-Sunday)
+  order: Number,              // Order in the week's rotation
+  notes: String               // Optional
+}
+```
+
+#### Remove Scheduled Workout
+```javascript
+DELETE /workouts/programs/{program_id}/remove_scheduled_workout/
+Content-Type: application/json
+
+Request Body:
+{
+  scheduled_workout_id: Number
+}
+```
+
+### Workout Logs
+
+#### Get All Logs
+```javascript
+GET /workouts/logs/
+
+Response:
+[
+  {
+    id: Number,
+    workout_template: Number,
+    template_name: String,
+    program: Number,
+    program_name: String,
+    date: String,         // YYYY-MM-DD
+    gym: Number,
+    gym_name: String,
+    notes: String,
+    completed: Boolean,
+    exercises: [
+      {
+        id: Number,
+        template: Number,
+        template_name: String,
+        name: String,
+        equipment: String,
+        notes: String,
+        order: Number,
+        sets: [
+          {
+            id: Number,
+            template: Number,
+            reps: Number,
+            weight: Number,
+            rest_time: Number,
+            order: Number
+          }
+        ]
       }
     ]
   }
 ]
 ```
 
-#### Add Workout to Plan
+#### Create Log from Template
 ```javascript
-POST /workouts/plans/{plan_id}/add_workout/
+POST /workouts/logs/log_from_template/
 Content-Type: application/json
 
 Request Body:
 {
-  workout: Number,           // Workout ID
-  preferred_weekday: Number, // 0-6 (Monday-Sunday)
-  order: Number,            // Order in the week's rotation
-  notes: String             // Optional
-}
-
-Response:
-{
-  id: Number,
-  workout: Number,
-  workout_name: String,
-  preferred_weekday: Number,
-  weekday_name: String,
-  order: Number,
-  notes: String
+  template_id: Number,
+  program_id: Number,    // Optional
+  date: String,          // YYYY-MM-DD
+  gym_id: Number,        // Optional
+  notes: String          // Optional
 }
 ```
 
-#### Toggle Plan Status
+#### Log Exercise
 ```javascript
-POST /workouts/plans/{plan_id}/toggle_active/
+POST /workouts/logs/{log_id}/log_exercise/
+Content-Type: application/json
 
-Response:
+Request Body:
 {
-  id: Number,
+  template: Number,      // Optional - ExerciseTemplate ID
   name: String,
-  is_active: Boolean,
-  // ... other plan fields
-}
-```
-
-### Log a Workout
-```javascript
-POST /workouts/logs/
-Content-Type: application/json
-
-Request Body:
-{
-  workout: Number,    // Workout ID
-  plan: Number,      // Optional - WorkoutPlan ID if following a plan
-  date: String,      // YYYY-MM-DD
-  gym: Number,       // Gym ID (Optional)
-  notes: String,     // Optional
-  completed: Boolean
-}
-
-Response:
-{
-  id: Number,
-  workout: Number,
-  workout_name: String,
-  plan: Number,
-  plan_name: String,
-  date: String,
-  gym: Number,
-  gym_name: String,
-  notes: String,
-  completed: Boolean,
-  logged_sets: [
+  equipment: String,     // Optional
+  notes: String,         // Optional
+  order: Number,
+  sets: [
     {
-      id: Number,
-      exercise_name: String,
+      template: Number,  // Optional - SetTemplate ID
       reps: Number,
       weight: Number,
+      rest_time: Number,
       order: Number
     }
   ]
 }
 ```
-### Get Workout Statistics
-```javascript
-GET /workouts/logs/stats/
-
-Response:
-{
-  total_workouts: Number,
-  completed_workouts: Number,
-  workouts_by_type: [
-    {
-      split_method: String,
-      count: Number
-    }
-  ],
-  workouts_by_gym: [
-    {
-      gym_name: String,
-      count: Number
-    }
-  ]
-}
-```
-
 ## Important Notes for Frontend Development
 
 1. **Image Uploads**
@@ -472,19 +486,6 @@ const fetchFeed = async () => {
 };
 ```
 
-### Workout Logging
-```javascript
-const logWorkout = async (workoutData) => {
-  try {
-    const response = await axios.post('/workouts/logs/', workoutData);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to log workout:', error);
-    throw error;
-  }
-};
-```
-
 ### Image Upload Example
 ```javascript
 const uploadPostWithImage = async (content, image) => {
@@ -501,6 +502,84 @@ const uploadPostWithImage = async (content, image) => {
     return response.data;
   } catch (error) {
     console.error('Failed to create post:', error);
+    throw error;
+  }
+};
+```
+
+
+### Workouts
+
+```javascript
+// Create a workout template with exercises
+const createTemplate = async (templateData) => {
+  try {
+    // Create template
+    const template = await axios.post('/workouts/templates/', {
+      name: "Upper Body Strength",
+      description: "Focus on chest and shoulders",
+      split_method: "upper_lower"
+    });
+
+    // Add exercises
+    await axios.post(`/workouts/templates/${template.data.id}/add_exercise/`, {
+      name: "Bench Press",
+      equipment: "Barbell",
+      order: 1,
+      sets: [
+        { reps: 8, weight: 60, rest_time: 90, order: 1 },
+        { reps: 8, weight: 62.5, rest_time: 90, order: 2 },
+        { reps: 8, weight: 65, rest_time: 90, order: 3 }
+      ]
+    });
+
+    return template.data;
+  } catch (error) {
+    console.error('Failed to create template:', error);
+    throw error;
+  }
+};
+
+// Create a program and schedule workouts
+const createProgram = async () => {
+  try {
+    // Create program
+    const program = await axios.post('/workouts/programs/', {
+      name: "Strength Focus",
+      description: "4-day split focusing on compound movements",
+      focus: "strength",
+      sessions_per_week: 4
+    });
+
+    // Schedule workouts
+    await axios.post(`/workouts/programs/${program.data.id}/schedule_workout/`, {
+      workout_template: 1,
+      preferred_weekday: 1,  // Monday
+      order: 1,
+      notes: "Focus on progressive overload"
+    });
+
+    return program.data;
+  } catch (error) {
+    console.error('Failed to create program:', error);
+    throw error;
+  }
+};
+
+// Log a workout from template
+const logWorkout = async () => {
+  try {
+    const log = await axios.post('/workouts/logs/log_from_template/', {
+      template_id: 1,
+      program_id: 1,
+      date: '2025-01-30',
+      gym_id: 1,
+      notes: "Feeling strong today"
+    });
+
+    return log.data;
+  } catch (error) {
+    console.error('Failed to log workout:', error);
     throw error;
   }
 };
