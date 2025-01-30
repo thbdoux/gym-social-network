@@ -1,6 +1,6 @@
 # workouts/serializers.py
 from rest_framework import serializers
-from .models import Workout, Exercise, Set, WorkoutLog, LoggedSet
+from .models import Workout, Exercise, Set, WorkoutLog, LoggedSet, PlanWorkout, WorkoutPlan
 
 class SetSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,12 +38,37 @@ class WorkoutLogSerializer(serializers.ModelSerializer):
     logged_sets = LoggedSetSerializer(many=True, read_only=True)
     workout_name = serializers.CharField(source='workout.name', read_only=True)
     gym_name = serializers.CharField(source='gym.name', read_only=True)
+    plan_name = serializers.CharField(source='plan.name', read_only=True)
     
     class Meta:
         model = WorkoutLog
         fields = [
             'id', 'workout', 'workout_name', 'date',
-            'gym', 'gym_name', 'notes', 'completed',
-            'logged_sets'
+            'gym', 'gym_name', 'plan', 'plan_name',
+            'notes', 'completed', 'logged_sets'
         ]
         read_only_fields = ['id']
+
+class PlanWorkoutSerializer(serializers.ModelSerializer):
+    workout_name = serializers.CharField(source='workout.name', read_only=True)
+    weekday_name = serializers.CharField(source='get_preferred_weekday_display', read_only=True)
+    
+    class Meta:
+        model = PlanWorkout
+        fields = [
+            'id', 'workout', 'workout_name', 'preferred_weekday',
+            'weekday_name', 'order', 'notes'
+        ]
+        read_only_fields = ['id']
+
+class WorkoutPlanSerializer(serializers.ModelSerializer):
+    plan_workouts = PlanWorkoutSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = WorkoutPlan
+        fields = [
+            'id', 'name', 'description', 'focus',
+            'sessions_per_week', 'plan_workouts',
+            'created_at', 'updated_at', 'is_active'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

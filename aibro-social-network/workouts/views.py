@@ -4,10 +4,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.db.models import Count
-from .models import Workout, Exercise, Set, WorkoutLog, LoggedSet
+from .models import Workout, Exercise, Set, WorkoutLog, LoggedSet, PlanWorkout, WorkoutPlan
 from .serializers import (
     WorkoutSerializer, ExerciseSerializer, SetSerializer,
-    WorkoutLogSerializer, LoggedSetSerializer
+    WorkoutLogSerializer, LoggedSetSerializer, WorkoutPlanSerializer, PlanWorkoutSerializer
 )
 
 class WorkoutViewSet(viewsets.ModelViewSet):
@@ -130,3 +130,36 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         }
         
         return Response(stats)
+
+class WorkoutPlanViewSet(viewsets.ModelViewSet):
+    serializer_class = WorkoutPlanSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = WorkoutPlan.objects.filter(user=self.request.user)
+        active_only = self.request.query_params.get('active', None)
+        if active_only is not None:
+            queryset = queryset.filter(is_active=active_only.lower() == 'true')
+        return queryset.prefetch_related('plan_workouts', 'plan_workouts__workout')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def add_workout(self, request, pk=None):
+        """Add a workout to the plan"""
+        plan = self.get_object()
+        serializer = PlanWorkoutSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(plan=plan)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        """Toggle the active status of the plan"""
+        plan = self.get_object()
+        plan.is_active = not plan.is_active
+        plan.save()
+        serializer = self.get_serializer(plan)
+        return Response(serializer.data)

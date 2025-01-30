@@ -227,6 +227,8 @@ Response:
 ]
 ```
 
+## Workouts
+
 ### Create Workout
 ```javascript
 POST /workouts/workouts/
@@ -242,6 +244,107 @@ Request Body:
 }
 ```
 
+### Workout Plans
+
+#### Create Plan
+```javascript
+POST /workouts/plans/
+Content-Type: application/json
+
+Request Body:
+{
+  name: String,
+  description: String,  // Optional
+  focus: String,       // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
+  sessions_per_week: Number,
+  is_active: Boolean   // Optional, defaults to true
+}
+
+Response:
+{
+  id: Number,
+  name: String,
+  description: String,
+  focus: String,
+  sessions_per_week: Number,
+  is_active: Boolean,
+  created_at: String,
+  updated_at: String,
+  plan_workouts: []
+}
+```
+
+#### Get All Plans
+```javascript
+GET /workouts/plans/
+
+Query Parameters:
+active: Boolean  // Filter by active status
+
+Response:
+[
+  {
+    id: Number,
+    name: String,
+    description: String,
+    focus: String,
+    sessions_per_week: Number,
+    is_active: Boolean,
+    created_at: String,
+    updated_at: String,
+    plan_workouts: [
+      {
+        id: Number,
+        workout: Number,
+        workout_name: String,
+        preferred_weekday: Number,
+        weekday_name: String,
+        order: Number,
+        notes: String
+      }
+    ]
+  }
+]
+```
+
+#### Add Workout to Plan
+```javascript
+POST /workouts/plans/{plan_id}/add_workout/
+Content-Type: application/json
+
+Request Body:
+{
+  workout: Number,           // Workout ID
+  preferred_weekday: Number, // 0-6 (Monday-Sunday)
+  order: Number,            // Order in the week's rotation
+  notes: String             // Optional
+}
+
+Response:
+{
+  id: Number,
+  workout: Number,
+  workout_name: String,
+  preferred_weekday: Number,
+  weekday_name: String,
+  order: Number,
+  notes: String
+}
+```
+
+#### Toggle Plan Status
+```javascript
+POST /workouts/plans/{plan_id}/toggle_active/
+
+Response:
+{
+  id: Number,
+  name: String,
+  is_active: Boolean,
+  // ... other plan fields
+}
+```
+
 ### Log a Workout
 ```javascript
 POST /workouts/logs/
@@ -250,13 +353,36 @@ Content-Type: application/json
 Request Body:
 {
   workout: Number,    // Workout ID
+  plan: Number,      // Optional - WorkoutPlan ID if following a plan
   date: String,      // YYYY-MM-DD
   gym: Number,       // Gym ID (Optional)
   notes: String,     // Optional
   completed: Boolean
 }
-```
 
+Response:
+{
+  id: Number,
+  workout: Number,
+  workout_name: String,
+  plan: Number,
+  plan_name: String,
+  date: String,
+  gym: Number,
+  gym_name: String,
+  notes: String,
+  completed: Boolean,
+  logged_sets: [
+    {
+      id: Number,
+      exercise_name: String,
+      reps: Number,
+      weight: Number,
+      order: Number
+    }
+  ]
+}
+```
 ### Get Workout Statistics
 ```javascript
 GET /workouts/logs/stats/
