@@ -1,51 +1,7 @@
-# # workouts/admin.py
-# from django.contrib import admin
-# from .models import Workout, Exercise, Set, WorkoutLog, LoggedSet
-
-# class SetInline(admin.TabularInline):
-#     model = Set
-#     extra = 1
-
-# class ExerciseInline(admin.TabularInline):
-#     model = Exercise
-#     extra = 1
-#     show_change_link = True
-
-# class LoggedSetInline(admin.TabularInline):
-#     model = LoggedSet
-#     extra = 0
-
-# @admin.register(Workout)
-# class WorkoutAdmin(admin.ModelAdmin):
-#     list_display = ('name', 'user', 'split_method', 'is_template', 'created_at')
-#     list_filter = ('split_method', 'is_template', 'created_at')
-#     search_fields = ('name', 'description', 'user__username')
-#     inlines = [ExerciseInline]
-
-# @admin.register(Exercise)
-# class ExerciseAdmin(admin.ModelAdmin):
-#     list_display = ('name', 'workout', 'equipment', 'order')
-#     list_filter = ('workout__split_method',)
-#     search_fields = ('name', 'equipment', 'notes')
-#     inlines = [SetInline]
-
-# @admin.register(WorkoutLog)
-# class WorkoutLogAdmin(admin.ModelAdmin):
-#     list_display = ('workout', 'user', 'date', 'gym', 'completed')
-#     list_filter = ('completed', 'date', 'gym')
-#     search_fields = ('workout__name', 'user__username', 'notes')
-#     inlines = [LoggedSetInline]
-#     date_hierarchy = 'date'
-
-##########
-
-
-# workouts/admin.py
-
 from django.contrib import admin
 from .models import (
     WorkoutTemplate, ExerciseTemplate, SetTemplate,
-    Program, ScheduledWorkout,
+    Program,
     WorkoutLog, ExerciseLog, SetLog
 )
 
@@ -59,9 +15,11 @@ class ExerciseTemplateInline(admin.TabularInline):
     show_change_link = True
     inlines = [SetTemplateInline]
 
-class ScheduledWorkoutInline(admin.TabularInline):
-    model = ScheduledWorkout
+class WorkoutTemplateInline(admin.TabularInline):
+    model = WorkoutTemplate
     extra = 1
+    fields = ('name', 'split_method', 'preferred_weekday', 'order')
+    ordering = ('order',)
 
 class SetLogInline(admin.TabularInline):
     model = SetLog
@@ -75,17 +33,22 @@ class ExerciseLogInline(admin.TabularInline):
 
 @admin.register(WorkoutTemplate)
 class WorkoutTemplateAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user', 'split_method', 'created_at')
-    list_filter = ('split_method', 'created_at')
+    list_display = ('name', 'user', 'split_method', 'program', 'preferred_weekday', 'order', 'created_at')
+    list_filter = ('split_method', 'program', 'created_at')
     search_fields = ('name', 'description', 'user__username')
     inlines = [ExerciseTemplateInline]
+    ordering = ('program', 'order', 'created_at')
 
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user', 'focus', 'sessions_per_week', 'is_active')
+    list_display = ('name', 'user', 'focus', 'sessions_per_week', 'is_active', 'workout_count')
     list_filter = ('focus', 'is_active', 'created_at')
     search_fields = ('name', 'description', 'user__username')
-    inlines = [ScheduledWorkoutInline]
+    inlines = [WorkoutTemplateInline]
+
+    def workout_count(self, obj):
+        return obj.workouts.count()
+    workout_count.short_description = 'Workouts'
 
 @admin.register(WorkoutLog)
 class WorkoutLogAdmin(admin.ModelAdmin):

@@ -191,9 +191,113 @@ POST /posts/{post_id}/comment/
 ```
 ## Workouts
 
-### Workout Templates
+### Programs
 
-#### Get All Templates
+#### Get All Programs
+```javascript
+GET /workouts/programs/
+
+Query Parameters:
+active: Boolean  // Filter by active status
+
+Response:
+[
+  {
+    id: Number,
+    name: String,
+    description: String,
+    focus: String,      // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
+    sessions_per_week: Number,
+    is_active: Boolean,
+    workouts: [         // Direct list of workout templates in this program
+      {
+        id: Number,
+        name: String,
+        description: String,
+        split_method: String,
+        preferred_weekday: Number,  // 0-6 (Monday-Sunday)
+        weekday_name: String,      // Monday-Sunday
+        order: Number,             // Position in program's rotation
+        exercises: [
+          {
+            id: Number,
+            name: String,
+            equipment: String,
+            notes: String,
+            order: Number,
+            sets: [
+              {
+                id: Number,
+                reps: Number,
+                weight: Number,
+                rest_time: Number,
+                order: Number
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    created_at: String,
+    updated_at: String
+  }
+]
+```
+
+#### Create Program
+```javascript
+POST /workouts/programs/
+Content-Type: application/json
+
+Request Body:
+{
+  name: String,
+  description: String,     // Optional
+  focus: String,          // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
+  sessions_per_week: Number,
+  is_active: Boolean      // Optional, defaults to true
+}
+```
+
+#### Add Workout to Program
+```javascript
+POST /workouts/programs/{program_id}/add_workout/
+Content-Type: application/json
+
+Request Body:
+// Option 1: Using existing template
+{
+  template_id: Number,
+  preferred_weekday: Number,   // 0-6 (Monday-Sunday)
+  order: Number               // Position in program's rotation
+}
+
+// Option 2: Creating new template
+{
+  name: String,
+  description: String,
+  split_method: String,       // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
+  preferred_weekday: Number,  // 0-6 (Monday-Sunday)
+  order: Number              // Position in program's rotation
+}
+
+Response: WorkoutTemplate object
+```
+
+#### Remove Workout from Program 
+```javascript
+POST /workouts/programs/{program_id}/remove_workout/
+Content-Type: application/json
+
+Request Body:
+{
+  template_id: Number
+}
+```
+
+### Workout templates
+
+#### Get all templates 
 ```javascript
 GET /workouts/templates/
 
@@ -204,6 +308,11 @@ Response:
     name: String,
     description: String,
     split_method: String,  // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
+    program: Number,       // Program ID if assigned to a program, null otherwise
+    program_name: String,  // Name of the program if assigned
+    preferred_weekday: Number,  // 0-6 if in a program, null otherwise
+    weekday_name: String,      // Monday-Sunday if in a program
+    order: Number,             // Position in program if assigned
     exercises: [
       {
         id: Number,
@@ -228,7 +337,7 @@ Response:
 ]
 ```
 
-#### Create Template
+#### Create templates
 ```javascript
 POST /workouts/templates/
 Content-Type: application/json
@@ -237,11 +346,30 @@ Request Body:
 {
   name: String,
   description: String,  // Optional
-  split_method: String  // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
+  split_method: String, // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
+  program: Number,      // Optional - Program ID if creating directly in a program
+  preferred_weekday: Number,  // Optional - Required if program is specified
+  order: Number        // Optional - Required if program is specified
 }
 ```
 
-#### Add Exercise to Template
+#### Update templates
+
+```javascript
+PATCH /workouts/templates/{template_id}/update_details/
+Content-Type: application/json
+
+Request Body:
+{
+  name?: String,
+  description?: String,
+  split_method?: String,    // One of: "full_body", "push_pull_legs", "upper_lower", "custom"
+  preferred_weekday?: Number,  // 0-6 (Monday-Sunday)
+  order?: Number
+}
+```
+#### add exercise to template
+
 ```javascript
 POST /workouts/templates/{template_id}/add_exercise/
 Content-Type: application/json
@@ -249,10 +377,10 @@ Content-Type: application/json
 Request Body:
 {
   name: String,
-  equipment: String,  // Optional
-  notes: String,      // Optional
+  equipment: String,      // Optional
+  notes: String,         // Optional
   order: Number,
-  sets: [
+  sets: [                // Optional
     {
       reps: Number,
       weight: Number,
@@ -263,79 +391,17 @@ Request Body:
 }
 ```
 
-### Training Programs
+#### Delete exercise
 
-#### Get All Programs
 ```javascript
-GET /workouts/programs/
-
-Query Parameters:
-active: Boolean  // Filter by active status
-
-Response:
-[
-  {
-    id: Number,
-    name: String,
-    description: String,
-    focus: String,      // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
-    sessions_per_week: Number,
-    is_active: Boolean,
-    scheduled_workouts: [
-      {
-        id: Number,
-        workout_template: Number,
-        workout_template_name: String,
-        preferred_weekday: Number,  // 0-6 (Monday-Sunday)
-        weekday_name: String,
-        order: Number,
-        notes: String
-      }
-    ],
-    created_at: String,
-    updated_at: String
-  }
-]
-```
-
-#### Create Program
-```javascript
-POST /workouts/programs/
+DELETE /workouts/templates/{template_id}/remove_exercise/
 Content-Type: application/json
 
 Request Body:
 {
-  name: String,
-  description: String,     // Optional
-  focus: String,          // One of: "strength", "hypertrophy", "endurance", "weight_loss", "strength_hypertrophy", "general_fitness"
-  sessions_per_week: Number,
-  is_active: Boolean      // Optional, defaults to true
+  exercise_id: Number
 }
-```
 
-#### Schedule Workout in Program
-```javascript
-POST /workouts/programs/{program_id}/schedule_workout/
-Content-Type: application/json
-
-Request Body:
-{
-  workout_template: Number,    // Template ID
-  preferred_weekday: Number,   // 0-6 (Monday-Sunday)
-  order: Number,              // Order in the week's rotation
-  notes: String               // Optional
-}
-```
-
-#### Remove Scheduled Workout
-```javascript
-DELETE /workouts/programs/{program_id}/remove_scheduled_workout/
-Content-Type: application/json
-
-Request Body:
-{
-  scheduled_workout_id: Number
-}
 ```
 
 ### Workout Logs
@@ -540,7 +606,7 @@ const createTemplate = async (templateData) => {
   }
 };
 
-// Create a program and schedule workouts
+
 const createProgram = async () => {
   try {
     // Create program
@@ -551,17 +617,83 @@ const createProgram = async () => {
       sessions_per_week: 4
     });
 
-    // Schedule workouts
-    await axios.post(`/workouts/programs/${program.data.id}/schedule_workout/`, {
-      workout_template: 1,
+    // Add workouts to program using existing template
+    await axios.post(`/workouts/programs/${program.data.id}/add_workout/`, {
+      template_id: 1,  // ID of existing workout template
       preferred_weekday: 1,  // Monday
-      order: 1,
-      notes: "Focus on progressive overload"
+      order: 1
+    });
+
+    // Or create and add a new workout directly
+    await axios.post(`/workouts/programs/${program.data.id}/add_workout/`, {
+      name: "Upper Body Strength",
+      description: "Chest, shoulders, and triceps focus",
+      split_method: "upper_lower",
+      preferred_weekday: 3,  // Wednesday
+      order: 2
     });
 
     return program.data;
   } catch (error) {
     console.error('Failed to create program:', error);
+    throw error;
+  }
+};
+
+// Example usage with TypeScript types for clarity
+interface CreateProgramData {
+  name: string;
+  description?: string;
+  focus: 'strength' | 'hypertrophy' | 'endurance' | 'weight_loss' | 'strength_hypertrophy' | 'general_fitness';
+  sessions_per_week: number;
+  is_active?: boolean;
+}
+
+interface AddWorkoutData {
+  // When using existing template
+  template_id?: number;
+  // When creating new template
+  name?: string;
+  description?: string;
+  split_method?: 'full_body' | 'push_pull_legs' | 'upper_lower' | 'custom';
+  // Required for both cases
+  preferred_weekday: number;  // 0-6 (Monday-Sunday)
+  order: number;
+}
+
+// Add workout to program
+const addWorkoutToProgram = async (programId, workoutData) => {
+  try {
+    const response = await axios.post(
+      `/workouts/programs/${programId}/add_workout/`,
+      workoutData
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to add workout to program:', error);
+    throw error;
+  }
+};
+
+// Remove workout from program
+const removeWorkoutFromProgram = async (programId, templateId) => {
+  try {
+    await axios.post(`/workouts/programs/${programId}/remove_workout/`, {
+      template_id: templateId
+    });
+  } catch (error) {
+    console.error('Failed to remove workout from program:', error);
+    throw error;
+  }
+};
+
+// Get program with workouts
+const getProgram = async (programId) => {
+  try {
+    const response = await axios.get(`/workouts/programs/${programId}/`);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch program:', error);
     throw error;
   }
 };

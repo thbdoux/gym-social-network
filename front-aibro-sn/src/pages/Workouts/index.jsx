@@ -1,70 +1,69 @@
-// src/pages/Workouts/index.jsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Folders, ArrowLeft, Trash2, LayoutGrid } from 'lucide-react';
-import api from '../../api';
+import { Plus, Folders, ArrowLeft, Trash2, LayoutGrid, ChevronDown, ChevronUp } from 'lucide-react';
+import api from '../../api';  // Your API configuration
 import WorkoutCard from './components/WorkoutCard';
 import WorkoutForm from './components/WorkoutForm';
 import WorkoutPlanForm from './components/WorkoutPlanForm';
+// Custom Alert component
+const ErrorAlert = ({ message, onClose }) => (
+  <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg flex justify-between items-center">
+    <span>{message}</span>
+    <button 
+      onClick={onClose}
+      className="ml-4 text-red-200 hover:text-red-100"
+    >
+      ×
+    </button>
+  </div>
+);
 
 const WorkoutsPage = () => {
-  // States for workout plans
+  // State Management
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  // States for workouts
-  const [workouts, setWorkouts] = useState([]);
-  const [allWorkouts, setAllWorkouts] = useState([]);
+  const [workoutTemplates, setWorkoutTemplates] = useState([]);
   const [showWorkoutForm, setShowWorkoutForm] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState(null);
-  const [draftWorkout, setDraftWorkout] = useState(null);
-  
-  // UI states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [view, setView] = useState('plans'); // 'plans', 'create-plan', 'plan-detail', 'create-workout'
+  const [view, setView] = useState('plans'); // 'plans', 'create-plan', 'all-workouts', 'plan-detail'
 
-  // Load workout plans on mount
+  // Load initial data
   useEffect(() => {
     fetchWorkoutPlans();
-    fetchAllWorkouts();
+    fetchWorkoutTemplates();
   }, []);
 
-  // Load saved draft if exists
-  useEffect(() => {
-    const savedDraft = localStorage.getItem('workout-draft');
-    if (savedDraft) {
-      setDraftWorkout(JSON.parse(savedDraft));
-    }
-  }, []);
-
-  // Save draft when switching views
-  useEffect(() => {
-    if (draftWorkout) {
-      localStorage.setItem('workout-draft', JSON.stringify(draftWorkout));
-    }
-  }, [draftWorkout]);
-
-  const fetchAllWorkouts = async () => {
-    try {
-      const response = await api.get('/workouts/templates/');
-      setAllWorkouts(response.data.results || response.data);
-    } catch (err) {
-      console.error('Error fetching all workouts:', err);
-      setError('Failed to load workouts');
-    }
-  };
-  
+  // API Functions
   const fetchWorkoutPlans = async () => {
     try {
       setLoading(true);
       const response = await api.get('/workouts/programs/');
-      // Handle paginated response - use the results array
-      const plans = response.data.results || [];
-      setWorkoutPlans(plans);
-      console.log('Workout plans:', plans);
+      // Handle paginated response
+      const plans = response.data.results || response.data || [];
+      console.log('Fetched plans:', plans); // Debug log
+      setWorkoutPlans(Array.isArray(plans) ? plans : []);
     } catch (err) {
-      console.error('Error fetching workout plans:', err);
       setError('Failed to load workout plans');
-      setWorkoutPlans([]);
+      console.error('Error fetching plans:', err);
+      setWorkoutPlans([]); // Set to empty array on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWorkoutTemplates = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/workouts/templates/');
+      // Handle paginated response
+      const templates = response.data.results || response.data || [];
+      console.log('Fetched Templates:', templates); // Debug log
+      setWorkoutTemplates(Array.isArray(templates) ? templates : []);
+    } catch (err) {
+      setError('Failed to load workout templates');
+      console.error('Error fetching templates:', err);
+      setWorkoutTemplates([]); // Set to empty array on error
     } finally {
       setLoading(false);
     }
@@ -77,43 +76,20 @@ const WorkoutsPage = () => {
       setView('plans');
     } catch (err) {
       setError('Failed to create workout plan');
-    }
-  };
-
-  const handleSelectPlan = async (plan) => {
-    try {
-      setSelectedPlan(plan);
-      // The workouts are already in plan.plan_workouts from the API
-      // We don't need an additional fetch
-      setWorkouts(plan.plan_workouts || []);
-      setView('plan-detail');
-    } catch (err) {
-      setError('Failed to load workouts for this plan');
-    }
-  };
-
-  const handleDeletePlan = async (planId) => {
-    if (!window.confirm('Are you sure you want to delete this plan?')) return;
-
-    try {
-      await api.delete(`/workouts/programs/${planId}/`);
-      setWorkoutPlans(plans => plans.filter(p => p.id !== planId));
-      if (selectedPlan?.id === planId) {
-        setSelectedPlan(null);
-        setView('plans');
-      }
-    } catch (err) {
-      setError('Failed to delete plan');
+      console.error('Error creating plan:', err);
     }
   };
 
   const handleCreateWorkout = async (workoutData) => {
     try {
-      // First create the workout template
+      // Create the workout template
       const templateResponse = await api.post('/workouts/templates/', {
         name: workoutData.name,
         description: workoutData.description,
-        split_method: workoutData.split_method
+        split_method: workoutData.split_method,
+        program: selectedPlan?.id,
+        preferred_weekday: workoutData.preferred_weekday,
+        order: selectedPlan ? selectedPlan.workouts?.length || 0 : undefined
       });
 
       // Add exercises to template
@@ -132,47 +108,52 @@ const WorkoutsPage = () => {
         });
       }
 
-      // If we're in a plan, add the workout to the plan
+      // If we're in a plan, add the workout to it
       if (selectedPlan) {
-        await api.post(`/workouts/programs/${selectedPlan.id}/schedule_workout/`, {
-          workout_template: templateResponse.data.id,
-          preferred_weekday: 0,
-          order: selectedPlan.scheduled_workouts?.length || 0
+        await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
+          template_id: templateResponse.data.id,
+          preferred_weekday: workoutData.preferred_weekday,
+          order: selectedPlan.workouts?.length || 0
         });
-      }
 
-      // Refresh data
-      await fetchAllWorkouts();
-      if (selectedPlan) {
+        // Refresh selected plan data
         const updatedPlan = await api.get(`/workouts/programs/${selectedPlan.id}/`);
         setSelectedPlan(updatedPlan.data);
       }
 
+      // Refresh templates list
+      await fetchWorkoutTemplates();
       setShowWorkoutForm(false);
-      setDraftWorkout(null);
-      localStorage.removeItem('workout-draft');
+      setEditingWorkout(null);
     } catch (err) {
-      console.error('Failed to create workout:', err);
-      setError('Failed to create workout: ' + err.message);
+      setError('Failed to create workout');
+      console.error('Error creating workout:', err);
     }
   };
 
-  const handleUpdateWorkout = async (workoutData) => {
+  const handleUpdateWorkout = async (workoutId, workoutData) => {
     try {
-      // Update template basic info
-      const templateResponse = await api.put(`/workouts/templates/${editingWorkout.id}/`, {
+      // Update template details using the new PATCH endpoint
+      await api.patch(`/workouts/templates/${workoutId}/update_details/`, {
         name: workoutData.name,
         description: workoutData.description,
-        split_method: workoutData.split_method
+        split_method: workoutData.split_method,
+        preferred_weekday: workoutData.preferred_weekday
       });
-
-      // Delete all existing exercises and recreate them
-      // Note: This is a simplified approach. In production, you might want to do a diff
-      await api.delete(`/workouts/templates/${editingWorkout.id}/exercises/`);
-
-      // Add updated exercises
+  
+      // Get current exercises to find ones to remove
+      const currentTemplate = await api.get(`/workouts/templates/${workoutId}/`);
+      
+      // Remove each exercise using the new endpoint
+      for (const exercise of currentTemplate.data.exercises) {
+        await api.delete(`/workouts/templates/${workoutId}/remove_exercise/`, {
+          data: { exercise_id: exercise.id }
+        });
+      }
+  
+      // Add new exercises using the existing endpoint
       for (const exercise of workoutData.exercises) {
-        await api.post(`/workouts/templates/${editingWorkout.id}/add_exercise/`, {
+        await api.post(`/workouts/templates/${workoutId}/add_exercise/`, {
           name: exercise.name,
           equipment: exercise.equipment,
           notes: exercise.notes || '',
@@ -185,142 +166,113 @@ const WorkoutsPage = () => {
           }))
         });
       }
-
+  
       // Refresh data
-      await fetchAllWorkouts();
+      await fetchWorkoutTemplates();
       if (selectedPlan) {
         const updatedPlan = await api.get(`/workouts/programs/${selectedPlan.id}/`);
         setSelectedPlan(updatedPlan.data);
       }
-
-      setEditingWorkout(null);
+  
       setShowWorkoutForm(false);
-      setDraftWorkout(null);
+      setEditingWorkout(null);
     } catch (err) {
-      setError('Failed to update workout: ' + err.message);
+      setError('Failed to update workout');
+      console.error('Error updating workout:', err);
     }
   };
 
-  const renderWorkoutsList = (workoutsList, showAddButton = true) => (
-    <div className="space-y-6">
-      {showAddButton && !showWorkoutForm && (
-        <button
-          onClick={() => setShowWorkoutForm(true)}
-          className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Add New Workout</span>
-        </button>
-      )}
-
-      {showWorkoutForm ? (
-        <WorkoutForm
-          onSubmit={editingWorkout ? handleUpdateWorkout : handleCreateWorkout}
-          initialData={editingWorkout || draftWorkout}
-          onCancel={() => {
-            setShowWorkoutForm(false);
-            setEditingWorkout(null);
-          }}
-          onSaveDraft={setDraftWorkout}
-        />
-      ) : (
-        <div className="grid gap-6">
-          {workoutsList.map(workout => (
-            <WorkoutCard
-              key={workout.id}
-              workout={workout}
-              onEdit={(workout) => {
-                setEditingWorkout(workout);
-                setShowWorkoutForm(true);
-              }}
-              onDelete={handleDeleteWorkout}
-            />
-          ))}
-          {workoutsList.length === 0 && !showWorkoutForm && (
-            <div className="text-center py-12 bg-gray-800 rounded-lg">
-              <p className="text-gray-400">No workouts available.</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
   const handleDeleteWorkout = async (workoutId) => {
     if (!window.confirm('Are you sure you want to delete this workout?')) return;
 
     try {
-      // First remove it from the plan if it's in one
+      // Remove from plan if it's in one
       if (selectedPlan) {
-        const planWorkout = selectedPlan.plan_workouts.find(pw => pw.workout === workoutId);
-        if (planWorkout) {
-          await api.delete(`/workouts/programs/${selectedPlan.id}/remove_workout/${planWorkout.id}/`);
-        }
+        await api.post(`/workouts/programs/${selectedPlan.id}/remove_workout/`, {
+          template_id: workoutId
+        });
       }
 
-      // Then delete the workout itself
-      await api.delete(`/workouts/workouts/${workoutId}/`);
-      setWorkouts(workouts.filter(w => w.id !== workoutId));
+      // Delete the template
+      await api.delete(`/workouts/templates/${workoutId}/`);
+
+      // Refresh data
+      await fetchWorkoutTemplates();
+      if (selectedPlan) {
+        const updatedPlan = await api.get(`/workouts/programs/${selectedPlan.id}/`);
+        setSelectedPlan(updatedPlan.data);
+      }
     } catch (err) {
       setError('Failed to delete workout');
+      console.error('Error deleting workout:', err);
+    }
+  };
+
+  const handleDeletePlan = async (planId) => {
+    if (!window.confirm('Are you sure you want to delete this plan?')) return;
+
+    try {
+      await api.delete(`/workouts/programs/${planId}/`);
+      setWorkoutPlans(plans => plans.filter(p => p.id !== planId));
+      if (selectedPlan?.id === planId) {
+        setSelectedPlan(null);
+        setView('plans');
+      }
+    } catch (err) {
+      setError('Failed to delete plan');
+      console.error('Error deleting plan:', err);
     }
   };
 
   const handleTogglePlanActive = async (planId) => {
     try {
-      const response = await api.post(`/workouts/programs/${planId}/toggle_active/`);
+      const plan = workoutPlans.find(p => p.id === planId);
+      const response = await api.post(`/workouts/programs/${planId}/`, {
+        is_active: !plan.is_active
+      });
       setWorkoutPlans(plans => 
-        plans.map(plan => 
-          plan.id === planId ? response.data : plan
-        )
+        plans.map(p => p.id === planId ? response.data : p)
       );
     } catch (err) {
       setError('Failed to toggle plan status');
+      console.error('Error toggling plan status:', err);
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
       </div>
     );
   }
 
   const renderView = () => {
     switch (view) {
-      case 'all-workouts':
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-white">All Workouts</h1>
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => setView('plans')}
-                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2"
-                >
-                  <LayoutGrid className="w-5 h-5" />
-                  <span>View Plans</span>
-                </button>
-              </div>
-            </div>
-            {renderWorkoutsList(allWorkouts)}
-          </div>
-        );
       case 'plans':
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-bold text-white">Workout Plans</h1>
-              <button
-                onClick={() => setView('create-plan')}
-                className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <Plus className="w-5 h-5" />
-                <span>New Plan</span>
-              </button>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setView('all-workouts')}
+                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2"
+                >
+                  <LayoutGrid className="w-5 h-5" />
+                  <span>View All Workouts</span>
+                </button>
+                <button
+                  onClick={() => setView('create-plan')}
+                  className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>New Plan</span>
+                </button>
+              </div>
             </div>
 
-            {(!Array.isArray(workoutPlans) || workoutPlans.length === 0) ? (
+            {!Array.isArray(workoutPlans) || workoutPlans.length === 0 ? (
               <div className="text-center py-12 bg-gray-800 rounded-lg">
                 <Folders className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No workout plans yet. Create your first plan!</p>
@@ -332,10 +284,15 @@ const WorkoutsPage = () => {
                     key={plan.id}
                     className="bg-gray-800 p-6 rounded-lg"
                   >
-                    <div className="flex justify-between items-start mb-4">
+                    <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-xl font-bold text-white">{plan.name}</h3>
                         <p className="text-gray-400">{plan.description}</p>
+                        <div className="flex items-center text-sm text-gray-500 space-x-4 mt-2">
+                          <span>{plan.sessions_per_week}x per week</span>
+                          <span>•</span>
+                          <span>{plan.focus.replace('_', ' ')}</span>
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
@@ -349,24 +306,19 @@ const WorkoutsPage = () => {
                           {plan.is_active ? 'Active' : 'Inactive'}
                         </button>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeletePlan(plan.id);
-                          }}
-                          className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-red-400 hover:text-red-300"
+                          onClick={() => handleDeletePlan(plan.id)}
+                          className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-red-400"
                           title="Delete plan"
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center text-sm text-gray-500 space-x-4">
-                      <span>{plan.sessions_per_week}x per week</span>
-                      <span>•</span>
-                      <span>{plan.focus.replace('_', ' ')}</span>
-                    </div>
                     <button
-                      onClick={() => handleSelectPlan(plan)}
+                      onClick={() => {
+                        setSelectedPlan(plan);
+                        setView('plan-detail');
+                      }}
                       className="mt-4 text-blue-400 hover:text-blue-300 transition-colors"
                     >
                       View Details →
@@ -395,6 +347,7 @@ const WorkoutsPage = () => {
         );
 
       case 'plan-detail':
+        if (!selectedPlan) return null;
         return (
           <div className="space-y-6">
             <div className="flex items-center space-x-4 mb-6">
@@ -414,43 +367,101 @@ const WorkoutsPage = () => {
                 </p>
               </div>
             </div>
-            
-            {!showWorkoutForm && (
-              <button
-                onClick={() => setShowWorkoutForm(true)}
-                className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Add New Workout</span>
-              </button>
-            )}
 
             {showWorkoutForm ? (
               <WorkoutForm
-                onSubmit={editingWorkout ? handleUpdateWorkout : handleCreateWorkout}
-                initialData={editingWorkout || draftWorkout}
+                onSubmit={editingWorkout ? 
+                  (data) => handleUpdateWorkout(editingWorkout.id, data) : 
+                  handleCreateWorkout
+                }
+                initialData={editingWorkout}
                 onCancel={() => {
                   setShowWorkoutForm(false);
                   setEditingWorkout(null);
                 }}
-                onSaveDraft={setDraftWorkout}
+                inProgram={true}
+              />
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowWorkoutForm(true)}
+                  className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add Workout</span>
+                </button>
+
+                <div className="grid gap-6">
+                  {selectedPlan.workouts?.map(workout => (
+                    <WorkoutCard
+                      key={workout.id}
+                      workout={workout}
+                      onEdit={() => {
+                        setEditingWorkout(workout);
+                        setShowWorkoutForm(true);
+                      }}
+                      onDelete={() => handleDeleteWorkout(workout.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        );
+
+      case 'all-workouts':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h1 className="text-3xl font-bold text-white">All Workouts</h1>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setView('plans')}
+                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>Back to Plans</span>
+                </button>
+                {!showWorkoutForm && (
+                  <button
+                    onClick={() => setShowWorkoutForm(true)}
+                    className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>New Workout</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {showWorkoutForm ? (
+              <WorkoutForm
+                onSubmit={editingWorkout ? 
+                  (data) => handleUpdateWorkout(editingWorkout.id, data) : 
+                  handleCreateWorkout
+                }
+                initialData={editingWorkout}
+                onCancel={() => {
+                  setShowWorkoutForm(false);
+                  setEditingWorkout(null);
+                }}
               />
             ) : (
               <div className="grid gap-6">
-                {workouts.map(workout => (
+                {workoutTemplates.map(workout => (
                   <WorkoutCard
                     key={workout.id}
                     workout={workout}
-                    onEdit={(workout) => {
+                    onEdit={() => {
                       setEditingWorkout(workout);
                       setShowWorkoutForm(true);
                     }}
-                    onDelete={handleDeleteWorkout}
+                    onDelete={() => handleDeleteWorkout(workout.id)}
                   />
                 ))}
-                {workouts.length === 0 && !showWorkoutForm && (
+                {workoutTemplates.length === 0 && (
                   <div className="text-center py-12 bg-gray-800 rounded-lg">
-                    <p className="text-gray-400">No workouts in this plan yet. Add your first workout!</p>
+                    <p className="text-gray-400">No workouts available.</p>
                   </div>
                 )}
               </div>
@@ -464,41 +475,12 @@ const WorkoutsPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Navigation tabs */}
-      <div className="flex space-x-4 border-b border-gray-700">
-        <button
-          onClick={() => setView('plans')}
-          className={`px-4 py-2 ${
-            view === 'plans' 
-              ? 'text-blue-400 border-b-2 border-blue-400' 
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          Workout Plans
-        </button>
-        <button
-          onClick={() => setView('all-workouts')}
-          className={`px-4 py-2 ${
-            view === 'all-workouts'
-              ? 'text-blue-400 border-b-2 border-blue-400'
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          All Workouts
-        </button>
-      </div>
-
+    <div className="container mx-auto px-4 py-6 space-y-6">
       {error && (
-        <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg">
-          {error}
-          <button 
-            onClick={() => setError('')}
-            className="ml-2 underline hover:text-red-300"
-          >
-            Dismiss
-          </button>
-        </div>
+        <ErrorAlert 
+          message={error}
+          onClose={() => setError('')}
+        />
       )}
       
       {renderView()}
