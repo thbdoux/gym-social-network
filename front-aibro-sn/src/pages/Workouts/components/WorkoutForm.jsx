@@ -1,5 +1,6 @@
 import React, { useState, useEffect  } from 'react';
 import { Plus, Copy, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import TemplateSelector from './TemplateSelector';
 
 import api from './../../../api';
 
@@ -32,7 +33,8 @@ const WorkoutForm = ({
   onCancel,
   inProgram = false,
   selectedPlan,
-  onWorkoutAdded
+  onWorkoutAdded,
+  onAddExisting
 }) => {
   const [workoutData, setWorkoutData] = useState(() => ({
     name: '',
@@ -67,44 +69,32 @@ const WorkoutForm = ({
     fetchTemplates();
   }, [inProgram]);
 
-  const handleDaySelect = async (e, templateId) => {
-    const weekday = parseInt(e.target.value);
-    if (!isNaN(weekday)) {
-      try {
-        await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
-          template_id: templateId,
-          preferred_weekday: weekday,
-          order: selectedPlan.workouts?.length || 0
-        });
-        
-        // Notify parent component of successful addition
-        if (onWorkoutAdded) {
-          onWorkoutAdded();
-        }
-        
-        // Close the form
-        if (onCancel) {
-          onCancel();
-        }
-      } catch (err) {
-        console.error('Error adding existing workout:', err);
-      }
-    }
-  };
-
-  const handleAddExistingWorkout = async (templateId, preferred_weekday) => {
+  const handleAddExistingWorkout = async (templateId, weekday) => {
     try {
-      await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
+      console.log('Adding workout template:', templateId);
+      console.log('Current program workouts:', selectedPlan.workouts);
+
+      const response = await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
         template_id: templateId,
-        preferred_weekday,
+        preferred_weekday: weekday,
         order: selectedPlan.workouts?.length || 0
       });
+
+      console.log('Add workout response:', response.data);
+
+      // Make sure parent components are notified
+      if (onWorkoutAdded) {
+        await onWorkoutAdded();
+      }
+
       onCancel(); // Close the form
     } catch (err) {
       console.error('Error adding existing workout:', err);
+      // You might want to show an error message to the user here
     }
   };
 
+  
   const toggleExercise = (index) => {
     setExpandedExercises(prev => ({
       ...prev,
@@ -227,44 +217,32 @@ const WorkoutForm = ({
     });
   };
 
+  const handleSelectTemplate = async (templateId, selectedDay) => {
+    try {
+      // await handleAddExistingWorkout(templateId, selectedDay);
+      await onAddExisting(templateId, selectedDay);
+      if (onWorkoutAdded) {
+        onWorkoutAdded();
+      }
+      
+      if (onCancel) {
+        onCancel();
+      }
+    } catch (err) {
+      console.error('Error adding workout:', err);
+    }
+  };
+
   if (inProgram && isSelectingExisting) {
     return (
-      <div className="space-y-6 bg-gray-800 p-6 rounded-lg">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium text-white">Select Existing Workout</h3>
-          <button
-            type="button"
-            onClick={() => setIsSelectingExisting(false)}
-            className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            Create New Instead
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {existingTemplates.map(template => (
-            <div key={template.id} className="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-white">{template.name}</h4>
-                <p className="text-gray-400">{template.split_method.replace(/_/g, ' ')}</p>
-                {template.description && (
-                  <p className="text-gray-400 text-sm mt-1">{template.description}</p>
-                )}
-              </div>
-              <select
-                onChange={(e) => handleDaySelect(e, template.id)}
-                className="bg-gray-600 rounded px-3 py-2 text-white"
-                defaultValue=""
-              >
-                <option value="">Select Day</option>
-                {WEEKDAYS.map((day, index) => (
-                  <option key={day} value={index}>{day}</option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-      </div>
+      <TemplateSelector
+      templates={existingTemplates}
+      onSelect={(templateId, selectedDay) => {
+        handleSelectTemplate(templateId, selectedDay);
+      }}
+      onCancel={() => setIsSelectingExisting(false)}
+      currentProgramWorkouts={selectedPlan.workouts}  // Add this prop
+    />
     );
   }
 
