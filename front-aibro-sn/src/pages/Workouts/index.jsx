@@ -34,6 +34,12 @@ const WorkoutsPage = () => {
     fetchWorkoutTemplates();
   }, []);
 
+  useEffect(() => {
+    if (view === 'plan-detail' && selectedPlan) {
+      refreshPlanData(selectedPlan.id);
+    }
+  }, [view, selectedPlan?.id]);
+
   // API Functions
   const fetchWorkoutPlans = async () => {
     try {
@@ -50,6 +56,28 @@ const WorkoutsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshPlanData = async (planId) => {
+    try {
+      const response = await api.get(`/workouts/programs/${planId}/`);
+      const updatedPlan = response.data;
+      
+      // Update both the selectedPlan and the plan in workoutPlans
+      setSelectedPlan(updatedPlan);
+      setWorkoutPlans(plans => 
+        plans.map(p => p.id === planId ? updatedPlan : p)
+      );
+    } catch (err) {
+      console.error('Error refreshing plan data:', err);
+      setError('Failed to refresh plan data');
+    }
+  };
+
+  const handlePlanSelect = async (plan) => {
+    setSelectedPlan(plan);
+    setView('plan-detail');
+    await refreshPlanData(plan.id); // Fetch fresh data when selecting plan
   };
 
   const fetchWorkoutTemplates = async () => {
@@ -140,7 +168,7 @@ const WorkoutsPage = () => {
         split_method: workoutData.split_method,
         preferred_weekday: workoutData.preferred_weekday
       });
-  
+
       // Get current exercises to find ones to remove
       const currentTemplate = await api.get(`/workouts/templates/${workoutId}/`);
       
@@ -150,7 +178,7 @@ const WorkoutsPage = () => {
           data: { exercise_id: exercise.id }
         });
       }
-  
+
       // Add new exercises using the existing endpoint
       for (const exercise of workoutData.exercises) {
         await api.post(`/workouts/templates/${workoutId}/add_exercise/`, {
@@ -166,14 +194,14 @@ const WorkoutsPage = () => {
           }))
         });
       }
-  
+
       // Refresh data
       await fetchWorkoutTemplates();
       if (selectedPlan) {
         const updatedPlan = await api.get(`/workouts/programs/${selectedPlan.id}/`);
         setSelectedPlan(updatedPlan.data);
       }
-  
+
       setShowWorkoutForm(false);
       setEditingWorkout(null);
     } catch (err) {
@@ -182,29 +210,58 @@ const WorkoutsPage = () => {
     }
   };
 
+  const handleWorkoutAdded = async () => {
+    if (selectedPlan) {
+      await refreshPlanData(selectedPlan.id);
+    }
+    await fetchWorkoutPlans(); // Refresh all plans to keep data in sync
+  };
+
   const handleDeleteWorkout = async (workoutId) => {
-    if (!window.confirm('Are you sure you want to delete this workout?')) return;
+    // Different confirmation messages based on context
+    const confirmMessage = selectedPlan 
+      ? 'Are you sure you want to remove this workout from the program?'
+      : 'Are you sure you want to delete this workout template completely?';
+
+    if (!window.confirm(confirmMessage)) return;
 
     try {
-      // Remove from plan if it's in one
       if (selectedPlan) {
+        // If we're in a program, just remove the workout from the program
         await api.post(`/workouts/programs/${selectedPlan.id}/remove_workout/`, {
           template_id: workoutId
         });
-      }
-
-      // Delete the template
-      await api.delete(`/workouts/templates/${workoutId}/`);
-
-      // Refresh data
-      await fetchWorkoutTemplates();
-      if (selectedPlan) {
-        const updatedPlan = await api.get(`/workouts/programs/${selectedPlan.id}/`);
-        setSelectedPlan(updatedPlan.data);
+        
+        // Refresh the program data to show updated workout list
+        await refreshPlanData(selectedPlan.id);
+      } else {
+        // If we're in the all workouts view, delete the template completely
+        await api.delete(`/workouts/templates/${workoutId}/`);
+        // Refresh the templates list
+        await fetchWorkoutTemplates();
       }
     } catch (err) {
-      setError('Failed to delete workout');
-      console.error('Error deleting workout:', err);
+      const errorMessage = selectedPlan
+        ? 'Failed to remove workout from program'
+        : 'Failed to delete workout template';
+      setError(errorMessage);
+      console.error('Error:', err);
+    }
+  };
+
+  const handleRemoveFromProgram = async (workoutId) => {
+    if (!window.confirm('Are you sure you want to remove this workout from the program?')) return;
+
+    try {
+      await api.post(`/workouts/programs/${selectedPlan.id}/remove_workout/`, {
+        template_id: workoutId
+      });
+      
+      // Refresh the program data
+      await refreshPlanData(selectedPlan.id);
+    } catch (err) {
+      setError('Failed to remove workout from program');
+      console.error('Error removing workout from program:', err);
     }
   };
 
@@ -315,10 +372,7 @@ const WorkoutsPage = () => {
                       </div>
                     </div>
                     <button
-                      onClick={() => {
-                        setSelectedPlan(plan);
-                        setView('plan-detail');
-                      }}
+                      onClick={() => handlePlanSelect(plan)}
                       className="mt-4 text-blue-400 hover:text-blue-300 transition-colors"
                     >
                       View Details →
@@ -367,20 +421,22 @@ const WorkoutsPage = () => {
                 </p>
               </div>
             </div>
-
+            
             {showWorkoutForm ? (
               <WorkoutForm
-                onSubmit={editingWorkout ? 
-                  (data) => handleUpdateWorkout(editingWorkout.id, data) : 
-                  handleCreateWorkout
-                }
-                initialData={editingWorkout}
-                onCancel={() => {
-                  setShowWorkoutForm(false);
-                  setEditingWorkout(null);
-                }}
-                inProgram={true}
-              />
+              onSubmit={editingWorkout ? 
+                (data) => handleUpdateWorkout(editingWorkout.id, data) : 
+                handleCreateWorkout
+              }
+              initialData={editingWorkout}
+              onCancel={() => {
+                setShowWorkoutForm(false);
+                setEditingWorkout(null);
+              }}
+              onWorkoutAdded={handleWorkoutAdded}  // Add this prop
+              inProgram={true}
+              selectedPlan={selectedPlan}
+            />
             ) : (
               <>
                 <button
@@ -400,7 +456,7 @@ const WorkoutsPage = () => {
                         setEditingWorkout(workout);
                         setShowWorkoutForm(true);
                       }}
-                      onDelete={() => handleDeleteWorkout(workout.id)}
+                      onDelete={() => handleRemoveFromProgram(workout.id)}
                     />
                   ))}
                 </div>
@@ -445,6 +501,9 @@ const WorkoutsPage = () => {
                   setShowWorkoutForm(false);
                   setEditingWorkout(null);
                 }}
+                onWorkoutAdded={handleWorkoutAdded}
+                inProgram={view === 'plan-detail'}
+                selectedPlan={selectedPlan}
               />
             ) : (
               <div className="grid gap-6">
