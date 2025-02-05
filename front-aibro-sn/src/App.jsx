@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import { PostsProvider } from './pages/MainFeed/contexts/PostsContext';
 import { useContext } from 'react';
 import api from './api';
 
@@ -10,6 +11,7 @@ import WorkoutsPage from './pages/Workouts';
 import FriendsPage from './pages/Friends';
 import SchedulePage from './pages/Schedule';
 import ProfilePage from './pages/Profile';
+import MainFeed from './pages/MainFeed';
 
 // Components
 import { Sidebar, Feed } from './components';
@@ -39,7 +41,7 @@ const ProtectedRoute = ({ children }) => {
   return <Layout>{children}</Layout>;
 };
 
-// Main Feed component with posts state
+// Original Feed component wrapper (kept for reference or reuse)
 const FeedPage = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,62 +77,73 @@ const FeedPage = () => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public route */}
-          <Route path="/login" element={<LoginPage />} />
+      <PostsProvider>
+        <Router>
+          <Routes>
+            {/* Public route */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Navigate to="/feed" replace />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/feed"
-            element={
-              <ProtectedRoute>
-                <FeedPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/workouts"
-            element={
-              <ProtectedRoute>
-                <WorkoutsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/friends"
-            element={
-              <ProtectedRoute>
-                <FriendsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/schedule"
-            element={
-              <ProtectedRoute>
-                <SchedulePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Router>
+            {/* Protected routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Navigate to="/feed" replace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/feed"
+              element={
+                <ProtectedRoute>
+                  <MainFeed />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/workouts"
+              element={
+                <ProtectedRoute>
+                  <WorkoutsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/friends"
+              element={
+                <ProtectedRoute>
+                  <FriendsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/schedule"
+              element={
+                <ProtectedRoute>
+                  <SchedulePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            {/* Add route for original feed if needed */}
+            <Route
+              path="/feed/posts"
+              element={
+                <ProtectedRoute>
+                  <FeedPage />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Router>
+      </PostsProvider>
     </AuthProvider>
   );
 }
