@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Folders, ArrowLeft, Trash2, LayoutGrid, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../api';  // Your API configuration
-import WorkoutCard from './components/WorkoutCard';
-import WorkoutForm from './components/WorkoutForm';
+import UnifiedWorkoutCard from './components/UnifiedWorkoutCard';
 import WorkoutPlanForm from './components/WorkoutPlanForm';
-import DraggableWorkoutList from './components/DraggableWorkoutList';
 import WorkoutPlansGrid from './components/WorkoutPlansGrid'; 
-import ProgramWorkoutsView from './components/ProgramWorkoutsView';
+import WorkoutDetailModal from './components/WorkoutDetailModal';
+import WeeklyCalendar from './components/WeeklyCalendar';
+import EnhancedWorkoutForm from './components/EnhancedWorkoutForm';
 // Custom Alert component
 const ErrorAlert = ({ message, onClose }) => (
   <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg flex justify-between items-center">
@@ -31,6 +31,7 @@ const WorkoutsPage = () => {
   const [error, setError] = useState('');
   const [view, setView] = useState('plans'); // 'plans', 'create-plan', 'all-workouts', 'plan-detail'
 
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
   // Load initial data
   useEffect(() => {
     fetchWorkoutPlans();
@@ -43,23 +44,6 @@ const WorkoutsPage = () => {
     }
   }, [view, selectedPlan?.id]);
 
-  // API Functions
-  // const fetchWorkoutPlans = async () => {
-  //   try {
-  //     setLoading(true);
-  //     const response = await api.get('/workouts/programs/');
-  //     // Handle paginated response
-  //     const plans = response.data.results || response.data || [];
-  //     console.log('Fetched plans:', plans); // Debug log
-  //     setWorkoutPlans(Array.isArray(plans) ? plans : []);
-  //   } catch (err) {
-  //     setError('Failed to load workout plans');
-  //     console.error('Error fetching plans:', err);
-  //     setWorkoutPlans([]); // Set to empty array on error
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
   const fetchWorkoutPlans = async () => {
     try {
       setLoading(true);
@@ -101,7 +85,7 @@ const WorkoutsPage = () => {
 
   const handleDayChange = async (instanceId, newDay) => {
     try {
-      await api.patch(`/workouts/programs/${selectedPlan.id}/update_workout/`, {
+      await api.post(`/workouts/programs/${selectedPlan.id}/update_workout/`, {
         instance_id: instanceId,
         preferred_weekday: newDay
       });
@@ -204,58 +188,42 @@ const WorkoutsPage = () => {
         name: data.name,
         description: data.description,
         split_method: data.split_method,
-        is_public: data.is_public,
         exercises: data.exercises
       });
       
-      // Refresh templates list
       await fetchWorkoutTemplates();
+      setShowWorkoutForm(false);
+      setEditingWorkout(null);
     } catch (err) {
       setError('Failed to update workout template');
       console.error('Error updating template:', err);
     }
   };
 
-  const handleUpdateWorkout = async (instanceId, updates) => {
+  const handleUpdateWorkout = async (workoutId, updates) => {
     try {
-      await api.post(`/workouts/programs/${selectedPlan.id}/update_workout/`, {
-        instance_id: instanceId,
-        ...updates
+      // First update the template
+      await api.post(`/workouts/templates/${workoutId}/update_workout/`, {
+        name: updates.name,
+        description: updates.description,
+        split_method: updates.split_method,
+        exercises: updates.exercises
       });
       
-      // Refresh the program data
-      await refreshPlanData(selectedPlan.id);
+      // Then refresh both templates and program data
+      await Promise.all([
+        fetchWorkoutTemplates(),  // Refresh all templates
+        refreshPlanData(selectedPlan.id)  // Refresh program data
+      ]);
+  
+      setShowWorkoutForm(false);
+      setEditingWorkout(null);
     } catch (err) {
       setError('Failed to update workout');
       console.error('Error updating workout:', err);
     }
   };
 
-  const handleOrderChange = async (startIndex, endIndex) => {
-    // Optimistically update the UI
-    const newWorkouts = Array.from(selectedPlan.workouts);
-    const [removed] = newWorkouts.splice(startIndex, 1);
-    newWorkouts.splice(endIndex, 0, removed);
-  
-    setSelectedPlan(prev => ({
-      ...prev,
-      workouts: newWorkouts
-    }));
-  
-    // Update the orders in the backend
-    try {
-      await Promise.all(
-        newWorkouts.map((workout, index) => 
-          handleUpdateWorkout(workout.instance_id, { order: index })
-        )
-      );
-    } catch (err) {
-      setError('Failed to update workout order');
-      console.error('Error updating workout order:', err);
-      // Revert the optimistic update
-      await refreshPlanData(selectedPlan.id);
-    }
-  };
 
   const handleWorkoutAdded = async () => {
     if (selectedPlan) {
@@ -264,37 +232,6 @@ const WorkoutsPage = () => {
     await fetchWorkoutPlans(); // Refresh all plans to keep data in sync
   };
 
-  // const handleDeleteWorkout = async (workoutId) => {
-  //   // Different confirmation messages based on context
-  //   const confirmMessage = selectedPlan 
-  //     ? 'Are you sure you want to remove this workout from the program?'
-  //     : 'Are you sure you want to delete this workout template completely?';
-
-  //   if (!window.confirm(confirmMessage)) return;
-
-  //   try {
-  //     if (selectedPlan) {
-  //       // If we're in a program, just remove the workout from the program
-  //       await api.post(`/workouts/programs/${selectedPlan.id}/remove_workout/`, {
-  //         template_id: workoutId
-  //       });
-        
-  //       // Refresh the program data to show updated workout list
-  //       await refreshPlanData(selectedPlan.id);
-  //     } else {
-  //       // If we're in the all workouts view, delete the template completely
-  //       await api.delete(`/workouts/templates/${workoutId}/`);
-  //       // Refresh the templates list
-  //       await fetchWorkoutTemplates();
-  //     }
-  //   } catch (err) {
-  //     const errorMessage = selectedPlan
-  //       ? 'Failed to remove workout from program'
-  //       : 'Failed to delete workout template';
-  //     setError(errorMessage);
-  //     console.error('Error:', err);
-  //   }
-  // };
   const handleDeleteWorkout = async (workoutId) => {
     const confirmMessage = selectedPlan 
       ? 'Are you sure you want to remove this workout from the program?'
@@ -393,106 +330,150 @@ const WorkoutsPage = () => {
           </div>
         );
 
-      case 'create-plan':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setView('plans')}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </button>
-              <h1 className="text-3xl font-bold text-white">Create Workout Plan</h1>
-            </div>
-            <WorkoutPlanForm onSubmit={handleCreatePlan} />
-          </div>
-        );
-
-      case 'plan-detail':
-        if (!selectedPlan) return null;
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <button
-                onClick={() => {
-                  setView('plans');
-                  setSelectedPlan(null);
-                }}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </button>
-              <div>
-                <h1 className="text-3xl font-bold text-white">{selectedPlan.name}</h1>
-                <p className="text-gray-400 mt-1">
-                  {selectedPlan.focus.replace('_', ' ')} • {selectedPlan.sessions_per_week}x per week
-                </p>
-              </div>
-            </div>
-            
-            {showWorkoutForm ? (
-              <WorkoutForm
-              onSubmit={editingWorkout ? 
-                (data) => handleUpdateWorkout(editingWorkout.id, data) : 
-                handleCreateWorkout
-              }
-              initialData={editingWorkout}
-              onCancel={() => {
-                setShowWorkoutForm(false);
-                setEditingWorkout(null);
-              }}
-              onWorkoutAdded={handleWorkoutAdded}  
-              inProgram={true}
-              selectedPlan={selectedPlan}
-              onAddExisting={async (templateId, selectedDay) => {
-                await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
-                  template_id: templateId,
-                  preferred_weekday: selectedDay,
-                  order: selectedPlan.workouts?.length || 0
-                });
-                await refreshPlanData(selectedPlan.id);
-              }}
-            />
-            ) : (
-              <>
-                <button
-                  onClick={() => setShowWorkoutForm(true)}
-                  className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add Workout</span>
-                </button>
-
-                <ProgramWorkoutsView
-                  workouts={selectedPlan.workouts}
-                  onOrderChange={handleOrderChange}
-                  onUpdate={handleUpdateWorkout}
-                  onEdit={(workout) => {
-                    setEditingWorkout(workout);
-                    setShowWorkoutForm(true);
-                  }}
-                  onDelete={handleDeleteWorkout}
-                  programId={selectedPlan.id}
-                />
-              </>
-            )}
-          </div>
-        );
-
-      case 'all-workouts':
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-white">All Workouts</h1>
-              <div className="flex space-x-4">
+        case 'create-plan':
+          return (
+            <div className="space-y-6">
+              <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setView('plans')}
-                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2"
+                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  <ArrowLeft className="w-5 h-5" />
-                  <span>Back to Plans</span>
+                  <ArrowLeft className="w-6 h-6" />
                 </button>
+                <h1 className="text-3xl font-bold text-white">Create Workout Plan</h1>
+              </div>
+              <WorkoutPlanForm 
+                onSubmit={handleCreatePlan}
+                initialData={null}
+              />
+            </div>
+          );
+
+        case 'plan-detail':
+          if (!selectedPlan) return null;
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center space-x-4 mb-6">
+                <button
+                  onClick={() => {
+                    setView('plans');
+                    setSelectedPlan(null);
+                  }}
+                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
+                <div>
+                  <h1 className="text-3xl font-bold text-white">{selectedPlan.name}</h1>
+                  <p className="text-gray-400 mt-1">
+                    {selectedPlan.focus.replace('_', ' ')} • {selectedPlan.sessions_per_week}x per week
+                  </p>
+                </div>
+              </div>
+              
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-gray-800/40 p-4 rounded-xl">
+                  <div className="text-gray-400 text-sm mb-1">Total Workouts</div>
+                  <div className="text-2xl font-bold text-white">{selectedPlan.workouts.length}</div>
+                </div>
+                <div className="bg-gray-800/40 p-4 rounded-xl">
+                  <div className="text-gray-400 text-sm mb-1">Days per Week</div>
+                  <div className="text-2xl font-bold text-white">
+                    {new Set(selectedPlan.workouts.map(w => w.preferred_weekday)).size}
+                  </div>
+                </div>
+                <div className="bg-gray-800/40 p-4 rounded-xl">
+                  <div className="text-gray-400 text-sm mb-1">Total Exercises</div>
+                  <div className="text-2xl font-bold text-white">
+                    {selectedPlan.workouts.reduce((acc, w) => acc + (w.exercises?.length || 0), 0)}
+                  </div>
+                </div>
+              </div>
+        
+              {showWorkoutForm ? (
+                <EnhancedWorkoutForm
+                  onSubmit={editingWorkout ? 
+                    (data) => handleUpdateWorkout(editingWorkout.id, data) : 
+                    handleCreateWorkout
+                  }
+                  initialData={editingWorkout}
+                  onCancel={() => {
+                    setShowWorkoutForm(false);
+                    setEditingWorkout(null);
+                  }}
+                  onWorkoutAdded={handleWorkoutAdded}
+                  inProgram={true}
+                  selectedPlan={selectedPlan}
+                />
+              ) : (
+                <>
+                  {/* Calendar View */}
+                  <div className="mb-8">
+                    <h2 className="text-lg font-semibold text-white mb-4">Weekly Schedule</h2>
+                    <WeeklyCalendar 
+                      workouts={selectedPlan.workouts}
+                      onWorkoutClick={setSelectedWorkout}
+                    />
+                  </div>
+
+                  {/* Workout List */}
+                  <div className="space-y-4">
+                    {selectedPlan.workouts.map((workout) => (
+                      <UnifiedWorkoutCard
+                        key={workout.instance_id}
+                        workout={workout}
+                        onEdit={() => {
+                          setEditingWorkout(workout);
+                          setShowWorkoutForm(true);
+                        }}
+                        onDelete={handleDeleteWorkout}
+                        inProgram={true}
+                        onDayChange={handleDayChange}
+                        onClick={() => setSelectedWorkout(workout)}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Add Workout Button */}
+                  <button
+                    onClick={() => {
+                      setEditingWorkout(null); // Reset any editing state
+                      setShowWorkoutForm(true);
+                    }}
+                    className="fixed bottom-6 right-6 px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-lg"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Add Workout</span>
+                  </button>
+                </>
+              )}
+
+              {/* Workout Detail Modal */}
+              {selectedWorkout && (
+                <WorkoutDetailModal
+                  workout={selectedWorkout}
+                  onClose={() => setSelectedWorkout(null)}
+                />
+              )}
+            </div>
+          );
+
+        case 'all-workouts':
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setView('plans')}
+                    className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <ArrowLeft className="w-6 h-6" />
+                  </button>
+                  <h1 className="text-3xl font-bold text-white">All Workouts</h1>
+                </div>
                 {!showWorkoutForm && (
                   <button
                     onClick={() => setShowWorkoutForm(true)}
@@ -503,49 +484,36 @@ const WorkoutsPage = () => {
                   </button>
                 )}
               </div>
+        
+              {showWorkoutForm ? (
+                <EnhancedWorkoutForm
+                  onSubmit={editingWorkout ? 
+                    (data) => handleUpdateTemplate(editingWorkout.id, data) : 
+                    handleCreateWorkout
+                  }
+                  initialData={editingWorkout}
+                  onCancel={() => {
+                    setShowWorkoutForm(false);
+                    setEditingWorkout(null);
+                  }}
+                />
+              ) : (
+                <div className="grid gap-6">
+                  {workoutTemplates.map(workout => (
+                    <UnifiedWorkoutCard
+                      key={workout.id}
+                      workout={workout}
+                      onEdit={() => {
+                        setEditingWorkout(workout);
+                        setShowWorkoutForm(true);
+                      }}
+                      onDelete={handleDeleteWorkout}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-
-            {showWorkoutForm ? (
-              <WorkoutForm
-                onSubmit={editingWorkout ? 
-                  (data) => handleUpdateTemplate(editingWorkout.id, data) : 
-                  handleCreateWorkout
-                }
-                initialData={editingWorkout}
-                onCancel={() => {
-                  setShowWorkoutForm(false);
-                  setEditingWorkout(null);
-                }}
-                onWorkoutAdded={handleWorkoutAdded}
-                inProgram={view === 'plan-detail'}
-                selectedPlan={selectedPlan}
-              />
-            ) : (
-              <div className="grid gap-6">
-                {workoutTemplates.map(workout => (
-                  <WorkoutCard
-                    key={workout.id}
-                    workout={workout}
-                    onEdit={() => {
-                      setEditingWorkout(workout);
-                      setShowWorkoutForm(true);
-                    }}
-                    onDelete={() => handleDeleteWorkout(workout.id)}
-                    inProgram={view === 'plan-detail'}
-                    onDayChange={handleDayChange}
-                    programId={selectedPlan?.id}
-                  />
-                ))}
-                {workoutTemplates.length === 0 && (
-                  <div className="text-center py-12 bg-gray-800 rounded-lg">
-                    <p className="text-gray-400">No workouts available.</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-
+          );
       default:
         return null;
     }
