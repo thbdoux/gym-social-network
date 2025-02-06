@@ -209,6 +209,17 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
             serializer = WorkoutTemplateDetailSerializer(new_template)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=False)
+    def trending(self, request):
+        return self.get_queryset().annotate(
+            popularity=Count('workout_instances') + Count('workout_logs')
+        ).order_by('-popularity')[:10]
+
+    @action(detail=False)
+    def by_equipment(self, request):
+        equipment = request.query_params.get('equipment')
+        return self.get_queryset().filter(equipment_required__contains=[equipment])
+
 class ProgramViewSet(viewsets.ModelViewSet):
     """
     Manage workout programs with social features
@@ -414,6 +425,14 @@ class ProgramViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(my_programs, many=True)
         return Response(serializer.data)
 
+    @action(detail=False)
+    def recommend(self, request):
+        user_level = request.user.training_level
+        available_equipment = request.user.preferred_gym.equipment
+        return self.get_queryset().filter(
+            recommended_level=user_level,
+            required_equipment__contained_by=available_equipment
+        )
 class WorkoutLogViewSet(viewsets.ModelViewSet):
     """
     Manage workout logs (records of performed workouts)

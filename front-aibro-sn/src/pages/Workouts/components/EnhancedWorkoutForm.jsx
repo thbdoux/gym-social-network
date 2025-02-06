@@ -1,10 +1,10 @@
-// EnhancedWorkoutForm.jsx
 import React, { useState } from 'react';
-import { Plus, Settings, Calendar, Dumbbell } from 'lucide-react';
+import { Plus, Settings, Calendar, Dumbbell, Tag, Clock } from 'lucide-react';
 import ExerciseCard from './ExerciseCard';
 
 const SPLIT_METHODS = ['full_body', 'push_pull_legs', 'upper_lower', 'custom'];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DIFFICULTY_LEVELS = ['beginner', 'intermediate', 'advanced'];
 
 const EnhancedWorkoutForm = ({
   onSubmit,
@@ -12,18 +12,43 @@ const EnhancedWorkoutForm = ({
   onCancel,
   inProgram = false,
   selectedPlan,
-  onAddExisting
 }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     split_method: 'full_body',
     preferred_weekday: 0,
+    difficulty_level: 'intermediate',
+    estimated_duration: 60,
+    equipment_required: [],
+    tags: [],
     exercises: [],
+    is_public: true,
     ...initialData
   });
 
   const [expandedExercises, setExpandedExercises] = useState({});
+  const [tagInput, setTagInput] = useState('');
+
+  const handleAddTag = (e) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      if (!formData.tags.includes(tagInput.trim())) {
+        setFormData(prev => ({
+          ...prev,
+          tags: [...prev.tags, tagInput.trim()]
+        }));
+      }
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
 
   const handleAddExercise = () => {
     const newExercise = {
@@ -51,7 +76,7 @@ const EnhancedWorkoutForm = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const formattedData = {
+      const submissionData = {
         ...formData,
         exercises: formData.exercises.map((ex, i) => ({
           ...ex,
@@ -65,12 +90,12 @@ const EnhancedWorkoutForm = ({
           }))
         }))
       };
-  
+
       if (initialData?.id) {
-        formattedData.id = initialData.id;
+        submissionData.id = initialData.id;
       }
-  
-      await onSubmit(formattedData);
+
+      await onSubmit(submissionData);
     } catch (error) {
       console.error('Error submitting form:', error);
     }
@@ -119,15 +144,75 @@ const EnhancedWorkoutForm = ({
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Difficulty Level *</label>
+            <select
+              value={formData.difficulty_level}
+              onChange={(e) => setFormData(prev => ({ ...prev, difficulty_level: e.target.value }))}
+              className="w-full bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500/50 text-white"
+              required
+            >
+              {DIFFICULTY_LEVELS.map(level => (
+                <option key={level} value={level}>
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Estimated Duration (min) *</label>
+            <input
+              type="number"
+              value={formData.estimated_duration}
+              onChange={(e) => setFormData(prev => ({ ...prev, estimated_duration: Number(e.target.value) }))}
+              className="w-full bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500/50 text-white"
+              min="15"
+              max="180"
+              required
+            />
+          </div>
+
           <div className="col-span-2">
             <label className="block text-sm text-gray-400 mb-2">Description</label>
             <input
+              type="text"
+              value={formData.description || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              className="w-full bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500/50 text-white h-10"
+              placeholder="Brief description of your workout"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm text-gray-400 mb-2">Tags</label>
+            <div className="space-y-2">
+              <input
                 type="text"
-                value={formData.description || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500/50 text-white h-10"
-                placeholder="Brief description of your workout"
-                />
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleAddTag}
+                className="w-full bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500/50 text-white"
+                placeholder="Press Enter to add tags"
+              />
+              <div className="flex flex-wrap gap-2">
+                {formData.tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-400"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="ml-2 hover:text-blue-300"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
           {inProgram && (

@@ -16,18 +16,12 @@ class PostViewSet(viewsets.ModelViewSet):
         return Post.objects.filter(
             Q(user=self.request.user) |  # User's own posts
             Q(user__in=self.request.user.friends.all()) |  # Friends' posts
-            Q(user__gym=self.request.user.gym)  # Posts from gym members
+            Q(user__preferred_gym=self.request.user.preferred_gym)  # Posts from gym members
         ).distinct().select_related(
             'user', 'workout_log'
         ).prefetch_related(
             'comments', 'likes'
         ).order_by('-created_at')
-
-    # def get_queryset(self):
-    #     # Get posts from current user and their friends
-    #     return Post.objects.filter(
-    #         Q(user=self.request.user) | Q(user__in=self.request.user.friends.all())
-    #     ).select_related('user', 'workout_log').prefetch_related('comments', 'likes')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -77,24 +71,6 @@ class PostViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(trending_posts, many=True)
         return Response(serializer.data)
-
-    # @action(detail=False)
-    # def feed(self, request):
-    #     """Get user's personalized feed"""
-    #     # Get posts from friends
-    #     friend_posts = Post.objects.filter(
-    #         user__in=request.user.friends.all()
-    #     )
-    #     # Get posts from users in the same gym
-    #     gym_posts = Post.objects.filter(
-    #         user__gym=request.user.gym
-    #     ).exclude(user=request.user)
-        
-    #     # Combine and order by date
-    #     feed_posts = friend_posts.union(gym_posts).order_by('-created_at')
-    #     serializer = self.get_serializer(feed_posts, many=True)
-    #     return Response(serializer.data)
-
     
     @action(detail=False)
     def feed(self, request):

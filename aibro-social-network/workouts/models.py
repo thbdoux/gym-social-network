@@ -17,6 +17,15 @@ class WorkoutTemplate(models.Model):
     is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    difficulty_level = models.CharField(max_length=20, choices=[
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced')
+    ])
+    estimated_duration = models.PositiveIntegerField(help_text="Duration in minutes")
+    equipment_required = models.JSONField(default=list)
+    tags = models.JSONField(default=list)
+    use_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['created_at']
@@ -75,6 +84,15 @@ class Program(models.Model):
     likes = models.ManyToManyField('users.User', related_name='liked_programs', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    difficulty_level = models.CharField(max_length=20, choices=[
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced')
+    ])
+    recommended_level = models.CharField(max_length=20)
+    required_equipment = models.JSONField(default=list)
+    estimated_completion_weeks = models.PositiveIntegerField()
+    tags = models.JSONField(default=list)
 
     class Meta:
         ordering = ['-created_at']
@@ -134,6 +152,10 @@ class WorkoutLog(models.Model):
     notes = models.TextField(blank=True)
     completed = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    mood_rating = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)], null=True)
+    perceived_difficulty = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)], null=True)
+    performance_notes = models.TextField(blank=True)
+    media = models.JSONField(default=list)  # Store photo/video URLs
 
     class Meta:
         ordering = ['-date', '-created_at']

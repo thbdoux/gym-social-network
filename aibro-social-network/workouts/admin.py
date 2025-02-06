@@ -39,9 +39,15 @@ class ExerciseLogInline(admin.TabularInline):
 
 @admin.register(WorkoutTemplate)
 class WorkoutTemplateAdmin(admin.ModelAdmin):
-    list_display = ('name', 'creator', 'split_method', 'is_public', 'created_at')
-    list_filter = ('split_method', 'is_public', 'created_at')
-    search_fields = ('name', 'description', 'creator__username')
+    list_display = (
+       'name', 'creator', 'split_method', 'difficulty_level',
+       'estimated_duration', 'is_public', 'use_count', 'created_at'
+    )
+    list_filter = (
+        'split_method', 'difficulty_level', 'is_public', 
+        'created_at'
+    )
+    search_fields = ('name', 'description', 'creator__username', 'tags')
     inlines = [ExerciseTemplateInline]
     readonly_fields = ('created_at', 'updated_at')
     raw_id_fields = ('creator',)
@@ -51,10 +57,15 @@ class WorkoutTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
-    list_display = ('name', 'creator', 'focus', 'sessions_per_week', 
-                   'is_active', 'is_public', 'get_likes_count', 
-                   'get_forks_count', 'view_workouts')
-    list_filter = ('focus', 'is_active', 'is_public', 'created_at')
+    list_display = (
+       'name', 'creator', 'focus', 'difficulty_level',
+       'sessions_per_week', 'estimated_completion_weeks',
+       'is_active', 'is_public', 'get_likes_count'
+    )
+    list_filter = (
+        'focus', 'difficulty_level', 'is_active',
+        'is_public', 'created_at'
+    )
     search_fields = ('name', 'description', 'creator__username')
     inlines = [WorkoutInstanceInline]
     readonly_fields = ('created_at', 'updated_at', 'get_likes_count', 'get_forks_count')
@@ -104,9 +115,14 @@ class ProgramShareAdmin(admin.ModelAdmin):
 
 @admin.register(WorkoutLog)
 class WorkoutLogAdmin(admin.ModelAdmin):
-    list_display = ('user', 'workout_instance', 'program', 'date', 
-                   'completed', 'created_at')
-    list_filter = ('completed', 'date', 'created_at')
+    list_display = (
+       'user', 'workout_instance', 'program', 'date',
+       'mood_rating', 'perceived_difficulty', 'completed'
+    )
+    list_filter = (
+        'completed', 'mood_rating', 'perceived_difficulty',
+        'date', 'created_at'
+    )
     search_fields = ('user__username', 'notes', 'workout_instance__template__name')
     inlines = [ExerciseLogInline]
     readonly_fields = ('created_at',)

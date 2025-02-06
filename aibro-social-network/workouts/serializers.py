@@ -27,10 +27,12 @@ class WorkoutTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutTemplate
         fields = [
-            'id', 'name', 'description', 'split_method',
-            'creator_username', 'is_public', 'exercises',
-            'created_at', 'updated_at'
-        ]
+           'id', 'name', 'description', 'split_method',
+           'creator_username', 'is_public', 'exercises',
+           'difficulty_level', 'estimated_duration',
+           'equipment_required', 'tags', 'use_count',
+           'created_at', 'updated_at'
+       ]
         read_only_fields = ['id', 'creator_username', 'created_at', 'updated_at']
 
 class WorkoutTemplateDetailSerializer(WorkoutTemplateSerializer):
@@ -70,12 +72,14 @@ class ProgramSerializer(serializers.ModelSerializer):
     class Meta:
         model = Program
         fields = [
-            'id', 'name', 'description', 'focus',
-            'sessions_per_week', 'workouts', 'creator_username',
-            'is_active', 'is_public', 'likes_count',
-            'forks_count', 'is_liked', 'forked_from',
-            'forked_from_name', 'created_at', 'updated_at'
-        ]
+           'id', 'name', 'description', 'focus',
+           'sessions_per_week', 'workouts', 'creator_username',
+           'is_active', 'is_public', 'likes_count', 
+           'difficulty_level', 'recommended_level',
+           'required_equipment', 'estimated_completion_weeks',
+           'tags','forked_from_name', 'forks_count', 'is_liked', 'forked_from',
+           'created_at', 'updated_at'
+       ]
         read_only_fields = [
             'id', 'creator_username', 'likes_count',
             'forks_count', 'is_liked', 'forked_from',
@@ -129,11 +133,13 @@ class WorkoutLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutLog
         fields = [
-            'id', 'user', 'username', 'program', 'program_name',
-            'workout_instance', 'workout_name', 'date',
-            'gym', 'gym_name', 'notes', 'completed',
-            'exercises', 'created_at'
-        ]
+           'id', 'user', 'username', 'program', 'program_name',
+           'workout_instance', 'workout_name', 'date',
+           'gym', 'gym_name', 'notes', 'completed',
+           'mood_rating', 'perceived_difficulty', 
+           'performance_notes', 'media',
+           'exercises', 'created_at'
+       ]
         read_only_fields = [
             'id', 'user', 'username', 'program_name',
             'workout_name', 'gym_name', 'created_at'

@@ -7,6 +7,7 @@ import WorkoutPlansGrid from './components/WorkoutPlansGrid';
 import WorkoutDetailModal from './components/WorkoutDetailModal';
 import WeeklyCalendar from './components/WeeklyCalendar';
 import EnhancedWorkoutForm from './components/EnhancedWorkoutForm';
+import TemplateSelector from './components/TemplateSelector';
 // Custom Alert component
 const ErrorAlert = ({ message, onClose }) => (
   <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg flex justify-between items-center">
@@ -32,6 +33,7 @@ const WorkoutsPage = () => {
   const [view, setView] = useState('plans'); // 'plans', 'create-plan', 'all-workouts', 'plan-detail'
 
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   // Load initial data
   useEffect(() => {
     fetchWorkoutPlans();
@@ -122,7 +124,21 @@ const WorkoutsPage = () => {
 
   const handleCreatePlan = async (planData) => {
     try {
-      const response = await api.post('/workouts/programs/', planData);
+      const formattedData = {
+        name: planData.name,
+        description: planData.description,
+        focus: planData.focus,
+        difficulty_level: planData.difficulty_level || 'intermediate',
+        recommended_level: planData.recommended_level,
+        sessions_per_week: planData.sessions_per_week,
+        estimated_completion_weeks: planData.estimated_completion_weeks || 8,
+        required_equipment: planData.required_equipment || [],
+        tags: planData.tags || [],
+        is_active: planData.is_active,
+        is_public: true
+      };
+      
+      const response = await api.post('/workouts/programs/', formattedData);
       setWorkoutPlans([...workoutPlans, response.data]);
       setView('plans');
     } catch (err) {
@@ -133,17 +149,19 @@ const WorkoutsPage = () => {
 
   const handleCreateWorkout = async (workoutData) => {
     try {
-      // Create the workout template
-      const templateResponse = await api.post('/workouts/templates/', {
+      const templateData = {
         name: workoutData.name,
         description: workoutData.description,
         split_method: workoutData.split_method,
-        program: selectedPlan?.id,
-        preferred_weekday: workoutData.preferred_weekday,
-        order: selectedPlan ? selectedPlan.workouts?.length || 0 : undefined
-      });
-
-      // Add exercises to template
+        difficulty_level: workoutData.difficulty_level || 'intermediate',
+        estimated_duration: workoutData.estimated_duration || 60,
+        equipment_required: [...new Set(workoutData.exercises.map(e => e.equipment).filter(Boolean))],
+        tags: workoutData.tags || [],
+        is_public: true
+      };
+  
+      const templateResponse = await api.post('/workouts/templates/', templateData);
+  
       for (const exercise of workoutData.exercises) {
         await api.post(`/workouts/templates/${templateResponse.data.id}/add_exercise/`, {
           name: exercise.name,
@@ -151,28 +169,23 @@ const WorkoutsPage = () => {
           notes: exercise.notes || '',
           order: exercise.order,
           sets: exercise.sets.map((set, idx) => ({
-            reps: set.reps,
-            weight: set.weight,
-            rest_time: set.rest_time,
+            reps: parseInt(set.reps),
+            weight: parseFloat(set.weight),
+            rest_time: parseInt(set.rest_time),
             order: idx
           }))
         });
       }
-
-      // If we're in a plan, add the workout to it
+  
       if (selectedPlan) {
         await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
           template_id: templateResponse.data.id,
           preferred_weekday: workoutData.preferred_weekday,
           order: selectedPlan.workouts?.length || 0
         });
-
-        // Refresh selected plan data
-        const updatedPlan = await api.get(`/workouts/programs/${selectedPlan.id}/`);
-        setSelectedPlan(updatedPlan.data);
+        await refreshPlanData(selectedPlan.id);
       }
-
-      // Refresh templates list
+  
       await fetchWorkoutTemplates();
       setShowWorkoutForm(false);
       setEditingWorkout(null);
@@ -181,16 +194,31 @@ const WorkoutsPage = () => {
       console.error('Error creating workout:', err);
     }
   };
-
+  
   const handleUpdateTemplate = async (templateId, data) => {
     try {
-      await api.post(`/workouts/templates/${templateId}/update_workout/`, {
+      const updateData = {
         name: data.name,
         description: data.description,
         split_method: data.split_method,
-        exercises: data.exercises
-      });
-      
+        difficulty_level: data.difficulty_level,
+        estimated_duration: data.estimated_duration,
+        equipment_required: [...new Set(data.exercises.map(e => e.equipment).filter(Boolean))],
+        tags: data.tags || [],
+        exercises: data.exercises.map((ex, i) => ({
+          ...ex,
+          order: i,
+          sets: ex.sets.map((set, j) => ({
+            ...set,
+            order: j,
+            reps: parseInt(set.reps),
+            weight: parseFloat(set.weight),
+            rest_time: parseInt(set.rest_time)
+          }))
+        }))
+      };
+  
+      await api.post(`/workouts/templates/${templateId}/update_workout/`, updateData);
       await fetchWorkoutTemplates();
       setShowWorkoutForm(false);
       setEditingWorkout(null);
@@ -198,7 +226,7 @@ const WorkoutsPage = () => {
       setError('Failed to update workout template');
       console.error('Error updating template:', err);
     }
-  };
+  };  
 
   const handleUpdateWorkout = async (workoutId, updates) => {
     try {
@@ -269,6 +297,21 @@ const WorkoutsPage = () => {
     } catch (err) {
       setError('Failed to delete plan');
       console.error('Error deleting plan:', err);
+    }
+  };
+
+  const handleTemplateSelect = async (templateId, weekday) => {
+    try {
+      await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
+        template_id: templateId,
+        preferred_weekday: weekday,
+        order: selectedPlan.workouts?.length || 0
+      });
+      await refreshPlanData(selectedPlan.id);
+      setShowTemplateSelector(false);
+    } catch (err) {
+      setError('Failed to add existing workout');
+      console.error('Error:', err);
     }
   };
 
@@ -437,16 +480,34 @@ const WorkoutsPage = () => {
                   </div>
 
                   {/* Add Workout Button */}
-                  <button
-                    onClick={() => {
-                      setEditingWorkout(null); // Reset any editing state
-                      setShowWorkoutForm(true);
-                    }}
-                    className="fixed bottom-6 right-6 px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-lg"
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span>Add Workout</span>
-                  </button>
+                  <div className="fixed bottom-6 right-6 flex space-x-2">
+                    <button
+                      onClick={() => setShowTemplateSelector(true)}
+                      className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2 shadow-lg"
+                    >
+                      <Folders className="w-5 h-5" />
+                      <span>Use Existing</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingWorkout(null);
+                        setShowWorkoutForm(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-lg"
+                    >
+                      <Plus className="w-5 h-5" />
+                      <span>Create New</span>
+                    </button>
+                  </div>
+                  {showTemplateSelector && (
+                    <TemplateSelector
+                      templates={workoutTemplates}
+                      onSelect={handleTemplateSelect}
+                      onCancel={() => setShowTemplateSelector(false)}
+                      currentProgramWorkouts={selectedPlan.workouts}
+                      onError={setError}
+                    />
+                  )}
                 </>
               )}
 

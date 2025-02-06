@@ -21,15 +21,48 @@ class PostSerializer(serializers.ModelSerializer):
     user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
     is_liked = serializers.SerializerMethodField()
     
+    # Additional fields for different post types
+    workout_log_details = serializers.SerializerMethodField()
+    program_details = serializers.SerializerMethodField()
+    workout_invite_details = serializers.SerializerMethodField()
+    invited_users_details = serializers.SerializerMethodField()
+    
     class Meta:
         model = Post
         fields = [
-            'id', 'content', 'image', 'created_at', 
+            'id', 'content', 'image', 'created_at', 'post_type',
             'updated_at', 'user_username', 'user_profile_picture',
             'comments', 'likes_count', 'is_liked',
-            'workout_log'
+            'workout_log_details', 'program_details', 
+            'workout_invite_details', 'invited_users_details'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_workout_log_details(self, obj):
+        if obj.workout_log:
+            from workouts.serializers import WorkoutLogSerializer
+            return WorkoutLogSerializer(obj.workout_log).data
+        return None
+
+    def get_program_details(self, obj):
+        if obj.program:
+            from workouts.serializers import ProgramSerializer
+            return ProgramSerializer(obj.program).data
+        return None
+
+    def get_workout_invite_details(self, obj):
+        if obj.workout_instance:
+            from workouts.serializers import WorkoutInstanceSerializer
+            return {
+                'workout': WorkoutInstanceSerializer(obj.workout_instance).data,
+                'planned_date': obj.planned_date
+            }
+        return None
+
+    def get_invited_users_details(self, obj):
+        from users.serializers import UserSerializer
+        return UserSerializer(obj.invited_users.all(), many=True).data
+
 
     def get_likes_count(self, obj):
         return obj.likes.count()

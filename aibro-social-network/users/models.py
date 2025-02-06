@@ -3,55 +3,58 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 class User(AbstractUser):
-    FITNESS_CHOICES = [
-        ('bodybuilding', 'Bodybuilding'),
-        ('crossfit', 'CrossFit'),
-        ('powerlifting', 'Powerlifting'),
-        ('hyrox', 'Hyrox Prep'),
-    ]
-    
-    LEVEL_CHOICES = [
+    """Extended user model with fitness-specific fields"""
+    TRAINING_LEVELS = [
         ('beginner', 'Beginner'),
         ('intermediate', 'Intermediate'),
-        ('advanced', 'Advanced'),
+        ('advanced', 'Advanced')
     ]
-    
-    PERSONALITY_CHOICES = [
+    PERSONALITY_TYPES = [
         ('lone_wolf', 'Lone Wolf'),
-        ('extrovert', 'Extrovert Bro'),
-        ('mentor', 'Mentor'),
-        ('student', 'Student'),
+        ('extrovert_bro', 'Extrovert Bro'),
+        ('casual', 'Casual'),
+        ('competitor', 'Competitor')
     ]
-
-    # All fields should be optional except username and password
-    surname = models.CharField(max_length=50, blank=True)
+    
+    preferred_gym = models.ForeignKey('gyms.Gym', on_delete=models.SET_NULL, 
+                                    null=True, related_name='regular_users')
+    training_level = models.CharField(max_length=20, choices=TRAINING_LEVELS)
+    personality_type = models.CharField(max_length=20, choices=PERSONALITY_TYPES)
+    fitness_goals = models.TextField(blank=True)
+    friends = models.ManyToManyField('self', through='Friendship',
+                                   symmetrical=False)
+    current_program = models.ForeignKey('workouts.Program', 
+                                      on_delete=models.SET_NULL,
+                                      null=True, related_name='active_users')
     bio = models.TextField(blank=True)
-    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
-    gym = models.ForeignKey('gyms.Gym', on_delete=models.SET_NULL, null=True, blank=True)
-    fitness_practice = models.CharField(max_length=20, choices=FITNESS_CHOICES, blank=True, null=True)
-    training_level = models.CharField(max_length=20, choices=LEVEL_CHOICES, blank=True, null=True)
-    personality = models.CharField(max_length=20, choices=PERSONALITY_CHOICES, blank=True, null=True)
-    goals = models.TextField(blank=True)
-    friends = models.ManyToManyField('self', symmetrical=True, blank=True)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
+class Friendship(models.Model):
+    """Represents a friendship between users"""
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE, 
+                                related_name='friendships_initiated')
+    to_user = models.ForeignKey(User, on_delete=models.CASCADE,
+                              related_name='friendships_received')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        ordering = ['username']
+        unique_together = ['from_user', 'to_user']
 
-class Schedule(models.Model):
-    DAYS_OF_WEEK = [
-        (0, 'Monday'),
-        (1, 'Tuesday'),
-        (2, 'Wednesday'),
-        (3, 'Thursday'),
-        (4, 'Friday'),
-        (5, 'Saturday'),
-        (6, 'Sunday'),
+class FriendRequest(models.Model):
+    """Pending friend request"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected')
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='schedule')
-    day = models.IntegerField(choices=DAYS_OF_WEEK)
-    preferred_time = models.TimeField()
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE,
+                                related_name='friend_requests_sent')
+    to_user = models.ForeignKey(User, on_delete=models.CASCADE,
+                              related_name='friend_requests_received')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                            default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
-        unique_together = ['user', 'day']
-        ordering = ['day']
+        unique_together = ['from_user', 'to_user']
