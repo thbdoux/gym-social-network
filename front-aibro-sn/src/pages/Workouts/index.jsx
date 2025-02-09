@@ -7,7 +7,8 @@ import WorkoutPlansGrid from './components/WorkoutPlansGrid';
 import WorkoutDetailModal from './components/WorkoutDetailModal';
 import WeeklyCalendar from './components/WeeklyCalendar';
 import EnhancedWorkoutForm from './components/EnhancedWorkoutForm';
-import TemplateSelector from './components/TemplateSelector';
+import { useAuth } from './../../hooks/useAuth';
+
 // Custom Alert component
 const ErrorAlert = ({ message, onClose }) => (
   <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg flex justify-between items-center">
@@ -22,6 +23,7 @@ const ErrorAlert = ({ message, onClose }) => (
 );
 
 const WorkoutsPage = () => {
+  const { user, isOwner } = useAuth();
   // State Management
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -33,7 +35,6 @@ const WorkoutsPage = () => {
   const [view, setView] = useState('plans'); // 'plans', 'create-plan', 'all-workouts', 'plan-detail'
 
   const [selectedWorkout, setSelectedWorkout] = useState(null);
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   // Load initial data
   useEffect(() => {
     fetchWorkoutPlans();
@@ -49,14 +50,15 @@ const WorkoutsPage = () => {
   const fetchWorkoutPlans = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/workouts/programs/');
+      // Get plans created by or shared with the current user
+      const response = await api.get(`/workouts/programs/`)
       const plans = response.data.results || response.data || [];
+      console.log('Fetched programs : ', plans);
       setWorkoutPlans(Array.isArray(plans) ? plans : []);
       
-      // If you're getting a specific plan, also update selected plan
       if (selectedPlan) {
         const updatedPlan = plans.find(p => p.id === selectedPlan.id);
-        if (updatedPlan) {
+        if (updatedPlan && isOwner(updatedPlan.creator)) {
           setSelectedPlan(updatedPlan);
         }
       }
@@ -71,7 +73,7 @@ const WorkoutsPage = () => {
 
   const refreshPlanData = async (planId) => {
     try {
-      const response = await api.get(`/workouts/programs/${planId}/`);
+      const response = await api.get(`/workouts/programs/${planId}/`)
       const updatedPlan = response.data;
       
       // Update both the selectedPlan and the plan in workoutPlans
@@ -108,7 +110,7 @@ const WorkoutsPage = () => {
   const fetchWorkoutTemplates = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/workouts/templates/');
+      const response = await api.get(`/workouts/templates/`);
       // Handle paginated response
       const templates = response.data.results || response.data || [];
       console.log('Fetched Templates:', templates); // Debug log
@@ -125,16 +127,8 @@ const WorkoutsPage = () => {
   const handleCreatePlan = async (planData) => {
     try {
       const formattedData = {
-        name: planData.name,
-        description: planData.description,
-        focus: planData.focus,
-        difficulty_level: planData.difficulty_level || 'intermediate',
-        recommended_level: planData.recommended_level,
-        sessions_per_week: planData.sessions_per_week,
-        estimated_completion_weeks: planData.estimated_completion_weeks || 8,
-        required_equipment: planData.required_equipment || [],
-        tags: planData.tags || [],
-        is_active: planData.is_active,
+        ...planData,
+        creator: user.id,
         is_public: true
       };
       
@@ -194,7 +188,7 @@ const WorkoutsPage = () => {
       console.error('Error creating workout:', err);
     }
   };
-  
+
   const handleUpdateTemplate = async (templateId, data) => {
     try {
       const updateData = {
@@ -252,6 +246,18 @@ const WorkoutsPage = () => {
     }
   };
 
+  const handleDuplicateWorkout = async (instanceId) => {
+    try {
+      const response = await api.post(`/workouts/programs/${selectedPlan.id}/duplicate_workout/`, {
+        instance_id: instanceId
+      });
+      await refreshPlanData(selectedPlan.id);
+    } catch (err) {
+      setError('Failed to duplicate workout');
+      console.error('Error:', err);
+    }
+  };
+
 
   const handleWorkoutAdded = async () => {
     if (selectedPlan) {
@@ -285,6 +291,12 @@ const WorkoutsPage = () => {
   };
 
   const handleDeletePlan = async (planId) => {
+    const plan = workoutPlans.find(p => p.id === planId);
+    if (!plan || !isOwner(plan.creator)) {
+      setError('You do not have permission to delete this plan');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this plan?')) return;
 
     try {
@@ -300,24 +312,14 @@ const WorkoutsPage = () => {
     }
   };
 
-  const handleTemplateSelect = async (templateId, weekday) => {
-    try {
-      await api.post(`/workouts/programs/${selectedPlan.id}/add_workout/`, {
-        template_id: templateId,
-        preferred_weekday: weekday,
-        order: selectedPlan.workouts?.length || 0
-      });
-      await refreshPlanData(selectedPlan.id);
-      setShowTemplateSelector(false);
-    } catch (err) {
-      setError('Failed to add existing workout');
-      console.error('Error:', err);
-    }
-  };
-
   const handleTogglePlanActive = async (planId) => {
+    const plan = workoutPlans.find(p => p.id === planId);
+    if (!plan || !isOwner(plan.creator)) {
+      setError('You do not have permission to modify this plan');
+      return;
+    }
+
     try {
-      const plan = workoutPlans.find(p => p.id === planId);
       const response = await api.post(`/workouts/programs/${planId}/`, {
         is_active: !plan.is_active
       });
@@ -330,21 +332,13 @@ const WorkoutsPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
-      </div>
-    );
-  }
-
   const renderView = () => {
     switch (view) {
       case 'plans':
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-white">Workout Plans</h1>
+              <h1 className="text-3xl font-bold text-white">My Workout Plans</h1>
               <div className="flex space-x-4">
                 <button
                   onClick={() => setView('all-workouts')}
@@ -366,9 +360,20 @@ const WorkoutsPage = () => {
             <WorkoutPlansGrid
               plans={workoutPlans}
               onSelect={handlePlanSelect}
-              onDelete={handleDeletePlan}
-              onToggleActive={handleTogglePlanActive}
+              onDelete={(planId) => {
+                const plan = workoutPlans.find(p => p.id === planId);
+                if (isOwner(plan?.creator)) {
+                  handleDeletePlan(planId);
+                }
+              }}
+              onToggleActive={(planId) => {
+                const plan = workoutPlans.find(p => p.id === planId);
+                if (isOwner(plan?.creator)) {
+                  handleTogglePlanActive(planId);
+                }
+              }}
               onCreatePlan={() => setView('create-plan')}
+              currentUser={user}
             />
           </div>
         );
@@ -394,6 +399,7 @@ const WorkoutsPage = () => {
 
         case 'plan-detail':
           if (!selectedPlan) return null;
+          const canEdit = isOwner(selectedPlan.creator);
           return (
             <div className="space-y-6">
               {/* Header */}
@@ -408,7 +414,10 @@ const WorkoutsPage = () => {
                   <ArrowLeft className="w-6 h-6" />
                 </button>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">{selectedPlan.name}</h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-white">{selectedPlan.name}</h1>
+                    <span className="text-gray-400 text-lg">by {selectedPlan.creator_username}</span>
+                  </div>
                   <p className="text-gray-400 mt-1">
                     {selectedPlan.focus.replace('_', ' ')} • {selectedPlan.sessions_per_week}x per week
                   </p>
@@ -434,7 +443,7 @@ const WorkoutsPage = () => {
                   </div>
                 </div>
               </div>
-        
+              
               {showWorkoutForm ? (
                 <EnhancedWorkoutForm
                   onSubmit={editingWorkout ? 
@@ -472,6 +481,7 @@ const WorkoutsPage = () => {
                           setShowWorkoutForm(true);
                         }}
                         onDelete={handleDeleteWorkout}
+                        onDuplicate={handleDuplicateWorkout}
                         inProgram={true}
                         onDayChange={handleDayChange}
                         onClick={() => setSelectedWorkout(workout)}
@@ -480,34 +490,16 @@ const WorkoutsPage = () => {
                   </div>
 
                   {/* Add Workout Button */}
-                  <div className="fixed bottom-6 right-6 flex space-x-2">
-                    <button
-                      onClick={() => setShowTemplateSelector(true)}
-                      className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2 shadow-lg"
-                    >
-                      <Folders className="w-5 h-5" />
-                      <span>Use Existing</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingWorkout(null);
-                        setShowWorkoutForm(true);
-                      }}
-                      className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-lg"
-                    >
-                      <Plus className="w-5 h-5" />
-                      <span>Create New</span>
-                    </button>
-                  </div>
-                  {showTemplateSelector && (
-                    <TemplateSelector
-                      templates={workoutTemplates}
-                      onSelect={handleTemplateSelect}
-                      onCancel={() => setShowTemplateSelector(false)}
-                      currentProgramWorkouts={selectedPlan.workouts}
-                      onError={setError}
-                    />
-                  )}
+                  <button
+                    onClick={() => {
+                      setEditingWorkout(null); // Reset any editing state
+                      setShowWorkoutForm(true);
+                    }}
+                    className="fixed bottom-6 right-6 px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-lg"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Add Workout</span>
+                  </button>
                 </>
               )}
 
@@ -595,3 +587,4 @@ const WorkoutsPage = () => {
 };
 
 export default WorkoutsPage;
+

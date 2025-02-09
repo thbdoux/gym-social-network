@@ -90,11 +90,11 @@ const EnhancedWorkoutForm = ({
           }))
         }))
       };
-
+  
       if (initialData?.id) {
         submissionData.id = initialData.id;
       }
-
+  
       await onSubmit(submissionData);
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -176,12 +176,12 @@ const EnhancedWorkoutForm = ({
           <div className="col-span-2">
             <label className="block text-sm text-gray-400 mb-2">Description</label>
             <input
-              type="text"
-              value={formData.description || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500/50 text-white h-10"
-              placeholder="Brief description of your workout"
-            />
+                type="text"
+                value={formData.description || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-blue-500/50 text-white h-10"
+                placeholder="Brief description of your workout"
+                />
           </div>
 
           <div className="col-span-2">

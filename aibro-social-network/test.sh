@@ -24,22 +24,22 @@
 #     "password": "T0k2j7m3toubounou*"
 #   }'
 
-TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM4MjQ3MTkwLCJpYXQiOjE3MzgyNDM1OTAsImp0aSI6ImY1MzZjZWYyMDNiMDQ2ODU4NmY3YTVlZGI3YjI5Y2NiIiwidXNlcl9pZCI6MX0.m5R2iqNNbPDuKuLnLood2YSihz2ZtG_xb-gGbJ3EYNU"
-# create a workout
+# TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM4MjQ3MTkwLCJpYXQiOjE3MzgyNDM1OTAsImp0aSI6ImY1MzZjZWYyMDNiMDQ2ODU4NmY3YTVlZGI3YjI5Y2NiIiwidXNlcl9pZCI6MX0.m5R2iqNNbPDuKuLnLood2YSihz2ZtG_xb-gGbJ3EYNU"
+# # create a workout
 
 # curl -X POST http://localhost:8000/api/workouts/workouts/ \
 #   -H "Authorization: Bearer $TOKEN" \
 #   -H "Content-Type: application/json" \
 #   -d '{"name": "Upper 1", "split_method": "upper_lower", "frequency": "1/week"}'
 
-# # # adds an exercice to the workout 
+# # # # adds an exercice to the workout 
 
 # curl -X POST http://localhost:8000/api/workouts/workouts/1/add_exercise/ \
 #   -H "Authorization: Bearer $TOKEN" \
 #   -H "Content-Type: application/json" \
 #   -d '{"name": "Tractions", "equipment": "bodyweight", "order": 1}'
 
-# # creates plan
+# # # creates plan
 
 # curl -X POST http://localhost:8000/api/workouts/plans/ \
 #   -H "Content-Type: application/json" \
@@ -51,14 +51,24 @@ TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhw
 #     "sessions_per_week": 3
 #   }'
 
-# adds workout to plan 
+# # adds workout to plan 
 
-curl -X POST http://localhost:8000/api/workouts/plans/1/add_workout/ \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "workout": 6,
-    "preferred_weekday": 0,
-    "order": 2,
-    "notes": "Upper body focus - Start with bench press"
-  }'
+# curl -X POST http://localhost:8000/api/workouts/plans/1/add_workout/ \
+#   -H "Content-Type: application/json" \
+#   -H "Authorization: Bearer $TOKEN" \
+#   -d '{
+#     "workout": 6,
+#     "preferred_weekday": 0,
+#     "order": 2,
+#     "notes": "Upper body focus - Start with bench press"
+#   }'
+
+curl -X POST http://localhost:8000/api/users/ \
+-H "Content-Type: application/json" \
+-d '{
+    "username": "testuser",
+    "password": "testpassword123",
+    "email": "test@example.com",
+    "training_level": "beginner",
+    "personality_type": "casual"
+}' 

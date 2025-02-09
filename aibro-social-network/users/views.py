@@ -12,8 +12,31 @@ from .serializers import (UserSerializer, FriendshipSerializer,
 
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
+    def get_permissions(self):
+        """Allow registration without authentication"""
+        if self.action == 'create':  # registration
+            return []
+        return [permissions.IsAuthenticated()]
+    
+    def get_queryset(self):
+        return User.objects.all()
+    
+    def create(self, request, *args, **kwargs):
+        """Handle user registration"""
+        print("Received data:", request.data)  # Debug print
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print("Validation errors:", serializer.errors)  # Debug print
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        user = serializer.save()
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'message': 'User created successfully'
+        }, status=status.HTTP_201_CREATED)
+        
     def get_queryset(self):
         return User.objects.all()
     

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Edit2, Trash2, ChevronDown, ChevronUp, 
-  Dumbbell, Calendar, GripVertical 
+  Dumbbell, Calendar, GripVertical, Copy
 } from 'lucide-react';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -11,6 +11,7 @@ const UnifiedWorkoutCard = ({
   workout, 
   onEdit, 
   onDelete, 
+  onDuplicate,
   inProgram = false,
   onDayChange,
   dragHandleProps,
@@ -89,7 +90,20 @@ const UnifiedWorkoutCard = ({
                 )}
               </div>
             )}
-            
+            <div className="flex items-center space-x-2">
+              {inProgram && onDuplicate && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDuplicate(workout.instance_id);
+                  }}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <Copy className="w-5 h-5" />
+                </button>
+              )}
+              {/* Existing edit and delete buttons */}
+            </div>
             <button 
                 onClick={(e) => {
                     e.stopPropagation(); // Stop event from bubbling up

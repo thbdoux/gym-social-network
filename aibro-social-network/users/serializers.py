@@ -3,28 +3,41 @@ from rest_framework import serializers
 from .models import User, Friendship, FriendRequest
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True)
     class Meta:
         model = User
         fields = [
             'id', 
             'username', 
+            'password',
             'email', 
-            'first_name', 
-            'last_name',
-            'preferred_gym', 
             'training_level', 
             'personality_type',
-            'fitness_goals', 
-            'current_program',    
-            'bio', 
-            'avatar'
-            ]
-        read_only_fields = ['id']
-        extra_kwargs = {'password': {'write_only': True}}
+            'fitness_goals',
+            'bio'
+        ]
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'email': {'required': False},
+            'fitness_goals': {'required': False},
+            'bio': {'required': False},
+        }
 
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        return user
+        try:
+            user = User.objects.create_user(
+                username=validated_data['username'],
+                password=validated_data['password'],
+                email=validated_data.get('email', ''),
+                training_level=validated_data.get('training_level', 'beginner'),
+                personality_type=validated_data.get('personality_type', 'casual'),
+                fitness_goals=validated_data.get('fitness_goals', ''),
+                bio=validated_data.get('bio', '')
+            )
+            return user
+        except Exception as e:
+            print("Error creating user:", str(e))  # Debug print
+            raise
 
 class FriendshipSerializer(serializers.ModelSerializer):
     friend = UserSerializer(source='to_user')

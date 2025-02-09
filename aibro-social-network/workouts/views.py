@@ -32,8 +32,8 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return WorkoutTemplate.objects.filter(
-            Q(creator=user) | 
-            Q(is_public=True)
+            Q(creator=user) #| 
+            # Q(is_public=True)
         ).prefetch_related(
             'exercises',
             'exercises__sets'
@@ -233,9 +233,9 @@ class ProgramViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return Program.objects.filter(
-            Q(creator=user) | 
-            Q(shares__shared_with=user) |
-            Q(is_public=True)
+            Q(creator=user) #| 
+            # Q(shares__shared_with=user) |
+            # Q(is_public=True)
         ).prefetch_related(
             'workout_instances',
             'workout_instances__template',
@@ -252,33 +252,34 @@ class ProgramViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def add_workout(self, request, pk=None):
-        """Add a workout template instance to the program"""
         program = self.get_object()
-        
-        # Get the template
         template_id = request.data.get('template_id')
         try:
             template = WorkoutTemplate.objects.get(
                 Q(id=template_id),
                 Q(creator=request.user) | Q(is_public=True)
             )
+            
+            # Get max order and increment
+            max_order = program.workout_instances.aggregate(
+                max_order=models.Max('order')
+            )['max_order'] or 0
+            new_order = max_order + 1
+            
+            instance = WorkoutInstance.objects.create(
+                program=program,
+                template=template,
+                preferred_weekday=request.data.get('preferred_weekday', 0),
+                order=new_order  # Use calculated order
+            )
+            
+            serializer = WorkoutInstanceSerializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except WorkoutTemplate.DoesNotExist:
             return Response(
                 {"detail": "Template not found or not accessible"},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Create instance
-        instance = WorkoutInstance.objects.create(
-            program=program,
-            template=template,
-            preferred_weekday=request.data.get('preferred_weekday', 0),
-            order=request.data.get('order')
-        )
-        
-        serializer = WorkoutInstanceSerializer(instance)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
     @action(detail=True, methods=['post'])
     def remove_workout(self, request, pk=None):
         """Remove a workout instance from the program"""
@@ -338,6 +339,72 @@ class ProgramViewSet(viewsets.ModelViewSet):
         except WorkoutInstance.DoesNotExist:
             return Response(
                 {"detail": "Workout instance not found in this program"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    # workouts/views.py in ProgramViewSet
+    @action(detail=True, methods=['post'])
+    def duplicate_workout(self, request, pk=None):
+        program = self.get_object()
+        instance_id = request.data.get('instance_id')
+        
+        try:
+            with transaction.atomic():
+                original = program.workout_instances.select_related(
+                    'template'
+                ).prefetch_related(
+                    'template__exercises',
+                    'template__exercises__sets'
+                ).get(id=instance_id)
+                
+                # Duplicate template
+                new_template = WorkoutTemplate.objects.create(
+                    creator=request.user,
+                    name=f"Copy of {original.template.name}",
+                    description=original.template.description,
+                    split_method=original.template.split_method,
+                    is_public=False,
+                    difficulty_level=original.template.difficulty_level,
+                    estimated_duration=original.template.estimated_duration,
+                    equipment_required=original.template.equipment_required,
+                    tags=original.template.tags
+                )
+                
+                # Copy exercises and sets
+                for exercise in original.template.exercises.all():
+                    new_exercise = ExerciseTemplate.objects.create(
+                        workout=new_template,
+                        name=exercise.name,
+                        equipment=exercise.equipment,
+                        notes=exercise.notes,
+                        order=exercise.order
+                    )
+                    
+                    for set_template in exercise.sets.all():
+                        SetTemplate.objects.create(
+                            exercise=new_exercise,
+                            reps=set_template.reps,
+                            weight=set_template.weight,
+                            rest_time=set_template.rest_time,
+                            order=set_template.order
+                        )
+                
+                # Create new instance with new template
+                new_instance = WorkoutInstance.objects.create(
+                    program=program,
+                    template=new_template,
+                    preferred_weekday=original.preferred_weekday,
+                    order=program.workout_instances.aggregate(
+                        max_order=models.Max('order')
+                    )['max_order'] + 1
+                )
+                
+                serializer = WorkoutInstanceSerializer(new_instance)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                
+        except WorkoutInstance.DoesNotExist:
+            return Response(
+                {"detail": "Workout instance not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 

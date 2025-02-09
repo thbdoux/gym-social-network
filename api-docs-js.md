@@ -187,6 +187,10 @@ Response: { access: string }
 // POST /workouts/programs/{id}/remove_workout/
 // Request: { instance_id: number }
 
+// POST /workouts/programs/{id}/duplicate_workout/
+// Request: { instance_id: number }
+// Response: WorkoutInstance
+
 // POST /workouts/programs/{id}/fork/
 // Response: Program
 
