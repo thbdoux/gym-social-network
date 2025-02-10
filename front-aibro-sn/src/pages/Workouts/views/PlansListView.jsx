@@ -28,10 +28,10 @@ const PlansListView = ({
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">My Workout Plans</h1>
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2">Your Programs</h1>
           {hasPlans && (
             <p className="text-gray-400 mt-1">
-              {workoutPlans.length} plans • {totalWorkouts} total workouts • 
+              {workoutPlans.length} programs • {totalWorkouts} total workouts • 
               {averageSessionsPerWeek.toFixed(1)} avg. sessions/week
             </p>
           )}
@@ -43,7 +43,7 @@ const PlansListView = ({
                      transition-colors flex items-center space-x-2"
           >
             <LayoutGrid className="w-5 h-5" />
-            <span>View All Workouts</span>
+            <span>Workout Templates</span>
           </button>
           <button
             onClick={() => setView && setView('create-plan')}  // Add null check
@@ -51,7 +51,7 @@ const PlansListView = ({
                      transition-colors flex items-center space-x-2"
           >
             <Plus className="w-5 h-5" />
-            <span>New Plan</span>
+            <span>New Program</span>
           </button>
         </div>
       </div>
@@ -61,10 +61,7 @@ const PlansListView = ({
 
       {/* Active Plans Section */}
       {hasPlans ? (
-        <div className="space-y-8">
-          {activePlans.length > 0 && (
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-white">Active Plans</h2>
               <WorkoutPlansGrid
                 plans={activePlans}
                 onSelect={onPlanSelect}
@@ -73,22 +70,6 @@ const PlansListView = ({
                 currentUser={user}
               />
             </div>
-          )}
-
-          {/* Completed Plans Section */}
-          {completedPlans.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-400">Completed Plans</h2>
-              <WorkoutPlansGrid
-                plans={completedPlans}
-                onSelect={onPlanSelect}
-                onDelete={deletePlan}
-                onToggleActive={togglePlanActive}
-                currentUser={user}
-              />
-            </div>
-          )}
-        </div>
       ) : (
         <EmptyState
           title="No workout plans yet"
