@@ -23,7 +23,8 @@ const UnifiedWorkoutCard = ({
   const handleDayChange = (e) => {
     const newDay = parseInt(e.target.value);
     if (!isNaN(newDay)) {
-      onDayChange(workout.instance_id, newDay);
+      // Just pass the new day value and let the parent handle the instance_id
+      onDayChange(newDay);
       setIsChangingDay(false);
     }
   };

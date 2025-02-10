@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Dumbbell, Users, Calendar, User, LogOut } from 'lucide-react';
+import { Home, Dumbbell, Users, Calendar, Sparkles, User, LogOut } from 'lucide-react';
 
 const Sidebar = ({ onLogout }) => {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ const Sidebar = ({ onLogout }) => {
     { id: 'feed', label: 'Feed', icon: Home, path: '/feed' },
     { id: 'workouts', label: 'Workouts', icon: Dumbbell, path: '/workouts' },
     { id: 'friends', label: 'Friends', icon: Users, path: '/friends' },
-    { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/schedule' },
+    { id: 'coach', label: 'Coach', icon: Sparkles, path: '/coach' },
     { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
   ];
 
