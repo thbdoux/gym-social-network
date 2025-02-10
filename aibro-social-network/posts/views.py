@@ -10,6 +10,13 @@ from .permissions import IsAuthorOrReadOnly
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
+    
+    def get_permissions(self):
+        if self.action in ['comment', 'like']:
+            # Only require authentication for commenting and liking
+            return [permissions.IsAuthenticated()]
+        # Use default permissions for other actions
+        return [permissions.IsAuthenticated(), IsAuthorOrReadOnly()]
 
     def get_queryset(self):
         # Instead of using union, we'll use Q objects to combine the conditions
