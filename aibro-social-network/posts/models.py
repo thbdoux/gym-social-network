@@ -6,7 +6,8 @@ class Post(models.Model):
         ('regular', 'Regular Post'),
         ('workout_log', 'Workout Log Share'),
         ('program', 'Program Share'),
-        ('workout_invite', 'Workout Invitation')
+        ('workout_invite', 'Workout Invitation'),
+        ('shared', 'Shared Post')
     ]
     
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='posts')
@@ -25,6 +26,15 @@ class Post(models.Model):
                                        null=True, blank=True, related_name='invites')
     planned_date = models.DateTimeField(null=True, blank=True)
     invited_users = models.ManyToManyField('users.User', related_name='workout_invites')
+    is_share = models.BooleanField(default=False)
+    original_post = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE,
+        null=True, 
+        blank=True,
+        related_name='shares'
+    )
+    share_count = models.PositiveIntegerField(default=0)
     
     class Meta:
         ordering = ['-created_at']

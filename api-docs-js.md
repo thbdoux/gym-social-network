@@ -352,6 +352,13 @@ Response: { access: string }
 // POST /posts/{id}/like/
 // Response: void
 
+POST /api/posts/{post_id}/share/
+Content-Type: application/json
+
+{
+    "content": "Optional share comment"
+}
+
 // GET /posts/trending/
 // Response: Post[]
 

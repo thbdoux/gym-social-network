@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { Image, Send, Plus, Calendar, Activity, Edit, Users } from 'lucide-react';
-import api from '../../../api';
+import { 
+  Edit,
+  Activity,
+  Users,
+  Dumbbell,
+  Image, 
+  Send 
+} from 'lucide-react';
+import api from '../../../api'
 
-// CreatePost Component
 const CreatePost = ({ onPostCreated }) => {
-  const [showOptions, setShowOptions] = useState(false);
   const [postType, setPostType] = useState(null);
   const [content, setContent] = useState('');
   const [image, setImage] = useState(null);
@@ -26,7 +31,6 @@ const CreatePost = ({ onPostCreated }) => {
       setContent('');
       setImage(null);
       setPostType(null);
-      setShowOptions(false);
     } catch (err) {
       console.error('Failed to create post:', err);
     }
@@ -38,12 +42,14 @@ const CreatePost = ({ onPostCreated }) => {
       className={`flex-1 bg-gray-900/50 rounded-lg p-4 transition-all duration-300 hover:-translate-y-1
         ${gradient === 'blue' ? 'hover:shadow-blue-500/20' : 
          gradient === 'green' ? 'hover:shadow-green-500/20' : 
-         'hover:shadow-orange-500/20'}`}
+         gradient === 'orange' ? 'hover:shadow-orange-500/20' :
+         'hover:shadow-purple-500/20'}`}
     >
       <div className={`w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center
         ${gradient === 'blue' ? 'bg-blue-500/20 text-blue-400' : 
          gradient === 'green' ? 'bg-green-500/20 text-green-400' : 
-         'bg-orange-500/20 text-orange-400'}`}
+         gradient === 'orange' ? 'bg-orange-500/20 text-orange-400' :
+         'bg-purple-500/20 text-purple-400'}`}
       >
         {icon}
       </div>
@@ -52,18 +58,47 @@ const CreatePost = ({ onPostCreated }) => {
   );
 
   return (
-    <div className="group relative bg-gray-800 rounded-xl overflow-hidden ">
+    <div className="group relative bg-gray-800 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20">
       {/* Progress Bar Background */}
       <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-500 opacity-75" />
       
       <div className="p-6">
         {!postType ? (
           <>
-            
-            <div className="grid grid-cols-3 gap-4">
-              {renderPostTypeButton('regular', <Edit className="w-6 h-6" />, 'Regular Post', 'blue')}
-              {renderPostTypeButton('workout_log', <Activity className="w-6 h-6" />, 'Share Workout', 'green')}
-              {renderPostTypeButton('workout_invite', <Users className="w-6 h-6" />, 'Group Workout', 'orange')}
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                  Create Post
+                </h3>
+                <p className="text-gray-400 mt-1">Share your fitness journey</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {renderPostTypeButton(
+                'regular',
+                <Edit className="w-6 h-6" />,
+                'Regular Post',
+                'blue'
+              )}
+              {renderPostTypeButton(
+                'workout_log',
+                <Activity className="w-6 h-6" />,
+                'Share Workout',
+                'green'
+              )}
+              {renderPostTypeButton(
+                'workout_invite',
+                <Users className="w-6 h-6" />,
+                'Group Workout',
+                'orange'
+              )}
+              {renderPostTypeButton(
+                'program',
+                <Dumbbell className="w-6 h-6" />,
+                'Share Program',
+                'purple'
+              )}
             </div>
           </>
         ) : (
@@ -78,6 +113,11 @@ const CreatePost = ({ onPostCreated }) => {
                 {postType === 'workout_invite' && (
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-500/20 text-orange-400">
                     Group Workout
+                  </span>
+                )}
+                {postType === 'program' && (
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-500/20 text-purple-400">
+                    Program Share
                   </span>
                 )}
               </div>
@@ -96,6 +136,7 @@ const CreatePost = ({ onPostCreated }) => {
               placeholder={
                 postType === 'workout_log' ? "Share your workout achievement..." :
                 postType === 'workout_invite' ? "Invite friends to workout together..." :
+                postType === 'program' ? "Share your training program..." :
                 "What's on your mind?"
               }
               className="w-full bg-gray-900/50 text-gray-100 rounded-lg p-4 min-h-[120px] resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder-gray-500"
@@ -116,7 +157,11 @@ const CreatePost = ({ onPostCreated }) => {
               <button
                 type="submit"
                 disabled={!content.trim()}
-                className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50"
+                className={`px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50
+                  ${postType === 'workout_log' ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400' :
+                    postType === 'workout_invite' ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400' :
+                    postType === 'program' ? 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-400' :
+                    'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'}`}
               >
                 <Send className="w-4 h-4" />
                 <span>Post</span>

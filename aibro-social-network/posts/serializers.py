@@ -26,6 +26,9 @@ class PostSerializer(serializers.ModelSerializer):
     program_details = serializers.SerializerMethodField()
     workout_invite_details = serializers.SerializerMethodField()
     invited_users_details = serializers.SerializerMethodField()
+    shares_count = serializers.IntegerField(source='share_count', read_only=True)
+    original_post_details = serializers.SerializerMethodField()
+    shared_by = serializers.SerializerMethodField()
     
     class Meta:
         model = Post
@@ -34,10 +37,31 @@ class PostSerializer(serializers.ModelSerializer):
             'updated_at', 'user_username', 'user_profile_picture',
             'comments', 'likes_count', 'is_liked',
             'workout_log_details', 'program_details', 
-            'workout_invite_details', 'invited_users_details'
+            'workout_invite_details', 'invited_users_details','is_share', 'original_post', 'shares_count',
+            'original_post_details', 'shared_by'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+
+    def get_original_post_details(self, obj):
+        if obj.is_share and obj.original_post:
+            # Avoid infinite recursion by excluding share-related fields
+            return PostSerializer(
+                obj.original_post, 
+                context=self.context,
+                exclude_fields=['is_share', 'original_post', 'shares_count']
+            ).data
+        return None
+
+    def get_shared_by(self, obj):
+        if obj.is_share:
+            return {
+                'username': obj.user.username,
+                'id': obj.user.id,
+                'profile_picture': obj.user.profile_picture.url if obj.user.profile_picture else None
+            }
+        return None
+        
     def get_workout_log_details(self, obj):
         if obj.workout_log:
             from workouts.serializers import WorkoutLogSerializer
