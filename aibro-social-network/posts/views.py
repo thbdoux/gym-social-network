@@ -11,6 +11,45 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
 
+    def update(self, request, *args, **kwargs):
+        """Update a post - only allowed for original author"""
+        post = self.get_object()
+        
+        # Extra verification although IsAuthorOrReadOnly should handle this
+        if post.user != request.user:
+            return Response(
+                {"detail": "You do not have permission to modify this post."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Don't allow modification of shared posts' original content
+        if post.is_share:
+            # Only allow updating the share comment
+            if set(request.data.keys()) - {'content'}:
+                return Response(
+                    {"detail": "Can only modify share comment for shared posts"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a post - only allowed for original author"""
+        post = self.get_object()
+        
+        # Extra verification although IsAuthorOrReadOnly should handle this
+        if post.user != request.user:
+            return Response(
+                {"detail": "You do not have permission to delete this post."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # If this is an original post being deleted, we should also delete all shares
+        if not post.is_share:
+            # Delete all shares of this post
+            Post.objects.filter(original_post=post).delete()
+            
+        return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         # Update existing queryset to include shares info

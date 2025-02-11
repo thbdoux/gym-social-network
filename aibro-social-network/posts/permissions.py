@@ -8,7 +8,7 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
             return True
             
         # Allow POST for comments and likes actions
-        if view.action in ['comment', 'like']:
+        if view.action in ['comment', 'like', 'share']:
             return True
 
         # Otherwise, only allow if user is the author

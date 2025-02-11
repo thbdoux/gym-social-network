@@ -6,6 +6,8 @@ import ProgressCard from './components/ProgressCard';
 import NextWorkout from './components/NextWorkout';
 import RecentWorkouts from './components/RecentWorkouts';
 import FeedContainer from './components/FeedContainer';
+import EditPostModal from './components/EditPostModal';
+import SharePostModal from './components/SharePostModal';
 import api from '../../api';
 
 const MainFeed = () => {
@@ -14,6 +16,10 @@ const MainFeed = () => {
   const [user, setUser] = useState(null);
   const [nextWorkout, setNextWorkout] = useState(null);
   const [recentWorkouts, setRecentWorkouts] = useState([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [sharingPost, setSharingPost] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,15 +84,70 @@ const MainFeed = () => {
   const handlePostComment = async (postId, content) => {
     try {
       const response = await api.post(`/posts/${postId}/comment/`, { content });
-      setPosts(posts.map(post => 
-        post.id === postId 
-          ? { ...post, comments: [...(post.comments || []), response.data] }
-          : post
-      ));
+      
+      // Update the posts state to include the new comment
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            comments: [...(post.comments || []), response.data]
+          };
+        }
+        return post;
+      }));
     } catch (err) {
       console.error('Error commenting on post:', err);
     }
   };
+  const handleShareClick = (post) => {
+    setSharingPost(post);
+    setIsShareModalOpen(true);
+  };
+  
+  const handleShare = async (postId, content) => {
+    try {
+      const response = await api.post(`/posts/${postId}/share/`, {
+        content: content || undefined
+      });
+      setPosts([response.data, ...posts]);
+      setIsShareModalOpen(false);
+      setSharingPost(null);
+    } catch (error) {
+      console.error('Error sharing post:', error);
+    }
+  };
+
+  const handleEditClick = (post) => {
+    setEditingPost(post);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditPost = async (updatedPost) => {
+    try {
+      const editableData = {
+        content: updatedPost.content,
+        post_type: updatedPost.post_type,
+        image: updatedPost.image
+      };
+
+      const response = await api.put(`/posts/${updatedPost.id}/`, editableData);
+      setPosts(posts.map(p => p.id === updatedPost.id ? response.data : p));
+      setIsEditModalOpen(false);
+      setEditingPost(null);
+    } catch (error) {
+      console.error('Error updating post:', error.response?.data || error);
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    try {
+      await api.delete(`/posts/${postId}/`);
+      setPosts(posts.filter(p => p.id !== postId));
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
+  };
+
 
   return (
     // <div className="min-h-screen bg-[#0B0E14]">
@@ -99,8 +160,12 @@ const MainFeed = () => {
               <CreatePost onPostCreated={handlePostCreated} />
               <FeedContainer
                 posts={posts}
+                currentUser={user?.username} // Make sure this is being passed correctly
                 onLike={handlePostLike}
                 onComment={handlePostComment}
+                onShare={handleShareClick}
+                onEdit={handleEditClick}
+                onDelete={handleDeletePost}
               />
             </div>
           </div>
@@ -114,6 +179,28 @@ const MainFeed = () => {
             </div>
           </div>
         </div>
+        {editingPost && (
+          <EditPostModal
+            post={editingPost}
+            isOpen={isEditModalOpen}
+            onClose={() => {
+              setIsEditModalOpen(false);
+              setEditingPost(null);
+            }}
+            onSave={handleEditPost}
+          />
+        )}
+        {sharingPost && (
+          <SharePostModal
+            post={sharingPost}
+            isOpen={isShareModalOpen}
+            onClose={() => {
+              setIsShareModalOpen(false);
+              setSharingPost(null);
+            }}
+            onShare={handleShare}
+          />
+        )}
       </div>
     // </div>
   );

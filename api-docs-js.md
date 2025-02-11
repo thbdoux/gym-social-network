@@ -352,12 +352,28 @@ Response: { access: string }
 // POST /posts/{id}/like/
 // Response: void
 
+// Share a post
 POST /api/posts/{post_id}/share/
 Content-Type: application/json
 
 {
     "content": "Optional share comment"
 }
+
+// Update a post 
+
+PUT /api/posts/{post_id}/
+Content-Type: application/json
+
+{
+    "content": "Updated content",
+    "post_type": "regular",
+    ... other fields ...
+}
+
+// Delete a post 
+
+DELETE /api/posts/{post_id}/
 
 // GET /posts/trending/
 // Response: Post[]
