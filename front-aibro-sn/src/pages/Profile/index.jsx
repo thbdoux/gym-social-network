@@ -1,22 +1,142 @@
 import React, { useState, useEffect } from 'react';
-import { Dumbbell, Users, Calendar, Settings, Medal, Edit } from 'lucide-react';
+import { 
+  X, 
+  Users, 
+  LineChart,
+  ChevronRight,
+  ChevronLeft,
+  Edit,
+  Check,
+  Save
+} from 'lucide-react';
 import api from '../../api';
+
+import ProfileHeader from './components/ProfileHeader';
+import FriendsList from './components/FriendsList';
+import ProgressCharts from './components/ProgressCharts';
+import RecentPosts from './components/RecentPosts';
+import WorkoutLog from './components/WorkoutLog';
+
+const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
+  const [formData, setFormData] = useState({
+    username: user?.username || '',
+    bio: user?.bio || '',
+    gym: user?.preferred_gym || '',
+    training_level: user?.training_level || 'beginner',
+    personality_type: user?.personality_type || 'casual'
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-xl w-full max-w-md p-6 relative">
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-white"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        
+        <h2 className="text-xl font-bold mb-6">Edit Profile</h2>
+        
+        <form className="space-y-4" onSubmit={(e) => {
+          e.preventDefault();
+          onSave(formData);
+        }}>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Username</label>
+            <input
+              type="text"
+              value={formData.username}
+              onChange={(e) => setFormData({...formData, username: e.target.value})}
+              className="w-full bg-gray-700 rounded-lg px-4 py-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Bio</label>
+            <textarea
+              value={formData.bio}
+              onChange={(e) => setFormData({...formData, bio: e.target.value})}
+              className="w-full bg-gray-700 rounded-lg px-4 py-2 h-24"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Gym</label>
+            <input
+              type="text"
+              value={formData.gym}
+              onChange={(e) => setFormData({...formData, gym: e.target.value})}
+              className="w-full bg-gray-700 rounded-lg px-4 py-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Training Level</label>
+            <select
+              value={formData.training_level}
+              onChange={(e) => setFormData({...formData, training_level: e.target.value})}
+              className="w-full bg-gray-700 rounded-lg px-4 py-2"
+            >
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Personality Type</label>
+            <select
+              value={formData.personality_type}
+              onChange={(e) => setFormData({...formData, personality_type: e.target.value})}
+              className="w-full bg-gray-700 rounded-lg px-4 py-2"
+            >
+              <option value="casual">Casual</option>
+              <option value="lone_wolf">Lone Wolf</option>
+              <option value="extrovert_bro">Extrovert Bro</option>
+              <option value="competitor">Competitor</option>
+            </select>
+          </div>
+
+          <button 
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 rounded-lg py-2 mt-6 flex items-center justify-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            Save Changes
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
-  const [friends, setFriends] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [friends, setFriends] = useState(null);
+  const [workoutLogs, setWorkoutLogs] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [recommendedFriends, setRecommendedFriends] = useState([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const [userResponse, friendsResponse] = await Promise.all([
-          api.get("/users/me/"),
-          api.get("/users/friends/")
+        const [userResponse, friendsResponse, logsResponse, postsResponse] = await Promise.all([
+          api.get('/users/me/'),
+          api.get('/users/friends/'),
+          api.get('/workouts/logs/'),
+          api.get('/posts/')
         ]);
-        setUser(userResponse);
-        setFriends(friendsResponse);
+        
+        // Ensure we're handling the data property correctly
+        setUser(userResponse.data);
+        setFriends(Array.isArray(friendsResponse.data.results) ? friendsResponse.data.results : []);
+        setWorkoutLogs(Array.isArray(logsResponse.data.results) ? logsResponse.data.results : []);
+        setPosts(Array.isArray(postsResponse.data.results) ? postsResponse.data.results : []);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching profile data:', error);
@@ -27,142 +147,61 @@ const ProfilePage = () => {
     fetchProfileData();
   }, []);
 
+
+  const handleSaveProfile = async (formData) => {
+    try {
+      const response = await api.put('/users/me/', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUser(updatedUser);
+        setIsEditModalOpen(false);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    }
+  };
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Profile Header */}
-      <div className="flex items-start gap-6 mb-8">
-        <div className="relative">
-          <img
-            src={user?.avatar || "/api/placeholder/150/150"}
-            alt="Profile"
-            className="w-32 h-32 rounded-full object-cover border-4 border-gray-800"
-          />
-          <button className="absolute bottom-0 right-0 p-2 bg-gray-800 rounded-full hover:bg-gray-700">
-            <Edit className="w-4 h-4" />
-          </button>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <ProfileHeader 
+        user={user}
+        workoutCount={workoutLogs.length}
+        friendCount={Array.isArray(friends) ? friends.length : 0}
+        onEditClick={() => setIsEditModalOpen(true)}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <WorkoutLog logs={workoutLogs} />
+          <ProgressCharts />
+          <RecentPosts posts={posts} username={user?.username}/>
         </div>
-        
-        <div className="flex-1">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold">{user?.username}</h1>
-              <p className="text-gray-400 mt-1">{user?.bio}</p>
-            </div>
-            <button className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
-              Edit Profile
-            </button>
-          </div>
-          
-          <div className="flex gap-6 mt-4">
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-gray-400" />
-              <span>{Array.isArray(friends) ? friends.length : 0} Friends</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Dumbbell className="w-5 h-5 text-gray-400" />
-              <span>{user?.training_level}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Medal className="w-5 h-5 text-gray-400" />
-              <span>{user?.personality_type?.replace('_', ' ')}</span>
-            </div>
-          </div>
-        </div>
+
+        <FriendsList 
+          friends={friends}
+          recommendedFriends={recommendedFriends}
+        />
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gray-800/40 rounded-lg p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/10 rounded-lg">
-              <Dumbbell className="w-6 h-6 text-blue-500" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">Current Program</div>
-              <div className="font-semibold mt-1">
-                {user?.current_program ? "Active" : "No active program"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800/40 rounded-lg p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-500/10 rounded-lg">
-              <Users className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">Gym</div>
-              <div className="font-semibold mt-1">
-                {user?.preferred_gym ? "Fitness Park" : "Not set"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800/40 rounded-lg p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-500/10 rounded-lg">
-              <Calendar className="w-6 h-6 text-purple-500" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">Goals</div>
-              <div className="font-semibold mt-1">{user?.fitness_goals}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Friends Section */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Friends</h2>
-          <button className="text-blue-500 hover:text-blue-400">View All</button>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.isArray(friends) && friends.slice(0, 4).map((friend) => (
-            <div key={friend.id} className="flex items-center gap-3 p-3 bg-gray-800/40 rounded-lg">
-              <img
-                src={friend.avatar || "/api/placeholder/40/40"}
-                alt={friend.username}
-                className="w-10 h-10 rounded-full"
-              />
-              <div>
-                <div className="font-medium">{friend.username}</div>
-                <div className="text-sm text-gray-400">{friend.training_level}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <button className="p-4 bg-gray-800/40 rounded-lg hover:bg-gray-700/40 transition-colors">
-          <Dumbbell className="w-6 h-6 mb-2" />
-          <div className="text-sm">Start Workout</div>
-        </button>
-        <button className="p-4 bg-gray-800/40 rounded-lg hover:bg-gray-700/40 transition-colors">
-          <Users className="w-6 h-6 mb-2" />
-          <div className="text-sm">Find Gym Buddy</div>
-        </button>
-        <button className="p-4 bg-gray-800/40 rounded-lg hover:bg-gray-700/40 transition-colors">
-          <Calendar className="w-6 h-6 mb-2" />
-          <div className="text-sm">Schedule Workout</div>
-        </button>
-        <button className="p-4 bg-gray-800/40 rounded-lg hover:bg-gray-700/40 transition-colors">
-          <Settings className="w-6 h-6 mb-2" />
-          <div className="text-sm">Settings</div>
-        </button>
-      </div>
+      <EditProfileModal 
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        user={user}
+        onSave={handleSaveProfile}
+      />
     </div>
   );
 };
