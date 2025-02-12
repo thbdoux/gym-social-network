@@ -66,7 +66,7 @@ const Post = ({
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
           {originalPost.user_profile_picture ? (
             <img 
-              src={originalPost.user_profile_picture} 
+              src={getAvatarUrl(originalPost.user_profile_picture)}
               alt={originalPost.user_username}
               className="w-full h-full rounded-full object-cover"
             />
@@ -86,7 +86,7 @@ const Post = ({
       <p className="text-gray-200">{originalPost.content}</p>
       {originalPost.image && (
         <img
-          src={originalPost.image}
+          src={getAvatarUrl(originalPost.image)}
           alt="Original post content"
           className="mt-3 rounded-lg w-full object-cover"
         />
@@ -259,17 +259,17 @@ const Post = ({
         <div className="flex items-start justify-between">
           <div className="flex items-center">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-              {post.user_profile_picture ? (
-                <img 
-                  src={post.user_profile_picture} 
-                  alt={post.user_username}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-white font-medium text-lg">
-                  {post.user_username[0].toUpperCase()}
-                </span>
-              )}
+            {post.user_profile_picture ? (
+              <img 
+                src={getAvatarUrl(post.user_profile_picture)}
+                alt={post.user_username}
+                className="w-full h-full rounded-full object-cover"
+              />
+            ) : (
+              <span className="text-white font-medium text-lg">
+                {post.user_username[0].toUpperCase()}
+              </span>
+            )}
             </div>
             <div className="ml-4">
               <div className="flex items-center gap-2">
@@ -302,7 +302,7 @@ const Post = ({
           )}
           {!post.is_share && post.image && (
             <img
-              src={post.image}
+              src={getAvatarUrl(post.image)}
               alt="Post content"
               className="mt-4 w-full rounded-lg object-cover"
             />

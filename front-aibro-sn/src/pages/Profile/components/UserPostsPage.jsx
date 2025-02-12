@@ -2,12 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Heart, MessageCircle, ArrowLeft } from 'lucide-react';
 import api from '../../../api';
+import { getAvatarUrl } from '../../../utils/imageUtils';
 
 const UserPostsPage = () => {
   const { username } = useParams();
   const [posts, setPosts] = useState([]);
+  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [postsResponse, userResponse] = await Promise.all([
+          api.get('/posts/'),
+          api.get(`/users/me/`)
+        ]);
+        
+        const userPosts = postsResponse.data.results.filter(
+          post => post.user_username === username
+        );
+        setPosts(userPosts);
+        setUserData(userResponse.data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [username]);
+  
   useEffect(() => {
     const fetchUserPosts = async () => {
       try {
@@ -16,6 +41,7 @@ const UserPostsPage = () => {
         const userPosts = response.data.results.filter(
           post => post.user_username === username
         );
+        console.log("UserPostsPage - API response:", response.data.results[0]);
         setPosts(userPosts);
         setLoading(false);
       } catch (error) {
@@ -51,11 +77,11 @@ const UserPostsPage = () => {
         {posts.map((post) => (
           <div key={post.id} className="bg-gray-800/40 rounded-xl p-6">
             <div className="flex items-start gap-3">
-              <img
-                src={post.user_profile_picture || "/api/placeholder/40/40"}
-                alt=""
-                className="w-10 h-10 rounded-full"
-              />
+            <img
+              src={getAvatarUrl(userData?.avatar, 40)} // Changed from post.user_profile_picture
+              alt={`${post.user_username}'s avatar`}
+              className="w-10 h-10 rounded-full object-cover"
+            />
               <div className="flex-1">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
@@ -68,9 +94,10 @@ const UserPostsPage = () => {
                   </div>
                 </div>
                 <p className="mt-2 text-gray-200">{post.content}</p>
+                                
                 {post.image && (
                   <img
-                    src={post.image}
+                    src={getAvatarUrl(post.image)}
                     alt=""
                     className="mt-3 rounded-lg w-full object-cover max-h-80"
                   />

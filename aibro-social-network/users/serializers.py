@@ -3,24 +3,31 @@ from rest_framework import serializers
 from .models import User, Friendship, FriendRequest
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(write_only=True, required=False)  # Changed to not required
+    current_password = serializers.CharField(write_only=True, required=False)
     class Meta:
         model = User
         fields = [
             'id', 
             'username', 
             'password',
+            'current_password',
             'email', 
             'training_level', 
             'personality_type',
             'fitness_goals',
-            'bio'
+            'bio',
+            'avatar',
+            'preferred_gym'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
             'email': {'required': False},
             'fitness_goals': {'required': False},
             'bio': {'required': False},
+            'avatar': {'required': False},
+            'preferred_gym': {'required': False},
+            'username': {'read_only': True}  # Prevent username changes in profile updates
         }
 
     def create(self, validated_data):
@@ -38,6 +45,23 @@ class UserSerializer(serializers.ModelSerializer):
         except Exception as e:
             print("Error creating user:", str(e))  # Debug print
             raise
+
+    def update(self, instance, validated_data):
+        # Handle password change if provided
+        current_password = validated_data.pop('current_password', None)
+        new_password = validated_data.pop('password', None)
+        
+        if current_password and new_password:
+            if not instance.check_password(current_password):
+                raise serializers.ValidationError({"current_password": "Wrong password"})
+            instance.set_password(new_password)
+
+        # Update other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
 
 class FriendshipSerializer(serializers.ModelSerializer):
     friend = UserSerializer(source='to_user')

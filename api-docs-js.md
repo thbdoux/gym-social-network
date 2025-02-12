@@ -19,6 +19,30 @@ Response: { access: string }
 ## Users API
 
 ### Endpoints
+
+#### Update profile information
+
+PATCH /api/users/me/
+Content-Type: multipart/form-data
+
+{
+    "bio": "New bio",
+    "fitness_goals": "New goals",
+    "training_level": "advanced",
+    "personality_type": "extrovert_bro",
+    "avatar": <file>,
+    "preferred_gym": 1
+}
+
+#### Change password
+PATCH /api/users/me/
+Content-Type: application/json
+
+{
+    "current_password": "your_current_password",
+    "password": "your_new_password"
+}
+
 ```javascript
 // GET /users/
 // Response: User[]
