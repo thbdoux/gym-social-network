@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, MoreVertical, Heart, MessageCircle, Share2, Send, Pencil, Trash2, X } from 'lucide-react';
 import { FileEdit } from "lucide-react";
+import api from '../../../api';
+import { getAvatarUrl } from '../../../utils/imageUtils';
 
 const Post = ({ 
   post, 
@@ -9,7 +11,8 @@ const Post = ({
   onComment, 
   onShare, 
   onEdit, 
-  onDelete 
+  onDelete,
+  userData
 }) => {
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -64,9 +67,9 @@ const Post = ({
     <div className="mt-4 bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
       <div className="flex items-center gap-3 mb-2">
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-          {originalPost.user_profile_picture ? (
+          {userData?.avatar ? (
             <img 
-              src={getAvatarUrl(originalPost.user_profile_picture)}
+              src={getAvatarUrl(userData.avatar)}
               alt={originalPost.user_username}
               className="w-full h-full rounded-full object-cover"
             />
@@ -259,9 +262,9 @@ const Post = ({
         <div className="flex items-start justify-between">
           <div className="flex items-center">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-            {post.user_profile_picture ? (
+            {userData?.avatar ? (
               <img 
-                src={getAvatarUrl(post.user_profile_picture)}
+                src={getAvatarUrl(userData.avatar)}
                 alt={post.user_username}
                 className="w-full h-full rounded-full object-cover"
               />
@@ -355,6 +358,36 @@ const Post = ({
 }
 
 const FeedContainer = ({ posts, currentUser, onLike, onComment, onShare, onEdit, onDelete }) => {
+  const [usersData, setUsersData] = useState({});
+
+  useEffect(() => {
+    const usernames = [...new Set(posts.map(post => post.user_username))];
+    
+    // Fetch data for each unique user
+    const fetchUsersData = async () => {
+      try {
+        const usersResponse = await api.get('/users/');
+        const allUsers = usersResponse.data.results || usersResponse.data;
+        
+        const newUsersData = {};
+        usernames.forEach(username => {
+          const user = allUsers.find(u => u.username === username);
+          if (user) {
+            newUsersData[username] = user;
+          }
+        });
+        
+        setUsersData(newUsersData);
+      } catch (error) {
+        console.error('Error fetching users data:', error);
+      }
+    };
+
+    if (usernames.length > 0) {
+      fetchUsersData();
+    }
+  }, [posts]);
+
   return (
     <div className="group relative bg-gray-800 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/20">
       <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-indigo-500 to-blue-500 opacity-75" />
@@ -380,6 +413,7 @@ const FeedContainer = ({ posts, currentUser, onLike, onComment, onShare, onEdit,
               onShare={onShare}
               onEdit={onEdit}
               onDelete={onDelete}
+              userData={usersData[post.user_username]}
             />
           ))}
         </div>
