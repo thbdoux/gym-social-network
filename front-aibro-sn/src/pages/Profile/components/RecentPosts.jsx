@@ -13,7 +13,7 @@ const RecentPosts = ({ posts, username }) => {
   const userPosts = Array.isArray(posts) 
     ? posts.filter(post => post.user_username === username).slice(0, 3)
     : [];
-  console.log("RecentPosts - post data:", userPosts[0]);
+  // console.log("RecentPosts - post data:", userPosts[0]);
   useEffect(() => {
     const fetchUserData = async () => {
       try {

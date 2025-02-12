@@ -41,7 +41,7 @@ const UserPostsPage = () => {
         const userPosts = response.data.results.filter(
           post => post.user_username === username
         );
-        console.log("UserPostsPage - API response:", response.data.results[0]);
+        // console.log("UserPostsPage - API response:", response.data.results[0]);
         setPosts(userPosts);
         setLoading(false);
       } catch (error) {

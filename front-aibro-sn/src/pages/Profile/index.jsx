@@ -12,7 +12,7 @@ import {
 import api from '../../api';
 
 import ProfileHeader from './components/ProfileHeader';
-import FriendsList from './components/FriendsList';
+import EnhancedFriendsList from './components/EnhancedFriendsList';
 import ProgressCharts from './components/ProgressCharts';
 import RecentPosts from './components/RecentPosts';
 import WorkoutLog from './components/WorkoutLog';
@@ -69,10 +69,7 @@ const ProfilePage = () => {
           <RecentPosts posts={posts} username={user?.username}/>
         </div>
 
-        <FriendsList 
-          friends={friends}
-          recommendedFriends={recommendedFriends}
-        />
+        <EnhancedFriendsList currentUser={user} />
       </div>
 
       <EditProfileModal 

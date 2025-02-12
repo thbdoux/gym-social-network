@@ -357,13 +357,49 @@ const Post = ({
   );
 }
 
+
 const FeedContainer = ({ posts, currentUser, onLike, onComment, onShare, onEdit, onDelete }) => {
   const [usersData, setUsersData] = useState({});
+  const [friendUsernames, setFriendUsernames] = useState(null);
+  const [filteredPosts, setFilteredPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Fetch friends list
   useEffect(() => {
-    const usernames = [...new Set(posts.map(post => post.user_username))];
+    const fetchFriends = async () => {
+      try {
+        const friendsResponse = await api.get('/users/friends/');
+        const friendsList = Array.isArray(friendsResponse.data) ? friendsResponse.data :
+                          Array.isArray(friendsResponse.data.results) ? friendsResponse.data.results : [];
+        
+        // Get list of friend usernames
+        const friendsSet = new Set(friendsList.map(f => f.friend.username));
+        setFriendUsernames(friendsSet);
+      } catch (error) {
+        console.error('Error fetching friends:', error);
+        setFriendUsernames(new Set()); // Set empty set on error
+      }
+    };
+
+    fetchFriends();
+  }, []);
+
+  // Filter posts to only show friends' posts and current user's posts
+  useEffect(() => {
+    // Only proceed if friendUsernames is not null (indicating friends have been fetched)
+    if (friendUsernames !== null) {
+      const friendPosts = posts.filter(post => 
+        friendUsernames.has(post.user_username) || post.user_username === currentUser
+      );
+      setFilteredPosts(friendPosts);
+      setLoading(false);
+    }
+  }, [posts, friendUsernames, currentUser]);
+
+  // Fetch user data for posts
+  useEffect(() => {
+    const usernames = [...new Set(filteredPosts.map(post => post.user_username))];
     
-    // Fetch data for each unique user
     const fetchUsersData = async () => {
       try {
         const usersResponse = await api.get('/users/');
@@ -386,7 +422,26 @@ const FeedContainer = ({ posts, currentUser, onLike, onComment, onShare, onEdit,
     if (usernames.length > 0) {
       fetchUsersData();
     }
-  }, [posts]);
+  }, [filteredPosts]);
+
+  if (loading) {
+    return (
+      <div className="group relative bg-gray-800 rounded-xl overflow-hidden p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-700 rounded w-1/4"></div>
+          <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-gray-700 rounded-lg p-4">
+                <div className="h-4 bg-gray-600 rounded w-3/4"></div>
+                <div className="mt-4 h-24 bg-gray-600 rounded"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="group relative bg-gray-800 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/20">
@@ -398,28 +453,101 @@ const FeedContainer = ({ posts, currentUser, onLike, onComment, onShare, onEdit,
             <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
               Feed
             </h3>
-            <p className="text-gray-400 mt-1">Latest updates from your gym community</p>
+            <p className="text-gray-400 mt-1">Latest updates from your friends</p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {posts.map((post) => (
-            <Post
-              key={post.id}
-              post={post}
-              currentUser={currentUser}
-              onLike={onLike}
-              onComment={onComment}
-              onShare={onShare}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              userData={usersData[post.user_username]}
-            />
-          ))}
-        </div>
+        {filteredPosts.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <p>No posts to show. Add some friends to see their updates!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredPosts.map((post) => (
+              <Post
+                key={post.id}
+                post={post}
+                currentUser={currentUser}
+                onLike={onLike}
+                onComment={onComment}
+                onShare={onShare}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                userData={usersData[post.user_username]}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default FeedContainer;
+
+// const FeedContainer = ({ posts, currentUser, onLike, onComment, onShare, onEdit, onDelete }) => {
+//   const [usersData, setUsersData] = useState({});
+
+//   useEffect(() => {
+//     const usernames = [...new Set(posts.map(post => post.user_username))];
+    
+//     // Fetch data for each unique user
+//     const fetchUsersData = async () => {
+//       try {
+//         const usersResponse = await api.get('/users/');
+//         const allUsers = usersResponse.data.results || usersResponse.data;
+        
+//         const newUsersData = {};
+//         usernames.forEach(username => {
+//           const user = allUsers.find(u => u.username === username);
+//           if (user) {
+//             newUsersData[username] = user;
+//           }
+//         });
+        
+//         setUsersData(newUsersData);
+//       } catch (error) {
+//         console.error('Error fetching users data:', error);
+//       }
+//     };
+
+//     if (usernames.length > 0) {
+//       fetchUsersData();
+//     }
+//   }, [posts]);
+
+//   return (
+//     <div className="group relative bg-gray-800 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/20">
+//       <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-indigo-500 to-blue-500 opacity-75" />
+      
+//       <div className="p-6">
+//         <div className="flex justify-between items-start mb-6">
+//           <div>
+//             <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
+//               Feed
+//             </h3>
+//             <p className="text-gray-400 mt-1">Latest updates from your gym community</p>
+//           </div>
+//         </div>
+
+//         <div className="space-y-4">
+//           {posts.map((post) => (
+//             <Post
+//               key={post.id}
+//               post={post}
+//               currentUser={currentUser}
+//               onLike={onLike}
+//               onComment={onComment}
+//               onShare={onShare}
+//               onEdit={onEdit}
+//               onDelete={onDelete}
+//               userData={usersData[post.user_username]}
+//             />
+//           ))}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default FeedContainer;
