@@ -407,6 +407,37 @@ class ProgramViewSet(viewsets.ModelViewSet):
                 {"detail": "Workout instance not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
+    
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        """Toggle active status of a program, ensuring only one is active at a time"""
+        program = self.get_object()
+        user = request.user
+        
+        with transaction.atomic():
+            if not program.is_active:
+                # Deactivate all other programs of this user
+                Program.objects.filter(
+                    creator=user,
+                    is_active=True
+                ).update(is_active=False)
+                
+                # Activate this program
+                program.is_active = True
+                # Set as user's current program
+                user.current_program = program
+            else:
+                # Deactivate this program
+                program.is_active = False
+                # Remove as user's current program
+                if user.current_program == program:
+                    user.current_program = None
+            
+            program.save()
+            user.save()
+            
+            serializer = self.get_serializer(program)
+            return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def fork(self, request, pk=None):

@@ -80,6 +80,9 @@ const WorkoutsPage = () => {
 
       case 'all-workouts':
         return <AllWorkoutsView {...viewProps} />;
+      
+      case 'create-plan':
+        return <CreatePlanView {...viewProps} />;
 
       default:
         return null;

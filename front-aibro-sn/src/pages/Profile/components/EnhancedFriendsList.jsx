@@ -91,10 +91,8 @@ const EnhancedFriendsList = ({ currentUser }) => {
   // Get sets of user IDs for each category
   const getUserSets = () => {
     // Debug log to check the friends data structure
-    console.log("Friends data:", friends);
     
     const friendIds = new Set(friends.map(friendData => {
-      console.log("Processing friend:", friendData);
       return friendData.friend.id;
     }));
     
@@ -198,9 +196,7 @@ const EnhancedFriendsList = ({ currentUser }) => {
         <h2 className="text-xl font-bold mb-4 text-white">Friends ({friends.length})</h2>
         <div className="space-y-3">
           {friends.map((friendData) => {
-            // Log the friend data to verify structure
-            console.log('Friend data:', friendData);
-            
+    
             // The friend object contains the actual user data
             const friendUser = friendData.friend;
             

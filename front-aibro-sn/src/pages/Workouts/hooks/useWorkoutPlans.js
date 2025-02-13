@@ -61,13 +61,25 @@ export const useWorkoutPlans = () => {
 
   const togglePlanActive = async (planId) => {
     try {
-      const plan = workoutPlans.find(p => p.id === planId);
-      const response = await api.post(`/workouts/programs/${planId}/`, {
-        is_active: !plan.is_active
-      });
+      const response = await api.post(`/workouts/programs/${planId}/toggle_active/`);
+      
+      // Update all plans to reflect the new active state
       setWorkoutPlans(prevPlans => 
-        prevPlans.map(p => p.id === planId ? response.data : p)
+        prevPlans.map(p => ({
+          ...p,
+          is_active: p.id === planId ? response.data.is_active : false
+        }))
       );
+
+      // Refresh user data to update current_program in profile
+      await api.get('/users/me/').then(response => {
+        // Assuming you have some way to update the global user state
+        // This could be through context, redux, or other state management
+        if (typeof onUserUpdate === 'function') {
+          onUserUpdate(response.data);
+        }
+      });
+      
       return response.data;
     } catch (err) {
       console.error('Error toggling plan status:', err);

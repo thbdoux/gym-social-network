@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  Users, 
-  LineChart,
-  ChevronRight,
-  ChevronLeft,
-  Edit,
-  Check,
-  Save
-} from 'lucide-react';
+import { Users, LineChart } from 'lucide-react';
 import api from '../../api';
 
 import ProfileHeader from './components/ProfileHeader';
@@ -20,16 +11,16 @@ import EditProfileModal from './components/EditProfileModal';
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
-  const [friends, setFriends] = useState(null);
+  const [friends, setFriends] = useState([]);
   const [workoutLogs, setWorkoutLogs] = useState([]);
   const [posts, setPosts] = useState([]);
-  const [recommendedFriends, setRecommendedFriends] = useState([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
+        // When fetching user data, the backend should include preferred_gym_details
         const [userResponse, friendsResponse, logsResponse, postsResponse] = await Promise.all([
           api.get('/users/me/'),
           api.get('/users/friends/'),
@@ -37,11 +28,24 @@ const ProfilePage = () => {
           api.get('/posts/')
         ]);
         
-        // Ensure we're handling the data property correctly
-        setUser(userResponse.data);
-        setFriends(Array.isArray(friendsResponse.data.results) ? friendsResponse.data.results : []);
-        setWorkoutLogs(Array.isArray(logsResponse.data.results) ? logsResponse.data.results : []);
-        setPosts(Array.isArray(postsResponse.data.results) ? postsResponse.data.results : []);
+        // If preferred_gym_details isn't included in user data, fetch it separately
+        let userData = userResponse.data;
+        if (userData.preferred_gym && !userData.preferred_gym_details) {
+          try {
+            const gymResponse = await api.get(`/gyms/${userData.preferred_gym}/`);
+            userData = {
+              ...userData,
+              preferred_gym_details: gymResponse.data
+            };
+          } catch (error) {
+            console.error('Error fetching gym details:', error);
+          }
+        }
+        console.log('User data : ',userData)
+        setUser(userData);
+        setFriends(friendsResponse.data.results || []);
+        setWorkoutLogs(logsResponse.data.results || []);
+        setPosts(postsResponse.data.results || []);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching profile data:', error);
@@ -52,13 +56,12 @@ const ProfilePage = () => {
     fetchProfileData();
   }, []);
 
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <ProfileHeader 
         user={user}
         workoutCount={workoutLogs.length}
-        friendCount={Array.isArray(friends) ? friends.length : 0}
+        friendCount={friends.length}
         onEditClick={() => setIsEditModalOpen(true)}
       />
 

@@ -63,7 +63,7 @@ const PlansListView = ({
       {hasPlans ? (
             <div className="space-y-4">
               <WorkoutPlansGrid
-                plans={activePlans}
+                plans={workoutPlans}
                 onSelect={onPlanSelect}
                 onDelete={deletePlan}
                 onToggleActive={togglePlanActive}
