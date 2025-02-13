@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, MoreVertical, Heart, MessageCircle, Share2, Send, Pencil, Trash2, X } from 'lucide-react';
+import { User, MoreVertical, Heart, MessageCircle, Share2, Send, Pencil, 
+         Trash2, X, Edit, Activity, Users, Dumbbell } from 'lucide-react';
 import { FileEdit } from "lucide-react";
 import api from '../../../api';
 import { getAvatarUrl } from '../../../utils/imageUtils';
@@ -21,6 +22,21 @@ const Post = ({
   const [shareText, setShareText] = useState('');
   const menuRef = useRef(null);
   const shareInputRef = useRef(null);
+
+  const getPostTypeDetails = (type) => {
+    switch(type) {
+      case 'regular':
+        return { label: 'Regular Post', Icon: Edit, colors: 'bg-blue-500/20 text-blue-400' };
+      case 'workout_log':
+        return { label: 'Workout', Icon: Activity, colors: 'bg-green-500/20 text-green-400' };
+      case 'workout_invite':
+        return { label: 'Group Workout', Icon: Users, colors: 'bg-orange-500/20 text-orange-400' };
+      case 'program':
+        return { label: 'Program', Icon: Dumbbell, colors: 'bg-purple-500/20 text-purple-400' };
+      default:
+        return { label: 'Post', Icon: Edit, colors: 'bg-gray-500/20 text-gray-400' };
+    }
+  };
 
   const PostMenu = ({ isOpen }) => {
     if (!isOpen) return null;
@@ -262,24 +278,33 @@ const Post = ({
         <div className="flex items-start justify-between">
           <div className="flex items-center">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-            {userData?.avatar ? (
-              <img 
-                src={getAvatarUrl(userData.avatar)}
-                alt={post.user_username}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-white font-medium text-lg">
-                {post.user_username[0].toUpperCase()}
-              </span>
-            )}
+              {userData?.avatar ? (
+                <img 
+                  src={getAvatarUrl(userData.avatar)}
+                  alt={post.user_username}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-white font-medium text-lg">
+                  {post.user_username[0].toUpperCase()}
+                </span>
+              )}
             </div>
             <div className="ml-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-white">{post.user_username}</h3>
                 {post.is_share && (
                   <span className="text-gray-400 text-sm">shared a post</span>
                 )}
+                {post.post_type && (() => {
+                  const { Icon, label, colors } = getPostTypeDetails(post.post_type);
+                  return (
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm font-medium ${colors}`}>
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{label}</span>
+                    </div>
+                  );
+                })()}
               </div>
               <time className="text-sm text-gray-400">
                 {new Date(post.created_at).toLocaleDateString()}

@@ -9,7 +9,6 @@ const Sidebar = ({ onLogout }) => {
   const navItems = [
     { id: 'feed', label: 'Feed', icon: Home, path: '/feed' },
     { id: 'workouts', label: 'Workouts', icon: Dumbbell, path: '/workouts' },
-    { id: 'friends', label: 'Friends', icon: Users, path: '/friends' },
     { id: 'coach', label: 'Coach', icon: Sparkles, path: '/coach' },
     { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
   ];

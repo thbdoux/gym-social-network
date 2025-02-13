@@ -9,7 +9,6 @@ import api from './api';
 // Pages
 import LoginPage from './pages/Login';
 import WorkoutsPage from './pages/Workouts';
-import FriendsPage from './pages/Friends';
 import CoachPage from './pages/Coach';
 import ProfilePage from './pages/Profile';
 import MainFeed from './pages/MainFeed';
@@ -107,14 +106,6 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <WorkoutsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/friends"
-                element={
-                  <ProtectedRoute>
-                    <FriendsPage />
                   </ProtectedRoute>
                 }
               />
