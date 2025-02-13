@@ -562,6 +562,74 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
     @action(detail=False, methods=['post'])
+    def create_custom(self, request):
+        """Create a custom workout log from scratch"""
+        serializer = WorkoutLogCreateSerializer(
+            data={
+                **request.data,
+                'user': request.user.id,  # Add user to data
+            },
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            with transaction.atomic():
+                workout_log = serializer.save(user=request.user)
+                return Response(
+                    WorkoutLogSerializer(workout_log).data,
+                    status=status.HTTP_201_CREATED
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'])
+    def next_workout(self, request):
+        """Get the next workout instance from user's active program"""
+        user = request.user
+        
+        # Get user's active program
+        active_program = Program.objects.filter(
+            creator=user,
+            is_active=True
+        ).first()
+        
+        if not active_program:
+            return Response(
+                {"detail": "No active program found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get the last logged workout from this program
+        last_log = WorkoutLog.objects.filter(
+            user=user,
+            program=active_program
+        ).order_by('-date').first()
+        
+        if last_log and last_log.workout_instance:
+            # Get next workout based on order
+            next_workout = WorkoutInstance.objects.filter(
+                program=active_program,
+                order__gt=last_log.workout_instance.order
+            ).order_by('order').first()
+            
+            # If no next workout, cycle back to first workout
+            if not next_workout:
+                next_workout = active_program.workout_instances.order_by('order').first()
+        else:
+            # If no logs yet, get first workout
+            next_workout = active_program.workout_instances.order_by('order').first()
+        
+        if next_workout:
+            return Response({
+                'program': ProgramSerializer(active_program).data,
+                'next_workout': WorkoutInstanceSerializer(next_workout).data
+            })
+        
+        return Response(
+            {"detail": "No workouts found in active program"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    @action(detail=False, methods=['post'])
     def log_from_instance(self, request):
         """Create a new workout log from a program workout instance"""
         instance_id = request.data.get('instance_id')

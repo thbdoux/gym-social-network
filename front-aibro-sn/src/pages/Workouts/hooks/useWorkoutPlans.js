@@ -23,14 +23,16 @@ export const useWorkoutPlans = () => {
 
   const refreshPlanData = async (planId) => {
     try {
-      const response = await api.get(`/workouts/programs/${planId}/`);
+      console.log("planId on refreshPlanData : ",planId)
+      // Ensure planId is converted to string if it's an object
+      const id = typeof planId === 'object' ? planId.id : planId;
+      const response = await api.get(`/workouts/programs/${id}/`);
       const updatedPlan = response.data;
-
-      // Update both the workoutPlans state and return the updated plan
+  
       setWorkoutPlans(prevPlans => 
-        prevPlans.map(p => p.id === planId ? updatedPlan : p)
+        prevPlans.map(p => p.id === id ? updatedPlan : p)
       );
-
+  
       return updatedPlan;
     } catch (err) {
       console.error('Error refreshing plan data:', err);

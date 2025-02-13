@@ -147,7 +147,7 @@ class WorkoutLog(models.Model):
                                        help_text="Original instance this workout was based on")
     program = models.ForeignKey(Program, on_delete=models.SET_NULL, null=True, blank=True,
                               related_name='workout_logs')
-    date = models.DateField()
+    date = models.DateTimeField() 
     gym = models.ForeignKey('gyms.Gym', on_delete=models.SET_NULL, null=True, related_name="workout_logs")
     notes = models.TextField(blank=True)
     completed = models.BooleanField(default=True)

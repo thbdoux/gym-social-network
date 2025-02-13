@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, LayoutGrid } from 'lucide-react';
+import { Plus, LayoutGrid, ArrowLeft } from 'lucide-react';
 import WorkoutPlansGrid from '../components/cards/WorkoutPlansGrid';
 import { FilterBar } from '../components/layout/FilterBar';
 import EmptyState from '../components/layout/EmptyState';
@@ -28,7 +28,16 @@ const PlansListView = ({
       {/* Header Section */}
       <div className="flex justify-between items-center">
         <div>
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2">Your Programs</h1>
+          <div className="flex items-center space-x-4 mb-2">
+            <button
+              onClick={() => setView('logs')}
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              title="Back to Workout Logs"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-400" />
+            </button>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white">Your Programs</h1>
+          </div>
           {hasPlans && (
             <p className="text-gray-400 mt-1">
               {workoutPlans.length} programs • {totalWorkouts} total workouts • 
@@ -64,7 +73,13 @@ const PlansListView = ({
             <div className="space-y-4">
               <WorkoutPlansGrid
                 plans={workoutPlans}
-                onSelect={onPlanSelect}
+                onSelect={(plan) => {
+                  if (plan && plan.id) {
+                    onPlanSelect(plan);
+                  } else {
+                    console.error('Invalid plan object:', plan);
+                  }
+                }}
                 onDelete={deletePlan}
                 onToggleActive={togglePlanActive}
                 currentUser={user}

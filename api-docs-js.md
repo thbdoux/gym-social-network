@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-http://localhost:8000/api/
+http:ocalhost:8000/api/
 ```
 # Authentication routes
 POST /users/token/
@@ -44,24 +44,24 @@ Content-Type: application/json
 }
 
 ```javascript
-// GET /users/
-// Response: User[]
+GET /users/
+Response: User[]
 
-// GET /users/{id}/
-// Response: User
+GET /users/{id}/
+Response: User
 
-// POST /users/{id}/send_friend_request/
-// Response: FriendRequest
+POST /users/{id}/send_friend_request/
+Response: FriendRequest
 
-// POST /users/{id}/respond_to_request/
-// Request: { response: 'accept' | 'reject' }
-// Response: { status: string }
+POST /users/{id}/respond_to_request/
+Request: { response: 'accept' | 'reject' }
+Response: { status: string }
 
-// GET /users/friends/
-// Response: Friend[]
+GET /users/friends/
+Response: Friend[]
 
-// GET /users/friend_requests/
-// Response: FriendRequest[]
+GET /users/friend_requests/
+Response: FriendRequest[]
 ```
 
 ### Types
@@ -93,33 +93,33 @@ Content-Type: application/json
 
 ### Endpoints
 ```javascript
-// GET /gyms/
-// Response: Gym[]
+GET /gyms/
+Response: Gym[]
 
-// GET /gyms/{id}/
-// Response: Gym
+GET /gyms/{id}/
+Response: Gym
 
-// GET /gyms/{id}/members/
-// Response: User[]
+GET /gyms/{id}/members/
+Response: User[]
 
-// GET /gyms/{id}/active_members/
-// Response: User[]
+GET /gyms/{id}/active_members/
+Response: User[]
 
-// GET /gyms/{id}/stats/
-// Response: {
-//   total_members: number,
-//   active_today: number,
-//   workouts_this_week: number
-// }
+GET /gyms/{id}/stats/
+Response: {
+  total_members: number,
+  active_today: number,
+  workouts_this_week: number
+}
 
-// POST /gyms/{id}/announce/
-// Request: {
-//   title: string,
-//   content: string,
-//   start_date: string,
-//   end_date?: string
-// }
-// Response: Announcement
+POST /gyms/{id}/announce/
+Request: {
+  title: string,
+  content: string,
+  start_date: string,
+  end_date?: string
+}
+Response: Announcement
 ```
 
 ### Types
@@ -154,115 +154,179 @@ Content-Type: application/json
 
 ### Template Endpoints
 ```javascript
-// GET /workouts/templates/
-// Response: WorkoutTemplate[]
+GET /workouts/templates/
+Response: WorkoutTemplate[]
 
-// POST /workouts/templates/
-// Request: WorkoutTemplate
-// Response: WorkoutTemplate
+POST /workouts/templates/
+Request: WorkoutTemplate
+Response: WorkoutTemplate
 
-// GET /workouts/templates/{id}/
-// Response: WorkoutTemplate
+GET /workouts/templates/{id}/
+Response: WorkoutTemplate
 
-// POST /workouts/templates/{id}/add_exercise/
-// Request: {
-//   name: string,
-//   equipment?: string,
-//   notes?: string,
-//   order: number,
-//   sets: Set[]
-// }
-// Response: Exercise
+POST /workouts/templates/{id}/add_exercise/
+Request: {
+  name: string,
+  equipment?: string,
+  notes?: string,
+  order: number,
+  sets: Set[]
+}
+Response: Exercise
 
-// POST /workouts/templates/{id}/update_workout/
-// Request: WorkoutTemplate
-// Response: WorkoutTemplate
+POST /workouts/templates/{id}/update_workout/
+Request: WorkoutTemplate
+Response: WorkoutTemplate
 
-// POST /workouts/templates/{id}/copy/
-// Response: WorkoutTemplate
+POST /workouts/templates/{id}/copy/
+Response: WorkoutTemplate
 
-// GET /workouts/templates/trending/
-// Response: WorkoutTemplate[]
+GET /workouts/templates/trending/
+Response: WorkoutTemplate[]
 
-// GET /workouts/templates/by_equipment/?equipment=<type>
-// Response: WorkoutTemplate[]
+GET /workouts/templates/by_equipment/?equipment=<type>
+Response: WorkoutTemplate[]
 ```
 
 ### Program Endpoints
 ```javascript
-// GET /workouts/programs/
-// Response: Program[]
+GET /workouts/programs/
+Response: Program[]
 
-// POST /workouts/programs/
-// Request: Program
-// Response: Program
+POST /workouts/programs/
+Request: Program
+Response: Program
 
-// GET /workouts/programs/{id}/
-// Response: Program
+GET /workouts/programs/{id}/
+Response: Program
 
-// POST /workouts/programs/{id}/add_workout/
-// Request: {
-//   template_id: number,
-//   preferred_weekday: number,
-//   order: number
-// }
-// Response: WorkoutInstance
+POST /workouts/programs/{id}/add_workout/
+Request: {
+  template_id: number,
+  preferred_weekday: number,
+  order: number
+}
+Response: WorkoutInstance
 
-// POST /workouts/programs/{id}/remove_workout/
-// Request: { instance_id: number }
+POST /workouts/programs/{id}/remove_workout/
+Request: { instance_id: number }
 
-// POST /workouts/programs/{id}/duplicate_workout/
-// Request: { instance_id: number }
-// Response: WorkoutInstance
+POST /workouts/programs/{id}/duplicate_workout/
+Request: { instance_id: number }
+Response: WorkoutInstance
 
-// POST /workouts/programs/{id}/fork/
-// Response: Program
+POST /workouts/programs/{id}/fork/
+Response: Program
 
-// POST /workouts/programs/{id}/like/
-// Response: { liked: boolean }
+POST /workouts/programs/{id}/like/
+Response: { liked: boolean }
 
-// POST /workouts/programs/{id}/share/
-// Request: { username: string }
-// Response: ProgramShare
+POST /workouts/programs/{id}/share/
+Request: { username: string }
+Response: ProgramShare
 
-// GET /workouts/programs/shared_with_me/
-// Response: Program[]
+GET /workouts/programs/shared_with_me/
+Response: Program[]
 
-// GET /workouts/programs/recommend/
-// Response: Program[]
+GET /workouts/programs/recommend/
+Response: Program[]
 ```
 
 ### Workout Log Endpoints
 ```javascript
-// GET /workouts/logs/
-// Response: WorkoutLog[]
+GET /workouts/logs/
+Response: WorkoutLog[]
 
-// POST /workouts/logs/log_from_instance/
-// Request: {
-//   instance_id: number,
-//   date: string,
-//   gym_id?: number,
-//   notes?: string
-// }
-// Response: WorkoutLog
+// Get next workout suggestion from active program
+GET /workouts/logs/next_workout/
+Response: {
+  program: Program,
+  next_workout: WorkoutInstance
+}
 
-// POST /workouts/logs/{id}/update_exercise/
-// Request: {
-//   exercise_id: number,
-//   name?: string,
-//   equipment?: string,
-//   notes?: string,
-//   sets?: Set[]
-// }
-// Response: Exercise
+// Create a workout log from a program instance
+POST /workouts/logs/log_from_instance/
+Request: {
+  instance_id: number,
+  date: string,
+  gym_id?: number,
+  notes?: string,
+  mood_rating?: number,
+  perceived_difficulty?: number,
+  performance_notes?: string,
+  media?: string[],
+  completed?: boolean
+}
+Response: WorkoutLog
 
-// GET /workouts/logs/stats/
-// Query: start_date?, end_date?
-// Response: {
-//   total_workouts: number,
-//   completed_workouts: number,
-//   completion_rate: number
-// }
+// Create a custom workout log
+POST /workouts/logs/create_custom/
+Request: {
+  date: string,
+  gym_id?: number,
+  notes?: string,
+  exercises: [{
+    name: string,
+    equipment?: string,
+    notes?: string,
+    order: number,
+    sets: [{
+      reps: number,
+      weight: number,
+      rest_time: number,
+      order: number
+    }]
+  }],
+  mood_rating?: number,
+  perceived_difficulty?: number,
+  performance_notes?: string,
+  media?: string[],
+  completed?: boolean
+}
+Response: WorkoutLog
+
+POST /workouts/logs/{id}/update_exercise/
+Request: {
+  exercise_id: number,
+  name?: string,
+  equipment?: string,
+  notes?: string,
+  sets?: Set[]
+}
+Response: Exercise
+
+GET /workouts/logs/stats/
+Query: start_date?, end_date?
+Response: {
+  total_workouts: number,
+  completed_workouts: number,
+  completion_rate: number
+}
+```
+
+### Types
+```javascript
+/**
+ * @typedef {Object} WorkoutLog
+ * @property {number} id
+ * @property {number} user
+ * @property {string} username
+ * @property {number} [program]
+ * @property {string} [program_name]
+ * @property {number} [workout_instance]
+ * @property {string} [workout_name]
+ * @property {string} date
+ * @property {number} [gym]
+ * @property {string} [gym_name]
+ * @property {string} [notes]
+ * @property {number} [mood_rating] - Rating from 1-5
+ * @property {number} [perceived_difficulty] - Rating from 1-5
+ * @property {string} [performance_notes]
+ * @property {string[]} media - Array of media URLs
+ * @property {boolean} completed - Whether the workout was completed
+ * @property {Exercise[]} exercises
+ * @property {string} created_at
+ */
 ```
 
 ### Types
@@ -336,47 +400,25 @@ Content-Type: application/json
  * @property {Exercise[]} exercises
  */
 
-/**
- * @typedef {Object} WorkoutLog
- * @property {number} id
- * @property {number} user
- * @property {string} username
- * @property {number} [program]
- * @property {string} [program_name]
- * @property {number} [workout_instance]
- * @property {string} [workout_name]
- * @property {string} date
- * @property {number} [gym]
- * @property {string} [gym_name]
- * @property {string} [notes]
- * @property {number} [mood_rating]
- * @property {number} [perceived_difficulty]
- * @property {string} [performance_notes]
- * @property {string[]} media
- * @property {boolean} completed
- * @property {Exercise[]} exercises
- */
-```
-
 ## Posts API
 
 ### Endpoints
 ```javascript
-// GET /posts/
-// Response: Post[]
+GET /posts/
+Response: Post[]
 
-// POST /posts/
-// Request: Post
-// Response: Post
+POST /posts/
+Request: Post
+Response: Post
 
-// POST /posts/{id}/comment/
-// Request: { content: string }
-// Response: Comment
+POST /posts/{id}/comment/
+Request: { content: string }
+Response: Comment
 
-// POST /posts/{id}/like/
-// Response: void
+POST /posts/{id}/like/
+Response: void
 
-// Share a post
+Share a post
 POST /api/posts/{post_id}/share/
 Content-Type: application/json
 
@@ -384,7 +426,7 @@ Content-Type: application/json
     "content": "Optional share comment"
 }
 
-// Update a post 
+Update a post 
 
 PUT /api/posts/{post_id}/
 Content-Type: application/json
@@ -395,15 +437,15 @@ Content-Type: application/json
     ... other fields ...
 }
 
-// Delete a post 
+Delete a post 
 
 DELETE /api/posts/{post_id}/
 
-// GET /posts/trending/
-// Response: Post[]
+GET /posts/trending/
+Response: Post[]
 
-// GET /posts/feed/
-// Response: Post[]
+GET /posts/feed/
+Response: Post[]
 ```
 
 ### Types

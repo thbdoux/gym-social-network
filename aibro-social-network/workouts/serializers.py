@@ -168,3 +168,49 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
                 SetLog.objects.create(exercise=exercise, **set_data)
         
         return workout_log
+
+
+class WorkoutLogCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating workout logs with nested exercises and sets"""
+    exercises = ExerciseLogSerializer(many=True)
+    date = serializers.DateTimeField() 
+    class Meta:
+        model = WorkoutLog
+        fields = [
+            'workout_instance', 'program', 'date',
+            'gym', 'notes', 'completed', 'exercises',
+            'mood_rating', 'perceived_difficulty',
+            'performance_notes', 'media'
+        ]
+        
+
+
+    def validate(self, data):
+        """
+        Validate that either workout_instance is provided or exercises data is complete
+        """
+        workout_instance = data.get('workout_instance')
+        exercises = data.get('exercises', [])
+        
+        if not workout_instance and not exercises:
+            raise serializers.ValidationError(
+                "Either workout_instance or exercises data must be provided"
+            )
+            
+        return data
+
+    def create(self, validated_data):
+        exercises_data = validated_data.pop('exercises', [])
+        workout_log = WorkoutLog.objects.create(**validated_data)
+        
+        for exercise_data in exercises_data:
+            sets_data = exercise_data.pop('sets', [])
+            exercise = ExerciseLog.objects.create(
+                workout_log=workout_log,
+                **exercise_data
+            )
+            
+            for set_data in sets_data:
+                SetLog.objects.create(exercise=exercise, **set_data)
+        
+        return workout_log

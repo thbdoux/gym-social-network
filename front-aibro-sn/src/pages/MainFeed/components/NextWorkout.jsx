@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, ChevronRight } from 'lucide-react';
 
 const NextWorkout = ({ workout }) => (
   <div className="group relative bg-gray-800 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/20 hover:-translate-y-1">

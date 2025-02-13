@@ -8,8 +8,6 @@ import StatsGrid from '../components/layout/StatsGrid';
 import TemplateSelector from '../components/modals/TemplateSelector';
 import api from '../../../api';
 
-
-
 // Choice Modal Component
 const AddWorkoutChoiceModal = ({ isOpen, onClose, onSelectExisting, onCreateNew }) => {
   if (!isOpen) return null;
@@ -71,7 +69,13 @@ const PlanDetailView = ({
   const [showAddChoice, setShowAddChoice] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
-  if (!selectedPlan) return null;
+  if (!selectedPlan) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-400">Loading program details...</p>
+      </div>
+    );
+  }
   
   const canEdit = user?.username === selectedPlan.creator_username;
 
@@ -274,3 +278,4 @@ const PlanDetailView = ({
 };
 
 export default PlanDetailView;
+

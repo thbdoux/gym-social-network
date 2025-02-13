@@ -21,6 +21,22 @@ const MainFeed = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [sharingPost, setSharingPost] = useState(null);
 
+  const [view, setView] = useState('feed'); // Add this state
+  const [selectedProgram, setSelectedProgram] = useState(null); // Add this state
+
+  const handleProgramSelect = async (program) => {
+    console.log('Navigating to program:', program);
+    try {
+      // Get fresh program data
+      const response = await api.get(`/workouts/programs/${program.id}/`);
+      setSelectedProgram(response.data);
+      // Change view to program detail
+      window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
+    } catch (err) {
+      console.error('Error navigating to program:', err);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -36,21 +52,23 @@ const MainFeed = () => {
           api.get('/workouts/logs/stats/'),
           api.get('/workouts/logs/', {
             params: {
-              limit: 5, // Get only last 5 workouts
-              sort: '-date' // Sort by date descending
+              limit: 5,
+              sort: '-date'
             }
           })
         ]);
-
+  
         setUser(userResponse.data);
         setPosts(postsResponse.data);
         setStats(statsResponse.data);
         setRecentWorkouts(workoutLogsResponse.data);
-
-        // If user has a current program, fetch next workout
-        if (userResponse.data.current_program) {
+  
+        // Fixed: Get the correct program ID
+        const currentProgramId = userResponse.data.current_program?.id || userResponse.data.current_program;
+        
+        if (currentProgramId) {
           const programResponse = await api.get(
-            `/workouts/programs/${userResponse.data.current_program}/`
+            `/workouts/programs/${currentProgramId}/`
           );
           if (programResponse.data.workouts?.length > 0) {
             setNextWorkout(programResponse.data.workouts[0]);
@@ -60,7 +78,7 @@ const MainFeed = () => {
         console.error('Error fetching data:', err);
       }
     };
-
+  
     fetchData();
   }, []);
 
@@ -172,13 +190,17 @@ const MainFeed = () => {
 
           {/* Right Sidebar */}
           <div className="lg:col-span-4">
-            <div className="space-y-6 lg:sticky lg:top-8">
-              <ProgressCard stats={stats} />
-              <NextWorkout workout={nextWorkout} />
-              <RecentWorkouts workouts={recentWorkouts} />
-            </div>
+          <div className="space-y-6 lg:sticky lg:top-8">
+            <ProgressCard stats={stats} />
+            <NextWorkout workout={nextWorkout} />
+            {/* Update ProgramPreview to include the handler */}
+            <RecentWorkouts 
+              workouts={recentWorkouts} 
+              onProgramSelect={handleProgramSelect} // Add this prop
+            />
           </div>
         </div>
+      </div>
         {editingPost && (
           <EditPostModal
             post={editingPost}
