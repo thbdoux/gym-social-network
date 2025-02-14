@@ -15,7 +15,8 @@ const UnifiedWorkoutCard = ({
   inProgram = false,
   onDayChange,
   dragHandleProps,
-  isDragging = false
+  isDragging = false,
+  onClick  // Add onClick prop
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isChangingDay, setIsChangingDay] = useState(false);
@@ -66,6 +67,7 @@ const UnifiedWorkoutCard = ({
           </div>
           
           <div className="flex items-center space-x-2">
+      
             {inProgram && onDayChange && (
               <div className="mr-4">
                 {isChangingDay ? (

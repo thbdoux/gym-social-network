@@ -4,8 +4,7 @@ import {
   ArrowLeft, Calendar, MapPin, Activity,
   ThumbsUp, ThumbsDown, Save, BarChart2, Plus
 } from 'lucide-react';
-import ExerciseCard from '../../Workouts/components/cards/ExerciseCard';
-import api from './../../../api';
+import ExerciseCard from '../components/cards/ExerciseCard';
 
 const RatingInput = ({ value, onChange, max = 10, isEditing }) => {
   if (!isEditing) {
@@ -15,9 +14,7 @@ const RatingInput = ({ value, onChange, max = 10, isEditing }) => {
           <div
             key={i}
             className={`w-2 h-6 rounded ${
-              i < value 
-                ? 'bg-blue-500' 
-                : 'bg-gray-600'
+              i < value ? 'bg-blue-500' : 'bg-gray-600'
             }`}
           />
         ))}
@@ -43,7 +40,7 @@ const LogDetailView = ({
   onUpdate,
   isUpdating = false
 }) => {
-  const [editedLog, setEditedLog] = useState(log || createEmptyLog());
+  const [editedLog, setEditedLog] = useState(log);
   const [isEditing, setIsEditing] = useState(log?.id === 'new');
   const [expandedExercises, setExpandedExercises] = useState(new Set());
 
@@ -70,6 +67,7 @@ const LogDetailView = ({
   };
 
   const handleUpdateExercise = (index, field, value) => {
+    console.log('Updating exercise:', { index, field, value }); // Debug log
     setEditedLog(prev => ({
       ...prev,
       exercises: prev.exercises.map((ex, i) => 
@@ -85,18 +83,31 @@ const LogDetailView = ({
     }));
   };
 
-  const handleDuplicateExercise = (index) => {
-    const exerciseToDuplicate = editedLog.exercises[index];
+  const handleUpdateSet = (exerciseIndex, setIndex, field, value) => {
+    console.log('Updating set:', { exerciseIndex, setIndex, field, value }); // Debug log
     setEditedLog(prev => ({
       ...prev,
-      exercises: [
-        ...prev.exercises,
-        {
-          ...exerciseToDuplicate,
-          id: `temp-${Date.now()}`,
-          sets: exerciseToDuplicate.sets.map(set => ({...set}))
-        }
-      ]
+      exercises: prev.exercises.map((ex, i) => 
+        i === exerciseIndex ? {
+          ...ex,
+          sets: ex.sets.map((set, si) => 
+            si === setIndex ? { ...set, [field]: Number(value) } : set
+          )
+        } : ex
+      )
+    }));
+  };
+  
+  const handleRemoveSet = (exerciseIndex, setIndex) => {
+    console.log('Removing set:', { exerciseIndex, setIndex }); // Debug log
+    setEditedLog(prev => ({
+      ...prev,
+      exercises: prev.exercises.map((ex, i) => 
+        i === exerciseIndex ? {
+          ...ex,
+          sets: ex.sets.filter((_, si) => si !== setIndex)
+        } : ex
+      )
     }));
   };
 
@@ -120,30 +131,16 @@ const LogDetailView = ({
     }));
   };
 
-  const handleUpdateSet = (exerciseIndex, setIndex, field, value) => {
-    setEditedLog(prev => ({
-      ...prev,
-      exercises: prev.exercises.map((ex, i) => 
-        i === exerciseIndex ? {
-          ...ex,
-          sets: ex.sets.map((set, si) => 
-            si === setIndex ? { ...set, [field]: value } : set
-          )
-        } : ex
-      )
-    }));
-  };
-
-  const handleRemoveSet = (exerciseIndex, setIndex) => {
-    setEditedLog(prev => ({
-      ...prev,
-      exercises: prev.exercises.map((ex, i) => 
-        i === exerciseIndex ? {
-          ...ex,
-          sets: ex.sets.filter((_, si) => si !== setIndex)
-        } : ex
-      )
-    }));
+  const handleSave = async () => {
+    try {
+      const updatedLog = await onUpdate(editedLog);
+      if (updatedLog) {
+        setEditedLog(updatedLog);
+        setIsEditing(false);
+      }
+    } catch (err) {
+      console.error('Failed to save changes:', err);
+    }
   };
 
   const toggleExercise = (index) => {
@@ -165,113 +162,7 @@ const LogDetailView = ({
     }
   }, [log]);
 
-  const handleSave = async () => {
-    try {
-      if (editedLog.id === 'new') {
-        let newLog;
-        
-        if (editedLog.workout_instance) {
-          // Create from program instance
-          newLog = await api.post('/workouts/logs/log_from_instance/', {
-            instance_id: editedLog.workout_instance,
-            date: editedLog.date.slice(0, 16), // "YYYY-MM-DDTHH:mm"
-            gym_id: editedLog.gym,
-            notes: editedLog.notes,
-            mood_rating: editedLog.mood_rating,
-            perceived_difficulty: editedLog.perceived_difficulty,
-            performance_notes: editedLog.performance_notes,
-            completed: editedLog.completed
-          });
-        } else {
-          // Create custom workout log with all data at once
-          newLog = await api.post('/workouts/logs/create_custom/', {
-            date: editedLog.date.slice(0, 16), // "YYYY-MM-DDTHH:mm"
-            gym_id: editedLog.gym,
-            notes: editedLog.notes,
-            exercises: editedLog.exercises.map((ex, index) => ({
-              name: ex.name,
-              equipment: ex.equipment,
-              notes: ex.notes,
-              order: index,
-              sets: ex.sets.map((set, setIndex) => ({
-                reps: set.reps,
-                weight: set.weight,
-                rest_time: set.rest_time,
-                order: setIndex
-              }))
-            })),
-            mood_rating: editedLog.mood_rating,
-            perceived_difficulty: editedLog.perceived_difficulty,
-            performance_notes: editedLog.performance_notes,
-            completed: editedLog.completed
-          });
-        }
-  
-        // Update state with the new log from the response
-        const createdLog = newLog.data; // Access the data from the response
-        setEditedLog(createdLog);
-        setIsEditing(false);
-        if (onUpdate) await onUpdate(createdLog);
-        
-      } else {
-        // For existing logs, ensure we have a valid ID before updating exercises
-        if (!editedLog.id) {
-          throw new Error('Cannot update exercises: Log ID is undefined');
-        }
-  
-        // Update exercises one by one
-        const updatedExercises = await Promise.all(
-          editedLog.exercises.map(async exercise => {
-            // Skip exercises that don't need updating
-            if (!exercise.id || exercise.id.toString().startsWith('temp-')) {
-              // Handle new exercises differently - they need to be created first
-              const response = await api.post(`/workouts/logs/${editedLog.id}/add_exercise/`, {
-                name: exercise.name,
-                equipment: exercise.equipment,
-                notes: exercise.notes,
-                order: exercise.order,
-                sets: exercise.sets
-              });
-              return response.data;
-            }
-  
-            // Update existing exercises
-            const response = await api.post(`/workouts/logs/${editedLog.id}/update_exercise/`, {
-              exercise_id: exercise.id,
-              name: exercise.name,
-              equipment: exercise.equipment,
-              notes: exercise.notes,
-              sets: exercise.sets
-            });
-            return response.data;
-          })
-        );
-  
-        // Update the log with the new exercises
-        const updatedLog = {
-          ...editedLog,
-          exercises: updatedExercises
-        };
-        
-        setEditedLog(updatedLog);
-        setIsEditing(false);
-        if (onUpdate) await onUpdate(updatedLog);
-      }
-    } catch (err) {
-      console.error('Failed to save changes:', err);
-      // You might want to show an error message to the user here
-    }
-  };
-
-  
-  const handleExerciseUpdate = (exerciseId, field, value) => {
-    setEditedLog(prev => ({
-      ...prev,
-      exercises: prev.exercises.map(ex => 
-        ex.id === exerciseId ? { ...ex, [field]: value } : ex
-      )
-    }));
-  };
+  if (!editedLog) return null;
 
   return (
     <div className="space-y-6">
@@ -286,14 +177,14 @@ const LogDetailView = ({
           </button>
           <div>
             <h1 className="text-3xl font-bold text-white">
-              {editedLog.workout_name}
+              {editedLog.name || 'New Workout'}
             </h1>
             <div className="flex items-center space-x-4 mt-2 text-gray-400">
               <div className="flex items-center">
                 <Calendar className="w-4 h-4 mr-2" />
                 {new Date(editedLog.date).toLocaleDateString()}
               </div>
-              {editedLog.gym_name && (
+              {editedLog.gym_id && (
                 <div className="flex items-center">
                   <MapPin className="w-4 h-4 mr-2" />
                   {editedLog.gym_name}
@@ -345,18 +236,18 @@ const LogDetailView = ({
             <div className="space-y-4">
               {editedLog.exercises.map((exercise, index) => (
                 <ExerciseCard
-                  key={exercise.id}
-                  exercise={exercise}
-                  index={index}
-                  isExpanded={expandedExercises.has(index)}
-                  onToggle={toggleExercise}
-                  onUpdate={handleUpdateExercise}
-                  onDuplicate={handleDuplicateExercise}
-                  onDelete={handleDeleteExercise}
-                  onAddSet={handleAddSet}
-                  onRemoveSet={handleRemoveSet}
-                  onUpdateSet={handleUpdateSet}
-                />
+                key={exercise.id || index}
+                exercise={exercise}
+                index={index}
+                isExpanded={expandedExercises.has(index)}
+                onToggle={() => toggleExercise(index)}
+                onUpdate={handleUpdateExercise}
+                onDelete={() => handleDeleteExercise(index)}
+                onAddSet={() => handleAddSet(index)}
+                onUpdateSet={(setIndex, field, value) => handleUpdateSet(index, setIndex, field, value)}
+                onRemoveSet={(setIndex) => handleRemoveSet(index, setIndex)}
+                isEditing={isEditing}
+              />
               ))}
             </div>
           </div>
@@ -419,10 +310,10 @@ const LogDetailView = ({
                              px-3 py-2 text-white resize-none"
                     placeholder="How did the workout feel?"
                   />
-                ) : editedLog.performance_notes ? (
-                  <p className="text-gray-300">{editedLog.performance_notes}</p>
                 ) : (
-                  <p className="text-gray-500 italic">No notes added</p>
+                  <p className="text-gray-300">
+                    {editedLog.performance_notes || 'No notes added'}
+                  </p>
                 )}
               </div>
             </div>

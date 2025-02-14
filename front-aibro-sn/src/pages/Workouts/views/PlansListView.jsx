@@ -1,3 +1,4 @@
+//PlansListView.jsx
 import React from 'react';
 import { Plus, LayoutGrid, ArrowLeft } from 'lucide-react';
 import WorkoutPlansGrid from '../components/cards/WorkoutPlansGrid';
@@ -15,13 +16,25 @@ const PlansListView = ({
   // Check if there are any workout plans
   const hasPlans = workoutPlans.length > 0;
 
-  // Filter active and completed plans
-  const activePlans = workoutPlans.filter(plan => plan.is_active);
-  const completedPlans = workoutPlans.filter(plan => !plan.is_active);
-
   // Calculate some stats for the header
   const totalWorkouts = workoutPlans.reduce((acc, plan) => acc + (plan.workouts?.length || 0), 0);
   const averageSessionsPerWeek = workoutPlans.reduce((acc, plan) => acc + (plan.sessions_per_week || 0), 0) / workoutPlans.length || 0;
+
+  const handleDeletePlan = async (planId) => {
+    try {
+      await deletePlan(planId);
+    } catch (err) {
+      console.error('Error deleting plan:', err);
+    }
+  };
+
+  const handleToggleActive = async (planId) => {
+    try {
+      await togglePlanActive(planId);
+    } catch (err) {
+      console.error('Error toggling plan active state:', err);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -47,7 +60,7 @@ const PlansListView = ({
         </div>
         <div className="flex space-x-4">
           <button
-            onClick={() => setView && setView('all-workouts')}  // Add null check
+            onClick={() => setView('all-workouts')}
             className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 
                      transition-colors flex items-center space-x-2"
           >
@@ -55,7 +68,7 @@ const PlansListView = ({
             <span>Workout Templates</span>
           </button>
           <button
-            onClick={() => setView && setView('create-plan')}  // Add null check
+            onClick={() => setView('create-plan')}
             className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 
                      transition-colors flex items-center space-x-2"
           >
@@ -68,23 +81,15 @@ const PlansListView = ({
       {/* Filter Bar */}
       <FilterBar />
 
-      {/* Active Plans Section */}
+      {/* Plans Grid */}
       {hasPlans ? (
-            <div className="space-y-4">
-              <WorkoutPlansGrid
-                plans={workoutPlans}
-                onSelect={(plan) => {
-                  if (plan && plan.id) {
-                    onPlanSelect(plan);
-                  } else {
-                    console.error('Invalid plan object:', plan);
-                  }
-                }}
-                onDelete={deletePlan}
-                onToggleActive={togglePlanActive}
-                currentUser={user}
-              />
-            </div>
+        <WorkoutPlansGrid
+          plans={workoutPlans}
+          onSelect={onPlanSelect}
+          onDelete={handleDeletePlan}
+          onToggleActive={handleToggleActive}
+          onCreatePlan={() => setView('create-plan')}
+        />
       ) : (
         <EmptyState
           title="No workout plans yet"

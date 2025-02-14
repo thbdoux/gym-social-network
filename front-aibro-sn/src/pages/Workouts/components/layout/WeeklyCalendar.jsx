@@ -13,19 +13,19 @@ const WeeklyCalendar = ({ workouts }) => {
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl overflow-hidden">
       <div className="grid grid-cols-7 gap-px bg-gray-700">
-        {WEEKDAYS.map(day => (
-          <div key={day} className="bg-gray-800/80 px-4 py-3">
+        {WEEKDAYS.map((day, index) => (
+          <div key={`header-${index}`} className="bg-gray-800/80 px-4 py-3">
             <p className="text-sm font-medium text-gray-400">{day.slice(0, 3)}</p>
           </div>
         ))}
       </div>
       
       <div className="grid grid-cols-7 gap-px bg-gray-700 h-48">
-        {workoutsByDay.map(({ day, workouts }) => (
-          <div key={day} className="bg-gray-800 p-2 overflow-y-auto">
-            {workouts.map(workout => (
+        {workoutsByDay.map(({ day, workouts }, dayIndex) => (
+          <div key={`day-${dayIndex}`} className="bg-gray-800 p-2 overflow-y-auto">
+            {workouts.map((workout, workoutIndex) => (
               <div
-                key={workout.instance_id}
+                key={`${dayIndex}-${workout.id || workout.instance_id || workoutIndex}`}
                 className="mb-2 p-2 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors cursor-pointer group"
               >
                 <p className="text-sm font-medium text-blue-400 group-hover:text-blue-300 truncate">

@@ -1,13 +1,26 @@
 # users/serializers.py
 from rest_framework import serializers
 from .models import User, Friendship, FriendRequest
-from workouts.serializers import ProgramSerializer
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)  # Changed to not required
     current_password = serializers.CharField(write_only=True, required=False)
     # Use a SerializerMethodField to avoid circular imports
     current_program = serializers.SerializerMethodField()
+
+    def get_current_program(self, obj):
+        if obj.current_program:
+            from workouts.serializers import ProgramSerializer
+            return {
+                'id': obj.current_program.id,
+                'name': obj.current_program.name,
+                'focus': obj.current_program.focus,
+                'sessions_per_week': obj.current_program.sessions_per_week,
+                'difficulty_level': obj.current_program.difficulty_level
+            }
+            # Note: We're returning a simplified version to avoid deep nesting
+            # and potential circular imports with the new workout structure
+        return None
     class Meta:
         model = User
         fields = [
@@ -34,12 +47,6 @@ class UserSerializer(serializers.ModelSerializer):
             'username': {'read_only': True}  # Prevent username changes in profile updates
         }
 
-    def get_current_program(self, obj):
-        if obj.current_program:
-            # Import here to avoid circular import
-            from workouts.serializers import ProgramSerializer
-            return ProgramSerializer(obj.current_program).data
-        return None
         
     def create(self, validated_data):
         try:

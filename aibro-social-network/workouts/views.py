@@ -4,25 +4,22 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction, models
 from django.db.models import Q, Count
-from django.shortcuts import get_object_or_404
 
 from .models import (
     WorkoutTemplate, ExerciseTemplate, SetTemplate,
-    Program, WorkoutInstance, ProgramShare,
+    Program, WorkoutInstance, ExerciseInstance, SetInstance, ProgramShare,
     WorkoutLog, ExerciseLog, SetLog
 )
 from .serializers import (
-    WorkoutTemplateSerializer, WorkoutTemplateDetailSerializer,
-    ExerciseTemplateSerializer, SetTemplateSerializer,
-    ProgramSerializer, WorkoutInstanceSerializer, ProgramShareSerializer,
+    WorkoutTemplateSerializer, ExerciseTemplateSerializer, SetTemplateSerializer,
+    ProgramSerializer, WorkoutInstanceSerializer, ExerciseInstanceSerializer,
+    SetInstanceSerializer, ProgramShareSerializer,
     WorkoutLogSerializer, WorkoutLogCreateSerializer,
     ExerciseLogSerializer, SetLogSerializer
 )
 
+# Template Views
 class WorkoutTemplateViewSet(viewsets.ModelViewSet):
-    """
-    Manage workout templates
-    """
     serializer_class = WorkoutTemplateSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -30,19 +27,12 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'name']
 
     def get_queryset(self):
-        user = self.request.user
         return WorkoutTemplate.objects.filter(
-            Q(creator=user) #| 
-            # Q(is_public=True)
+            Q(creator=self.request.user)
         ).prefetch_related(
             'exercises',
             'exercises__sets'
         )
-
-    def get_serializer_class(self):
-        if self.action in ['retrieve', 'create', 'update']:
-            return WorkoutTemplateDetailSerializer
-        return WorkoutTemplateSerializer
 
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)
@@ -57,7 +47,6 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
             if serializer.is_valid():
                 exercise = serializer.save(workout=workout)
                 
-                # Create sets if provided
                 sets_data = request.data.get('sets', [])
                 for set_data in sets_data:
                     set_serializer = SetTemplateSerializer(data=set_data)
@@ -73,375 +62,210 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
-    def update_workout(self, request, pk=None):
-        """Update a workout template with its exercises and sets"""
-        workout = self.get_object()
+# Program Views
+class ProgramViewSet(viewsets.ModelViewSet):
+    serializer_class = ProgramSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Program.objects.filter(
+            Q(creator=self.request.user)
+        ).prefetch_related(
+            'workout_instances',
+            'workout_instances__exercises',
+            'workout_instances__exercises__sets',
+            'likes'
+        ).annotate(
+            likes_count=Count('likes', distinct=True),
+            forks_count=Count('forks', distinct=True)
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(creator=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='update_workout/(?P<workout_id>[^/.]+)')
+    def update_workout(self, request, pk=None, workout_id=None):
+        """Update a specific workout instance within this program"""
+        program = self.get_object()
         
         try:
+            workout = program.workout_instances.get(id=workout_id)
+            
             with transaction.atomic():
-                # Update basic workout details if provided
+                # Update basic workout info
                 if 'name' in request.data:
                     workout.name = request.data['name']
                 if 'description' in request.data:
                     workout.description = request.data['description']
+                if 'preferred_weekday' in request.data:
+                    workout.preferred_weekday = request.data['preferred_weekday']
                 if 'split_method' in request.data:
                     workout.split_method = request.data['split_method']
-                if 'is_public' in request.data:
-                    workout.is_public = request.data['is_public']
-                
+                if 'order' in request.data:
+                    workout.order = request.data['order']
                 workout.save()
-
-                # Handle exercises updates if provided
+                
+                # Handle exercises
                 if 'exercises' in request.data:
-                    for exercise_data in request.data['exercises']:
-                        exercise_id = exercise_data.get('id')
+                    current_exercise_ids = set(workout.exercises.values_list('id', flat=True))
+                    updated_exercise_ids = set()
+                    
+                    for ex_data in request.data['exercises']:
+                        exercise_id = ex_data.get('id')
                         
                         if exercise_id:
                             # Update existing exercise
-                            try:
-                                exercise = workout.exercises.get(id=exercise_id)
-                                
-                                # Update exercise fields
-                                if 'name' in exercise_data:
-                                    exercise.name = exercise_data['name']
-                                if 'equipment' in exercise_data:
-                                    exercise.equipment = exercise_data['equipment']
-                                if 'notes' in exercise_data:
-                                    exercise.notes = exercise_data['notes']
-                                if 'order' in exercise_data:
-                                    exercise.order = exercise_data['order']
-                                
-                                exercise.save()
-
-                                # Handle sets updates if provided
-                                if 'sets' in exercise_data:
-                                    for set_data in exercise_data['sets']:
-                                        set_id = set_data.get('id')
-                                        
-                                        if set_id:
-                                            # Update existing set
-                                            try:
-                                                set_obj = exercise.sets.get(id=set_id)
-                                                for field in ['reps', 'weight', 'rest_time', 'order']:
-                                                    if field in set_data:
-                                                        setattr(set_obj, field, set_data[field])
-                                                set_obj.save()
-                                            except SetTemplate.DoesNotExist:
-                                                return Response(
-                                                    {"detail": f"Set {set_id} not found"},
-                                                    status=status.HTTP_404_NOT_FOUND
-                                                )
-                                        else:
-                                            # Create new set
-                                            SetTemplate.objects.create(
-                                                exercise=exercise,
-                                                **{k: v for k, v in set_data.items() 
-                                                if k in ['reps', 'weight', 'rest_time', 'order']}
-                                            )
-
-                            except ExerciseTemplate.DoesNotExist:
-                                return Response(
-                                    {"detail": f"Exercise {exercise_id} not found"},
-                                    status=status.HTTP_404_NOT_FOUND
-                                )
+                            exercise = workout.exercises.get(id=exercise_id)
+                            for field in ['name', 'equipment', 'notes', 'order']:
+                                if field in ex_data:
+                                    setattr(exercise, field, ex_data[field])
+                            exercise.save()
+                            updated_exercise_ids.add(exercise_id)
                         else:
                             # Create new exercise
-                            new_exercise = ExerciseTemplate.objects.create(
+                            exercise = ExerciseInstance.objects.create(
                                 workout=workout,
-                                name=exercise_data['name'],
-                                equipment=exercise_data.get('equipment', ''),
-                                notes=exercise_data.get('notes', ''),
-                                order=exercise_data.get('order', 0)
+                                name=ex_data['name'],
+                                equipment=ex_data.get('equipment', ''),
+                                notes=ex_data.get('notes', ''),
+                                order=ex_data['order']
                             )
+                            updated_exercise_ids.add(exercise.id)
+                        
+                        # Handle sets for this exercise
+                        if 'sets' in ex_data:
+                            # Remove existing sets
+                            if exercise_id:
+                                exercise.sets.all().delete()
                             
-                            # Create its sets if provided
-                            for set_data in exercise_data.get('sets', []):
-                                SetTemplate.objects.create(
-                                    exercise=new_exercise,
-                                    **{k: v for k, v in set_data.items() 
-                                    if k in ['reps', 'weight', 'rest_time', 'order']}
+                            # Create new sets
+                            for set_data in ex_data['sets']:
+                                SetInstance.objects.create(
+                                    exercise=exercise,
+                                    reps=set_data['reps'],
+                                    weight=set_data['weight'],
+                                    rest_time=set_data['rest_time'],
+                                    order=set_data['order']
                                 )
-
+                    
+                    # Delete exercises that weren't updated or created
+                    exercises_to_delete = current_exercise_ids - updated_exercise_ids
+                    workout.exercises.filter(id__in=exercises_to_delete).delete()
+                
                 # Return updated workout
-                serializer = WorkoutTemplateDetailSerializer(workout)
+                serializer = WorkoutInstanceSerializer(workout)
                 return Response(serializer.data)
-
+                
+        except WorkoutInstance.DoesNotExist:
+            return Response(
+                {"detail": "Workout not found in this program"},
+                status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
             return Response(
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-    @action(detail=True, methods=['post'])
-    def copy(self, request, pk=None):
-        """Create a copy of this template"""
-        template = self.get_object()
+
+    @action(detail=True, methods=['post'], url_path='delete_exercise/(?P<workout_id>[^/.]+)')
+    def delete_workout_exercise(self, request, pk=None, workout_id=None):
+        """Delete an exercise from a specific workout instance within this program"""
+        program = self.get_object()
+        exercise_id = request.data.get('exercise_id')
         
-        with transaction.atomic():
-            # Create new template
-            new_template = WorkoutTemplate.objects.create(
-                creator=request.user,
-                name=f"Copy of {template.name}",
-                description=template.description,
-                split_method=template.split_method,
-                is_public=False
+        try:
+            workout = program.workout_instances.get(id=workout_id)
+            exercise = workout.exercises.get(id=exercise_id)
+            exercise.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except WorkoutInstance.DoesNotExist:
+            return Response(
+                {"detail": "Workout not found in this program"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ExerciseInstance.DoesNotExist:
+            return Response(
+                {"detail": "Exercise not found in this workout"},
+                status=status.HTTP_404_NOT_FOUND
             )
             
-            # Copy exercises and sets
-            for exercise in template.exercises.all():
-                new_exercise = ExerciseTemplate.objects.create(
-                    workout=new_template,
-                    name=exercise.name,
-                    equipment=exercise.equipment,
-                    notes=exercise.notes,
-                    order=exercise.order
-                )
-                
-                for set_template in exercise.sets.all():
-                    SetTemplate.objects.create(
-                        exercise=new_exercise,
-                        reps=set_template.reps,
-                        weight=set_template.weight,
-                        rest_time=set_template.rest_time,
-                        order=set_template.order
-                    )
-            
-            serializer = WorkoutTemplateDetailSerializer(new_template)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    @action(detail=False)
-    def trending(self, request):
-        return self.get_queryset().annotate(
-            popularity=Count('workout_instances') + Count('workout_logs')
-        ).order_by('-popularity')[:10]
-
-    @action(detail=False)
-    def by_equipment(self, request):
-        equipment = request.query_params.get('equipment')
-        return self.get_queryset().filter(equipment_required__contains=[equipment])
-
-class ProgramViewSet(viewsets.ModelViewSet):
-    """
-    Manage workout programs with social features
-    """
-    serializer_class = ProgramSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'description', 'creator__username']
-    ordering_fields = ['created_at', 'name', 'likes_count']
-
-    def get_queryset(self):
-        user = self.request.user
-        return Program.objects.filter(
-            Q(creator=user) #| 
-            # Q(shares__shared_with=user) |
-            # Q(is_public=True)
-        ).prefetch_related(
-            'workout_instances',
-            'workout_instances__template',
-            'workout_instances__template__exercises',
-            'workout_instances__template__exercises__sets',
-            'likes'
-        ).annotate(
-            likes_count=Count('likes', distinct=True),
-            forks_count=Count('forks', distinct=True)
-        ).distinct()
-
-    def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
-
     @action(detail=True, methods=['post'])
     def add_workout(self, request, pk=None):
+        """Add a workout to the program, optionally based on a template"""
         program = self.get_object()
         template_id = request.data.get('template_id')
+        
         try:
-            template = WorkoutTemplate.objects.get(
-                Q(id=template_id),
-                Q(creator=request.user) | Q(is_public=True)
-            )
-            
-            # Get max order and increment
-            max_order = program.workout_instances.aggregate(
-                max_order=models.Max('order')
-            )['max_order'] or 0
-            new_order = max_order + 1
-            
-            instance = WorkoutInstance.objects.create(
-                program=program,
-                template=template,
-                preferred_weekday=request.data.get('preferred_weekday', 0),
-                order=new_order  # Use calculated order
-            )
-            
-            serializer = WorkoutInstanceSerializer(instance)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            with transaction.atomic():
+                if template_id:
+                    # Copy from template
+                    template = WorkoutTemplate.objects.prefetch_related(
+                        'exercises', 'exercises__sets'
+                    ).get(
+                        Q(id=template_id),
+                        Q(creator=request.user) | Q(is_public=True)
+                    )
+                    
+                    # Create workout instance
+                    instance = WorkoutInstance.objects.create(
+                        program=program,
+                        based_on_template=template,
+                        name=template.name,
+                        description=template.description,
+                        split_method=template.split_method,
+                        preferred_weekday=request.data.get('preferred_weekday', 0),
+                        order=program.workout_instances.count()
+                    )
+                    
+                    # Copy exercises and sets
+                    for ex_template in template.exercises.all():
+                        ex_instance = ExerciseInstance.objects.create(
+                            workout=instance,
+                            based_on_template=ex_template,
+                            name=ex_template.name,
+                            equipment=ex_template.equipment,
+                            notes=ex_template.notes,
+                            order=ex_template.order
+                        )
+                        
+                        for set_template in ex_template.sets.all():
+                            SetInstance.objects.create(
+                                exercise=ex_instance,
+                                based_on_template=set_template,
+                                reps=set_template.reps,
+                                weight=set_template.weight,
+                                rest_time=set_template.rest_time,
+                                order=set_template.order
+                            )
+                else:
+                    # Create empty workout instance
+                    instance = WorkoutInstance.objects.create(
+                        program=program,
+                        name=request.data.get('name', 'New Workout'),
+                        description=request.data.get('description', ''),
+                        split_method=request.data.get('split_method', 'custom'),
+                        preferred_weekday=request.data.get('preferred_weekday', 0),
+                        order=program.workout_instances.count()
+                    )
+                
+                serializer = WorkoutInstanceSerializer(instance)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                
         except WorkoutTemplate.DoesNotExist:
             return Response(
                 {"detail": "Template not found or not accessible"},
                 status=status.HTTP_404_NOT_FOUND
             )
-    @action(detail=True, methods=['post'])
-    def remove_workout(self, request, pk=None):
-        """Remove a workout instance from the program"""
-        program = self.get_object()
-        instance_id = request.data.get('instance_id')
-        
-        try:
-            instance = program.workout_instances.get(id=instance_id)
-            instance.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except WorkoutInstance.DoesNotExist:
+        except Exception as e:
             return Response(
-                {"detail": "Workout instance not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-    @action(detail=True, methods=['post'])
-    def update_workout(self, request, pk=None):
-        """Update a workout instance in the program"""
-        program = self.get_object()
-        instance_id = request.data.get('instance_id')
-        
-        try:
-            # Get the instance and verify it belongs to this program
-            instance = program.workout_instances.get(id=instance_id)
-            
-            # Update fields if provided
-            if 'preferred_weekday' in request.data:
-                instance.preferred_weekday = request.data['preferred_weekday']
-                
-            if 'order' in request.data:
-                # If changing order, verify new order is valid
-                new_order = request.data['order']
-                if new_order != instance.order:
-                    # Check if this order already exists
-                    if program.workout_instances.filter(order=new_order).exists():
-                        # Shift other workouts to make room
-                        if new_order > instance.order:
-                            # Moving down - shift intermediates up
-                            program.workout_instances.filter(
-                                order__gt=instance.order,
-                                order__lte=new_order
-                            ).update(order=models.F('order') - 1)
-                        else:
-                            # Moving up - shift intermediates down
-                            program.workout_instances.filter(
-                                order__gte=new_order,
-                                order__lt=instance.order
-                            ).update(order=models.F('order') + 1)
-                    instance.order = new_order
-            
-            instance.save()
-            
-            serializer = WorkoutInstanceSerializer(instance)
-            return Response(serializer.data)
-            
-        except WorkoutInstance.DoesNotExist:
-            return Response(
-                {"detail": "Workout instance not found in this program"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-    # workouts/views.py in ProgramViewSet
-    @action(detail=True, methods=['post'])
-    def duplicate_workout(self, request, pk=None):
-        program = self.get_object()
-        instance_id = request.data.get('instance_id')
-        
-        try:
-            with transaction.atomic():
-                original = program.workout_instances.select_related(
-                    'template'
-                ).prefetch_related(
-                    'template__exercises',
-                    'template__exercises__sets'
-                ).get(id=instance_id)
-                
-                # Duplicate template
-                new_template = WorkoutTemplate.objects.create(
-                    creator=request.user,
-                    name=f"Copy of {original.template.name}",
-                    description=original.template.description,
-                    split_method=original.template.split_method,
-                    is_public=False,
-                    difficulty_level=original.template.difficulty_level,
-                    estimated_duration=original.template.estimated_duration,
-                    equipment_required=original.template.equipment_required,
-                    tags=original.template.tags
-                )
-                
-                # Copy exercises and sets
-                for exercise in original.template.exercises.all():
-                    new_exercise = ExerciseTemplate.objects.create(
-                        workout=new_template,
-                        name=exercise.name,
-                        equipment=exercise.equipment,
-                        notes=exercise.notes,
-                        order=exercise.order
-                    )
-                    
-                    for set_template in exercise.sets.all():
-                        SetTemplate.objects.create(
-                            exercise=new_exercise,
-                            reps=set_template.reps,
-                            weight=set_template.weight,
-                            rest_time=set_template.rest_time,
-                            order=set_template.order
-                        )
-                
-                # Create new instance with new template
-                new_instance = WorkoutInstance.objects.create(
-                    program=program,
-                    template=new_template,
-                    preferred_weekday=original.preferred_weekday,
-                    order=program.workout_instances.aggregate(
-                        max_order=models.Max('order')
-                    )['max_order'] + 1
-                )
-                
-                serializer = WorkoutInstanceSerializer(new_instance)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-                
-        except WorkoutInstance.DoesNotExist:
-            return Response(
-                {"detail": "Workout instance not found"},
-                status=status.HTTP_404_NOT_FOUND
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
             )
     
-    @action(detail=True, methods=['post'])
-    def toggle_active(self, request, pk=None):
-        """Toggle active status of a program, ensuring only one is active at a time"""
-        program = self.get_object()
-        user = request.user
-        
-        with transaction.atomic():
-            if not program.is_active:
-                # Deactivate all other programs of this user
-                Program.objects.filter(
-                    creator=user,
-                    is_active=True
-                ).update(is_active=False)
-                
-                # Activate this program
-                program.is_active = True
-                # Set as user's current program
-                user.current_program = program
-            else:
-                # Deactivate this program
-                program.is_active = False
-                # Remove as user's current program
-                if user.current_program == program:
-                    user.current_program = None
-            
-            program.save()
-            user.save()
-            
-            serializer = self.get_serializer(program)
-            return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def fork(self, request, pk=None):
-        """Create a fork of this program"""
+        """Create a copy of this program with all workouts"""
         original_program = self.get_object()
         
         with transaction.atomic():
@@ -453,18 +277,46 @@ class ProgramViewSet(viewsets.ModelViewSet):
                 description=original_program.description,
                 focus=original_program.focus,
                 sessions_per_week=original_program.sessions_per_week,
-                is_active=True,
-                is_public=False
+                is_active=False,
+                is_public=False,
+                difficulty_level=original_program.difficulty_level,
+                recommended_level=original_program.recommended_level,
+                required_equipment=original_program.required_equipment,
+                estimated_completion_weeks=original_program.estimated_completion_weeks,
+                tags=original_program.tags
             )
             
-            # Clone workout instances
-            for instance in original_program.workout_instances.all():
-                WorkoutInstance.objects.create(
+            # Clone workout instances with their exercises and sets
+            for orig_workout in original_program.workout_instances.all():
+                new_workout = WorkoutInstance.objects.create(
                     program=new_program,
-                    template=instance.template,
-                    preferred_weekday=instance.preferred_weekday,
-                    order=instance.order
+                    based_on_template=orig_workout.based_on_template,
+                    name=orig_workout.name,
+                    description=orig_workout.description,
+                    split_method=orig_workout.split_method,
+                    preferred_weekday=orig_workout.preferred_weekday,
+                    order=orig_workout.order
                 )
+                
+                for orig_exercise in orig_workout.exercises.all():
+                    new_exercise = ExerciseInstance.objects.create(
+                        workout=new_workout,
+                        based_on_template=orig_exercise.based_on_template,
+                        name=orig_exercise.name,
+                        equipment=orig_exercise.equipment,
+                        notes=orig_exercise.notes,
+                        order=orig_exercise.order
+                    )
+                    
+                    for orig_set in orig_exercise.sets.all():
+                        SetInstance.objects.create(
+                            exercise=new_exercise,
+                            based_on_template=orig_set.based_on_template,
+                            reps=orig_set.reps,
+                            weight=orig_set.weight,
+                            rest_time=orig_set.rest_time,
+                            order=orig_set.order
+                        )
             
             serializer = self.get_serializer(new_program)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -507,41 +359,15 @@ class ProgramViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-    @action(detail=False, methods=['get'])
-    def shared_with_me(self, request):
-        """List programs shared with the current user"""
-        shared_programs = Program.objects.filter(
-            shares__shared_with=request.user
-        ).distinct()
-        serializer = self.get_serializer(shared_programs, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def my_programs(self, request):
-        """List programs created by the current user"""
-        my_programs = Program.objects.filter(creator=request.user)
-        serializer = self.get_serializer(my_programs, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False)
-    def recommend(self, request):
-        user_level = request.user.training_level
-        available_equipment = request.user.preferred_gym.equipment
-        return self.get_queryset().filter(
-            recommended_level=user_level,
-            required_equipment__contained_by=available_equipment
-        )
 class WorkoutLogViewSet(viewsets.ModelViewSet):
-    """
-    Manage workout logs (records of performed workouts)
-    """
+    """Handle workout logs with their exercises and sets"""
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['date', 'created_at']
     ordering = ['-date', '-created_at']
 
     def get_serializer_class(self):
-        if self.action in ['create', 'update']:
+        if self.action in ['create']:
             return WorkoutLogCreateSerializer
         return WorkoutLogSerializer
 
@@ -550,8 +376,7 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             user=self.request.user
         ).select_related(
             'program',
-            'workout_instance',
-            'workout_instance__template',
+            'based_on_instance',
             'gym'
         ).prefetch_related(
             'exercises',
@@ -562,115 +387,52 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
     @action(detail=False, methods=['post'])
-    def create_custom(self, request):
-        """Create a custom workout log from scratch"""
-        serializer = WorkoutLogCreateSerializer(
-            data={
-                **request.data,
-                'user': request.user.id,  # Add user to data
-            },
-            context={'request': request}
-        )
-        
-        if serializer.is_valid():
-            with transaction.atomic():
-                workout_log = serializer.save(user=request.user)
-                return Response(
-                    WorkoutLogSerializer(workout_log).data,
-                    status=status.HTTP_201_CREATED
-                )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['get'])
-    def next_workout(self, request):
-        """Get the next workout instance from user's active program"""
-        user = request.user
-        
-        # Get user's active program
-        active_program = Program.objects.filter(
-            creator=user,
-            is_active=True
-        ).first()
-        
-        if not active_program:
-            return Response(
-                {"detail": "No active program found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Get the last logged workout from this program
-        last_log = WorkoutLog.objects.filter(
-            user=user,
-            program=active_program
-        ).order_by('-date').first()
-        
-        if last_log and last_log.workout_instance:
-            # Get next workout based on order
-            next_workout = WorkoutInstance.objects.filter(
-                program=active_program,
-                order__gt=last_log.workout_instance.order
-            ).order_by('order').first()
-            
-            # If no next workout, cycle back to first workout
-            if not next_workout:
-                next_workout = active_program.workout_instances.order_by('order').first()
-        else:
-            # If no logs yet, get first workout
-            next_workout = active_program.workout_instances.order_by('order').first()
-        
-        if next_workout:
-            return Response({
-                'program': ProgramSerializer(active_program).data,
-                'next_workout': WorkoutInstanceSerializer(next_workout).data
-            })
-        
-        return Response(
-            {"detail": "No workouts found in active program"},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    @action(detail=False, methods=['post'])
     def log_from_instance(self, request):
-        """Create a new workout log from a program workout instance"""
+        """Create a new workout log based on a program workout instance"""
         instance_id = request.data.get('instance_id')
         try:
             instance = WorkoutInstance.objects.select_related(
-                'template', 'program'
+                'program'
             ).prefetch_related(
-                'template__exercises',
-                'template__exercises__sets'
+                'exercises',
+                'exercises__sets'
             ).get(id=instance_id)
             
             with transaction.atomic():
                 # Create workout log
                 workout_log = WorkoutLog.objects.create(
                     user=request.user,
-                    workout_instance=instance,
+                    based_on_instance=instance,
                     program=instance.program,
+                    name=instance.name,
                     date=request.data.get('date'),
                     gym_id=request.data.get('gym_id'),
-                    notes=request.data.get('notes', '')
+                    notes=request.data.get('notes', ''),
+                    mood_rating=request.data.get('mood_rating'),
+                    perceived_difficulty=request.data.get('perceived_difficulty'),
+                    performance_notes=request.data.get('performance_notes', ''),
+                    completed=request.data.get('completed', False)
                 )
                 
-                # Copy exercises and sets from template
-                for exercise_template in instance.template.exercises.all():
+                # Copy exercises and sets from instance
+                for instance_exercise in instance.exercises.all():
                     exercise_log = ExerciseLog.objects.create(
-                        workout_log=workout_log,
-                        template=exercise_template,
-                        name=exercise_template.name,
-                        equipment=exercise_template.equipment,
-                        notes=exercise_template.notes,
-                        order=exercise_template.order
+                        workout=workout_log,
+                        based_on_instance=instance_exercise,
+                        name=instance_exercise.name,
+                        equipment=instance_exercise.equipment,
+                        notes=instance_exercise.notes,
+                        order=instance_exercise.order
                     )
                     
-                    for set_template in exercise_template.sets.all():
+                    for instance_set in instance_exercise.sets.all():
                         SetLog.objects.create(
                             exercise=exercise_log,
-                            template=set_template,
-                            reps=set_template.reps,
-                            weight=set_template.weight,
-                            rest_time=set_template.rest_time,
-                            order=set_template.order
+                            based_on_instance=instance_set,
+                            reps=instance_set.reps,
+                            weight=instance_set.weight,
+                            rest_time=instance_set.rest_time,
+                            order=instance_set.order
                         )
                 
                 serializer = WorkoutLogSerializer(workout_log)
@@ -684,39 +446,64 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def update_exercise(self, request, pk=None):
-        """Update a specific exercise in the workout log"""
+        """Update or add an exercise in the workout log"""
         workout_log = self.get_object()
         exercise_id = request.data.get('exercise_id')
         
         try:
-            exercise = workout_log.exercises.get(id=exercise_id)
-            serializer = ExerciseLogSerializer(
-                exercise,
-                data=request.data,
-                partial=True
-            )
-            
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
+            with transaction.atomic():
+                if exercise_id:
+                    # Update existing exercise
+                    exercise = workout_log.exercises.get(id=exercise_id)
+                    serializer = ExerciseLogSerializer(
+                        exercise,
+                        data=request.data,
+                        partial=True
+                    )
+                else:
+                    # Create new exercise
+                    serializer = ExerciseLogSerializer(data={
+                        **request.data,
+                        'workout': workout_log.id
+                    })
+                
+                if serializer.is_valid():
+                    exercise = serializer.save()
+                    
+                    # Handle sets
+                    if 'sets' in request.data:
+                        # Remove existing sets
+                        exercise.sets.all().delete()
+                        
+                        # Create new sets
+                        for set_data in request.data['sets']:
+                            SetLog.objects.create(
+                                exercise=exercise,
+                                reps=set_data['reps'],
+                                weight=set_data['weight'],
+                                rest_time=set_data['rest_time'],
+                                order=set_data['order']
+                            )
+                    
+                    # Return updated exercise with sets
+                    updated = ExerciseLog.objects.prefetch_related('sets').get(id=exercise.id)
+                    return Response(ExerciseLogSerializer(updated).data)
+                    
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
         except ExerciseLog.DoesNotExist:
             return Response(
                 {"detail": "Exercise not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False)
     def stats(self, request):
-        """Get workout statistics for the current user"""
+        """Get workout statistics"""
+        queryset = self.get_queryset()
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         
-        queryset = self.get_queryset()
         if start_date:
             queryset = queryset.filter(date__gte=start_date)
         if end_date:
@@ -730,3 +517,5 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             'completed_workouts': completed_workouts,
             'completion_rate': completed_workouts/total_workouts if total_workouts > 0 else 0
         })
+
+        

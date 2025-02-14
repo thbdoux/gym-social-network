@@ -25,8 +25,11 @@ const ExerciseCard = ({
   onDelete,
   onAddSet,
   onRemoveSet,
-  onUpdateSet 
+  onUpdateSet,
+  isEditing = true
 }) => {
+
+  
   return (
     <div className="bg-gray-800/50 rounded-xl overflow-hidden transition-all duration-300">
       <div className="p-4">
@@ -45,13 +48,7 @@ const ExerciseCard = ({
           />
           
           <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => onDuplicate(index)}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
-            >
-              <Copy className="w-5 h-5" />
-            </button>
+            {/* Removed duplicate button here */}
             <button
               type="button"
               onClick={() => onDelete(index)}
@@ -116,15 +113,23 @@ const ExerciseCard = ({
               </div>
 
               <div className="space-y-3">
-                {exercise.sets.map((set, setIndex) => (
-                  <SetForm
-                    key={setIndex}
-                    set={set}
-                    onUpdate={(field, value) => onUpdateSet(index, setIndex, field, value)}
-                    onDelete={() => onRemoveSet(index, setIndex)}
-                  />
-                ))}
-              </div>
+              {exercise.sets.map((set, setIndex) => (
+                <SetForm
+                  key={setIndex}
+                  set={set}
+                  setIndex={setIndex}  // Add this prop
+                  onUpdate={(field, value) => {
+                    console.log('Set update in ExerciseCard:', { setIndex, field, value }); // Debug log
+                    onUpdateSet(setIndex, field, value);
+                  }}
+                  onDelete={() => {
+                    console.log('Set delete in ExerciseCard:', { setIndex }); // Debug log
+                    onRemoveSet(setIndex);
+                  }}
+                  isEditing={isEditing}
+                />
+              ))}
+            </div>
             </div>
           </div>
         )}

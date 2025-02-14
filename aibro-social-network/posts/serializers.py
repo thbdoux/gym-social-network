@@ -41,23 +41,52 @@ class OriginalPostSerializer(serializers.ModelSerializer):
     def get_workout_log_details(self, obj):
         if obj.workout_log:
             from workouts.serializers import WorkoutLogSerializer
-            return WorkoutLogSerializer(obj.workout_log).data
+            # Return simplified workout log details to avoid deep nesting
+            return {
+                'id': obj.workout_log.id,
+                'name': obj.workout_log.name,  # New field from updated model
+                'date': obj.workout_log.date,
+                'completed': obj.workout_log.completed,
+                'exercises': [{
+                    'id': ex.id,
+                    'name': ex.name,
+                    'equipment': ex.equipment,
+                    'sets': [{
+                        'reps': set.reps,
+                        'weight': set.weight
+                    } for set in ex.sets.all()]
+                } for ex in obj.workout_log.exercises.all()]
+            }
         return None
 
     def get_program_details(self, obj):
         if obj.program:
-            from workouts.serializers import ProgramSerializer
-            return ProgramSerializer(obj.program).data
+            return {
+                'id': obj.program.id,
+                'name': obj.program.name,
+                'focus': obj.program.focus,
+                'difficulty_level': obj.program.difficulty_level,
+                'sessions_per_week': obj.program.sessions_per_week
+            }
         return None
 
     def get_workout_invite_details(self, obj):
         if obj.workout_instance:
-            from workouts.serializers import WorkoutInstanceSerializer
+            # Return simplified workout instance details
             return {
-                'workout': WorkoutInstanceSerializer(obj.workout_instance).data,
-                'planned_date': obj.planned_date
+                'id': obj.workout_instance.id,
+                'name': obj.workout_instance.name,  # New field from updated model
+                'split_method': obj.workout_instance.split_method,
+                'preferred_weekday': obj.workout_instance.preferred_weekday,
+                'planned_date': obj.planned_date,
+                'exercises': [{
+                    'id': ex.id,
+                    'name': ex.name,
+                    'equipment': ex.equipment
+                } for ex in obj.workout_instance.exercises.all()]
             }
         return None
+
 
     def get_invited_users_details(self, obj):
         from users.serializers import UserSerializer

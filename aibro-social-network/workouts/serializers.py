@@ -2,10 +2,11 @@
 from rest_framework import serializers
 from .models import (
     WorkoutTemplate, ExerciseTemplate, SetTemplate,
-    Program, WorkoutInstance, ProgramShare,
+    Program, WorkoutInstance, ExerciseInstance, SetInstance, ProgramShare,
     WorkoutLog, ExerciseLog, SetLog
 )
 
+# Template Serializers
 class SetTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SetTemplate
@@ -35,32 +36,42 @@ class WorkoutTemplateSerializer(serializers.ModelSerializer):
        ]
         read_only_fields = ['id', 'creator_username', 'created_at', 'updated_at']
 
-class WorkoutTemplateDetailSerializer(WorkoutTemplateSerializer):
-    """Detailed version of WorkoutTemplate serializer with more info"""
-    class Meta(WorkoutTemplateSerializer.Meta):
-        fields = WorkoutTemplateSerializer.Meta.fields + [
-            'creator'
+# Instance Serializers
+class SetInstanceSerializer(serializers.ModelSerializer):
+    based_on_template_id = serializers.IntegerField(source='based_on_template.id', read_only=True)
+    
+    class Meta:
+        model = SetInstance
+        fields = ['id', 'reps', 'weight', 'rest_time', 'order', 'based_on_template_id']
+        read_only_fields = ['id', 'based_on_template_id']
+
+class ExerciseInstanceSerializer(serializers.ModelSerializer):
+    sets = SetInstanceSerializer(many=True, read_only=True)
+    based_on_template_id = serializers.IntegerField(source='based_on_template.id', read_only=True)
+    
+    class Meta:
+        model = ExerciseInstance
+        fields = [
+            'id', 'name', 'equipment', 'notes', 'order',
+            'sets', 'based_on_template_id'
         ]
-        read_only_fields = WorkoutTemplateSerializer.Meta.read_only_fields + ['creator']
+        read_only_fields = ['id', 'based_on_template_id']
 
 class WorkoutInstanceSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(source='template.id')
-    name = serializers.CharField(source='template.name')
-    split_method = serializers.CharField(source='template.split_method')
-    description = serializers.CharField(source='template.description')
-    exercises = ExerciseTemplateSerializer(source='template.exercises', many=True)
-    instance_id = serializers.IntegerField(source='id')
-    weekday_name = serializers.CharField(source='get_preferred_weekday_display')
-    creator_username = serializers.CharField(source='template.creator.username')
+    exercises = ExerciseInstanceSerializer(many=True, read_only=True)
+    based_on_template_id = serializers.IntegerField(source='based_on_template.id', read_only=True)
+    weekday_name = serializers.CharField(source='get_preferred_weekday_display', read_only=True)
     
     class Meta:
         model = WorkoutInstance
         fields = [
-            'instance_id', 'id', 'name', 'description',
-            'split_method', 'preferred_weekday', 'weekday_name',
-            'order', 'exercises', 'creator_username'
+            'id', 'name', 'description', 'split_method',
+            'preferred_weekday', 'weekday_name', 'order',
+            'exercises', 'based_on_template_id'
         ]
+        read_only_fields = ['id', 'based_on_template_id', 'weekday_name']
 
+# Program Serializers
 class ProgramSerializer(serializers.ModelSerializer):
     workouts = WorkoutInstanceSerializer(source='workout_instances', many=True, read_only=True)
     likes_count = serializers.IntegerField(read_only=True)
@@ -77,8 +88,8 @@ class ProgramSerializer(serializers.ModelSerializer):
            'is_active', 'is_public', 'likes_count', 
            'difficulty_level', 'recommended_level',
            'required_equipment', 'estimated_completion_weeks',
-           'tags','forked_from_name', 'forks_count', 'is_liked', 'forked_from',
-           'created_at', 'updated_at'
+           'tags', 'forked_from_name', 'forks_count', 'is_liked',
+           'forked_from', 'created_at', 'updated_at'
        ]
         read_only_fields = [
             'id', 'creator_username', 'likes_count',
@@ -102,47 +113,48 @@ class ProgramShareSerializer(serializers.ModelSerializer):
                  'shared_with_username', 'created_at']
         read_only_fields = ['id', 'created_at']
 
+# Log Serializers
 class SetLogSerializer(serializers.ModelSerializer):
-    template_id = serializers.IntegerField(source='template.id', read_only=True)
+    based_on_instance_id = serializers.IntegerField(source='based_on_instance.id', read_only=True)
     
     class Meta:
         model = SetLog
-        fields = ['id', 'template', 'template_id', 'reps', 
-                 'weight', 'rest_time', 'order']
-        read_only_fields = ['id', 'template_id']
+        fields = [
+            'id', 'reps', 'weight', 'rest_time', 'order',
+            'based_on_instance_id'
+        ]
+        read_only_fields = ['id', 'based_on_instance_id']
 
 class ExerciseLogSerializer(serializers.ModelSerializer):
     sets = SetLogSerializer(many=True, read_only=True)
-    template_name = serializers.CharField(source='template.name', read_only=True)
+    based_on_instance_id = serializers.IntegerField(source='based_on_instance.id', read_only=True)
     
     class Meta:
         model = ExerciseLog
         fields = [
-            'id', 'template', 'template_name', 'name',
-            'equipment', 'notes', 'order', 'sets'
+            'id', 'name', 'equipment', 'notes', 'order',
+            'sets', 'based_on_instance_id'
         ]
-        read_only_fields = ['id', 'template_name']
+        read_only_fields = ['id', 'based_on_instance_id']
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     exercises = ExerciseLogSerializer(many=True, read_only=True)
+    based_on_instance_id = serializers.IntegerField(source='based_on_instance.id', read_only=True)
     program_name = serializers.CharField(source='program.name', read_only=True)
-    workout_name = serializers.CharField(source='workout_instance.template.name', read_only=True)
     gym_name = serializers.CharField(source='gym.name', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
     
     class Meta:
         model = WorkoutLog
         fields = [
-           'id', 'user', 'username', 'program', 'program_name',
-           'workout_instance', 'workout_name', 'date',
-           'gym', 'gym_name', 'notes', 'completed',
-           'mood_rating', 'perceived_difficulty', 
-           'performance_notes', 'media',
-           'exercises', 'created_at'
+           'id', 'name', 'user', 'username', 'program', 'program_name',
+           'based_on_instance_id', 'date', 'gym', 'gym_name',
+           'notes', 'completed', 'mood_rating', 'perceived_difficulty', 
+           'performance_notes', 'media', 'exercises', 'created_at'
        ]
         read_only_fields = [
             'id', 'user', 'username', 'program_name',
-            'workout_name', 'gym_name', 'created_at'
+            'gym_name', 'created_at', 'based_on_instance_id'
         ]
 
 class WorkoutLogCreateSerializer(serializers.ModelSerializer):
@@ -152,52 +164,11 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutLog
         fields = [
-            'workout_instance', 'program', 'date',
-            'gym', 'notes', 'completed', 'exercises'
-        ]
-
-    def create(self, validated_data):
-        exercises_data = validated_data.pop('exercises')
-        workout_log = WorkoutLog.objects.create(**validated_data)
-        
-        for exercise_data in exercises_data:
-            sets_data = exercise_data.pop('sets', [])
-            exercise = ExerciseLog.objects.create(workout_log=workout_log, **exercise_data)
-            
-            for set_data in sets_data:
-                SetLog.objects.create(exercise=exercise, **set_data)
-        
-        return workout_log
-
-
-class WorkoutLogCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating workout logs with nested exercises and sets"""
-    exercises = ExerciseLogSerializer(many=True)
-    date = serializers.DateTimeField() 
-    class Meta:
-        model = WorkoutLog
-        fields = [
-            'workout_instance', 'program', 'date',
+            'name', 'based_on_instance', 'program', 'date',
             'gym', 'notes', 'completed', 'exercises',
             'mood_rating', 'perceived_difficulty',
             'performance_notes', 'media'
         ]
-        
-
-
-    def validate(self, data):
-        """
-        Validate that either workout_instance is provided or exercises data is complete
-        """
-        workout_instance = data.get('workout_instance')
-        exercises = data.get('exercises', [])
-        
-        if not workout_instance and not exercises:
-            raise serializers.ValidationError(
-                "Either workout_instance or exercises data must be provided"
-            )
-            
-        return data
 
     def create(self, validated_data):
         exercises_data = validated_data.pop('exercises', [])
@@ -206,11 +177,14 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
         for exercise_data in exercises_data:
             sets_data = exercise_data.pop('sets', [])
             exercise = ExerciseLog.objects.create(
-                workout_log=workout_log,
+                workout=workout_log,
                 **exercise_data
             )
             
             for set_data in sets_data:
-                SetLog.objects.create(exercise=exercise, **set_data)
+                SetLog.objects.create(
+                    exercise=exercise,
+                    **set_data
+                )
         
         return workout_log

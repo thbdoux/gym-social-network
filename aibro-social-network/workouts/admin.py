@@ -3,10 +3,11 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     WorkoutTemplate, ExerciseTemplate, SetTemplate,
-    Program, WorkoutInstance, ProgramShare,
+    Program, WorkoutInstance, ExerciseInstance, SetInstance, ProgramShare,
     WorkoutLog, ExerciseLog, SetLog
 )
 
+# Template Admin
 class SetTemplateInline(admin.TabularInline):
     model = SetTemplate
     extra = 1
@@ -18,30 +19,11 @@ class ExerciseTemplateInline(admin.TabularInline):
     fields = ('name', 'equipment', 'notes', 'order')
     show_change_link = True
 
-class WorkoutInstanceInline(admin.TabularInline):
-    model = WorkoutInstance
-    extra = 1
-    fields = ('template', 'preferred_weekday', 'order')
-    raw_id_fields = ('template',)
-
-class SetLogInline(admin.TabularInline):
-    model = SetLog
-    extra = 0
-    fields = ('reps', 'weight', 'rest_time', 'order')
-    readonly_fields = ('template',)
-
-class ExerciseLogInline(admin.TabularInline):
-    model = ExerciseLog
-    extra = 0
-    fields = ('name', 'equipment', 'notes', 'order')
-    readonly_fields = ('template',)
-    show_change_link = True
-
 @admin.register(WorkoutTemplate)
 class WorkoutTemplateAdmin(admin.ModelAdmin):
     list_display = (
-       'name', 'creator', 'split_method', 'difficulty_level',
-       'estimated_duration', 'is_public', 'use_count', 'created_at'
+        'name', 'creator', 'split_method', 'difficulty_level',
+        'estimated_duration', 'is_public', 'use_count', 'created_at'
     )
     list_filter = (
         'split_method', 'difficulty_level', 'is_public', 
@@ -55,12 +37,49 @@ class WorkoutTemplateAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('creator')
 
+# Instance Admin
+class SetInstanceInline(admin.TabularInline):
+    model = SetInstance
+    extra = 1
+    fields = ('reps', 'weight', 'rest_time', 'order', 'based_on_template')
+    raw_id_fields = ('based_on_template',)
+
+class ExerciseInstanceInline(admin.TabularInline):
+    model = ExerciseInstance
+    extra = 1
+    fields = ('name', 'equipment', 'notes', 'order', 'based_on_template')
+    raw_id_fields = ('based_on_template',)
+    show_change_link = True
+
+class WorkoutInstanceInline(admin.TabularInline):
+    model = WorkoutInstance
+    extra = 1
+    fields = ('name', 'split_method', 'preferred_weekday', 'order', 'based_on_template')
+    raw_id_fields = ('based_on_template',)
+
+@admin.register(WorkoutInstance)
+class WorkoutInstanceAdmin(admin.ModelAdmin):
+    list_display = (
+        'name', 'program', 'split_method', 'preferred_weekday', 
+        'order', 'based_on_template'
+    )
+    list_filter = ('preferred_weekday', 'split_method', 'program__name')
+    search_fields = ('name', 'program__name')
+    raw_id_fields = ('program', 'based_on_template')
+    inlines = [ExerciseInstanceInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'program', 'based_on_template'
+        )
+
+# Program Admin
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
     list_display = (
-       'name', 'creator', 'focus', 'difficulty_level',
-       'sessions_per_week', 'estimated_completion_weeks',
-       'is_active', 'is_public', 'get_likes_count'
+        'name', 'creator', 'focus', 'difficulty_level',
+        'sessions_per_week', 'estimated_completion_weeks',
+        'is_active', 'is_public', 'get_likes_count'
     )
     list_filter = (
         'focus', 'difficulty_level', 'is_active',
@@ -93,15 +112,6 @@ class ProgramAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related(
             'creator', 'forked_from'
         ).prefetch_related('workout_instances', 'likes', 'forks')
-@admin.register(WorkoutInstance)
-class WorkoutInstanceAdmin(admin.ModelAdmin):
-    list_display = ('template', 'program', 'preferred_weekday', 'order')
-    list_filter = ('preferred_weekday', 'program__name')
-    search_fields = ('template__name', 'program__name')
-    raw_id_fields = ('program', 'template')
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('program', 'template')
 
 @admin.register(ProgramShare)
 class ProgramShareAdmin(admin.ModelAdmin):
@@ -113,23 +123,54 @@ class ProgramShareAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('program', 'shared_with')
 
+# Log Admin
+class SetLogInline(admin.TabularInline):
+    model = SetLog
+    extra = 0
+    fields = ('reps', 'weight', 'rest_time', 'order', 'based_on_instance')
+    raw_id_fields = ('based_on_instance',)
+
+class ExerciseLogInline(admin.TabularInline):
+    model = ExerciseLog
+    extra = 0
+    fields = ('name', 'equipment', 'notes', 'order', 'based_on_instance')
+    raw_id_fields = ('based_on_instance',)
+    show_change_link = True
+
 @admin.register(WorkoutLog)
 class WorkoutLogAdmin(admin.ModelAdmin):
     list_display = (
-       'user', 'workout_instance', 'program', 'date',
-       'mood_rating', 'perceived_difficulty', 'completed'
+        'name', 'user', 'date', 'based_on_instance',
+        'program', 'mood_rating', 'perceived_difficulty', 'completed'
     )
     list_filter = (
         'completed', 'mood_rating', 'perceived_difficulty',
         'date', 'created_at'
     )
-    search_fields = ('user__username', 'notes', 'workout_instance__template__name')
+    search_fields = ('name', 'user__username', 'notes')
     inlines = [ExerciseLogInline]
     readonly_fields = ('created_at',)
-    raw_id_fields = ('user', 'workout_instance', 'program', 'gym')
+    raw_id_fields = ('user', 'based_on_instance', 'program', 'gym')
     date_hierarchy = 'date'
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
-            'user', 'workout_instance', 'program', 'gym'
+            'user', 'based_on_instance', 'program', 'gym'
         )
+
+# Register Exercise/Set models for individual editing if needed
+@admin.register(ExerciseInstance)
+class ExerciseInstanceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'workout', 'order', 'based_on_template')
+    list_filter = ('workout__program__name',)
+    search_fields = ('name', 'workout__name')
+    raw_id_fields = ('workout', 'based_on_template')
+    inlines = [SetInstanceInline]
+
+@admin.register(ExerciseLog)
+class ExerciseLogAdmin(admin.ModelAdmin):
+    list_display = ('name', 'workout', 'order', 'based_on_instance')
+    list_filter = ('workout__date',)
+    search_fields = ('name', 'workout__name')
+    raw_id_fields = ('workout', 'based_on_instance')
+    inlines = [SetLogInline]
