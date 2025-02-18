@@ -132,7 +132,10 @@ class WorkoutLog(models.Model):
     program = models.ForeignKey(Program, on_delete=models.SET_NULL, null=True, blank=True)
     name = models.CharField(max_length=100)
     date = models.DateTimeField()
-    gym = models.ForeignKey('gyms.Gym', on_delete=models.SET_NULL, null=True)
+    gym = models.ForeignKey('gyms.Gym', 
+                           on_delete=models.SET_NULL, 
+                           null=True,
+                           related_name='workout_logs')
     notes = models.TextField(blank=True)
     completed = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

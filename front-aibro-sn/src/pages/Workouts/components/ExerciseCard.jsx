@@ -1,7 +1,7 @@
 // ExerciseCard.jsx
 import React from 'react';
 import { Plus, Copy, Trash2, ChevronDown, ChevronUp, Dumbbell, ClipboardList } from 'lucide-react';
-import SetForm from '../SetForm';
+import SetForm from './SetForm';
 
 const EQUIPMENT_OPTIONS = [
   'Dumbbells',

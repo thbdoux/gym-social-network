@@ -77,7 +77,7 @@
 
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
-import WorkoutPlanForm from '../components/forms/WorkoutPlanForm';
+import WorkoutPlanForm from '../components/WorkoutPlanForm';
 
 const CreatePlanView = ({
   onCreatePlan,

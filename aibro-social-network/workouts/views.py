@@ -14,7 +14,7 @@ from .serializers import (
     WorkoutTemplateSerializer, ExerciseTemplateSerializer, SetTemplateSerializer,
     ProgramSerializer, WorkoutInstanceSerializer, ExerciseInstanceSerializer,
     SetInstanceSerializer, ProgramShareSerializer,
-    WorkoutLogSerializer, WorkoutLogCreateSerializer,
+    WorkoutLogSerializer, WorkoutLogCreateSerializer, WorkoutLogUpdateSerializer,
     ExerciseLogSerializer, SetLogSerializer
 )
 
@@ -369,6 +369,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action in ['create']:
             return WorkoutLogCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return WorkoutLogUpdateSerializer
         return WorkoutLogSerializer
 
     def get_queryset(self):

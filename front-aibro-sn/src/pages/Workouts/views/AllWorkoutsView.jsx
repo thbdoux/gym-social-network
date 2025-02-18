@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
-import UnifiedWorkoutCard from '../components/cards/UnifiedWorkoutCard';
-import WorkoutDetailModal from '../components/modals/WorkoutDetailModal';
-import EmptyState from '../components/layout/EmptyState';
+import UnifiedWorkoutCard from '../components/UnifiedWorkoutCard';
+import WorkoutDetailModal from '../components/WorkoutDetailModal';
+import EmptyState from '../components/EmptyState';
 
 const AllWorkoutsView = ({
   workoutTemplates,

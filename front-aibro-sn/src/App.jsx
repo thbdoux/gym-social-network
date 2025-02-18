@@ -8,7 +8,7 @@ import api from './api';
 
 // Pages
 import LoginPage from './pages/Login';
-import WorkoutsPage from './pages/Workouts';
+import WorkoutsSpace from './pages/Workouts';
 import CoachPage from './pages/Coach';
 import ProfilePage from './pages/Profile';
 import MainFeed from './pages/MainFeed';
@@ -105,7 +105,7 @@ function App() {
                 path="/workouts"
                 element={
                   <ProtectedRoute>
-                    <WorkoutsPage />
+                    <WorkoutsSpace />
                   </ProtectedRoute>
                 }
               />

@@ -1,9 +1,9 @@
 //PlansListView.jsx
 import React from 'react';
 import { Plus, LayoutGrid, ArrowLeft } from 'lucide-react';
-import WorkoutPlansGrid from '../components/cards/WorkoutPlansGrid';
-import { FilterBar } from '../components/layout/FilterBar';
-import EmptyState from '../components/layout/EmptyState';
+import WorkoutPlansGrid from '../components/WorkoutPlansGrid';
+import { FilterBar } from '../components/FilterBar';
+import EmptyState from '../components/EmptyState';
 
 const PlansListView = ({
   workoutPlans,

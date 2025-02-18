@@ -15,13 +15,41 @@ class GymViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        today = timezone.now().date()
         return Gym.objects.annotate(
-            active_users=Count(
+            member_count=Count('regular_users', distinct=True),
+            active_users_today=Count(
                 'workout_logs',
-                filter=Q(workout_logs__date=timezone.now().date())
+                filter=Q(workout_logs__date=today),
+                distinct=True
             )
-        ).prefetch_related('announcements')
+        )
 
+
+    def create(self, request, *args, **kwargs):
+        try:
+            print("Received data:", request.data)  # Debug print
+            serializer = self.get_serializer(data=request.data)
+            if not serializer.is_valid():
+                print("Validation errors:", serializer.errors)  # Debug print
+                return Response(
+                    {
+                        "error": "Invalid data",
+                        "details": serializer.errors
+                    }, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            self.perform_create(serializer)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print("Exception:", str(e))  # Debug print
+            return Response(
+                {
+                    "error": "Server error",
+                    "message": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     @action(detail=True, methods=['get'])
     def members(self, request, pk=None):
         gym = self.get_object()

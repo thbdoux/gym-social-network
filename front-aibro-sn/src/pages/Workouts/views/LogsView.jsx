@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutGrid, Activity } from 'lucide-react';
-import EmptyState from '../components/layout/EmptyState';
-import WorkoutLogPreview from '../components/cards/WorkoutLogPreview';
-import ProgramPreview from '../components/cards/ProgramPreview';
-import QuickStats from '../components/stats/QuickStats';
+import EmptyState from '../components/EmptyState';
+import WorkoutLogPreview from '../components/WorkoutLogPreview';
+import ProgramPreview from '../components/ProgramPreview';
+import QuickStats from '../components/QuickStats';
 import LogWorkoutDialog from './LogWorkoutDialog';
 
 const getNextWorkoutDetails = (workouts) => {
@@ -76,7 +76,7 @@ const LogsView = ({
     <div className="grid grid-cols-3 gap-6">
       <div className="col-span-2 space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold text-white">Workout Log</h1>
+          <h1 className="text-4xl font-bold text-white">Workout Space</h1>
           <div className="flex space-x-3">
             <LogWorkoutDialog
               nextWorkout={nextWorkout}

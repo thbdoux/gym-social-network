@@ -119,13 +119,17 @@ const EmptyState = ({ onCreatePlan }) => (
   </div>
 );
 
-const WorkoutPlansGrid = ({ plans, onSelect, onDelete, onToggleActive, onCreatePlan }) => {
+const WorkoutPlansGrid = ({ plans, onSelect, onDelete, onToggleActive, onCreatePlan, singleColumn = false }) => {
   if (!plans || plans.length === 0) {
     return <EmptyState onCreatePlan={onCreatePlan} />;
   }
+  // Use conditional class for grid columns
+  const gridClass = singleColumn 
+    ? "grid grid-cols-1 gap-6" 
+    : "grid grid-cols-1 md:grid-cols-2 gap-6";
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className={gridClass}>
       {plans.map(plan => (
         <WorkoutPlanCard
           key={plan.id}

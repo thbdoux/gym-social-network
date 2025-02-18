@@ -116,6 +116,7 @@ class ProgramShareSerializer(serializers.ModelSerializer):
 # Log Serializers
 class SetLogSerializer(serializers.ModelSerializer):
     based_on_instance_id = serializers.IntegerField(source='based_on_instance.id', read_only=True)
+    id = serializers.IntegerField(required=False)
     
     class Meta:
         model = SetLog
@@ -123,10 +124,11 @@ class SetLogSerializer(serializers.ModelSerializer):
             'id', 'reps', 'weight', 'rest_time', 'order',
             'based_on_instance_id'
         ]
-        read_only_fields = ['id', 'based_on_instance_id']
+        read_only_fields = ['based_on_instance_id']
 
 class ExerciseLogSerializer(serializers.ModelSerializer):
-    sets = SetLogSerializer(many=True, read_only=True)
+    id = serializers.IntegerField(required=False)  
+    sets = SetLogSerializer(many=True)
     based_on_instance_id = serializers.IntegerField(source='based_on_instance.id', read_only=True)
     
     class Meta:
@@ -135,7 +137,7 @@ class ExerciseLogSerializer(serializers.ModelSerializer):
             'id', 'name', 'equipment', 'notes', 'order',
             'sets', 'based_on_instance_id'
         ]
-        read_only_fields = ['id', 'based_on_instance_id']
+        read_only_fields = ['based_on_instance_id']
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     exercises = ExerciseLogSerializer(many=True, read_only=True)
@@ -158,7 +160,6 @@ class WorkoutLogSerializer(serializers.ModelSerializer):
         ]
 
 class WorkoutLogCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating workout logs with nested exercises and sets"""
     exercises = ExerciseLogSerializer(many=True)
     
     class Meta:
@@ -171,20 +172,128 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        print("Debug - Create method called")
+        print("Debug - Validated data:", validated_data)
+        
         exercises_data = validated_data.pop('exercises', [])
-        workout_log = WorkoutLog.objects.create(**validated_data)
+        print("Debug - Exercises data:", exercises_data)
         
-        for exercise_data in exercises_data:
-            sets_data = exercise_data.pop('sets', [])
-            exercise = ExerciseLog.objects.create(
-                workout=workout_log,
-                **exercise_data
-            )
+        try:
+            # Create the workout log
+            workout_log = WorkoutLog.objects.create(**validated_data)
+            print("Debug - Created workout log:", workout_log)
             
-            for set_data in sets_data:
-                SetLog.objects.create(
-                    exercise=exercise,
-                    **set_data
+            # Create exercises
+            for exercise_data in exercises_data:
+                print("Debug - Processing exercise:", exercise_data)
+                sets_data = exercise_data.pop('sets', [])
+                
+                # Create exercise
+                exercise = ExerciseLog.objects.create(
+                    workout=workout_log,
+                    **exercise_data
                 )
+                print("Debug - Created exercise:", exercise)
+                
+                # Create sets for this exercise
+                for set_data in sets_data:
+                    print("Debug - Processing set:", set_data)
+                    set_obj = SetLog.objects.create(
+                        exercise=exercise,
+                        **set_data
+                    )
+                    print("Debug - Created set:", set_obj)
+            
+            return workout_log
+            
+        except Exception as e:
+            print("Debug - Error occurred:", str(e))
+            print("Debug - Error type:", type(e))
+            import traceback
+            print("Debug - Traceback:", traceback.format_exc())
+            raise
+
+class WorkoutLogUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating workout logs with nested exercises and sets"""
+    exercises = ExerciseLogSerializer(many=True)
+    
+    class Meta:
+        model = WorkoutLog
+        fields = [
+            'name', 'based_on_instance', 'program', 'date',
+            'gym', 'notes', 'completed', 'exercises',
+            'mood_rating', 'perceived_difficulty',
+            'performance_notes', 'media'
+        ]
+
+    def update(self, instance, validated_data):
+        exercises_data = validated_data.pop('exercises', [])
         
-        return workout_log
+        # Update basic workout log fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Keep track of existing exercises
+        current_exercises = {exercise.id: exercise for exercise in instance.exercises.all()}
+        
+        # Track which exercises to keep
+        exercises_to_keep = []
+
+        # Update or create exercises
+        for exercise_data in exercises_data:
+            exercise_id = exercise_data.get('id')
+            sets_data = exercise_data.pop('sets', [])
+
+            if exercise_id and exercise_id in current_exercises:
+                # Update existing exercise
+                exercise = current_exercises[exercise_id]
+                for attr, value in exercise_data.items():
+                    if attr != 'sets':
+                        setattr(exercise, attr, value)
+                exercise.save()
+            else:
+                # Create new exercise
+                exercise = ExerciseLog.objects.create(
+                    workout=instance,
+                    **exercise_data
+                )
+
+            # Keep track of existing sets for this exercise
+            current_sets = {set_obj.id: set_obj for set_obj in exercise.sets.all()}
+            sets_to_keep = []
+
+            # Update or create sets
+            for set_data in sets_data:
+                set_id = set_data.get('id')
+                
+                if set_id and set_id in current_sets:
+                    # Update existing set
+                    set_obj = current_sets[set_id]
+                    for attr, value in set_data.items():
+                        if attr != 'id':
+                            setattr(set_obj, attr, value)
+                    set_obj.save()
+                    sets_to_keep.append(set_obj.id)
+                else:
+                    # Create new set
+                    new_set = SetLog.objects.create(
+                        exercise=exercise,
+                        reps=set_data.get('reps', 0),
+                        weight=set_data.get('weight', 0),
+                        rest_time=set_data.get('rest_time', 60),
+                        order=set_data.get('order', 0)
+                    )
+                    sets_to_keep.append(new_set.id)
+
+            # Delete sets that are no longer present
+            exercise.sets.exclude(id__in=sets_to_keep).delete()
+            exercises_to_keep.append(exercise.id)
+
+        # Delete exercises that are no longer present
+        instance.exercises.exclude(id__in=exercises_to_keep).delete()
+
+        # Refresh from db to get the updated instance with all relations
+        return WorkoutLog.objects.prefetch_related(
+            'exercises__sets'
+        ).get(id=instance.id)

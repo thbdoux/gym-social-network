@@ -167,7 +167,7 @@ POST /workouts/logs/log_from_instance/
     "completed": boolean
 }
 
-POST /workouts/logs/create_custom/
+POST /workouts/logs/
 {
     "date": string,
     "gym_id"?: number,

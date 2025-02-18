@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
-import UnifiedWorkoutCard from '../components/cards/UnifiedWorkoutCard';
-import WeeklyCalendar from '../components/layout/WeeklyCalendar';
-import WorkoutDetailModal from '../components/modals/WorkoutDetailModal';
-import StatsGrid from '../components/layout/StatsGrid';
-import TemplateSelector from '../components/modals/TemplateSelector';
-import EnhancedWorkoutForm from '../components/forms/EnhancedWorkoutForm';
+import UnifiedWorkoutCard from '../components/UnifiedWorkoutCard';
+import WeeklyCalendar from '../components/WeeklyCalendar';
+import WorkoutDetailModal from '../components/WorkoutDetailModal';
+import StatsGrid from '../components/StatsGrid';
+import TemplateSelector from '../components/TemplateSelector';
+import EnhancedWorkoutForm from '../components/EnhancedWorkoutForm';
 
 const AddWorkoutChoiceModal = ({ isOpen, onClose, onSelectExisting, onCreateNew }) => {
   if (!isOpen) return null;

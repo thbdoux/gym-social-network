@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Settings, Calendar, Dumbbell, Tag, Clock } from 'lucide-react';
-import ExerciseCard from '../cards/ExerciseCard';
+import ExerciseCard from './ExerciseCard';
 
 const SPLIT_METHODS = ['full_body', 'push_pull_legs', 'upper_lower', 'custom'];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

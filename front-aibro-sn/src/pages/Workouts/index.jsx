@@ -1,26 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { Plus, ChevronRight, Calendar, Activity, Target, Loader2 } from 'lucide-react';
+import WorkoutPlansGrid from './components/WorkoutPlansGrid';
+import EmptyState from './components/EmptyState';
+import PlansListView from './views/PlansListView';
+import PlanDetailView from './views/PlanDetailView';
 import { useWorkoutPlans } from './hooks/useWorkoutPlans';
 import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
 import { useWorkoutLogs } from './hooks/useWorkoutLogs';
-import ErrorAlert from '../../components/common/ErrorAlert';
+import WorkoutLogCard from './components/WorkoutLogCard';
+import WorkoutLogForm from './components/WorkoutLogForm';
+import api from './../../api';
 
-// Import views
-import LogsView from './views/LogsView';
-import LogDetailView from './views/LogDetailView';
-import PlansListView from './views/PlansListView';
-import CreatePlanView from './views/CreatePlanView';
-import PlanDetailView from './views/PlanDetailView';
-import AllWorkoutsView from './views/AllWorkoutsView';
+const QuickStats = () => (
+  <div className="bg-gray-800 rounded-xl p-6">
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-xl font-bold text-white">Quick Stats</h2>
+      <span className="text-sm text-gray-400">This Week</span>
+    </div>
+    
+    <div className="grid grid-cols-2 gap-6">
+      <div>
+        <span className="text-gray-400 text-sm">Week</span>
+        <div className="flex items-baseline mt-1">
+          <span className="text-3xl font-bold text-white">1</span>
+          <span className="text-gray-400 ml-2">workouts</span>
+        </div>
+      </div>
+      
+      <div>
+        <span className="text-gray-400 text-sm">Total</span>
+        <div className="flex items-baseline mt-1">
+          <span className="text-3xl font-bold text-white">1</span>
+          <span className="text-gray-400 ml-2">workouts</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
-const WorkoutsPage = () => {
-  const { user } = useAuth();
-  const [view, setView] = useState('logs');
-  const [selectedPlan, setSelectedPlan] = useState(null);
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center p-8">
+    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+  </div>
+);
+
+const ErrorMessage = ({ message }) => (
+  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+    <p>{message}</p>
+  </div>
+);
+
+const WorkoutSpace = ({ user }) => {
+  const [showLogForm, setShowLogForm] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
-  const [error, setError] = useState('');
-
-  // Custom hooks with updated functionality
+  const [view, setView] = useState('main');
+  
   const {
     workoutPlans,
     loading: plansLoading,
@@ -28,10 +62,10 @@ const WorkoutsPage = () => {
     createPlan,
     updatePlan,
     deletePlan,
+    refreshPlans,
     addWorkoutToPlan,
     updateWorkoutInstance,
-    removeWorkoutFromPlan,
-    refreshPlans
+    removeWorkoutFromPlan
   } = useWorkoutPlans();
 
   const {
@@ -40,223 +74,272 @@ const WorkoutsPage = () => {
     error: templatesError,
     createTemplate,
     updateTemplate,
-    deleteTemplate,
-    refreshTemplates
+    deleteTemplate
   } = useWorkoutTemplates();
 
+  // Get the active program
+  const activeProgram = workoutPlans.find(plan => plan.is_active);
+
   const {
-    workoutLogs,
-    isLoading: logsLoading,
+    logs,
+    loading: logsLoading,
     error: logsError,
-    createLogFromInstance,
-    createCustomLog,
+    createLog,
     updateLog,
     refreshLogs
-  } = useWorkoutLogs();
+  } = useWorkoutLogs(activeProgram);
+  // Get only the 3 most recent logs for the preview
+  const recentLogs = logs.slice(0, 3);
+
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
   const handlePlanSelect = async (plan) => {
-    try {
-      setSelectedPlan(plan);
-      setView('plan-detail');
-    } catch (err) {
-      console.error('Error loading plan details:', err);
-      setError('Failed to load plan details');
-    }
-  };
-  
-  const handleRefreshPlan = async (planId) => {
-    try {
-      const updatedPlan = await refreshPlans(); // This should be from your useWorkoutPlans hook
-      const refreshedPlan = workoutPlans.find(p => p.id === planId);
-      if (refreshedPlan) {
-        setSelectedPlan(refreshedPlan);
-      }
-    } catch (err) {
-      console.error('Error refreshing plan:', err);
-      setError('Failed to refresh plan details');
-    }
-  };
-
-  const handleLogSelect = (log) => {
-    setSelectedLog(log);
-    setView('log-detail');
-  };
-
-  const handleLogWorkout = async (instanceId, additionalData = {}) => {
-    try {
-      const newLog = await createLogFromInstance(instanceId, additionalData);
-      setSelectedLog(newLog);
-      setView('log-detail');
-    } catch (err) {
-      console.error('Error creating workout log:', err);
-      setError('Failed to create workout log');
-    }
-  };
-
-  const handleCustomLog = async (logData) => {
-    try {
-      const newLog = await createCustomLog(logData);
-      setSelectedLog(newLog);
-      setView('log-detail');
-    } catch (err) {
-      console.error('Error creating custom log:', err);
-      setError('Failed to create custom workout log');
-    }
-  };
-
-  const handleLogUpdate = async (updatedLog) => {
-    try {
-      await updateLog(updatedLog.id, updatedLog);
-      await refreshLogs();
-      setError('');
-    } catch (err) {
-      setError('Failed to update workout log');
-    }
+    setSelectedPlan(plan);
+    setView('plan-detail');
   };
 
   const handleCreatePlan = async (planData) => {
     try {
       const newPlan = await createPlan(planData);
-      setSelectedPlan(newPlan);
-      setView('plan-detail');
-      return newPlan; // Return the new plan for the CreatePlanView to know it succeeded
+      await refreshPlans();
+      setView('main');
+      return newPlan;
     } catch (err) {
       console.error('Error creating plan:', err);
-      setError('Failed to create workout plan');
-      throw err; // Rethrow so CreatePlanView can handle it
+      throw err;
     }
   };
 
-  const handleDeletePlan = async (planId) => {
+  const handleAddWorkout = async (planId, templateId, weekday) => {
     try {
-      if (!window.confirm('Are you sure you want to delete this program? This action cannot be undone.')) {
-        return;
-      }
-      await deletePlan(planId);
-      if (selectedPlan?.id === planId) {
-        setSelectedPlan(null);
-        setView('plans');
-      }
-    } catch (err) {
-      console.error('Error deleting plan:', err);
-      setError('Failed to delete workout plan');
-    }
-  };
-  
-  
-
-  const handleUpdatePlan = async (planId, updates) => {
-    try {
-      const updatedPlan = await updatePlan(planId, updates);
-      setSelectedPlan(updatedPlan);
+      await addWorkoutToPlan(planId, templateId, weekday);
       await refreshPlans();
     } catch (err) {
-      setError('Failed to update workout plan');
+      console.error('Error adding workout:', err);
+      throw err;
     }
   };
 
-  useEffect(() => {
-    if (view === 'all-workouts') {
-      refreshTemplates();
+  const handleUpdateWorkout = async (planId, instanceId, updates) => {
+    try {
+      await updateWorkoutInstance(planId, instanceId, updates);
+      await refreshPlans();
+    } catch (err) {
+      console.error('Error updating workout:', err);
+      throw err;
     }
-  }, [view]);
+  };
 
-  const renderView = () => {
-    switch (view) {
-      case 'logs':
-        return (
-          <LogsView
-            workoutLogs={workoutLogs}
-            workoutPlans={workoutPlans}
-            isLoading={logsLoading}
-            onLogSelect={handleLogSelect}
-            onViewWorkouts={() => setView('all-workouts')}
-            onViewPrograms={() => setView('plans')}
-            onPlanSelect={handlePlanSelect}
-            onCreateLogFromInstance={handleLogWorkout}
-            onCreateCustomLog={handleCustomLog}
-          />
-        );
+  const handleRemoveWorkout = async (planId, instanceId) => {
+    try {
+      await removeWorkoutFromPlan(planId, instanceId);
+      await refreshPlans();
+    } catch (err) {
+      console.error('Error removing workout:', err);
+      throw err;
+    }
+  };
 
-      case 'log-detail':
-        return (
-          <LogDetailView
-            log={selectedLog}
-            onBack={() => setView('logs')}
-            onUpdate={handleLogUpdate}
-          />
-        );
+  if (plansError || templatesError) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <ErrorMessage message={plansError || templatesError} />
+      </div>
+    );
+  }
 
-      case 'plans':
-        return (
-          <PlansListView
-            workoutPlans={workoutPlans}
-            isLoading={plansLoading}
-            onPlanSelect={handlePlanSelect}
-            setView={setView}
-            user={user}
-            deletePlan={deletePlan}
-            onCreatePlan={handleCreatePlan}
-          />
-        );
-
-      case 'plan-detail':
-        return (
-          <PlanDetailView
-          plan={selectedPlan}
-          templates={templates}
-          onBack={() => setView('plans')}
-          onUpdate={handleUpdatePlan}
-          onDelete={deletePlan}
-          onAddWorkout={addWorkoutToPlan}
-          onUpdateWorkout={updateWorkoutInstance}
-          onRemoveWorkout={removeWorkoutFromPlan}
+  if (view === 'plans') {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <PlansListView
+          workoutPlans={workoutPlans}
+          isLoading={plansLoading}
+          onPlanSelect={handlePlanSelect}
+          setView={setView}
           user={user}
-          onRefreshPlan={handleRefreshPlan}  // Add this prop
+          deletePlan={deletePlan}
+          onCreatePlan={handleCreatePlan}
         />
-        );
-
-      case 'all-workouts':
-        return (
-          <AllWorkoutsView
-            workoutTemplates={templates || []}  // Ensure we pass an empty array if undefined
-            isLoading={templatesLoading}
-            onCreateTemplate={createTemplate}
-            onUpdateTemplate={updateTemplate}
-            onDeleteTemplate={deleteTemplate}
-            setView={setView}
-          />
-        );
-      
-      case 'create-plan':
-        return (
-          <CreatePlanView
-          onCreatePlan={handleCreatePlan}  // Pass the handler function
-          onCancel={() => setView('plans')}
+      </div>
+    );
+  } else if (view === 'plan-detail' && selectedPlan) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <PlanDetailView
+          plan={selectedPlan}
+          onBack={() => {
+            setSelectedPlan(null);
+            setView('main');
+          }}
+          onUpdate={updatePlan}
+          onDelete={deletePlan}
           workoutTemplates={templates}
-          onError={setError}   // Pass error handler
+          onAddWorkout={handleAddWorkout}
+          onUpdateWorkout={handleUpdateWorkout}
+          onRemoveWorkout={handleRemoveWorkout}
         />
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  // Combine all errors
-  const combinedError = error || plansError || templatesError || logsError;
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      {combinedError && (
-        <ErrorAlert 
-          message={combinedError} 
-          onClose={() => setError('')} 
-        />
-      )}
-      {renderView()}
+    <div className="min-h-screen bg-gray-900 text-white p-8">
+      <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white">Workout Space</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Workout Logs Section */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-gray-800 rounded-xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Workout Logs</h2>
+              <button 
+                onClick={() => setShowLogForm(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Log Workout</span>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {logsLoading ? (
+                <LoadingSpinner />
+              ) : recentLogs.length > 0 ? (
+                recentLogs.map((log, index) => (
+                  <WorkoutLogCard
+                    key={log.id || `pending-${index}`}
+                    log={log}
+                    onClick={() => {
+                      if (log.status === 'pending') {
+                        setSelectedLog({
+                          ...log,
+                          id: null, // New log from template
+                          completed: false,
+                          date: new Date().toISOString().split('T')[0]
+                        });
+                        setShowLogForm(true);
+                      } else {
+                        // TODO: Navigate to log detail view
+                        console.log('View log details:', log);
+                      }
+                    }}
+                    onEdit={(log) => {
+                      setSelectedLog(log);
+                      setShowLogForm(true);
+                    }}
+                    onDelete={async (log) => {
+                      if (window.confirm('Are you sure you want to delete this workout log?')) {
+                        try {
+                          // TODO: Implement delete log API call
+                          await api.delete(`/workouts/logs/${log.id}/`);
+                          await refreshLogs();
+                        } catch (err) {
+                          console.error('Error deleting log:', err);
+                        }
+                      }
+                    }}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  title="No workout logs yet"
+                  description="Start logging your workouts to track your progress"
+                  action={{
+                    label: 'Log First Workout',
+                    onClick: () => {
+                      setSelectedLog(null); // Explicitly set to null for new log
+                      setShowLogForm(true);
+                    }
+                  }}
+                />
+              )}
+            </div>
+
+            {showLogForm && (
+              <WorkoutLogForm
+                log={selectedLog}
+                programs={workoutPlans}
+                onSubmit={async (formData) => {
+                    try {
+                        if (selectedLog?.id) {
+                          // Edit existing log
+                          await updateLog(selectedLog.id, formData);
+                        } else if (selectedLog?.based_on_instance) {
+                          // Log from program instance
+                          await createLog({
+                            ...formData,
+                            instance_id: selectedLog.based_on_instance
+                          });
+                        } else {
+                          // Create new custom log
+                          await createLog(formData);
+                        }
+                        setShowLogForm(false);
+                        setSelectedLog(null);
+                        await refreshLogs();
+                    } catch (err) {
+                    console.error('Error saving log:', err);
+                  }
+                }}
+                onClose={() => {
+                  setShowLogForm(false);
+                  setSelectedLog(null);
+                }}
+              />
+            )}
+            
+            <button className="w-full mt-4 py-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center space-x-2">
+              <span>View All Logs</span>
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-8">
+          {/* Active Programs Section */}
+          <div className="bg-gray-800 rounded-xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Active Programs</h2>
+              <button 
+                onClick={() => setView('plans')}
+                className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1"
+              >
+                <span>View All</span>
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {plansLoading ? (
+              <LoadingSpinner />
+            ) : activeProgram ? (
+                <div className="mx-[-1rem]">
+                <WorkoutPlansGrid
+                  plans={[activeProgram]}
+                  onSelect={handlePlanSelect}
+                  onDelete={deletePlan}
+                  hideActions={true}
+                  singleColumn={true}
+                />
+              </div>
+            ) : (
+              <EmptyState
+                title="No active program"
+                description="Select or create a program to start your fitness journey"
+                action={{
+                  label: 'Browse Programs',
+                  onClick: () => setView('plans')
+                }}
+              />
+            )}
+          </div>
+
+          {/* Quick Stats Section */}
+          <QuickStats />
+        </div>
+      </div>
     </div>
   );
 };
 
-export default WorkoutsPage;
+export default WorkoutSpace;

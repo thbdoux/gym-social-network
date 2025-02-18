@@ -1,7 +1,7 @@
 // components/modals/WorkoutDetailModal.jsx
 import React from 'react';
 import { X } from 'lucide-react';
-import EnhancedWorkoutForm from '../forms/EnhancedWorkoutForm';
+import EnhancedWorkoutForm from './EnhancedWorkoutForm';
 
 const WorkoutDetailModal = ({
   workout = null,

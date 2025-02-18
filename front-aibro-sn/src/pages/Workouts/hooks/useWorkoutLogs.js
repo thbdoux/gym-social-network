@@ -2,153 +2,155 @@
 import { useState, useEffect } from 'react';
 import api from '../../../api';
 
-export const useWorkoutLogs = () => {
-  const [workoutLogs, setWorkoutLogs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const useWorkoutLogs = (activeProgram) => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchLogs = async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const response = await api.get('/workouts/logs/');
-      setWorkoutLogs(response.data?.results || []);
+      console.log("Fetched logs ",response.data?.results)
+      setLogs(response.data?.results || []);
       setError(null);
     } catch (err) {
+      console.error('Error fetching logs:', err);
       setError('Failed to load workout logs');
-      console.error('Error fetching workout logs:', err);
+      setLogs([]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
-  const createLogFromInstance = async (instanceId, logData = {}) => {
+  
+  const formatLogForAPI = (logData) => {
+    return {
+      name: logData.name,
+      date: logData.date,
+      gym: logData.gym,
+      program: logData.program,
+      based_on_instance: logData.based_on_instance,
+      notes: logData.notes || "",
+      completed: logData.completed,
+      mood_rating: logData.mood_rating || 5,
+      perceived_difficulty: logData.perceived_difficulty || 5,
+      performance_notes: logData.performance_notes || "",
+      exercises: logData.exercises.map(exercise => ({
+        id: exercise.id, // Include ID if it exists (for updates)
+        name: exercise.name,
+        equipment: exercise.equipment || "",
+        notes: exercise.notes || "",
+        order: exercise.order,
+        sets: exercise.sets.map(set => ({
+          id: set.id, // Include set ID if it exists
+          reps: parseInt(set.reps) || 0,
+          weight: parseFloat(set.weight) || 0,
+          rest_time: parseInt(set.rest_time) || 60,
+          order: set.order
+        }))
+      }))
+    };
+  };
+  
+  const updateLog = async (logId, logData) => {
     try {
-      const response = await api.post('/workouts/logs/log_from_instance/', {
-        instance_id: instanceId,
-        date: new Date().toISOString().slice(0, 16),
-        gym_id: logData.gym_id,
-        notes: logData.notes,
-        mood_rating: logData.mood_rating || 7,
-        perceived_difficulty: logData.perceived_difficulty || 7,
-        performance_notes: logData.performance_notes,
-        completed: logData.completed || false
-      });
-      setWorkoutLogs(prevLogs => [response.data, ...prevLogs]);
+      const formattedData = formatLogForAPI(logData);
+      console.log('Sending update with data:', formattedData);
+      const response = await api.patch(`/workouts/logs/${logId}/`, formattedData);
+      console.log('Update response:', response.data);
+      await fetchLogs();
       return response.data;
     } catch (err) {
+      console.error('Error updating workout log:', err);
+      setError('Failed to update workout log');
+      throw err;
+    }
+  };
+  
+  const createLog = async (logData) => {
+    try {
+      const formattedData = formatLogForAPI(logData);
+      console.log('Creating log with data:', formattedData);
+      const response = await api.post('/workouts/logs/', formattedData);
+      await fetchLogs();
+      return response.data;
+    } catch (err) {
+      console.error('Error creating workout log:', err);
       setError('Failed to create workout log');
       throw err;
     }
   };
 
-  const createCustomLog = async (logData) => {
-    try {
-      const response = await api.post('/workouts/logs/create_custom/', {
-        date: logData.date.slice(0, 16),
-        gym_id: logData.gym_id,
-        notes: logData.notes,
-        exercises: logData.exercises.map((ex, index) => ({
-          name: ex.name,
-          equipment: ex.equipment,
-          notes: ex.notes,
-          order: index,
-          sets: ex.sets.map((set, setIndex) => ({
-            reps: parseInt(set.reps),
-            weight: parseFloat(set.weight),
-            rest_time: parseInt(set.rest_time),
-            order: setIndex
-          }))
-        })),
-        mood_rating: logData.mood_rating || 7,
-        perceived_difficulty: logData.perceived_difficulty || 7,
-        performance_notes: logData.performance_notes,
-        completed: logData.completed || false
-      });
-      setWorkoutLogs(prevLogs => [response.data, ...prevLogs]);
-      return response.data;
-    } catch (err) {
-      setError('Failed to create custom workout log');
-      throw err;
+  // Get the next scheduled workout from active program
+  const getNextWorkout = () => {
+    if (!activeProgram?.workouts?.length) return null;
+
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0-6 (Sunday-Saturday)
+
+    // Find the next workout after today
+    const nextWorkout = activeProgram.workouts
+      .filter(w => w.preferred_weekday >= dayOfWeek)
+      .sort((a, b) => a.preferred_weekday - b.preferred_weekday)[0];
+
+    if (nextWorkout) {
+      return {
+        ...nextWorkout,
+        status: 'pending',
+        workout_name: nextWorkout.template?.name || 'Scheduled Workout',
+        date: 'Next ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][nextWorkout.preferred_weekday],
+        gym_name: 'Scheduled',
+        duration: nextWorkout.template?.estimated_duration || 60,
+        exercise_count: nextWorkout.template?.exercises?.length || 0
+      };
     }
+
+    return null;
   };
 
-  const updateLog = async (logId, updates) => {
-    try {
-      // First update the basic log info
-      const response = await api.patch(`/workouts/logs/${logId}/`, {
-        date: updates.date?.slice(0, 16),
-        gym_id: updates.gym_id,
-        notes: updates.notes,
-        mood_rating: updates.mood_rating,
-        perceived_difficulty: updates.perceived_difficulty,
-        performance_notes: updates.performance_notes,
-        completed: updates.completed
-      });
-
-      let updatedLog = response.data;
-
-      // Then update exercises if they exist
-      if (updates.exercises) {
-        const exercisePromises = updates.exercises.map(async (exercise) => {
-          if (!exercise.id || exercise.id.toString().startsWith('temp-')) {
-            // Add new exercise
-            return api.post(`/workouts/logs/${logId}/exercises/`, {
-              name: exercise.name,
-              equipment: exercise.equipment,
-              notes: exercise.notes,
-              order: exercise.order,
-              sets: exercise.sets.map((set, idx) => ({
-                reps: parseInt(set.reps),
-                weight: parseFloat(set.weight),
-                rest_time: parseInt(set.rest_time),
-                order: idx
-              }))
-            });
-          } else {
-            // Update existing exercise
-            return api.patch(`/workouts/logs/${logId}/exercises/${exercise.id}/`, {
-              name: exercise.name,
-              equipment: exercise.equipment,
-              notes: exercise.notes,
-              sets: exercise.sets.map((set, idx) => ({
-                reps: parseInt(set.reps),
-                weight: parseFloat(set.weight),
-                rest_time: parseInt(set.rest_time),
-                order: idx
-              }))
-            });
-          }
-        });
-
-        await Promise.all(exercisePromises);
-        
-        // Get the updated log with all changes
-        const refreshResponse = await api.get(`/workouts/logs/${logId}/`);
-        updatedLog = refreshResponse.data;
-      }
-
-      setWorkoutLogs(prevLogs => 
-        prevLogs.map(log => log.id === logId ? updatedLog : log)
-      );
-
-      return updatedLog;
-    } catch (err) {
-      console.error('Error updating log:', err);
-      setError('Failed to update workout log');
-      throw err;
-    }
+  // Transform logs to include required display properties
+const transformedLogs = logs.map(log => {
+  // Keep all original data and add display properties
+  const transformedLog = {
+    ...log,
+    status: log.status || 'validated',
+    workout_name: log.name || 'Custom Workout',
+    date: new Date(log.date).toLocaleDateString(),
+    gym_name: log.gym?.name || 'Not specified',
+    duration: log.duration || 60,
+    exercise_count: log.exercises?.length || 0,
+    performance_rating: Math.round(((log.mood_rating + (log.perceived_difficulty || 5)) / 2) * 10)
   };
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
+  // Ensure exercises and sets are properly structured
+  if (transformedLog.exercises) {
+    transformedLog.exercises = transformedLog.exercises.map(exercise => ({
+      ...exercise,
+      sets: exercise.sets || [],
+      equipment: exercise.equipment || '',
+      notes: exercise.notes || ''
+    }));
+  }
 
-  return {
-    workoutLogs,
-    isLoading,
-    error,
-    createLogFromInstance,
-    updateLog,
-    refreshLogs: fetchLogs
-  };
+  return transformedLog;
+});
+
+// Add pending workout if exists
+const nextWorkout = getNextWorkout();
+const allLogs = nextWorkout 
+  ? [nextWorkout, ...transformedLogs]
+  : transformedLogs;
+
+useEffect(() => {
+  fetchLogs();
+}, []);
+
+return {
+  logs: allLogs,
+  loading,
+  error,
+  createLog,
+  updateLog,
+  refreshLogs: fetchLogs
+};
 };
