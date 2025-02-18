@@ -209,20 +209,6 @@ const WorkoutSpace = ({ user }) => {
                   <WorkoutLogCard
                     key={log.id || `pending-${index}`}
                     log={log}
-                    onClick={() => {
-                      if (log.status === 'pending') {
-                        setSelectedLog({
-                          ...log,
-                          id: null, // New log from template
-                          completed: false,
-                          date: new Date().toISOString().split('T')[0]
-                        });
-                        setShowLogForm(true);
-                      } else {
-                        // TODO: Navigate to log detail view
-                        console.log('View log details:', log);
-                      }
-                    }}
                     onEdit={(log) => {
                       setSelectedLog(log);
                       setShowLogForm(true);

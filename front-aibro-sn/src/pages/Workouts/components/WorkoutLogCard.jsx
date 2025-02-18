@@ -1,50 +1,58 @@
-import React from 'react';
-import { Calendar, Clock, Dumbbell, ChevronRight, Edit2, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Clock, Dumbbell, Edit2, Trash2, ChevronDown, ChevronUp, Book, ClipboardList, Loader2 } from 'lucide-react';
+import { useGyms } from '../hooks/useGyms';
 
-const WorkoutLogCard = ({ log, onClick, onEdit, onDelete }) => {
-  const statusColors = {
-    pending: {
-      bg: 'bg-yellow-500/10',
-      border: 'border-yellow-500/20',
-      text: 'text-yellow-400',
-      icon: 'from-yellow-500 to-orange-500'
-    },
-    validated: {
-      bg: 'bg-green-500/10',
-      border: 'border-green-500/20',
-      text: 'text-green-400',
-      icon: 'from-green-500 to-emerald-500'
-    }
-  };
+const WorkoutLogCard = ({ log, onEdit, onDelete }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  const colors = statusColors[log.status];
-
+  const { gyms, loading: gymsLoading, error: gymsError } = useGyms();
+  
+  const gymName = React.useMemo(() => {
+    if (!log.gym) return 'Not specified';
+    const gym = gyms.find(g => g.id === log.gym);
+    return gym ? `${gym.name} - ${gym.location}` : 'Loading...';
+  }, [log.gym, gyms]);
   return (
-    <div 
-      className={`${colors.bg} border ${colors.border} rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10`}
-    >
+    <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10">
       {/* Status Indicator Line */}
-      <div className={`h-1 w-full bg-gradient-to-r ${colors.icon}`} />
+      <div className={`h-1 w-full bg-gradient-to-r ${log.status === 'validated' ? 'from-green-500 to-emerald-500' : 'from-yellow-500 to-orange-500'}`} />
       
-      <div className="p-4">
+      <div className="p-6">
         {/* Header Section */}
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
-              {log.workout_name}
-            </h3>
-            <div className="flex items-center mt-1 text-sm text-gray-400">
-              <Calendar className="w-4 h-4 mr-1" />
-              <span>{log.date}</span>
+        <div className="flex justify-between items-start">
+          <div className="flex items-center space-x-4">
+            <div className="bg-blue-500/20 p-3 rounded-xl">
+              <Dumbbell className="w-6 h-6 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                {log.workout_name}
+              </h3>
+              <div className="flex items-center mt-1 space-x-3 text-sm text-gray-400">
+                <div className="flex items-center">
+                  <Calendar className="w-4 h-4 mr-1" />
+                  <span>{log.date}</span>
+                </div>
+                {log.program && (
+                  <div className="flex items-center">
+                    <Book className="w-4 h-4 mr-1" />
+                    <span>{log.program_name}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${colors.text} ${colors.bg} border ${colors.border}`}>
-            {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
-          </span>
+          
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 rounded-lg transition-colors"
+          >
+            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-4 p-3 bg-gray-800/50 rounded-lg mb-4">
+        <div className="grid grid-cols-3 gap-4 mt-6 p-3 bg-gray-800/50 rounded-lg">
           <div className="text-sm">
             <div className="flex items-center text-gray-400 mb-1">
               <Dumbbell className="w-4 h-4 mr-1" />
@@ -66,62 +74,140 @@ const WorkoutLogCard = ({ log, onClick, onEdit, onDelete }) => {
               <Calendar className="w-4 h-4 mr-1" />
               <span>Location</span>
             </div>
-            <p className="text-white font-medium">{log.gym}</p>
+            <div className="text-white font-medium">
+              {gymsLoading ? (
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading gym...</span>
+                </div>
+              ) : gymsError ? (
+                <span className="text-red-400">Error loading gym</span>
+              ) : (
+                gymName
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Performance Rating (for validated logs) */}
-        {log.status === 'validated' && (
-          <div className="text-sm">
-            <span className="text-gray-400">Performance</span>
-            <div className="flex items-center mt-2">
-              <div className="h-2 flex-1 bg-gray-700 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full bg-gradient-to-r ${colors.icon}`}
-                  style={{ width: `${log.performance_rating}%` }}
-                />
-              </div>
-              <span className="ml-2 text-white font-medium">{log.performance_rating}%</span>
+        {/* Expanded Content */}
+        {isExpanded && (
+          <div className="mt-6 space-y-6 border-t border-gray-700 pt-6">
+            {/* Exercise List */}
+            <div className="space-y-4">
+              {log.exercises?.map((exercise, index) => (
+                <div key={index} className="bg-gray-800/50 rounded-xl overflow-hidden">
+                  <div className="p-4">
+                    {/* Exercise Header */}
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-blue-500/20 p-2 rounded-lg">
+                        <ClipboardList className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-white">
+                          {exercise.name}
+                        </h4>
+                        {exercise.equipment && (
+                          <p className="text-sm text-gray-400 mt-1">
+                            Equipment: {exercise.equipment}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sets Table */}
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-gray-700/50">
+                            <th className="pb-2 pr-4 text-sm font-medium text-gray-400">Set</th>
+                            <th className="pb-2 px-4 text-sm font-medium text-gray-400">Reps</th>
+                            <th className="pb-2 px-4 text-sm font-medium text-gray-400">Weight (kg)</th>
+                            <th className="pb-2 pl-4 text-sm font-medium text-gray-400">Rest (sec)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {exercise.sets.map((set, setIdx) => (
+                            <tr key={setIdx} className="border-b border-gray-700/20 last:border-0">
+                              <td className="py-2 pr-4 text-gray-300">{setIdx + 1}</td>
+                              <td className="py-2 px-4 text-gray-300">{set.reps}</td>
+                              <td className="py-2 px-4 text-gray-300">{set.weight}</td>
+                              <td className="py-2 pl-4 text-gray-300">{set.rest_time}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {exercise.notes && (
+                      <p className="mt-4 text-sm text-gray-400">
+                        Notes: {exercise.notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
+
+            {/* Performance Metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <h4 className="text-white font-medium mb-2">Mood Rating</h4>
+                <div className="flex items-center">
+                  <div className="h-2 flex-1 bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500"
+                      style={{ width: `${(log.mood_rating / 10) * 100}%` }}
+                    />
+                  </div>
+                  <span className="ml-2 text-white font-medium">{log.mood_rating}/10</span>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <h4 className="text-white font-medium mb-2">Perceived Difficulty</h4>
+                <div className="flex items-center">
+                  <div className="h-2 flex-1 bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-purple-500"
+                      style={{ width: `${(log.perceived_difficulty / 10) * 100}%` }}
+                    />
+                  </div>
+                  <span className="ml-2 text-white font-medium">{log.perceived_difficulty}/10</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Notes */}
+            {log.performance_notes && (
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <h4 className="text-white font-medium mb-2">Performance Notes</h4>
+                <p className="text-gray-400">{log.performance_notes}</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-700">
-          <div className="flex space-x-2">
-            {/* Only show edit/delete for validated logs */}
-            {log.status === 'validated' && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit?.(log);
-                  }}
-                  className="px-3 py-2 bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-all duration-300 flex items-center space-x-2"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  <span>Edit</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete?.(log);
-                  }}
-                  className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg transition-all duration-300 flex items-center space-x-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete</span>
-                </button>
-              </>
-            )}
-          </div>
-          
+        <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-gray-700">
           <button
-            onClick={onClick}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(log);
+            }}
             className="px-3 py-2 bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg transition-all duration-300 flex items-center space-x-2"
           >
-            <span>{log.status === 'pending' ? 'Log Workout' : 'View Details'}</span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <Edit2 className="w-4 h-4" />
+            <span>Edit</span>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.(log);
+            }}
+            className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg transition-all duration-300 flex items-center space-x-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete</span>
           </button>
         </div>
       </div>

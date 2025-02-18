@@ -66,7 +66,7 @@ const initializeFormData = (log) => {
     mood_rating: log.mood_rating || 5,
     perceived_difficulty: log.perceived_difficulty || 5,
     performance_notes: log.performance_notes || '',
-    program: log.program?.id || null,
+    program: log.program ? (typeof log.program === 'object' ? log.program.id : log.program) : null,
     based_on_instance: log.based_on_instance?.id || null,
     gym: typeof log.gym === 'object' ? log.gym.id : log.gym,
     notes: log.notes || '',
@@ -315,10 +315,10 @@ const WorkoutLogForm = ({ log = null, onSubmit, onClose, programs = [] }) => {
             <div>
                 <label className="text-sm text-gray-400">Program (optional)</label>
                 <select
-                value={formData.program || ''}
-                onChange={(e) => setFormData({ ...formData, program: e.target.value || null })}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white mt-1"
-                >
+                    value={formData.program ? (typeof formData.program === 'object' ? formData.program.id : formData.program) : ''}
+                    onChange={(e) => setFormData({ ...formData, program: e.target.value || null })}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white mt-1"
+                    >
                 <option value="">No Program</option>
                 {programs?.map(program => (
                     <option key={program.id} value={program.id}>{program.name}</option>
