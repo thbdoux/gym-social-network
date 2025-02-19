@@ -12,7 +12,6 @@ export const useWorkoutTemplates = () => {
       setLoading(true);
       console.log('Fetching templates...');  // Debug log
       const response = await api.get('/workouts/templates/');
-      console.log('Templates response:', response.data);  // Debug log
       setTemplates(response.data?.results || []);
       setError(null);
     } catch (err) {

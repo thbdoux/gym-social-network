@@ -60,7 +60,7 @@ const PlansListView = ({
         </div>
         <div className="flex space-x-4">
           <button
-            onClick={() => setView('all-workouts')}
+            onClick={() => setView('all-workouts')}  // This should now correctly navigate to AllWorkoutsView
             className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 
                      transition-colors flex items-center space-x-2"
           >
@@ -68,7 +68,7 @@ const PlansListView = ({
             <span>Workout Templates</span>
           </button>
           <button
-            onClick={() => setView('create-plan')}
+            onClick={() => setView('create-plan')}  // This should now correctly navigate to CreatePlanView
             className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 
                      transition-colors flex items-center space-x-2"
           >

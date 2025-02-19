@@ -4,3 +4,4 @@ django-cors-headers  # For CORS
 djangorestframework-simplejwt  # For JWT authentication
 python-dotenv  # For loading .env files
 Pillow  # For image handling (ImageField)
+drf-nested-routers

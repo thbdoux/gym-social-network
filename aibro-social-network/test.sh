@@ -63,12 +63,8 @@
 #     "notes": "Upper body focus - Start with bench press"
 #   }'
 
-curl -X POST http://localhost:8000/api/users/ \
--H "Content-Type: application/json" \
--d '{
-    "username": "testuser",
-    "password": "testpassword123",
-    "email": "test@example.com",
-    "training_level": "beginner",
-    "personality_type": "casual"
-}' 
+curl -X PUT http://localhost:8000/api/workouts/programs/10/workouts/19/ \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzM5OTE0ODI0LCJpYXQiOjE3Mzk5MTEyMjQsImp0aSI6IjAwZWM4YWY3NGRiYTRiOWVhMzY1MjgzMWVlYWY1YzU5IiwidXNlcl9pZCI6MX0.t4hc7ZlZ7drWdDtmQSsiigGEkgqm_Gs-JaTNHAdV4ts" \
+     -d '{"name": "test", "preferred_weekday": 1}' \
+     -v

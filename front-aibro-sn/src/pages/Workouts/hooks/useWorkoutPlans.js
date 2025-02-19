@@ -11,8 +11,10 @@ export const useWorkoutPlans = () => {
     try {
       setLoading(true);
       const response = await api.get('/workouts/programs/');
-      setWorkoutPlans(response.data?.results || []);
+      const updatedPlans = response.data?.results || [];
+      setWorkoutPlans(updatedPlans);
       setError(null);
+      return updatedPlans;
     } catch (err) {
       setError('Failed to load workout plans');
       setWorkoutPlans([]);
@@ -21,38 +23,14 @@ export const useWorkoutPlans = () => {
     }
   };
   
-  
-    useEffect(() => {
-      fetchWorkoutPlans();
-    }, []);
-  const refreshPlans = async () => {
-    try {
-      const response = await api.get('/workouts/programs/');
-      const updatedPlans = response.data?.results || [];
-      setWorkoutPlans(updatedPlans);
-      return updatedPlans;
-    } catch (err) {
-      setError('Failed to refresh plans');
-      throw err;
-    }
-  };
+  useEffect(() => {
+    fetchWorkoutPlans();
+  }, []);
 
   const createPlan = async (planData) => {
     try {
-      const response = await api.post('/workouts/programs/', {
-        name: planData.name,
-        description: planData.description,
-        focus: planData.focus,
-        sessions_per_week: planData.sessions_per_week,
-        difficulty_level: planData.difficulty_level,
-        recommended_level: planData.recommended_level,
-        required_equipment: planData.required_equipment,
-        estimated_completion_weeks: planData.estimated_completion_weeks,
-        tags: planData.tags,
-        is_public: planData.is_public
-      });
-      
-      setWorkoutPlans(prevPlans => [...prevPlans, response.data]);
+      const response = await api.post('/workouts/programs/', planData);
+      await fetchWorkoutPlans();
       return response.data;
     } catch (err) {
       setError('Failed to create workout plan');
@@ -63,9 +41,7 @@ export const useWorkoutPlans = () => {
   const updatePlan = async (planId, updates) => {
     try {
       const response = await api.patch(`/workouts/programs/${planId}/`, updates);
-      setWorkoutPlans(prevPlans => 
-        prevPlans.map(plan => plan.id === planId ? response.data : plan)
-      );
+      await fetchWorkoutPlans();
       return response.data;
     } catch (err) {
       setError('Failed to update workout plan');
@@ -76,7 +52,7 @@ export const useWorkoutPlans = () => {
   const deletePlan = async (planId) => {
     try {
       await api.delete(`/workouts/programs/${planId}/`);
-      setWorkoutPlans(prevPlans => prevPlans.filter(p => p.id !== planId));
+      await fetchWorkoutPlans();
     } catch (err) {
       setError('Failed to delete workout plan');
       throw err;
@@ -85,44 +61,100 @@ export const useWorkoutPlans = () => {
 
   const addWorkoutToPlan = async (planId, templateId, weekday) => {
     try {
-      await fetchWorkoutPlans();
+      console.log('Adding workout to plan:', {
+        planId,
+        templateId,
+        weekday
+      });
       const response = await api.post(`/workouts/programs/${planId}/add_workout/`, {
         template_id: templateId,
-        preferred_weekday: weekday,
-        order: workoutPlans.find(p => p.id === planId)?.workouts?.length || 0
+        preferred_weekday: weekday
       });
-      
-      // Refresh plans to get updated data
+      console.log('Add workout response:', response.data);
       await fetchWorkoutPlans();
       return response.data;
     } catch (err) {
+      console.error('Error adding workout:', err.response || err);
       setError('Failed to add workout to plan');
       throw err;
     }
   };
 
-  const updateWorkoutInstance = async (planId, instanceId, updates) => {
+  const updateWorkoutInstance = async (planId, workoutId, updates) => {
     try {
-      await fetchWorkoutPlans();
-      const response = await api.post(`/workouts/programs/${planId}/update_workout/${instanceId}/`, updates);
-      return response.data;
+        // Log the request details
+        console.log('Request details:', {
+            url: `/workouts/programs/${planId}/workouts/${workoutId}/`,
+            method: 'PATCH',
+            data: updates
+        });
+
+        // For minimal updates (preferred_weekday only)
+        if (Object.keys(updates).length === 1 && 'preferred_weekday' in updates) {
+            const response = await api.patch(
+                `/workouts/programs/${planId}/workouts/${workoutId}/`,
+                updates,  // Send the updates directly
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                }
+            );
+            await fetchWorkoutPlans();
+            return response.data;
+        }
+
+        // For full updates
+        const formattedUpdates = {
+            name: updates.name,
+            description: updates.description || '',
+            split_method: updates.split_method,
+            preferred_weekday: updates.preferred_weekday,
+            order:updates.order,
+            program:updates.program,
+            exercises: updates.exercises?.map(exercise => ({
+                name: exercise.name,
+                equipment: exercise.equipment || '',
+                notes: exercise.notes || '',
+                order: exercise.order,
+                sets: exercise.sets.map((set, idx) => ({
+                    reps: parseInt(set.reps),
+                    weight: parseFloat(set.weight),
+                    rest_time: parseInt(set.rest_time),
+                    order: idx
+                }))
+            })) || []
+        };
+
+        const response = await api.put(
+            `/workouts/programs/${planId}/workouts/${workoutId}/`,
+            formattedUpdates,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
+
+        await fetchWorkoutPlans();
+        return response.data;
     } catch (err) {
-      setError('Failed to update workout instance');
+        console.error('Error updating workout:', err.response || err);
+        throw err;
+    }
+};
+
+  const removeWorkoutFromPlan = async (planId, workoutId) => {
+    try {
+      console.log('Removing workout:', {planId, workoutId});
+      await api.delete(`/workouts/programs/${planId}/workouts/${workoutId}/`);
+      const updatedPlans = await fetchWorkoutPlans();
+      return updatedPlans;
+    } catch (err) {
+      console.error('Error removing workout:', err);
       throw err;
     }
   };
-
-  const removeWorkoutFromPlan = async (planId, instanceId) => {
-    try {
-      await fetchWorkoutPlans();
-      await api.delete(`/workouts/programs/${planId}/remove_workout/${instanceId}/`);
-    } catch (err) {
-      setError('Failed to remove workout from plan');
-      throw err;
-    }
-  };
-
-
 
   return {
     workoutPlans,

@@ -11,7 +11,6 @@ export const useGyms = () => {
     try {
       setLoading(true);
       const response = await api.get('/gyms/');
-      console.log('Fetched gyms:', response.data);
       setGyms(response.data?.results || []);
       setError(null);
     } catch (err) {

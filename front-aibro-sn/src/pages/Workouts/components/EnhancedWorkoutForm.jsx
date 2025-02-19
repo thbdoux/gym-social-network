@@ -8,7 +8,7 @@ const DIFFICULTY_LEVELS = ['beginner', 'intermediate', 'advanced'];
 
 const EnhancedWorkoutForm = ({
   onSubmit,
-  initialData = null,
+  initialData,
   onCancel,
   inProgram = false,
   selectedPlan,
@@ -76,6 +76,7 @@ const EnhancedWorkoutForm = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Format the data for submission
       const submissionData = {
         ...formData,
         exercises: formData.exercises.map((ex, i) => ({
@@ -90,11 +91,7 @@ const EnhancedWorkoutForm = ({
           }))
         }))
       };
-  
-      if (initialData?.id) {
-        submissionData.id = initialData.id;
-      }
-  
+
       await onSubmit(submissionData);
     } catch (error) {
       console.error('Error submitting form:', error);

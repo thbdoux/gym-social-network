@@ -16,15 +16,15 @@ const UnifiedWorkoutCard = ({
   onDayChange,
   dragHandleProps,
   isDragging = false,
-  onClick  // Add onClick prop
+  onClick
 }) => {
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [isChangingDay, setIsChangingDay] = useState(false);
 
   const handleDayChange = (e) => {
     const newDay = parseInt(e.target.value);
     if (!isNaN(newDay)) {
-      // Just pass the new day value and let the parent handle the instance_id
       onDayChange(newDay);
       setIsChangingDay(false);
     }
@@ -34,7 +34,7 @@ const UnifiedWorkoutCard = ({
     if (!window.confirm(inProgram ? 'Remove this workout from the program?' : 'Delete this workout template?')) {
       return;
     }
-    onDelete(inProgram ? workout.instance_id : workout.id);
+    onDelete(workout.id); 
   };
 
   return (
@@ -109,7 +109,7 @@ const UnifiedWorkoutCard = ({
             </div>
             <button 
                 onClick={(e) => {
-                    e.stopPropagation(); // Stop event from bubbling up
+                    e.stopPropagation(); 
                     onEdit(workout);
                 }}
                 className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"

@@ -11,7 +11,6 @@ export const useWorkoutLogs = (activeProgram) => {
     try {
       setLoading(true);
       const response = await api.get('/workouts/logs/');
-      console.log("Fetched logs ",response.data?.results)
       setLogs(response.data?.results || []);
       setError(null);
     } catch (err) {
@@ -55,9 +54,7 @@ export const useWorkoutLogs = (activeProgram) => {
   const updateLog = async (logId, logData) => {
     try {
       const formattedData = formatLogForAPI(logData);
-      console.log('Sending update with data:', formattedData);
       const response = await api.patch(`/workouts/logs/${logId}/`, formattedData);
-      console.log('Update response:', response.data);
       await fetchLogs();
       return response.data;
     } catch (err) {
@@ -70,7 +67,6 @@ export const useWorkoutLogs = (activeProgram) => {
   const createLog = async (logData) => {
     try {
       const formattedData = formatLogForAPI(logData);
-      console.log('Creating log with data:', formattedData);
       const response = await api.post('/workouts/logs/', formattedData);
       await fetchLogs();
       return response.data;

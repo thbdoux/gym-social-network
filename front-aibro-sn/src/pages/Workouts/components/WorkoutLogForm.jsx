@@ -224,11 +224,6 @@ const WorkoutLogForm = ({ log = null, onSubmit, onClose, programs = [] }) => {
     setFormData(initializeFormData(log));
   }, [log]);
 
-  useEffect(() => {
-    console.log('Log gym:', log?.gym);
-    console.log('Form data gym:', formData.gym);
-  }, [log, formData.gym]);
-
   const addExercise = () => {
     const newExercise = {
       id: Date.now(),

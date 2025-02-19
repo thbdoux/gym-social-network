@@ -38,28 +38,27 @@ class WorkoutTemplateSerializer(serializers.ModelSerializer):
 
 # Instance Serializers
 class SetInstanceSerializer(serializers.ModelSerializer):
-    based_on_template_id = serializers.IntegerField(source='based_on_template.id', read_only=True)
+    id = serializers.IntegerField(required=False)  # Allow passing ID for updates
     
     class Meta:
         model = SetInstance
-        fields = ['id', 'reps', 'weight', 'rest_time', 'order', 'based_on_template_id']
-        read_only_fields = ['id', 'based_on_template_id']
+        fields = ['id', 'reps', 'weight', 'rest_time', 'order']
+        read_only_fields = []  # Allow updating all fields
 
 class ExerciseInstanceSerializer(serializers.ModelSerializer):
-    sets = SetInstanceSerializer(many=True, read_only=True)
-    based_on_template_id = serializers.IntegerField(source='based_on_template.id', read_only=True)
+    id = serializers.IntegerField(required=False)  # Allow passing ID for updates
+    sets = SetInstanceSerializer(many=True)
     
     class Meta:
         model = ExerciseInstance
         fields = [
             'id', 'name', 'equipment', 'notes', 'order',
-            'sets', 'based_on_template_id'
+            'sets', 'based_on_template'
         ]
-        read_only_fields = ['id', 'based_on_template_id']
+        read_only_fields = []  # Allow updating all fields
 
 class WorkoutInstanceSerializer(serializers.ModelSerializer):
-    exercises = ExerciseInstanceSerializer(many=True, read_only=True)
-    based_on_template_id = serializers.IntegerField(source='based_on_template.id', read_only=True)
+    exercises = ExerciseInstanceSerializer(many=True)
     weekday_name = serializers.CharField(source='get_preferred_weekday_display', read_only=True)
     
     class Meta:
@@ -67,9 +66,115 @@ class WorkoutInstanceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'split_method',
             'preferred_weekday', 'weekday_name', 'order',
-            'exercises', 'based_on_template_id'
+            'exercises', 'based_on_template', 'program'
         ]
-        read_only_fields = ['id', 'based_on_template_id', 'weekday_name']
+        read_only_fields = ['id', 'weekday_name']
+
+    def create(self, validated_data):
+        exercises_data = validated_data.pop('exercises', [])
+        workout = WorkoutInstance.objects.create(**validated_data)
+        
+        for exercise_data in exercises_data:
+            sets_data = exercise_data.pop('sets', [])
+            exercise = ExerciseInstance.objects.create(workout=workout, **exercise_data)
+            
+            for set_data in sets_data:
+                SetInstance.objects.create(exercise=exercise, **set_data)
+        
+        return workout
+
+    # def update(self, instance, validated_data):
+    #     exercises_data = validated_data.pop('exercises', [])
+        
+    #     # Update basic instance fields
+    #     instance = super().update(instance, validated_data)
+        
+    #     # Keep track of current exercises
+    #     current_exercises = {exercise.id: exercise for exercise in instance.exercises.all()}
+    #     updated_exercise_ids = []
+        
+    #     # Update or create exercises
+    #     for exercise_data in exercises_data:
+    #         exercise_id = exercise_data.get('id')
+    #         sets_data = exercise_data.pop('sets', [])
+            
+    #         if exercise_id and exercise_id in current_exercises:
+    #             # Update existing exercise
+    #             exercise = current_exercises[exercise_id]
+    #             for attr, value in exercise_data.items():
+    #                 if attr != 'sets':
+    #                     setattr(exercise, attr, value)
+    #             exercise.save()
+    #         else:
+    #             # Create new exercise
+    #             exercise = ExerciseInstance.objects.create(
+    #                 workout=instance,
+    #                 **exercise_data
+    #             )
+            
+    #         updated_exercise_ids.append(exercise.id)
+            
+    #         # Handle sets for this exercise
+    #         current_sets = {set_obj.id: set_obj for set_obj in exercise.sets.all()}
+    #         updated_set_ids = []
+            
+    #         # Update or create sets
+    #         for set_data in sets_data:
+    #             set_id = set_data.get('id')
+    #             if set_id and set_id in current_sets:
+    #                 # Update existing set
+    #                 set_obj = current_sets[set_id]
+    #                 for attr, value in set_data.items():
+    #                     if attr != 'id':
+    #                         setattr(set_obj, attr, value)
+    #                 set_obj.save()
+    #             else:
+    #                 # Create new set
+    #                 set_obj = SetInstance.objects.create(
+    #                     exercise=exercise,
+    #                     **set_data
+    #                 )
+    #             updated_set_ids.append(set_obj.id)
+            
+    #         # Delete sets that weren't included in the update
+    #         if updated_set_ids:
+    #             exercise.sets.exclude(id__in=updated_set_ids).delete()
+        
+    #     # Delete exercises that weren't included in the update
+    #     if updated_exercise_ids:
+    #         instance.exercises.exclude(id__in=updated_exercise_ids).delete()
+        
+    #     return instance
+    def update(self, instance, validated_data):
+        # Ensure order and program are preserved from instance
+        validated_data['order'] = instance.order  # Keep existing order
+        validated_data['program'] = instance.program  # Keep existing program
+        
+        exercises_data = validated_data.pop('exercises', [])
+        
+        # Update basic instance fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Handle exercises
+        instance.exercises.all().delete()  # Remove existing exercises
+        
+        for exercise_data in exercises_data:
+            sets_data = exercise_data.pop('sets', [])
+            exercise = ExerciseInstance.objects.create(
+                workout=instance,
+                **exercise_data
+            )
+            
+            # Create new sets for this exercise
+            for set_data in sets_data:
+                SetInstance.objects.create(
+                    exercise=exercise,
+                    **set_data
+                )
+        
+        return instance
 
 # Program Serializers
 class ProgramSerializer(serializers.ModelSerializer):
@@ -78,7 +183,6 @@ class ProgramSerializer(serializers.ModelSerializer):
     forks_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.SerializerMethodField()
     creator_username = serializers.CharField(source='creator.username', read_only=True)
-    forked_from_name = serializers.CharField(source='forked_from.name', read_only=True)
     
     class Meta:
         model = Program
@@ -88,13 +192,12 @@ class ProgramSerializer(serializers.ModelSerializer):
            'is_active', 'is_public', 'likes_count', 
            'difficulty_level', 'recommended_level',
            'required_equipment', 'estimated_completion_weeks',
-           'tags', 'forked_from_name', 'forks_count', 'is_liked',
+           'tags', 'forks_count', 'is_liked',
            'forked_from', 'created_at', 'updated_at'
        ]
         read_only_fields = [
             'id', 'creator_username', 'likes_count',
-            'forks_count', 'is_liked', 'forked_from',
-            'forked_from_name', 'created_at', 'updated_at'
+            'forks_count', 'is_liked','created_at', 'updated_at'
         ]
 
     def get_is_liked(self, obj):
