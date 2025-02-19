@@ -33,6 +33,10 @@ const PlanDetailView = ({
     );
   }
 
+  const getLatestWorkoutData = (workoutId) => {
+    return plan.workouts.find(w => w.id === workoutId);
+  };
+
   const handleDayChange = async (workoutId, newDay) => {
     try {
       await onUpdateWorkout(plan.id, workoutId, { preferred_weekday: newDay });
@@ -42,7 +46,10 @@ const PlanDetailView = ({
   };
 
   const handleEditWorkout = (workout) => {
-    setWorkoutBeingEdited(workout);
+    // Get the latest version of the workout from the plan
+    const latestWorkout = getLatestWorkoutData(workout.id);
+    console.log('Latest workout data:', latestWorkout);
+    setWorkoutBeingEdited(latestWorkout);
   };
   
   const handleWorkoutUpdate = async (updatedWorkout) => {
@@ -227,6 +234,7 @@ const PlanDetailView = ({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <EnhancedWorkoutForm
+              key={`edit-${workoutBeingEdited.id}-${JSON.stringify(workoutBeingEdited)}`}
               initialData={workoutBeingEdited}
               onSubmit={handleWorkoutUpdate}
               onCancel={() => setWorkoutBeingEdited(null)}

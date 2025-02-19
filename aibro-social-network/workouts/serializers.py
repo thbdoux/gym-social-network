@@ -66,7 +66,9 @@ class WorkoutInstanceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'split_method',
             'preferred_weekday', 'weekday_name', 'order',
-            'exercises', 'based_on_template', 'program'
+            'exercises', 'based_on_template', 'program',
+            'difficulty_level', 'estimated_duration',
+            'equipment_required', 'tags'
         ]
         read_only_fields = ['id', 'weekday_name']
 
@@ -83,68 +85,6 @@ class WorkoutInstanceSerializer(serializers.ModelSerializer):
         
         return workout
 
-    # def update(self, instance, validated_data):
-    #     exercises_data = validated_data.pop('exercises', [])
-        
-    #     # Update basic instance fields
-    #     instance = super().update(instance, validated_data)
-        
-    #     # Keep track of current exercises
-    #     current_exercises = {exercise.id: exercise for exercise in instance.exercises.all()}
-    #     updated_exercise_ids = []
-        
-    #     # Update or create exercises
-    #     for exercise_data in exercises_data:
-    #         exercise_id = exercise_data.get('id')
-    #         sets_data = exercise_data.pop('sets', [])
-            
-    #         if exercise_id and exercise_id in current_exercises:
-    #             # Update existing exercise
-    #             exercise = current_exercises[exercise_id]
-    #             for attr, value in exercise_data.items():
-    #                 if attr != 'sets':
-    #                     setattr(exercise, attr, value)
-    #             exercise.save()
-    #         else:
-    #             # Create new exercise
-    #             exercise = ExerciseInstance.objects.create(
-    #                 workout=instance,
-    #                 **exercise_data
-    #             )
-            
-    #         updated_exercise_ids.append(exercise.id)
-            
-    #         # Handle sets for this exercise
-    #         current_sets = {set_obj.id: set_obj for set_obj in exercise.sets.all()}
-    #         updated_set_ids = []
-            
-    #         # Update or create sets
-    #         for set_data in sets_data:
-    #             set_id = set_data.get('id')
-    #             if set_id and set_id in current_sets:
-    #                 # Update existing set
-    #                 set_obj = current_sets[set_id]
-    #                 for attr, value in set_data.items():
-    #                     if attr != 'id':
-    #                         setattr(set_obj, attr, value)
-    #                 set_obj.save()
-    #             else:
-    #                 # Create new set
-    #                 set_obj = SetInstance.objects.create(
-    #                     exercise=exercise,
-    #                     **set_data
-    #                 )
-    #             updated_set_ids.append(set_obj.id)
-            
-    #         # Delete sets that weren't included in the update
-    #         if updated_set_ids:
-    #             exercise.sets.exclude(id__in=updated_set_ids).delete()
-        
-    #     # Delete exercises that weren't included in the update
-    #     if updated_exercise_ids:
-    #         instance.exercises.exclude(id__in=updated_exercise_ids).delete()
-        
-    #     return instance
     def update(self, instance, validated_data):
         # Ensure order and program are preserved from instance
         validated_data['order'] = instance.order  # Keep existing order

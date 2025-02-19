@@ -9,10 +9,14 @@ from .models import (
 class WorkoutInstanceAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'program', 'split_method', 'preferred_weekday', 
-        'order', 'based_on_template'
+        'order', 'based_on_template', 'difficulty_level',
+        'estimated_duration'
     )
-    list_filter = ('preferred_weekday', 'split_method', 'program__name')
-    search_fields = ('name', 'description', 'program__name')
+    list_filter = (
+        'preferred_weekday', 'split_method', 'program__name',
+        'difficulty_level'
+    )
+    search_fields = ('name', 'description', 'program__name', 'tags')
     raw_id_fields = ('program', 'based_on_template')
     ordering = ('program', 'order')
     

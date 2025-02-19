@@ -97,16 +97,30 @@ class WorkoutInstance(models.Model):
         (0, 'Monday'), (1, 'Tuesday'), (2, 'Wednesday'),
         (3, 'Thursday'), (4, 'Friday'), (5, 'Saturday'), (6, 'Sunday')
     ]
+    SPLIT_CHOICES = [
+        ('full_body', 'Full Body'),
+        ('push_pull_legs', 'Push/Pull/Legs'),
+        ('upper_lower', 'Upper/Lower'),
+        ('custom', 'Custom Split'),
+    ]
+    
     
     program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='workout_instances')
     based_on_template = models.ForeignKey(WorkoutTemplate, on_delete=models.SET_NULL, null=True,
                                         help_text="Original template this workout was based on")
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    split_method = models.CharField(max_length=20)
+    split_method = models.CharField(max_length=20, choices=SPLIT_CHOICES)
     order = models.IntegerField()
     preferred_weekday = models.IntegerField(choices=WEEKDAY_CHOICES, default=0)
-    
+    difficulty_level = models.CharField(max_length=20, choices=[
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced')
+    ], default='beginner')
+    estimated_duration = models.PositiveIntegerField(help_text="Duration in minutes", default=60)
+    equipment_required = models.JSONField(default=list)
+    tags = models.JSONField(default=list)
     class Meta:
         ordering = ['order']
         unique_together = ['program', 'order']

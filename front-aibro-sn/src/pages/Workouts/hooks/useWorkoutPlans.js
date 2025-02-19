@@ -12,6 +12,7 @@ export const useWorkoutPlans = () => {
       setLoading(true);
       const response = await api.get('/workouts/programs/');
       const updatedPlans = response.data?.results || [];
+      console.log("plans from the backend : ", updatedPlans)
       setWorkoutPlans(updatedPlans);
       setError(null);
       return updatedPlans;
@@ -110,6 +111,10 @@ export const useWorkoutPlans = () => {
             description: updates.description || '',
             split_method: updates.split_method,
             preferred_weekday: updates.preferred_weekday,
+            difficulty_level: updates.difficulty_level,
+            equipment_required: updates.equipment_required,
+            estimated_duration: updates.estimated_duration,
+            tags:updates.tags,
             order:updates.order,
             program:updates.program,
             exercises: updates.exercises?.map(exercise => ({

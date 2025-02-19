@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Settings, Calendar, Dumbbell, Tag, Clock } from 'lucide-react';
 import ExerciseCard from './ExerciseCard';
 
@@ -26,6 +26,14 @@ const EnhancedWorkoutForm = ({
     is_public: true,
     ...initialData
   });
+
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      ...initialData
+    }));
+  }, [initialData]);
+
 
   const [expandedExercises, setExpandedExercises] = useState({});
   const [tagInput, setTagInput] = useState('');
@@ -76,14 +84,17 @@ const EnhancedWorkoutForm = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Format the data for submission
+      // Keep the workout ID when updating
       const submissionData = {
         ...formData,
+        id: initialData.id, // Ensure we keep the ID
         exercises: formData.exercises.map((ex, i) => ({
           ...ex,
+          id: ex.id, // Keep exercise IDs if they exist
           order: i,
           sets: ex.sets.map((set, j) => ({
             ...set,
+            id: set.id, // Keep set IDs if they exist
             order: j,
             reps: Number(set.reps),
             weight: Number(set.weight),

@@ -181,7 +181,12 @@ class ProgramViewSet(viewsets.ModelViewSet):
                         description=template.description,
                         split_method=template.split_method,
                         preferred_weekday=request.data.get('preferred_weekday', 0),
-                        order=program.workout_instances.count()
+                        order=program.workout_instances.count(),
+                        # Add new fields
+                        difficulty_level=template.difficulty_level,
+                        estimated_duration=template.estimated_duration,
+                        equipment_required=template.equipment_required,
+                        tags=template.tags
                     )
                     
                     for ex_template in template.exercises.all():
@@ -210,7 +215,12 @@ class ProgramViewSet(viewsets.ModelViewSet):
                         description=request.data.get('description', ''),
                         split_method=request.data.get('split_method', 'custom'),
                         preferred_weekday=request.data.get('preferred_weekday', 0),
-                        order=program.workout_instances.count()
+                        order=program.workout_instances.count(),
+                        # Add new fields with default values
+                        difficulty_level=request.data.get('difficulty_level', 'intermediate'),
+                        estimated_duration=request.data.get('estimated_duration', 60),
+                        equipment_required=request.data.get('equipment_required', []),
+                        tags=request.data.get('tags', [])
                     )
                 
                 serializer = WorkoutInstanceSerializer(instance)
