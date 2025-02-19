@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Copy, Trash2, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
+import { Plus, Copy, Trash2, ChevronDown, ChevronUp, XCircle,ArrowLeft } from 'lucide-react';
 
 // Simple custom alert component
 const ErrorAlert = ({ message, onClose }) => (
@@ -74,7 +74,9 @@ const TemplateSelector = ({
   templates, 
   onSelect, 
   onCancel, 
+  onCreateNew,
   currentProgramWorkouts,
+  onBack,
   onError 
 }) => {
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
@@ -122,15 +124,24 @@ const TemplateSelector = ({
   return (
     <div className="space-y-6 bg-gray-800 p-6 rounded-lg">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-white">Select Existing Workout</h3>
+      <div className="flex items-center space-x-4">
+          <button
+            onClick={onBack}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-400" />
+          </button>
+          <h3 className="text-lg font-medium text-white">Select Existing Workout</h3>
+        </div>
         <button
           type="button"
-          onClick={onCancel}
-          className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+          onClick={onCreateNew}  // Changed from onCancel to onCreateNew
+          className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >
           Create New Instead
         </button>
       </div>
+
 
       {error && (
         <ErrorAlert 

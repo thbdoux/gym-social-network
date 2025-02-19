@@ -5,6 +5,7 @@ import UnifiedWorkoutCard from '../components/UnifiedWorkoutCard';
 import TemplateSelector from '../components/TemplateSelector';
 import ProgramForm from '../components/ProgramForm';
 import EnhancedWorkoutForm from '../components/EnhancedWorkoutForm';
+import api from './../../../api';
 
 const PlanDetailView = ({
   plan,
@@ -21,6 +22,7 @@ const PlanDetailView = ({
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showEditProgram, setShowEditProgram] = useState(false);
   const [workoutBeingEdited, setWorkoutBeingEdited] = useState(null);
+  const [showCreateWorkout, setShowCreateWorkout] = useState(false);
 
   // Check if user has edit permissions
   const canEdit = user && plan && (user.username === plan.creator_username || user.is_staff);
@@ -42,6 +44,53 @@ const PlanDetailView = ({
       await onUpdateWorkout(plan.id, workoutId, { preferred_weekday: newDay });
     } catch (err) {
       setError('Failed to update workout day');
+    }
+  };
+
+  const handleCreateNewWorkout = async (workoutData) => {
+    try {
+      console.log('Creating workout with data:', workoutData); // Debug log
+
+      // First create the template
+      const templateData = {
+        name: workoutData.name,
+        description: workoutData.description,
+        split_method: workoutData.split_method,
+        difficulty_level: workoutData.difficulty_level,
+        estimated_duration: workoutData.estimated_duration,
+        equipment_required: workoutData.equipment_required || [],
+        tags: workoutData.tags || [],
+        is_public: workoutData.is_public !== false
+      };
+
+      const response = await api.post('/workouts/templates/', templateData);
+      const newTemplate = response.data;
+
+      // Add exercises to the template if they exist
+      if (workoutData.exercises?.length > 0) {
+        console.log("An exercise has been filled : ", workoutData.exercises)
+        for (const exercise of workoutData.exercises) {
+          await api.post(`/workouts/templates/${newTemplate.id}/add_exercise/`, {
+            name: exercise.name,
+            equipment: exercise.equipment || '',
+            notes: exercise.notes || '',
+            order: exercise.order,
+            sets: exercise.sets.map((set, idx) => ({
+              reps: parseInt(set.reps),
+              weight: parseFloat(set.weight),
+              rest_time: parseInt(set.rest_time),
+              order: idx
+            }))
+          });
+        }
+      }
+
+      // Then add it to the program with the preferred weekday
+      await onAddWorkout(plan.id, newTemplate.id, workoutData.preferred_weekday || 0);
+      setShowCreateWorkout(false);
+    } catch (err) {
+      console.error('Error creating workout:', err);
+      setError(err.response?.data?.detail || 'Failed to create new workout');
     }
   };
 
@@ -208,8 +257,63 @@ const PlanDetailView = ({
             <TemplateSelector
               templates={templates}
               onSelect={handleTemplateSelect}
-              onCancel={() => setShowTemplateSelector(false)}
+              onCreateNew={() => {
+                setShowTemplateSelector(false);
+                setShowCreateWorkout(true);
+              }}
+              onBack={() => setShowTemplateSelector(false)}
               currentProgramWorkouts={plan.workouts}
+            />
+          </div>
+        </div>
+      )}
+
+      {showCreateWorkout && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center space-x-4 mb-6">
+              <button
+                onClick={() => {
+                  setShowCreateWorkout(false);
+                  setShowTemplateSelector(true);
+                }}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-400" />
+              </button>
+              <h2 className="text-2xl font-bold text-white">Create New Workout</h2>
+            </div>
+            {error && (
+              <div className="mb-6 bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg">
+                {error}
+                <button 
+                  onClick={() => setError('')}
+                  className="float-right text-red-400 hover:text-red-300"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <EnhancedWorkoutForm
+              onSubmit={handleCreateNewWorkout}
+              onCancel={() => {
+                setShowCreateWorkout(false);
+                setShowTemplateSelector(true);
+              }}
+              inProgram={true}
+              selectedPlan={plan}
+              initialData={{
+                name: '',
+                description: '',
+                split_method: 'full_body',
+                preferred_weekday: 0,
+                difficulty_level: 'intermediate',
+                estimated_duration: 60,
+                equipment_required: [],
+                tags: [],
+                exercises: [],
+                is_public: true
+              }}
             />
           </div>
         </div>
