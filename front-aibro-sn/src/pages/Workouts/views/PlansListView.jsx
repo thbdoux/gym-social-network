@@ -79,7 +79,7 @@ const PlansListView = ({
       </div>
 
       {/* Filter Bar */}
-      <FilterBar />
+      {/* <FilterBar /> */}
 
       {/* Plans Grid */}
       {hasPlans ? (

@@ -11,10 +11,32 @@ const WorkoutDetailModal = ({
 }) => {
   const handleSubmit = async (formData) => {
     try {
-      await onSave(formData);
+      const processedData = {
+        ...formData,
+        exercises: formData.exercises.map((exercise, exIndex) => {
+          return {
+            id: exercise.id, // Preserve exercise ID if it exists
+            name: exercise.name,
+            equipment: exercise.equipment || '',
+            notes: exercise.notes || '',
+            order: exIndex,
+            sets: exercise.sets.map((set, setIndex) => {
+              return {
+                id: set.id, // Preserve set ID if it exists
+                reps: Number(set.reps) || 0,
+                weight: Number(set.weight) || 0,
+                rest_time: Number(set.rest_time) || 60,
+                order: setIndex
+              };
+            })
+          };
+        })
+      };
+      await onSave(processedData);
       onClose();
     } catch (err) {
       console.error('Error saving workout:', err);
+      // You might want to show an error message to the user here
     }
   };
 

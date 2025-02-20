@@ -74,6 +74,69 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
             
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['post', 'put', 'delete'], url_path='exercises/(?P<exercise_id>[^/.]+)')
+    def handle_exercise(self, request, pk=None, exercise_id=None):
+        """Handle exercise operations (update, delete) within a template"""
+        workout = self.get_object()
+        
+        try:
+            if exercise_id != 'new':  # Handle existing exercise
+                exercise = workout.exercises.get(id=exercise_id)
+                
+                if request.method == 'DELETE':
+                    exercise.delete()
+                    return Response(status=status.HTTP_204_NO_CONTENT)
+                
+                # Update existing exercise
+                serializer = ExerciseTemplateSerializer(
+                    exercise,
+                    data=request.data,
+                    partial=True
+                )
+            else:  # Handle new exercise
+                serializer = ExerciseTemplateSerializer(data=request.data)
+            
+            if serializer.is_valid():
+                if exercise_id == 'new':
+                    exercise = serializer.save(workout=workout)
+                else:
+                    exercise = serializer.save()
+                
+                # Handle sets if provided
+                if 'sets' in request.data:
+                    # Remove existing sets
+                    exercise.sets.all().delete()
+                    
+                    # Create new sets
+                    for set_data in request.data['sets']:
+                        set_serializer = SetTemplateSerializer(data=set_data)
+                        if set_serializer.is_valid():
+                            set_serializer.save(exercise=exercise)
+                        else:
+                            return Response(
+                                set_serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
+                
+                return Response(
+                    ExerciseTemplateSerializer(exercise).data,
+                    status=status.HTTP_200_OK
+                )
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        except ExerciseTemplate.DoesNotExist:
+            return Response(
+                {"detail": "Exercise not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class ProgramViewSet(viewsets.ModelViewSet):
     serializer_class = ProgramSerializer

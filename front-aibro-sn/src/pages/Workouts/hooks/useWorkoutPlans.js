@@ -12,7 +12,6 @@ export const useWorkoutPlans = () => {
       setLoading(true);
       const response = await api.get('/workouts/programs/');
       const updatedPlans = response.data?.results || [];
-      console.log("plans from the backend : ", updatedPlans)
       setWorkoutPlans(updatedPlans);
       setError(null);
       return updatedPlans;
@@ -62,16 +61,10 @@ export const useWorkoutPlans = () => {
 
   const addWorkoutToPlan = async (planId, templateId, weekday) => {
     try {
-      console.log('Adding workout to plan:', {
-        planId,
-        templateId,
-        weekday
-      });
       const response = await api.post(`/workouts/programs/${planId}/add_workout/`, {
         template_id: templateId,
         preferred_weekday: weekday
       });
-      console.log('Add workout response:', response.data);
       await fetchWorkoutPlans();
       return response.data;
     } catch (err) {
@@ -83,13 +76,6 @@ export const useWorkoutPlans = () => {
 
   const updateWorkoutInstance = async (planId, workoutId, updates) => {
     try {
-        // Log the request details
-        console.log('Request details:', {
-            url: `/workouts/programs/${planId}/workouts/${workoutId}/`,
-            method: 'PATCH',
-            data: updates
-        });
-
         // For minimal updates (preferred_weekday only)
         if (Object.keys(updates).length === 1 && 'preferred_weekday' in updates) {
             const response = await api.patch(
@@ -151,7 +137,6 @@ export const useWorkoutPlans = () => {
 
   const removeWorkoutFromPlan = async (planId, workoutId) => {
     try {
-      console.log('Removing workout:', {planId, workoutId});
       await api.delete(`/workouts/programs/${planId}/workouts/${workoutId}/`);
       const updatedPlans = await fetchWorkoutPlans();
       return updatedPlans;

@@ -33,6 +33,7 @@ const AllWorkoutsView = ({
     } catch (err) {
       setError('Failed to update template');
       console.error('Error updating template:', err);
+      // You might want to show an error message to the user here
     }
   };
 

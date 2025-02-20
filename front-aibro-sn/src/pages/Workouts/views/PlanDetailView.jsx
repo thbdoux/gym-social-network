@@ -49,8 +49,6 @@ const PlanDetailView = ({
 
   const handleCreateNewWorkout = async (workoutData) => {
     try {
-      console.log('Creating workout with data:', workoutData); // Debug log
-
       // First create the template
       const templateData = {
         name: workoutData.name,
@@ -68,7 +66,6 @@ const PlanDetailView = ({
 
       // Add exercises to the template if they exist
       if (workoutData.exercises?.length > 0) {
-        console.log("An exercise has been filled : ", workoutData.exercises)
         for (const exercise of workoutData.exercises) {
           await api.post(`/workouts/templates/${newTemplate.id}/add_exercise/`, {
             name: exercise.name,
@@ -97,7 +94,6 @@ const PlanDetailView = ({
   const handleEditWorkout = (workout) => {
     // Get the latest version of the workout from the plan
     const latestWorkout = getLatestWorkoutData(workout.id);
-    console.log('Latest workout data:', latestWorkout);
     setWorkoutBeingEdited(latestWorkout);
   };
   

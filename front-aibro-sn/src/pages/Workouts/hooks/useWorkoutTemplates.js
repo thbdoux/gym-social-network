@@ -10,14 +10,16 @@ export const useWorkoutTemplates = () => {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      console.log('Fetching templates...');  // Debug log
       const response = await api.get('/workouts/templates/');
-      setTemplates(response.data?.results || []);
+      const fetchedTemplates = response.data?.results || [];
+      setTemplates(fetchedTemplates);
       setError(null);
+      return fetchedTemplates;
     } catch (err) {
-      console.error('Error fetching templates:', err);  // Debug log
+      console.error('Error fetching templates:', err);
       setError('Failed to load workout templates');
       setTemplates([]);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -64,61 +66,79 @@ export const useWorkoutTemplates = () => {
     }
   };
 
+  // hooks/useWorkoutTemplates.js
   const updateTemplate = async (templateId, updates) => {
     try {
-      // Update template base info
-      const response = await api.patch(`/workouts/templates/${templateId}/`, {
+      // First update the template basic info
+      const templateResponse = await api.patch(`/workouts/templates/${templateId}/`, {
         name: updates.name,
         description: updates.description,
         split_method: updates.split_method,
         difficulty_level: updates.difficulty_level,
         estimated_duration: updates.estimated_duration,
-        equipment_required: updates.equipment_required,
-        tags: updates.tags,
-        is_public: updates.is_public
+        equipment_required: updates.equipment_required || [],
+        tags: updates.tags || [],
+        is_public: updates.is_public ?? false,
       });
 
-      // Update exercises if they exist
+      // Get existing template data to compare exercises
+      const currentTemplate = await api.get(`/workouts/templates/${templateId}/`);
+      const existingExercises = currentTemplate.data.exercises || [];
+      
+      // Handle exercises
       if (updates.exercises) {
-        const exercisePromises = updates.exercises.map(async (exercise) => {
-          if (!exercise.id || exercise.id.toString().startsWith('temp-')) {
-            // Add new exercise
-            return api.post(`/workouts/templates/${templateId}/exercises/`, {
+        for (const exercise of updates.exercises) {
+          if (!exercise.id) {
+            // New exercise - add it
+            
+            await api.post(`/workouts/templates/${templateId}/exercises/new/`, {
               name: exercise.name,
-              equipment: exercise.equipment,
-              notes: exercise.notes,
+              equipment: exercise.equipment || '',
+              notes: exercise.notes || '',
               order: exercise.order,
-              sets: exercise.sets.map((set, idx) => ({
-                reps: parseInt(set.reps),
-                weight: parseFloat(set.weight),
-                rest_time: parseInt(set.rest_time),
-                order: idx
+              sets: exercise.sets.map((set, setIndex) => ({
+                reps: parseInt(set.reps) || 0,
+                weight: parseFloat(set.weight) || 0,
+                rest_time: parseInt(set.rest_time) || 60,
+                order: setIndex
               }))
             });
           } else {
             // Update existing exercise
-            return api.patch(`/workouts/templates/${templateId}/exercises/${exercise.id}/`, {
+            await api.put(`/workouts/templates/${templateId}/exercises/${exercise.id}/`, {
               name: exercise.name,
-              equipment: exercise.equipment,
-              notes: exercise.notes,
-              sets: exercise.sets.map((set, idx) => ({
-                reps: parseInt(set.reps),
-                weight: parseFloat(set.weight),
-                rest_time: parseInt(set.rest_time),
-                order: idx
+              equipment: exercise.equipment || '',
+              notes: exercise.notes || '',
+              order: exercise.order,
+              sets: exercise.sets.map((set, setIndex) => ({
+                reps: parseInt(set.reps) || 0,
+                weight: parseFloat(set.weight) || 0,
+                rest_time: parseInt(set.rest_time) || 60,
+                order: setIndex
               }))
             });
           }
-        });
+        }
 
-        await Promise.all(exercisePromises);
+        // Delete exercises that are no longer present
+        const updatedExerciseIds = updates.exercises.map(e => e.id).filter(Boolean);
+        for (const existingExercise of existingExercises) {
+          if (!updatedExerciseIds.includes(existingExercise.id)) {
+            await api.delete(`/workouts/templates/${templateId}/exercises/${existingExercise.id}/`);
+          }
+        }
       }
 
-      // Refresh templates to get updated data
+      // Fetch updated data
+      const finalTemplate = await api.get(`/workouts/templates/${templateId}/`);
+
+      // Refresh the templates list
       await fetchTemplates();
-      return response.data;
+
+      return finalTemplate.data;
     } catch (err) {
-      setError('Failed to update workout template');
+      console.error('Failed to update template:', err);
+      console.error('Error details:', err.response?.data || err.message);
       throw err;
     }
   };
