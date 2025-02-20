@@ -11,6 +11,7 @@ export const useWorkoutLogs = (activeProgram) => {
     try {
       setLoading(true);
       const response = await api.get('/workouts/logs/');
+      console.log(response.data?.results)
       setLogs(response.data?.results || []);
       setError(null);
     } catch (err) {
@@ -52,17 +53,29 @@ export const useWorkoutLogs = (activeProgram) => {
   };
   
   const updateLog = async (logId, logData) => {
-    try {
-      const formattedData = formatLogForAPI(logData);
-      const response = await api.patch(`/workouts/logs/${logId}/`, formattedData);
-      await fetchLogs();
-      return response.data;
-    } catch (err) {
-      console.error('Error updating workout log:', err);
-      setError('Failed to update workout log');
-      throw err;
-    }
-  };
+  try {
+    const formattedData = formatLogForAPI({
+      ...logData,
+      // Include IDs for existing exercises and sets
+      exercises: logData.exercises.map(exercise => ({
+        ...exercise,
+        sets: exercise.sets.map(set => ({
+          ...set,
+          id: set.id || undefined // Include ID only if it exists
+        })),
+        id: exercise.id || undefined // Include ID only if it exists
+      }))
+    });
+
+    const response = await api.patch(`/workouts/logs/${logId}/`, formattedData);
+    await fetchLogs();
+    return response.data;
+  } catch (err) {
+    console.error('Error updating workout log:', err);
+    setError('Failed to update workout log');
+    throw err;
+  }
+};
   
   const createLog = async (logData) => {
     try {

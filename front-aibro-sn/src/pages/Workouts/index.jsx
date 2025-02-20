@@ -11,6 +11,8 @@ import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
 import { useWorkoutLogs } from './hooks/useWorkoutLogs';
 import WorkoutLogCard from './components/WorkoutLogCard';
 import WorkoutLogForm from './components/WorkoutLogForm';
+import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
+
 import api from './../../api';
 
 const QuickStats = () => (
@@ -57,6 +59,11 @@ const WorkoutSpace = ({ user }) => {
   const [selectedLog, setSelectedLog] = useState(null);
   const [view, setView] = useState('main');
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Replace the existing showLogForm and selectedLog state
+const [showLogModal, setShowLogModal] = useState(false);
+const [showInstanceSelector, setShowInstanceSelector] = useState(false);
+
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
@@ -274,7 +281,7 @@ const WorkoutSpace = ({ user }) => {
 
     default:
         return (
-            <div className="min-h-screen bg-gray-900 text-white p-8">
+          <div className="min-h-screen bg-gray-900 text-white p-8">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white">Workout Space</h1>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -284,11 +291,11 @@ const WorkoutSpace = ({ user }) => {
                     <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold">Workout Logs</h2>
                     <button 
-                        onClick={() => setShowLogForm(true)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2"
+                      onClick={() => setShowLogModal(true)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2"
                     >
-                        <Plus className="w-5 h-5" />
-                        <span>Log Workout</span>
+                      <Plus className="w-5 h-5" />
+                      <span>Log Workout</span>
                     </button>
                     </div>
                     
@@ -333,36 +340,45 @@ const WorkoutSpace = ({ user }) => {
                     </div>
 
                     {showLogForm && (
-                    <WorkoutLogForm
+                      <WorkoutLogForm
                         log={selectedLog}
                         programs={workoutPlans}
                         onSubmit={async (formData) => {
-                            try {
-                                if (selectedLog?.id) {
-                                // Edit existing log
-                                await updateLog(selectedLog.id, formData);
-                                } else if (selectedLog?.based_on_instance) {
-                                // Log from program instance
-                                await createLog({
-                                    ...formData,
-                                    instance_id: selectedLog.based_on_instance
-                                });
-                                } else {
-                                // Create new custom log
-                                await createLog(formData);
-                                }
-                                setShowLogForm(false);
-                                setSelectedLog(null);
-                                await refreshLogs();
-                            } catch (err) {
+                          try {
+                            if (selectedLog?.id) {
+                              // For updates, we need to include IDs of existing exercises and sets
+                              const updateData = {
+                                ...formData,
+                                exercises: formData.exercises.map(exercise => ({
+                                  ...exercise,
+                                  id: exercise.id, // Keep existing exercise ID if it exists
+                                  sets: exercise.sets.map(set => ({
+                                    ...set,
+                                    id: set.id, // Keep existing set ID if it exists
+                                  }))
+                                }))
+                              };
+                              await updateLog(selectedLog.id, updateData);
+                            } else if (selectedLog?.based_on_instance) {
+                              await createLog({
+                                ...formData,
+                                based_on_instance: selectedLog.based_on_instance
+                              });
+                            } else {
+                              await createLog(formData);
+                            }
+                            setShowLogForm(false);
+                            setSelectedLog(null);
+                            await refreshLogs();
+                          } catch (err) {
                             console.error('Error saving log:', err);
-                        }
+                          }
                         }}
                         onClose={() => {
-                        setShowLogForm(false);
-                        setSelectedLog(null);
+                          setShowLogForm(false);
+                          setSelectedLog(null);
                         }}
-                    />
+                      />
                     )}
                     
                     <button className="w-full mt-4 py-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center space-x-2">
@@ -416,7 +432,47 @@ const WorkoutSpace = ({ user }) => {
                 <QuickStats />
                 </div>
             </div>
-            </div>
+            {/* Log Workout Modal */}
+            {showLogModal && (
+              <LogWorkoutModal
+                onClose={() => setShowLogModal(false)}
+                onNewLog={() => {
+                  setShowLogModal(false);
+                  setSelectedLog(null);
+                  setShowLogForm(true);
+                }}
+                onLogFromInstance={() => {
+                  setShowLogModal(false);
+                  setShowInstanceSelector(true);
+                }}
+                activeProgram={activeProgram}
+              />
+            )}
+
+            {/* Instance Selector Modal */}
+            {showInstanceSelector && (
+              <WorkoutInstanceSelector
+                onClose={() => setShowInstanceSelector(false)}
+                onSelect={(workout) => {
+                  setShowInstanceSelector(false);
+                  setSelectedLog({
+                    name: workout.template?.name || 'Workout Log',
+                    based_on_instance: workout.id,
+                    program: activeProgram.id,
+                    exercises: workout.template?.exercises?.map(ex => ({
+                      ...ex,
+                      sets: ex.sets?.map(set => ({
+                        ...set,
+                        id: Date.now() + Math.random()
+                      }))
+                    })) || []
+                  });
+                  setShowLogForm(true);
+                }}
+                activeProgram={activeProgram}
+              />
+            )}
+          </div>
         );
     };
 }
