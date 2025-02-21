@@ -57,6 +57,13 @@ const MainFeed = () => {
             }
           })
         ]);
+        console.log('Posts from API:', postsResponse.data); // Debug log
+        console.log('Post types present:', 
+          postsResponse.data.map(post => ({
+            type: post.post_type,
+            hasWorkoutLog: !!post.workout_log_details
+          }))
+        ); // Debug types and workout details
   
         setUser(userResponse.data);
         setPosts(postsResponse.data);
@@ -83,6 +90,7 @@ const MainFeed = () => {
   }, []);
 
   const handlePostCreated = (newPost) => {
+    console.log('New post being created:', newPost); // Debug log
     setPosts([newPost, ...posts]);
   };
 

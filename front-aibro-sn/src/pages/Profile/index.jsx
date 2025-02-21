@@ -41,7 +41,6 @@ const ProfilePage = () => {
             console.error('Error fetching gym details:', error);
           }
         }
-        console.log('User data : ',userData)
         setUser(userData);
         setFriends(friendsResponse.data.results || []);
         setWorkoutLogs(logsResponse.data.results || []);

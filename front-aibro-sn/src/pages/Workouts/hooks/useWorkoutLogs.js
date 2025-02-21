@@ -79,6 +79,7 @@ export const useWorkoutLogs = (activeProgram) => {
   
   const createLog = async (logData) => {
     try {
+      console.log("Log Data: ", logData)
       const formattedData = formatLogForAPI(logData);
       const response = await api.post('/workouts/logs/', formattedData);
       await fetchLogs();

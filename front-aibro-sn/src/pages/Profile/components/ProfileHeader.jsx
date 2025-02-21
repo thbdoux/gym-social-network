@@ -3,7 +3,6 @@ import { Edit, Dumbbell, Target, Crown, Heart, Calendar } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
 const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick }) => {
-  console.log("useeeeeeeeeer",user)
   const getGymDisplay = (user) => {
     if (!user?.preferred_gym_details) return 'No gym set';
     const gym = user.preferred_gym_details;

@@ -16,13 +16,10 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     post_type = models.CharField(max_length=20, choices=POST_TYPES, default='regular')
-    
-    # Updated workout-related fields
     workout_log = models.ForeignKey('workouts.WorkoutLog', on_delete=models.CASCADE, 
                                   null=True, blank=True, related_name='posts')
     program = models.ForeignKey('workouts.Program', on_delete=models.CASCADE,
                               null=True, blank=True, related_name='posts')
-    # Changed from workout_instance to workoutInstance to match new structure
     workout_instance = models.ForeignKey('workouts.WorkoutInstance', on_delete=models.CASCADE,
                                        null=True, blank=True, related_name='invites')
     planned_date = models.DateTimeField(null=True, blank=True)

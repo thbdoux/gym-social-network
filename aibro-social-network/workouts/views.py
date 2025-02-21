@@ -300,22 +300,6 @@ class ProgramViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    # @action(detail=True, methods=['post'])
-    # def toggle_active(self, request, pk=None):
-    #     program = self.get_object()
-    #     new_status = request.data.get('is_active', not program.is_active)
-        
-    #     with transaction.atomic():
-    #         if new_status:
-    #             Program.objects.filter(
-    #                 creator=request.user,
-    #                 is_active=True
-    #             ).update(is_active=False)
-            
-    #         program.is_active = new_status
-    #         program.save()
-            
-    #     return Response(self.get_serializer(program).data)
     @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
         program = self.get_object()

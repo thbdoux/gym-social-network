@@ -120,6 +120,7 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'id', 'content', 'image', 'created_at', 'post_type',
+            'workout_log', 'program',
             'updated_at', 'user_username', 'user_profile_picture',
             'comments', 'likes_count', 'is_liked',
             'workout_log_details', 'program_details', 
