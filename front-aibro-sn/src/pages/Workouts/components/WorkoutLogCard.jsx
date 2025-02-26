@@ -12,10 +12,11 @@ const WorkoutLogCard = ({ log, onEdit, onDelete }) => {
     const gym = gyms.find(g => g.id === log.gym);
     return gym ? `${gym.name} - ${gym.location}` : 'Loading...';
   }, [log.gym, gyms]);
+  
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10">
-      {/* Status Indicator Line */}
-      <div className={`h-1 w-full bg-gradient-to-r ${log.status === 'validated' ? 'from-green-500 to-emerald-500' : 'from-yellow-500 to-orange-500'}`} />
+      {/* Blue indicator line instead of status-based colors */}
+      <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-500" />
       
       <div className="p-6">
         {/* Header Section */}

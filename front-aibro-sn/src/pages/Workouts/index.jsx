@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Plus, ChevronRight, Calendar, Activity, Target, Loader2 } from 'lucide-react';
 import WorkoutPlansGrid from './components/WorkoutPlansGrid';
 import EmptyState from './components/EmptyState';
 import PlansListView from './views/PlansListView';
 import PlanDetailView from './views/PlanDetailView';
-import AllWorkoutsView from './views/AllWorkoutsView';
+import AllWorkoutLogsView from './views/AllWorkoutLogsView';
 import CreatePlanView from './views/CreatePlanView';
 import { useWorkoutPlans } from './hooks/useWorkoutPlans';
 import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
 import { useWorkoutLogs } from './hooks/useWorkoutLogs';
 import WorkoutLogCard from './components/WorkoutLogCard';
+import NextWorkout from './components/NextWorkout';
 import WorkoutLogForm from './components/WorkoutLogForm';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 
@@ -59,15 +60,13 @@ const WorkoutSpace = ({ user }) => {
   const [selectedLog, setSelectedLog] = useState(null);
   const [view, setView] = useState('main');
   const [currentUser, setCurrentUser] = useState(null);
-
-  // Replace the existing showLogForm and selectedLog state
-const [showLogModal, setShowLogModal] = useState(false);
-const [showInstanceSelector, setShowInstanceSelector] = useState(false);
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [showInstanceSelector, setShowInstanceSelector] = useState(false);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const response = await api.get('/users/me/');  // Adjust this endpoint based on your API
+        const response = await api.get('/users/me/');
         setCurrentUser(response.data);
       } catch (err) {
         console.error('Error fetching current user:', err);
@@ -104,12 +103,14 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
 
   const {
     logs,
+    nextWorkout,
     loading: logsLoading,
     error: logsError,
     createLog,
     updateLog,
     refreshLogs
   } = useWorkoutLogs(activeProgram);
+  
   // Get only the 3 most recent logs for the preview
   const recentLogs = logs.slice(0, 3);
 
@@ -180,6 +181,18 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
       throw err;
     }
   };
+  
+  // Add state for all logs view
+  const [showAllLogs, setShowAllLogs] = useState(false);
+  
+  if (showAllLogs) {
+    return (
+      <AllWorkoutLogsView 
+        onBack={() => setShowAllLogs(false)}
+        activeProgram={activeProgram}
+      />
+    );
+  }
 
   if (plansError || templatesError) {
     return (
@@ -201,7 +214,7 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
             user={currentUser}
             deletePlan={deletePlan}
             onCreatePlan={handleCreatePlan}
-            togglePlanActive = {handleTogglePlanActive}
+            togglePlanActive={handleTogglePlanActive}
           />
         </div>
       );
@@ -210,48 +223,48 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
       if (!selectedPlan) return null;
       return (
         <PlanDetailView
-        plan={workoutPlans.find(p => p.id === selectedPlan.id) || selectedPlan}
-        templates={templates.results || templates}
-        onBack={() => {
-          setSelectedPlan(null);
-          setView('main');
-        }}
-        onUpdate={async (planId, updates) => {
-          await updatePlan(planId, updates);
-          const updatedPlans = await refreshPlans();
-          const updatedPlan = updatedPlans.find(p => p.id === planId);
-          if (updatedPlan) {
-            setSelectedPlan(updatedPlan);
-          }
-        }}
-        onDelete={deletePlan}
-        onAddWorkout={async (planId, templateId, weekday) => {
-          await addWorkoutToPlan(planId, templateId, weekday);
-          const updatedPlans = await refreshPlans();
-          const updatedPlan = updatedPlans.find(p => p.id === planId);
-          if (updatedPlan) {
-            setSelectedPlan(updatedPlan);
-          }
-        }}
-        onUpdateWorkout={async (planId, workoutId, updates) => {
-          await updateWorkoutInstance(planId, workoutId, updates);
-          const updatedPlans = await refreshPlans();
-          const updatedPlan = updatedPlans.find(p => p.id === planId);
-          if (updatedPlan) {
-            setSelectedPlan(updatedPlan);
-          }
-        }}
-        onRemoveWorkout={async (planId, workoutId) => {
-          await removeWorkoutFromPlan(planId, workoutId);
-          const updatedPlans = await refreshPlans();
-          const updatedPlan = updatedPlans.find(p => p.id === planId);
-          if (updatedPlan) {
-            setSelectedPlan(updatedPlan);
-          }
-        }}
-        user={currentUser}
-      />
-  );
+          plan={workoutPlans.find(p => p.id === selectedPlan.id) || selectedPlan}
+          templates={templates.results || templates}
+          onBack={() => {
+            setSelectedPlan(null);
+            setView('main');
+          }}
+          onUpdate={async (planId, updates) => {
+            await updatePlan(planId, updates);
+            const updatedPlans = await refreshPlans();
+            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            if (updatedPlan) {
+              setSelectedPlan(updatedPlan);
+            }
+          }}
+          onDelete={deletePlan}
+          onAddWorkout={async (planId, templateId, weekday) => {
+            await addWorkoutToPlan(planId, templateId, weekday);
+            const updatedPlans = await refreshPlans();
+            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            if (updatedPlan) {
+              setSelectedPlan(updatedPlan);
+            }
+          }}
+          onUpdateWorkout={async (planId, workoutId, updates) => {
+            await updateWorkoutInstance(planId, workoutId, updates);
+            const updatedPlans = await refreshPlans();
+            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            if (updatedPlan) {
+              setSelectedPlan(updatedPlan);
+            }
+          }}
+          onRemoveWorkout={async (planId, workoutId) => {
+            await removeWorkoutFromPlan(planId, workoutId);
+            const updatedPlans = await refreshPlans();
+            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            if (updatedPlan) {
+              setSelectedPlan(updatedPlan);
+            }
+          }}
+          user={currentUser}
+        />
+      );
 
     case 'all-workouts':
       return (
@@ -282,61 +295,60 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
     default:
         return (
           <div className="min-h-screen bg-gray-900 text-white p-8">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white">Workout Space</h1>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">Workout Space</h1>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Workout Logs Section */}
                 <div className="lg:col-span-2 space-y-6">
-                <div className="bg-gray-800 rounded-xl p-6">
+                  <div className="bg-gray-800 rounded-xl p-6">
                     <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold">Workout Logs</h2>
-                    <button 
-                      onClick={() => setShowLogModal(true)}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2"
-                    >
-                      <Plus className="w-5 h-5" />
-                      <span>Log Workout</span>
-                    </button>
+                      <h2 className="text-xl font-bold">Workout Logs</h2>
+                      <button 
+                        onClick={() => setShowLogModal(true)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2"
+                      >
+                        <Plus className="w-5 h-5" />
+                        <span>Log Workout</span>
+                      </button>
                     </div>
                     
                     <div className="space-y-4">
-                    {logsLoading ? (
+                      {logsLoading ? (
                         <LoadingSpinner />
-                    ) : recentLogs.length > 0 ? (
+                      ) : recentLogs.length > 0 ? (
                         recentLogs.map((log, index) => (
-                        <WorkoutLogCard
-                            key={log.id || `pending-${index}`}
+                          <WorkoutLogCard
+                            key={log.id || `log-${index}`}
                             log={log}
                             onEdit={(log) => {
-                            setSelectedLog(log);
-                            setShowLogForm(true);
+                              setSelectedLog(log);
+                              setShowLogForm(true);
                             }}
                             onDelete={async (log) => {
-                            if (window.confirm('Are you sure you want to delete this workout log?')) {
+                              if (window.confirm('Are you sure you want to delete this workout log?')) {
                                 try {
-                                // TODO: Implement delete log API call
-                                await api.delete(`/workouts/logs/${log.id}/`);
-                                await refreshLogs();
+                                  await api.delete(`/workouts/logs/${log.id}/`);
+                                  await refreshLogs();
                                 } catch (err) {
-                                console.error('Error deleting log:', err);
+                                  console.error('Error deleting log:', err);
                                 }
-                            }
+                              }
                             }}
-                        />
+                          />
                         ))
-                    ) : (
+                      ) : (
                         <EmptyState
-                        title="No workout logs yet"
-                        description="Start logging your workouts to track your progress"
-                        action={{
+                          title="No workout logs yet"
+                          description="Start logging your workouts to track your progress"
+                          action={{
                             label: 'Log First Workout',
                             onClick: () => {
-                            setSelectedLog(null); // Explicitly set to null for new log
-                            setShowLogForm(true);
+                              setSelectedLog(null); 
+                              setShowLogForm(true);
                             }
-                        }}
+                          }}
                         />
-                    )}
+                      )}
                     </div>
 
                     {/* Instance Selector Modal */}
@@ -384,10 +396,9 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
                               };
                               await updateLog(selectedLog.id, updateData);
                             } else if (selectedLog?.based_on_instance) {
-                              console.log("Instance id", selectedLog.based_on_instance)
                               await createLog({
                                 ...formData,
-                                based_on_instance: selectedLog.based_on_instance // WRONG BECAUSE IT MUST BE THE ID OF THE WORKOUT INSTANCE, NOT A BOOLEAN
+                                based_on_instance: selectedLog.based_on_instance
                               });
                             } else {
                               await createLog(formData);
@@ -406,57 +417,64 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
                       />
                     )}
                     
-                    <button className="w-full mt-4 py-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center space-x-2">
-                    <span>View All Logs</span>
-                    <ChevronRight className="w-5 h-5" />
+                    <button 
+                      className="w-full mt-4 py-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                      onClick={() => setShowAllLogs(true)}
+                    >
+                      <span>View All Logs</span>
+                      <ChevronRight className="w-5 h-5" />
                     </button>
-                </div>
+                  </div>
                 </div>
 
                 {/* Right Column */}
                 <div className="space-y-8 lg:col-span-1">
-                {/* Active Programs Section */}
-                <div className="bg-gray-800 rounded-xl p-6">
+                  {/* Next Workout Section - Now separated from logs */}
+                  <NextWorkout workout={nextWorkout} />
+                  
+                  {/* Active Programs Section */}
+                  <div className="bg-gray-800 rounded-xl p-6">
                     <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold">Active Programs</h2>
-                    <button 
+                      <h2 className="text-xl font-bold">Active Programs</h2>
+                      <button 
                         onClick={() => setView('plans')}
                         className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1"
-                    >
+                      >
                         <span>View All</span>
                         <ChevronRight className="w-5 h-5" />
-                    </button>
+                      </button>
                     </div>
                     
                     {plansLoading ? (
-                    <LoadingSpinner />
+                      <LoadingSpinner />
                     ) : activeProgram ? (
-                        <div className="mx-[-1rem]">
+                      <div className="mx-[-1rem]">
                         <WorkoutPlansGrid
-                        plans={[activeProgram]}
-                        onSelect={handlePlanSelect}
-                        onDelete={deletePlan}
-                        hideActions={true}
-                        singleColumn={true}
-                        onToggleActive={handleTogglePlanActive}
+                          plans={[activeProgram]}
+                          onSelect={handlePlanSelect}
+                          onDelete={deletePlan}
+                          hideActions={true}
+                          singleColumn={true}
+                          onToggleActive={handleTogglePlanActive}
                         />
-                    </div>
+                      </div>
                     ) : (
-                    <EmptyState
+                      <EmptyState
                         title="No active program"
                         description="Select or create a program to start your fitness journey"
                         action={{
-                        label: 'Browse Programs',
-                        onClick: () => setView('plans')
+                          label: 'Browse Programs',
+                          onClick: () => setView('plans')
                         }}
-                    />
+                      />
                     )}
-                </div>
+                  </div>
 
-                {/* Quick Stats Section */}
-                <QuickStats />
+                  {/* Quick Stats Section */}
+                  <QuickStats />
                 </div>
             </div>
+            
             {/* Log Workout Modal */}
             {showLogModal && (
               <LogWorkoutModal
@@ -473,11 +491,9 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
                 activeProgram={activeProgram}
               />
             )}
-
-            
           </div>
         );
-    };
+    }
 }
 
 export default WorkoutSpace;

@@ -1,2 +1,0 @@
-- ajouter un bouton pour modifier un program (changer titre etc)
-- ajouter workout template existant (lorsqu'on veut ajouter un workout à un program), a disparu dans les modifs
