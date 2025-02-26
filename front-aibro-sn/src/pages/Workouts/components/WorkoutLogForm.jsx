@@ -18,7 +18,7 @@ const EQUIPMENT_OPTIONS = [
 // Helper to initialize form data from a log
 // Helper to initialize form data from a log
 const initializeFormData = (log) => {
-  console.log('Log date received:', log?.date); // Debug log
+  // console.log('Log date received:', log?.date); // Debug log
 
   if (!log) {
     return {

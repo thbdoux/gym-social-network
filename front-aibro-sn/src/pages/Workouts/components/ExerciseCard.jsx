@@ -119,11 +119,9 @@ const ExerciseCard = ({
                   set={set}
                   setIndex={setIndex}  // Add this prop
                   onUpdate={(field, value) => {
-                    console.log('Set update in ExerciseCard:', { setIndex, field, value }); // Debug log
                     onUpdateSet(setIndex, field, value);
                   }}
                   onDelete={() => {
-                    console.log('Set delete in ExerciseCard:', { setIndex }); // Debug log
                     onRemoveSet(setIndex);
                   }}
                   isEditing={isEditing}

@@ -11,7 +11,7 @@ export const useWorkoutLogs = (activeProgram) => {
     try {
       setLoading(true);
       const response = await api.get('/workouts/logs/');
-      console.log(response.data?.results)
+      
       setLogs(response.data?.results || []);
       setError(null);
     } catch (err) {
@@ -79,8 +79,8 @@ export const useWorkoutLogs = (activeProgram) => {
   
   const createLog = async (logData) => {
     try {
-      console.log("Log Data: ", logData)
       const formattedData = formatLogForAPI(logData);
+      console.log("Formatted data to send : ", formattedData)
       const response = await api.post('/workouts/logs/', formattedData);
       await fetchLogs();
       return response.data;

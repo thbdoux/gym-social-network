@@ -66,6 +66,7 @@ const LogWorkoutModal = ({ onClose, onNewLog, onLogFromInstance, activeProgram }
 // Add this component after the LogWorkoutModal component
 
 const WorkoutInstanceSelector = ({ onClose, onSelect, activeProgram }) => {
+  console.log("Active program", activeProgram)
   const sortedWorkouts = React.useMemo(() => {
     if (!activeProgram?.workouts) return [];
     
@@ -100,18 +101,18 @@ const WorkoutInstanceSelector = ({ onClose, onSelect, activeProgram }) => {
               >
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
-                    {workout.template?.name || 'Unnamed Workout'}
+                    {workout.name || 'Unnamed Workout'}
                   </h3>
                   <span className="text-sm text-gray-400">
                     {weekdayNames[workout.preferred_weekday]}
                   </span>
                 </div>
-                {workout.template?.description && (
-                  <p className="text-sm text-gray-400 mt-1">{workout.template.description}</p>
+                {workout.description && (
+                  <p className="text-sm text-gray-400 mt-1">{workout.description}</p>
                 )}
                 <div className="flex items-center space-x-4 mt-2 text-sm text-gray-400">
-                  <span>{workout.template?.exercises?.length || 0} exercises</span>
-                  <span>{workout.template?.estimated_duration || 60} min</span>
+                  <span>{workout.exercises?.length || 0} exercises</span>
+                  <span>{workout.estimated_duration || 60} min</span>
                 </div>
               </button>
             ))}

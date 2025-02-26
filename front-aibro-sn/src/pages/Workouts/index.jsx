@@ -339,6 +339,30 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
                     )}
                     </div>
 
+                    {/* Instance Selector Modal */}
+                    {showInstanceSelector && (
+                      <WorkoutInstanceSelector
+                        onClose={() => setShowInstanceSelector(false)}
+                        onSelect={(workout) => {
+                          setShowInstanceSelector(false);
+                          setSelectedLog({
+                            name: workout.name || 'Workout Log',
+                            based_on_instance: workout.id,
+                            program: activeProgram.id,
+                            exercises: workout.exercises?.map(ex => ({
+                              ...ex,
+                              sets: ex.sets?.map(set => ({
+                                ...set,
+                                id: Date.now() + Math.random()
+                              }))
+                            })) || []
+                          });
+                          setShowLogForm(true);
+                        }}
+                        activeProgram={activeProgram}
+                      />
+                    )}
+
                     {showLogForm && (
                       <WorkoutLogForm
                         log={selectedLog}
@@ -360,9 +384,10 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
                               };
                               await updateLog(selectedLog.id, updateData);
                             } else if (selectedLog?.based_on_instance) {
+                              console.log("Instance id", selectedLog.based_on_instance)
                               await createLog({
                                 ...formData,
-                                based_on_instance: selectedLog.based_on_instance
+                                based_on_instance: selectedLog.based_on_instance // WRONG BECAUSE IT MUST BE THE ID OF THE WORKOUT INSTANCE, NOT A BOOLEAN
                               });
                             } else {
                               await createLog(formData);
@@ -389,7 +414,7 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-8">
+                <div className="space-y-8 lg:col-span-1">
                 {/* Active Programs Section */}
                 <div className="bg-gray-800 rounded-xl p-6">
                     <div className="flex justify-between items-center mb-6">
@@ -449,29 +474,7 @@ const [showInstanceSelector, setShowInstanceSelector] = useState(false);
               />
             )}
 
-            {/* Instance Selector Modal */}
-            {showInstanceSelector && (
-              <WorkoutInstanceSelector
-                onClose={() => setShowInstanceSelector(false)}
-                onSelect={(workout) => {
-                  setShowInstanceSelector(false);
-                  setSelectedLog({
-                    name: workout.template?.name || 'Workout Log',
-                    based_on_instance: workout.id,
-                    program: activeProgram.id,
-                    exercises: workout.template?.exercises?.map(ex => ({
-                      ...ex,
-                      sets: ex.sets?.map(set => ({
-                        ...set,
-                        id: Date.now() + Math.random()
-                      }))
-                    })) || []
-                  });
-                  setShowLogForm(true);
-                }}
-                activeProgram={activeProgram}
-              />
-            )}
+            
           </div>
         );
     };
