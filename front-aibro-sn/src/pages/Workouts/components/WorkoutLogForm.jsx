@@ -16,10 +16,11 @@ const EQUIPMENT_OPTIONS = [
 ];
 
 // Helper to initialize form data from a log
-// Helper to initialize form data from a log
-const initializeFormData = (log) => {
-  // console.log('Log date received:', log?.date); // Debug log
+// In WorkoutLogForm.jsx, replace the initializeFormData function with this improved version:
 
+const initializeFormData = (log) => {
+  console.log('Initializing form data with log:', log); // Debug log
+  
   if (!log) {
     return {
       name: '',
@@ -32,9 +33,41 @@ const initializeFormData = (log) => {
       program: null,
       based_on_instance: null,
       gym: null,
+      notes: '',
       media: []
     };
   }
+  
+  // Process based_on_instance
+  let basedOnInstance = null;
+  if (log.based_on_instance !== undefined && log.based_on_instance !== null) {
+    console.log('based_on_instance type:', typeof log.based_on_instance); // Debug type
+    
+    if (typeof log.based_on_instance === 'object' && log.based_on_instance !== null) {
+      basedOnInstance = log.based_on_instance.id;
+    } else {
+      // Ensure it's an integer if it's a string representation of a number
+      basedOnInstance = typeof log.based_on_instance === 'string' ? 
+        parseInt(log.based_on_instance, 10) : log.based_on_instance;
+    }
+  }
+  console.log('Processed based_on_instance:', basedOnInstance); // Debug processed value
+  
+  // Process program
+  let program = null;
+  if (log.program !== undefined && log.program !== null) {
+    console.log('program type:', typeof log.program); // Debug type
+    
+    if (typeof log.program === 'object' && log.program !== null) {
+      program = log.program.id;
+    } else {
+      // Ensure it's an integer if it's a string representation of a number
+      program = typeof log.program === 'string' ? 
+        parseInt(log.program, 10) : log.program;
+    }
+  }
+  console.log('Processed program:', program); // Debug processed value
+  
   const formatDate = (dateStr) => {
     if (!dateStr) return new Date().toISOString().split('T')[0];
     
@@ -56,13 +89,13 @@ const initializeFormData = (log) => {
   };
 
   const exercises = log.exercises?.map(exercise => ({
-    id: exercise.id || Date.now() + Math.random(),
+    id: exercise.id || Math.floor(Date.now() + Math.random() * 1000), // Use Math.floor to get integer
     name: exercise.name || '',
     equipment: exercise.equipment || '',
     notes: exercise.notes || '',
     order: exercise.order || 0,
     sets: exercise.sets?.map(set => ({
-      id: set.id || Date.now() + Math.random(),
+      id: set.id || Math.floor(Date.now() + Math.random() * 1000), // Use Math.floor to get integer
       reps: set.reps || 0,
       weight: set.weight || 0,
       rest_time: set.rest_time || 60,
@@ -70,7 +103,7 @@ const initializeFormData = (log) => {
     })) || []
   })) || [];
 
-  return {
+  const result = {
     name: log.name || '',
     date: formatDate(log.date),
     completed: log.completed ?? true,
@@ -78,12 +111,15 @@ const initializeFormData = (log) => {
     mood_rating: log.mood_rating || 5,
     perceived_difficulty: log.perceived_difficulty || 5,
     performance_notes: log.performance_notes || '',
-    program: log.program ? (typeof log.program === 'object' ? log.program.id : log.program) : null,
-    based_on_instance: log.based_on_instance?.id || null,
+    program: program,
+    based_on_instance: basedOnInstance,
     gym: log.gym ? (typeof log.gym === 'object' ? log.gym.id : log.gym) : null,
     notes: log.notes || '',
     media: log.media || []
   };
+  
+  console.log('Final form data:', result); // Debug final result
+  return result;
 };
 
 // Exercise set input component with improved visuals

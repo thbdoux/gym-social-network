@@ -578,3 +578,22 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             'completed_workouts': completed_workouts,
             'completion_rate': completed_workouts/total_workouts if total_workouts > 0 else 0
         })
+
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to add detailed error logging"""
+        import json
+        logger.info(f"Creating workout log with data: {json.dumps(request.data, indent=2, default=str)}")
+        
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.error(f"Serializer validation errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            logger.exception(f"Error creating workout log: {str(e)}")
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

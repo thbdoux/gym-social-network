@@ -1,10 +1,22 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { Plus, ChevronRight, Calendar, Activity, Target, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Plus, 
+  ChevronRight, 
+  Calendar, 
+  Activity, 
+  Target, 
+  Loader2,
+  LayoutGrid,
+  BarChart2,
+  Clock,
+  Filter
+} from 'lucide-react';
 import WorkoutPlansGrid from './components/WorkoutPlansGrid';
 import EmptyState from './components/EmptyState';
 import PlansListView from './views/PlansListView';
 import PlanDetailView from './views/PlanDetailView';
 import AllWorkoutLogsView from './views/AllWorkoutLogsView';
+import AllWorkoutsView from './views/AllWorkoutsView';
 import CreatePlanView from './views/CreatePlanView';
 import { useWorkoutPlans } from './hooks/useWorkoutPlans';
 import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
@@ -16,41 +28,60 @@ import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkou
 
 import api from './../../api';
 
-const QuickStats = () => (
-  <div className="bg-gray-800 rounded-xl p-6">
-    <div className="flex items-center justify-between mb-6">
-      <h2 className="text-xl font-bold text-white">Quick Stats</h2>
-      <span className="text-sm text-gray-400">This Week</span>
-    </div>
-    
-    <div className="grid grid-cols-2 gap-6">
-      <div>
-        <span className="text-gray-400 text-sm">Week</span>
-        <div className="flex items-baseline mt-1">
-          <span className="text-3xl font-bold text-white">1</span>
-          <span className="text-gray-400 ml-2">workouts</span>
-        </div>
+const QuickStats = ({ stats = {} }) => {
+  const weeklyWorkouts = stats.weeklyWorkouts || 0;
+  const totalWorkouts = stats.totalWorkouts || 0;
+  const streak = stats.streak || 0;
+
+  return (
+    <div className="bg-gradient-to-br from-gray-800 to-gray-850 rounded-xl p-6 shadow-lg overflow-hidden relative">
+      {/* Background decoration */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16"></div>
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/5 rounded-full -ml-12 -mb-12"></div>
+      
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-white flex items-center">
+          <BarChart2 className="w-5 h-5 mr-2 text-blue-400" />
+          Quick Stats
+        </h2>
+        <span className="text-sm text-gray-400 px-3 py-1 bg-gray-700/50 rounded-full">This Week</span>
       </div>
       
-      <div>
-        <span className="text-gray-400 text-sm">Total</span>
-        <div className="flex items-baseline mt-1">
-          <span className="text-3xl font-bold text-white">1</span>
-          <span className="text-gray-400 ml-2">workouts</span>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-gray-700/40 p-4 rounded-xl">
+          <div className="text-sm text-gray-400 mb-1">Week</div>
+          <div className="text-2xl font-bold text-white">{weeklyWorkouts}</div>
+          <div className="text-xs text-gray-400 mt-1">workouts</div>
+        </div>
+        
+        <div className="bg-gray-700/40 p-4 rounded-xl">
+          <div className="text-sm text-gray-400 mb-1">Total</div>
+          <div className="text-2xl font-bold text-white">{totalWorkouts}</div>
+          <div className="text-xs text-gray-400 mt-1">workouts</div>
+        </div>
+        
+        <div className="bg-gray-700/40 p-4 rounded-xl">
+          <div className="text-sm text-gray-400 mb-1">Streak</div>
+          <div className="text-2xl font-bold text-white">{streak}</div>
+          <div className="text-xs text-gray-400 mt-1">days</div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center p-8">
     <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+    <span className="ml-2 text-gray-400">Loading...</span>
   </div>
 );
 
 const ErrorMessage = ({ message }) => (
-  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400 flex items-center">
+    <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center mr-3">
+      <span className="text-red-400 font-bold">!</span>
+    </div>
     <p>{message}</p>
   </div>
 );
@@ -62,6 +93,7 @@ const WorkoutSpace = ({ user }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
+  const [filterPeriod, setFilterPeriod] = useState('week'); // 'week', 'month', 'all'
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -103,7 +135,6 @@ const WorkoutSpace = ({ user }) => {
 
   const {
     logs,
-    nextWorkout,
     loading: logsLoading,
     error: logsError,
     createLog,
@@ -111,10 +142,55 @@ const WorkoutSpace = ({ user }) => {
     refreshLogs
   } = useWorkoutLogs(activeProgram);
   
-  // Get only the 3 most recent logs for the preview
-  const recentLogs = logs.slice(0, 3);
+  // Get only the most recent logs for the preview
+  const recentLogs = logs.slice(0, 4);
+
+  // Calculate next workout
+  const nextWorkout = logs.find(log => !log.completed);
 
   const [selectedPlan, setSelectedPlan] = useState(null);
+
+  // Calculate stats for the quick stats component
+  const calculateStats = () => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const weeklyWorkouts = logs.filter(log => 
+      new Date(log.date) >= oneWeekAgo && log.completed
+    ).length;
+    
+    const totalWorkouts = logs.filter(log => log.completed).length;
+    
+    // Calculate streak (simplified)
+    let streak = 0;
+    const dayMap = {};
+    
+    // Map logs to days
+    logs.forEach(log => {
+      if (log.completed) {
+        const dateStr = new Date(log.date).toDateString();
+        dayMap[dateStr] = true;
+      }
+    });
+    
+    // Count streak (not entirely accurate, just for the demo)
+    for (let i = 0; i < 30; i++) {
+      const checkDate = new Date(now);
+      checkDate.setDate(checkDate.getDate() - i);
+      const checkDateStr = checkDate.toDateString();
+      
+      if (dayMap[checkDateStr]) {
+        streak++;
+      } else if (i < 7) { // Only break streak if within last week
+        break;
+      }
+    }
+    
+    return { weeklyWorkouts, totalWorkouts, streak };
+  };
+
+  const stats = calculateStats();
 
   const handlePlanSelect = async (plan) => {
     setSelectedPlan(plan);
@@ -123,10 +199,7 @@ const WorkoutSpace = ({ user }) => {
 
   const handleTogglePlanActive = async (planId) => {
     try {
-      // Call the API to toggle the active status
       await api.post(`/workouts/programs/${planId}/toggle_active/`);
-      
-      // Refresh the plans to get the updated data
       await refreshPlans();
     } catch (err) {
       console.error('Error toggling plan active status:', err);
@@ -149,9 +222,7 @@ const WorkoutSpace = ({ user }) => {
   const handleAddWorkout = async (planId, templateId, weekday) => {
     try {
       await addWorkoutToPlan(planId, templateId, weekday);
-      // After adding a workout, get the fresh plan data
       const updatedPlans = await refreshPlans();
-      // Update the selected plan with the fresh data
       const updatedPlan = updatedPlans.find(p => p.id === planId);
       if (updatedPlan) {
         setSelectedPlan(updatedPlan);
@@ -238,14 +309,7 @@ const WorkoutSpace = ({ user }) => {
             }
           }}
           onDelete={deletePlan}
-          onAddWorkout={async (planId, templateId, weekday) => {
-            await addWorkoutToPlan(planId, templateId, weekday);
-            const updatedPlans = await refreshPlans();
-            const updatedPlan = updatedPlans.find(p => p.id === planId);
-            if (updatedPlan) {
-              setSelectedPlan(updatedPlan);
-            }
-          }}
+          onAddWorkout={handleAddWorkout}
           onUpdateWorkout={async (planId, workoutId, updates) => {
             await updateWorkoutInstance(planId, workoutId, updates);
             const updatedPlans = await refreshPlans();
@@ -294,154 +358,37 @@ const WorkoutSpace = ({ user }) => {
 
     default:
         return (
-          <div className="min-h-screen bg-gray-900 text-white p-8">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">Workout Space</h1>
+          <div className="min-h-screen bg-gray-900 text-white">
+            {/* Hero header */}
+            <div className="bg-gradient-to-b from-indigo-900/30 to-gray-900 border-b border-gray-800">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                <h1 className="text-4xl font-extrabold text-white mb-2">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                    Workout Space
+                  </span>
+                </h1>
+                <p className="text-gray-300 text-lg max-w-3xl">
+                  Track your progress, log your workouts, and stay motivated on your fitness journey.
+                </p>
+              </div>
+            </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Workout Logs Section */}
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-gray-800 rounded-xl p-6">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold">Workout Logs</h2>
-                      <button 
-                        onClick={() => setShowLogModal(true)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2"
-                      >
-                        <Plus className="w-5 h-5" />
-                        <span>Log Workout</span>
-                      </button>
-                    </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column - Active Program + Quick Stats */}
+                <div className="lg:col-span-1 space-y-8">
+                  {/* Active Program */}
+                  <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30 relative overflow-hidden">
+                    <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-500/10 rounded-full"></div>
                     
-                    <div className="space-y-4">
-                      {logsLoading ? (
-                        <LoadingSpinner />
-                      ) : recentLogs.length > 0 ? (
-                        recentLogs.map((log, index) => (
-                          <WorkoutLogCard
-                            key={log.id || `log-${index}`}
-                            log={log}
-                            onEdit={(log) => {
-                              setSelectedLog(log);
-                              setShowLogForm(true);
-                            }}
-                            onDelete={async (log) => {
-                              if (window.confirm('Are you sure you want to delete this workout log?')) {
-                                try {
-                                  await api.delete(`/workouts/logs/${log.id}/`);
-                                  await refreshLogs();
-                                } catch (err) {
-                                  console.error('Error deleting log:', err);
-                                }
-                              }
-                            }}
-                          />
-                        ))
-                      ) : (
-                        <EmptyState
-                          title="No workout logs yet"
-                          description="Start logging your workouts to track your progress"
-                          action={{
-                            label: 'Log First Workout',
-                            onClick: () => {
-                              setSelectedLog(null); 
-                              setShowLogForm(true);
-                            }
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    {/* Instance Selector Modal */}
-                    {showInstanceSelector && (
-                      <WorkoutInstanceSelector
-                        onClose={() => setShowInstanceSelector(false)}
-                        onSelect={(workout) => {
-                          setShowInstanceSelector(false);
-                          setSelectedLog({
-                            name: workout.name || 'Workout Log',
-                            based_on_instance: workout.id,
-                            program: activeProgram.id,
-                            exercises: workout.exercises?.map(ex => ({
-                              ...ex,
-                              sets: ex.sets?.map(set => ({
-                                ...set,
-                                id: Date.now() + Math.random()
-                              }))
-                            })) || []
-                          });
-                          setShowLogForm(true);
-                        }}
-                        activeProgram={activeProgram}
-                      />
-                    )}
-
-                    {showLogForm && (
-                      <WorkoutLogForm
-                        log={selectedLog}
-                        programs={workoutPlans}
-                        onSubmit={async (formData) => {
-                          try {
-                            if (selectedLog?.id) {
-                              // For updates, we need to include IDs of existing exercises and sets
-                              const updateData = {
-                                ...formData,
-                                exercises: formData.exercises.map(exercise => ({
-                                  ...exercise,
-                                  id: exercise.id, // Keep existing exercise ID if it exists
-                                  sets: exercise.sets.map(set => ({
-                                    ...set,
-                                    id: set.id, // Keep existing set ID if it exists
-                                  }))
-                                }))
-                              };
-                              await updateLog(selectedLog.id, updateData);
-                            } else if (selectedLog?.based_on_instance) {
-                              await createLog({
-                                ...formData,
-                                based_on_instance: selectedLog.based_on_instance
-                              });
-                            } else {
-                              await createLog(formData);
-                            }
-                            setShowLogForm(false);
-                            setSelectedLog(null);
-                            await refreshLogs();
-                          } catch (err) {
-                            console.error('Error saving log:', err);
-                          }
-                        }}
-                        onClose={() => {
-                          setShowLogForm(false);
-                          setSelectedLog(null);
-                        }}
-                      />
-                    )}
-                    
-                    <button 
-                      className="w-full mt-4 py-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center space-x-2"
-                      onClick={() => setShowAllLogs(true)}
-                    >
-                      <span>View All Logs</span>
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-8 lg:col-span-1">
-                  {/* Next Workout Section - Now separated from logs */}
-                  <NextWorkout workout={nextWorkout} />
-                  
-                  {/* Active Programs Section */}
-                  <div className="bg-gray-800 rounded-xl p-6">
                     <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold">Active Programs</h2>
+                      <h2 className="text-xl font-bold text-white">Active Program</h2>
                       <button 
                         onClick={() => setView('plans')}
-                        className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1"
+                        className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1 text-sm"
                       >
-                        <span>View All</span>
-                        <ChevronRight className="w-5 h-5" />
+                        <span>All Programs</span>
+                        <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                     
@@ -470,10 +417,236 @@ const WorkoutSpace = ({ user }) => {
                     )}
                   </div>
 
-                  {/* Quick Stats Section */}
-                  <QuickStats />
+                  {/* Quick Stats */}
+                  <QuickStats stats={stats} />
+                  
+                  {/* Next Workout Section - Now separated from logs */}
+                  <NextWorkout workout={nextWorkout} />
+                  
+                  {/* Templates Section */}
+                  <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-xl font-bold text-white flex items-center">
+                        <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
+                        Templates
+                      </h2>
+                      <button 
+                        onClick={() => setView('all-workouts')}
+                        className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
+                      >
+                        <span>View All</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="text-gray-300 text-sm">
+                      {templatesLoading ? (
+                        <LoadingSpinner />
+                      ) : templates.length > 0 ? (
+                        <div className="space-y-3">
+                          {templates.slice(0, 3).map((template) => (
+                            <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
+                              <p className="font-medium text-white">{template.name}</p>
+                              <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
+                                <span>{template.split_method?.replace(/_/g, ' ')}</span>
+                                <span>•</span>
+                                <span>{template.exercises?.length || 0} exercises</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p>Create your first workout template to get started.</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {/* Right Column - Workout Logs */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
+                    {/* Header with filter */}
+                    <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">Workout Logs</h2>
+                        <p className="text-gray-400 text-sm mt-1">Track and monitor your fitness progress</p>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3">
+                        <div className="hidden sm:flex bg-gray-700 rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => setFilterPeriod('week')}
+                            className={`px-3 py-1.5 text-sm ${filterPeriod === 'week' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                          >
+                            Week
+                          </button>
+                          <button
+                            onClick={() => setFilterPeriod('month')}
+                            className={`px-3 py-1.5 text-sm ${filterPeriod === 'month' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                          >
+                            Month
+                          </button>
+                          <button
+                            onClick={() => setFilterPeriod('all')}
+                            className={`px-3 py-1.5 text-sm ${filterPeriod === 'all' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                          >
+                            All
+                          </button>
+                        </div>
+                        
+                        <button 
+                          onClick={() => setShowLogModal(true)}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+                        >
+                          <Plus className="w-5 h-5" />
+                          <span>Log Workout</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* List with filters */}
+                    <div className="p-6">                      
+                      <div className="space-y-4">
+                        {logsLoading ? (
+                          <LoadingSpinner />
+                        ) : recentLogs.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {recentLogs.map((log, index) => (
+                              <WorkoutLogCard
+                                key={log.id || `log-${index}`}
+                                log={log}
+                                onEdit={(log) => {
+                                  setSelectedLog(log);
+                                  setShowLogForm(true);
+                                }}
+                                onDelete={async (log) => {
+                                  if (window.confirm('Are you sure you want to delete this workout log?')) {
+                                    try {
+                                      await api.delete(`/workouts/logs/${log.id}/`);
+                                      await refreshLogs();
+                                    } catch (err) {
+                                      console.error('Error deleting log:', err);
+                                    }
+                                  }
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <EmptyState
+                            title="No workout logs yet"
+                            description="Start logging your workouts to track your progress"
+                            action={{
+                              label: 'Log First Workout',
+                              onClick: () => {
+                                setSelectedLog(null); 
+                                setShowLogForm(true);
+                              }
+                            }}
+                          />
+                        )}
+                      </div>
+                    
+                      {/* View All Logs Button - Prominent */}
+                      {recentLogs.length > 0 && (
+                        <div className="mt-8 flex justify-center">
+                          <button 
+                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-medium flex items-center space-x-2 shadow-md"
+                            onClick={() => setShowAllLogs(true)}
+                          >
+                            <span>View All Workout Logs</span>
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+            
+            {/* Instance Selector Modal */}
+            {showInstanceSelector && (
+              <WorkoutInstanceSelector
+                onClose={() => setShowInstanceSelector(false)}
+                onSelect={(workout) => {
+                  setShowInstanceSelector(false);
+                  setSelectedLog({
+                    name: workout.name || 'Workout Log',
+                    based_on_instance: workout.id,
+                    program: activeProgram.id,
+                    exercises: workout.exercises?.map(ex => ({
+                      ...ex,
+                      sets: ex.sets?.map(set => ({
+                        ...set,
+                        id: Math.floor(Date.now() + Math.random() * 1000)
+                      }))
+                    })) || []
+                  });
+                  setShowLogForm(true);
+                }}
+                activeProgram={activeProgram}
+              />
+            )}
+
+            {/* Log Workout Form */}
+            {showLogForm && (
+              <WorkoutLogForm
+                log={selectedLog}
+                programs={workoutPlans}
+                onSubmit={async (formData) => {
+                  try {
+                    console.log("Form submission data:", formData);
+    
+                    // Ensure based_on_instance and program are proper integers, not strings
+                    const preparedData = {
+                      ...formData,
+                      based_on_instance: formData.based_on_instance ? 
+                        (typeof formData.based_on_instance === 'string' ? 
+                          parseInt(formData.based_on_instance, 10) : formData.based_on_instance) : 
+                        null,
+                      program: formData.program ? 
+                        (typeof formData.program === 'string' ? 
+                          parseInt(formData.program, 10) : formData.program) : 
+                        null
+                    };
+                    
+                    console.log("Prepared data for API:", preparedData);
+                    if (selectedLog?.id) {
+                      const updateData = {
+                        ...preparedData,
+                        exercises: preparedData.exercises.map(exercise => ({
+                          ...exercise,
+                          id: exercise.id,
+                          sets: exercise.sets.map(set => ({
+                            ...set,
+                            id: set.id,
+                          }))
+                        }))
+                      };
+                      console.log("Update data:", updateData);
+                      await updateLog(selectedLog.id, updateData);
+                    } else {
+                      console.log("Create data:", preparedData);
+                      await createLog(preparedData);
+                    }
+                    
+                    setShowLogForm(false);
+                    setSelectedLog(null);
+                    await refreshLogs();
+                  } catch (err) {
+                    console.error('Error saving log:', err);
+                    // Display error to user
+                    alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
+                  }
+                }}
+                
+                onClose={() => {
+                  setShowLogForm(false);
+                  setSelectedLog(null);
+                }}
+              />
+            )}
             
             {/* Log Workout Modal */}
             {showLogModal && (

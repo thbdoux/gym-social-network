@@ -87,18 +87,41 @@ export const useWorkoutLogs = (activeProgram) => {
     }
   };
   
-  const createLog = async (logData) => {
-    try {
-      const formattedData = formatLogForAPI(logData);
-      const response = await api.post('/workouts/logs/', formattedData);
-      await fetchLogs();
-      return response.data;
-    } catch (err) {
-      console.error('Error creating workout log:', err);
-      setError('Failed to create workout log');
-      throw err;
+  // In useWorkoutLogs.js, modify the createLog function:
+
+const createLog = async (logData) => {
+  try {
+    console.log("Original log data:", JSON.stringify(logData));
+    const formattedData = formatLogForAPI(logData);
+    console.log("Formatted data sending to API:", JSON.stringify(formattedData));
+    
+    const response = await api.post('/workouts/logs/', formattedData);
+    await fetchLogs();
+    return response.data;
+  } catch (err) {
+    console.error('Error creating workout log:', err);
+    
+    // Add detailed error logging
+    if (err.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error("API Error Response:", {
+        status: err.response.status,
+        headers: err.response.headers,
+        data: err.response.data
+      });
+    } else if (err.request) {
+      // The request was made but no response was received
+      console.error("No response received:", err.request);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error("Request setup error:", err.message);
     }
-  };
+    
+    setError('Failed to create workout log');
+    throw err;
+  }
+};
 
   // Get the next scheduled workout from active program
   const getNextWorkout = (program) => {

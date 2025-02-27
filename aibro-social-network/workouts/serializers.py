@@ -213,6 +213,37 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
             'mood_rating', 'perceived_difficulty',
             'performance_notes', 'media'
         ]
+    
+    def validate(self, data):
+        """Add validation debugging"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Log the incoming data for debugging
+        logger.info(f"Validating data: {data}")
+        
+        # Check specific fields that might be causing issues
+        if 'based_on_instance' in data:
+            logger.info(f"based_on_instance: {data['based_on_instance']} (type: {type(data['based_on_instance'])})")
+            
+            # Try to validate the based_on_instance explicitly
+            try:
+                from .models import WorkoutInstance
+                instance_id = data['based_on_instance']
+                if instance_id is not None:
+                    try:
+                        instance = WorkoutInstance.objects.get(pk=instance_id)
+                        logger.info(f"Found valid workout instance: {instance}")
+                    except WorkoutInstance.DoesNotExist:
+                        logger.error(f"WorkoutInstance with id {instance_id} does not exist")
+                        raise serializers.ValidationError({"based_on_instance": f"WorkoutInstance with id {instance_id} does not exist"})
+            except Exception as e:
+                logger.error(f"Error validating based_on_instance: {str(e)}")
+        
+        if 'program' in data:
+            logger.info(f"program: {data['program']} (type: {type(data['program'])})")
+            
+        return data
 
     def create(self, validated_data):
         print("Debug - Create method called")

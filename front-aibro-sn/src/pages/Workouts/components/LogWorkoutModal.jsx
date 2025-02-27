@@ -66,7 +66,6 @@ const LogWorkoutModal = ({ onClose, onNewLog, onLogFromInstance, activeProgram }
 // Add this component after the LogWorkoutModal component
 
 const WorkoutInstanceSelector = ({ onClose, onSelect, activeProgram }) => {
-  console.log("Active program", activeProgram)
   const sortedWorkouts = React.useMemo(() => {
     if (!activeProgram?.workouts) return [];
     

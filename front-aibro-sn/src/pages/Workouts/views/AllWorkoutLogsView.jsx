@@ -379,7 +379,6 @@ const EnhancedCalendar = ({ logs, onDateClick, selectedDate }) => {
     const workoutMap = {};
     logs.forEach(log => {
       const dateStr = log.date;
-      console.log(dateStr);
       if (!dateStr) return;
       
       // Handle different date formats
