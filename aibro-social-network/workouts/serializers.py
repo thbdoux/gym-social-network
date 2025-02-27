@@ -123,6 +123,7 @@ class ProgramSerializer(serializers.ModelSerializer):
     forks_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.SerializerMethodField()
     creator_username = serializers.CharField(source='creator.username', read_only=True)
+    is_owner = serializers.SerializerMethodField(read_only=True)  # Add this field
     
     class Meta:
         model = Program
@@ -133,17 +134,27 @@ class ProgramSerializer(serializers.ModelSerializer):
            'difficulty_level', 'recommended_level',
            'required_equipment', 'estimated_completion_weeks',
            'tags', 'forks_count', 'is_liked',
-           'forked_from', 'created_at', 'updated_at'
+           'forked_from', 'created_at', 'updated_at','is_owner'
        ]
         read_only_fields = [
             'id', 'creator_username', 'likes_count',
-            'forks_count', 'is_liked','created_at', 'updated_at'
+            'forks_count', 'is_liked','created_at', 'updated_at','is_owner'
         ]
 
     def get_is_liked(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(id=request.user.id).exists()
+        return False
+
+    def get_is_owner(self, obj):
+        """
+        Determine if the current user is the owner of this program.
+        A user owns a program if they created it.
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.creator_id == request.user.id
         return False
 
 class ProgramShareSerializer(serializers.ModelSerializer):

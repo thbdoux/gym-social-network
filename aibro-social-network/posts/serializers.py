@@ -93,6 +93,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
         return UserSerializer(obj.invited_users.all(), many=True).data
         
 class PostSerializer(serializers.ModelSerializer):
+
     comments = CommentSerializer(many=True, read_only=True)
     likes_count = serializers.SerializerMethodField()
     user_username = serializers.CharField(source='user.username', read_only=True)
@@ -173,3 +174,55 @@ class PostSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
+
+class PostCreateSerializer(serializers.ModelSerializer):
+    program_id = serializers.IntegerField(required=False, write_only=True)
+    workout_log_id = serializers.IntegerField(required=False, write_only=True)
+    
+    class Meta:
+        model = Post
+        fields = [
+            'id','content', 'image', 'post_type', 
+            'program_id', 'workout_log_id'
+        ]
+        read_only_fields = ['id']
+    
+    def create(self, validated_data):
+        # Extract IDs
+        program_id = validated_data.pop('program_id', None)
+        workout_log_id = validated_data.pop('workout_log_id', None)
+        
+        # Get the user from context
+        user = self.context['request'].user
+        
+        # Explicitly create post with only the fields we want
+        post = Post.objects.create(
+            user=user,
+            content=validated_data.get('content', ''),
+            image=validated_data.get('image'),
+            post_type=validated_data.get('post_type', 'regular')
+        )
+        
+        # Link program
+        if program_id:
+            try:
+                from workouts.models import Program
+                program = Program.objects.get(id=program_id)
+                post.program = program
+                post.save()
+                print(f"Successfully linked post {post.id} to program {program_id}")
+            except Exception as e:
+                print(f"Error linking program: {str(e)}")
+        
+        # Link workout log
+        if workout_log_id:
+            try:
+                from workouts.models import WorkoutLog
+                workout_log = WorkoutLog.objects.get(id=workout_log_id)
+                post.workout_log = workout_log
+                post.save()
+                print(f"Successfully linked post {post.id} to workout log {workout_log_id}")
+            except Exception as e:
+                print(f"Error linking workout log: {str(e)}")
+        
+        return post

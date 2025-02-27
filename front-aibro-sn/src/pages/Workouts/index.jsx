@@ -95,6 +95,9 @@ const WorkoutSpace = ({ user }) => {
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
   const [filterPeriod, setFilterPeriod] = useState('week'); // 'week', 'month', 'all'
 
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [programToShare, setProgramToShare] = useState(null);
+
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
@@ -219,6 +222,26 @@ const WorkoutSpace = ({ user }) => {
     }
   };
 
+  const handleShareProgram = (program) => {
+    setProgramToShare(program);
+    setShowShareModal(true);
+  };
+
+  // New function to handle program forking
+  const handleForkProgram = async (program) => {
+    try {
+      if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
+        const response = await api.post(`/workouts/programs/${program.id}/fork/`);
+        await refreshPlans();
+        // Select the newly forked program
+        handlePlanSelect(response.data);
+      }
+    } catch (err) {
+      console.error('Error forking program:', err);
+      alert('Failed to fork program. Please try again.');
+    }
+  };
+
   const handleAddWorkout = async (planId, templateId, weekday) => {
     try {
       await addWorkoutToPlan(planId, templateId, weekday);
@@ -286,7 +309,20 @@ const WorkoutSpace = ({ user }) => {
             deletePlan={deletePlan}
             onCreatePlan={handleCreatePlan}
             togglePlanActive={handleTogglePlanActive}
+            onShareProgram={handleShareProgram}
+            onForkProgram={handleForkProgram}
           />
+          
+          {/* Share Program Modal */}
+          {showShareModal && programToShare && (
+            <ShareProgramModal 
+              program={programToShare}
+              onClose={() => {
+                setShowShareModal(false);
+                setProgramToShare(null);
+              }}
+            />
+          )}
         </div>
       );
 
@@ -664,9 +700,18 @@ const WorkoutSpace = ({ user }) => {
                 activeProgram={activeProgram}
               />
             )}
-          </div>
-        );
-    }
-}
+            {showShareModal && programToShare && (
+            <ShareProgramModal 
+              program={programToShare}
+              onClose={() => {
+                setShowShareModal(false);
+                setProgramToShare(null);
+              }}
+            />
+          )}
+        </div>
+      );
+  }
+};
 
 export default WorkoutSpace;

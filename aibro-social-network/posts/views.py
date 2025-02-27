@@ -4,12 +4,54 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Q
 from .models import Post, Comment, Like
-from .serializers import PostSerializer, CommentSerializer
+from .serializers import PostSerializer, CommentSerializer, PostCreateSerializer
 from .permissions import IsAuthorOrReadOnly
 
 class PostViewSet(viewsets.ModelViewSet):
-    serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return PostCreateSerializer
+        return PostSerializer
+
+    def get_queryset(self):
+        # Update existing queryset to include shares info
+        return Post.objects.filter(
+            Q(user=self.request.user) |
+            Q(user__in=self.request.user.friends.all()) |
+            Q(user__preferred_gym=self.request.user.preferred_gym)
+        ).distinct().select_related(
+            'user', 'workout_log', 'program', 'original_post'  # Added program to select_related
+        ).prefetch_related(
+            'comments', 'likes', 'shares'
+        ).order_by('-created_at')
+
+    def create(self, request, *args, **kwargs):
+        print("Creating post with data:", request.data)
+        
+        # Handle program_id from form data 
+        program_id = request.data.get('program_id')
+        if program_id:
+            print(f"Found program_id in request: {program_id}")
+            try:
+                # Convert to int if it's a string
+                program_id = int(program_id) if isinstance(program_id, str) else program_id
+                print(f"Converted program_id: {program_id}, type: {type(program_id)}")
+            except (ValueError, TypeError):
+                print(f"Error converting program_id: {program_id}")
+        
+        response = super().create(request, *args, **kwargs)
+        
+        # Return detailed data after creation
+        if response.status_code == 201:
+            post_id = response.data.get('id')
+            if post_id:
+                post = Post.objects.get(id=post_id)
+                response.data = PostSerializer(post, context={'request': request}).data
+        
+        print("Create response data:", response.data)
+        return response
 
     def update(self, request, *args, **kwargs):
         """Update a post - only allowed for original author"""
@@ -51,27 +93,12 @@ class PostViewSet(viewsets.ModelViewSet):
             
         return super().destroy(request, *args, **kwargs)
 
-    def get_queryset(self):
-        # Update existing queryset to include shares info
-        return Post.objects.filter(
-            Q(user=self.request.user) |
-            Q(user__in=self.request.user.friends.all()) |
-            Q(user__preferred_gym=self.request.user.preferred_gym)
-        ).distinct().select_related(
-            'user', 'workout_log', 'original_post'
-        ).prefetch_related(
-            'comments', 'likes', 'shares'
-        ).order_by('-created_at')
-
     def get_permissions(self):
         if self.action in ['comment', 'like']:
             # Only require authentication for commenting and liking
             return [permissions.IsAuthenticated()]
         # Use default permissions for other actions
         return [permissions.IsAuthenticated(), IsAuthorOrReadOnly()]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
 
     @action(detail=True, methods=['post'])
     def comment(self, request, pk=None):
@@ -165,3 +192,7 @@ class PostViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        # This is called by create() method
+        serializer.save(user=self.request.user)

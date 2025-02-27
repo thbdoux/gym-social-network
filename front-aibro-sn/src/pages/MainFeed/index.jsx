@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import WelcomeHeader from './components/WelcomeHeader';
 import CreatePost from './components/CreatePost';
-import Post from './components/FeedContainer';
 import ProgressCard from './components/ProgressCard';
 import NextWorkout from './components/NextWorkout';
 import RecentWorkouts from './components/RecentWorkouts';
@@ -25,7 +24,6 @@ const MainFeed = () => {
   const [selectedProgram, setSelectedProgram] = useState(null); // Add this state
 
   const handleProgramSelect = async (program) => {
-    console.log('Navigating to program:', program);
     try {
       // Get fresh program data
       const response = await api.get(`/workouts/programs/${program.id}/`);
@@ -57,14 +55,7 @@ const MainFeed = () => {
             }
           })
         ]);
-        console.log('Posts from API:', postsResponse.data); // Debug log
-        console.log('Post types present:', 
-          postsResponse.data.map(post => ({
-            type: post.post_type,
-            hasWorkoutLog: !!post.workout_log_details
-          }))
-        ); // Debug types and workout details
-  
+        
         setUser(userResponse.data);
         setPosts(postsResponse.data);
         setStats(statsResponse.data);
@@ -90,7 +81,6 @@ const MainFeed = () => {
   }, []);
 
   const handlePostCreated = (newPost) => {
-    console.log('New post being created:', newPost); // Debug log
     setPosts([newPost, ...posts]);
   };
 
@@ -125,6 +115,7 @@ const MainFeed = () => {
       console.error('Error commenting on post:', err);
     }
   };
+  
   const handleShareClick = (post) => {
     setSharingPost(post);
     setIsShareModalOpen(true);
@@ -176,65 +167,65 @@ const MainFeed = () => {
 
 
   return (
-    // <div className="min-h-screen bg-[#0B0E14]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-8">
-            <WelcomeHeader username={user?.username} />
-            <div className="space-y-6">
-              <CreatePost onPostCreated={handlePostCreated} />
-              <FeedContainer
-                posts={posts}
-                currentUser={user?.username} // Make sure this is being passed correctly
-                onLike={handlePostLike}
-                onComment={handlePostComment}
-                onShare={handleShareClick}
-                onEdit={handleEditClick}
-                onDelete={handleDeletePost}
-              />
-            </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Content */}
+        <div className="lg:col-span-8">
+          <WelcomeHeader username={user?.username} />
+          <div className="space-y-6">
+            <CreatePost onPostCreated={handlePostCreated} />
+            <FeedContainer
+              posts={posts}
+              currentUser={user?.username}
+              onLike={handlePostLike}
+              onComment={handlePostComment}
+              onShare={handleShareClick}
+              onEdit={handleEditClick}
+              onDelete={handleDeletePost}
+              onProgramSelect={handleProgramSelect}
+            />
           </div>
+        </div>
 
-          {/* Right Sidebar */}
-          <div className="lg:col-span-4">
+        {/* Right Sidebar */}
+        <div className="lg:col-span-4">
           <div className="space-y-6 lg:sticky lg:top-8">
             <ProgressCard stats={stats} />
             <NextWorkout workout={nextWorkout} />
-            {/* Update ProgramPreview to include the handler */}
+            {/* Update RecentWorkouts to include the handler */}
             <RecentWorkouts 
               workouts={recentWorkouts} 
-              onProgramSelect={handleProgramSelect} // Add this prop
+              onProgramSelect={handleProgramSelect}
             />
           </div>
         </div>
       </div>
-        {editingPost && (
-          <EditPostModal
-            post={editingPost}
-            isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false);
-              setEditingPost(null);
-            }}
-            onSave={handleEditPost}
-          />
-        )}
-        {sharingPost && (
-          <SharePostModal
-            post={sharingPost}
-            isOpen={isShareModalOpen}
-            onClose={() => {
-              setIsShareModalOpen(false);
-              setSharingPost(null);
-            }}
-            onShare={handleShare}
-          />
-        )}
-      </div>
-    // </div>
+      
+      {editingPost && (
+        <EditPostModal
+          post={editingPost}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingPost(null);
+          }}
+          onSave={handleEditPost}
+        />
+      )}
+      
+      {sharingPost && (
+        <SharePostModal
+          post={sharingPost}
+          isOpen={isShareModalOpen}
+          onClose={() => {
+            setIsShareModalOpen(false);
+            setSharingPost(null);
+          }}
+          onShare={handleShare}
+        />
+      )}
+    </div>
   );
 };
-
 
 export default MainFeed;

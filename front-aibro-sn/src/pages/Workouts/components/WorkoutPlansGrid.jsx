@@ -1,7 +1,7 @@
 import React from 'react';
-import { Trash2, Activity, Calendar, Target, ChevronRight, Users } from 'lucide-react';
+import { Trash2, Activity, Calendar, Target, ChevronRight, Users, Share2, GitFork } from 'lucide-react';
 
-const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive }) => {
+const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive, onShare, onFork, currentUser }) => {
   const progressColors = {
     strength: 'from-red-500 to-orange-500',
     hypertrophy: 'from-blue-500 to-purple-500',
@@ -15,6 +15,16 @@ const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive }) => {
     return progressColors[focus] || 'from-gray-500 to-slate-500';
   };
 
+  // Check if current user is the creator of the plan
+  const isCreator = plan.creator_username === currentUser;
+  
+  // Check if program has is_owner field directly from API
+  const canShare = isCreator;
+  const canFork = !isCreator;
+  
+  // If the plan has a forked_from property, it means it was forked from another program
+  const isForked = !!plan.forked_from;
+
   return (
     <div className="group relative bg-gray-800 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20 hover:-translate-y-1">
       {/* Progress Bar Background */}
@@ -24,11 +34,24 @@ const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive }) => {
         {/* Header */}
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
-              {plan.name}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                {plan.name}
+              </h3>
+              {isForked && (
+                <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-md flex items-center gap-1">
+                  <GitFork className="w-3 h-3" />
+                  Forked
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-400">by {plan.creator_username}</p>
             <p className="text-gray-400 mt-1">{plan.description}</p>
+            {isForked && plan.forked_from && (
+              <p className="text-xs text-gray-500 mt-1">
+                Forked from {plan.forked_from.creator_username || "another user"}
+              </p>
+            )}
           </div>
           
           <div className="flex items-center space-x-3">
@@ -90,18 +113,50 @@ const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive }) => {
           </div>
         </div>
 
-        {/* View Details Button */}
-        <button
-          onClick={() => onSelect(plan)}
-          className="w-full bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-white py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center group"
-        >
-          <span>View Details</span>
-          <ChevronRight className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" />
-        </button>
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {/* Share Button - Only show if user is creator */}
+          {canShare && onShare && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onShare(plan);
+              }}
+              className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share</span>
+            </button>
+          )}
+          
+          {/* Fork Button - Only show if user is NOT the creator */}
+          {canFork && onFork && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onFork(plan);
+              }}
+              className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <GitFork className="w-4 h-4" />
+              <span>Fork Program</span>
+            </button>
+          )}
+          
+          {/* View Details Button - Make it full width if there's only one button */}
+          <button
+            onClick={() => onSelect(plan)}
+            className={`bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-white py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center group ${((!canShare && !canFork) || (!onShare && !onFork)) ? "col-span-2" : ""}`}
+          >
+            <span>View Details</span>
+            <ChevronRight className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
 
 const EmptyState = ({ onCreatePlan }) => (
   <div className="bg-gray-800 rounded-xl p-12 text-center">
@@ -119,7 +174,17 @@ const EmptyState = ({ onCreatePlan }) => (
   </div>
 );
 
-const WorkoutPlansGrid = ({ plans, onSelect, onDelete, onToggleActive, onCreatePlan, singleColumn = false }) => {
+const WorkoutPlansGrid = ({ 
+  plans, 
+  onSelect, 
+  onDelete, 
+  onToggleActive, 
+  onCreatePlan, 
+  onShare, 
+  onFork, 
+  currentUser,
+  singleColumn = false 
+}) => {
   if (!plans || plans.length === 0) {
     return <EmptyState onCreatePlan={onCreatePlan} />;
   }
@@ -137,6 +202,9 @@ const WorkoutPlansGrid = ({ plans, onSelect, onDelete, onToggleActive, onCreateP
           onSelect={onSelect}
           onDelete={onDelete}
           onToggleActive={onToggleActive}
+          onShare={onShare}
+          onFork={onFork}
+          currentUser={currentUser}
         />
       ))}
     </div>

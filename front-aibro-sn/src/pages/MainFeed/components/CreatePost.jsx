@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import api from '../../../api';
 import ShareWorkoutLog from './ShareWorkoutLog';
+import ProgramSelector from './ProgramSelector';
 
 const CreatePost = ({ onPostCreated }) => {
   const [content, setContent] = useState('');
@@ -20,6 +21,8 @@ const CreatePost = ({ onPostCreated }) => {
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [postType, setPostType] = useState('regular');
   const [showShareWorkout, setShowShareWorkout] = useState(false);
+  const [showProgramSelector, setShowProgramSelector] = useState(false);
+  const [selectedProgram, setSelectedProgram] = useState(null);
   const fileInputRef = useRef(null);
 
   const postTypes = {
@@ -34,15 +37,16 @@ const CreatePost = ({ onPostCreated }) => {
       color: 'green',
       action: () => setShowShareWorkout(true)
     },
+    program: {
+      label: 'Share Program',
+      icon: Dumbbell,
+      color: 'purple',
+      action: () => setShowProgramSelector(true)
+    },
     workout_invite: {
       label: 'Group Workout',
       icon: Users,
       color: 'orange'
-    },
-    program: {
-      label: 'Program Share',
-      icon: Dumbbell,
-      color: 'purple'
     }
   };
 
@@ -65,7 +69,7 @@ const CreatePost = ({ onPostCreated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (!content.trim() && !selectedProgram) return;
 
     try {
       const formData = new FormData();
@@ -75,40 +79,68 @@ const CreatePost = ({ onPostCreated }) => {
       if (image) {
         formData.append('image', image);
       }
+      
+      // If sharing a program, add the program ID
+      if (postType === 'program' && selectedProgram) {
+        formData.append('program_id', selectedProgram.id);
+        console.log('Sharing program with ID:', selectedProgram.id);
+      }
+
+      console.log('Sending post data:', {
+        content,
+        post_type: postType,
+        program_id: selectedProgram?.id || null
+      });
 
       const response = await api.post('/posts/', formData);
+      console.log('Post created response:', response.data);
       onPostCreated(response.data);
-      setContent('');
-      setImage(null);
-      setPostType('regular');
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
-        setImagePreview(null);
-      }
+      resetForm();
     } catch (err) {
       console.error('Failed to create post:', err);
+      console.error('Error details:', err.response?.data);
+      alert(`Failed to create post: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
+  const resetForm = () => {
+    setContent('');
+    setImage(null);
+    setPostType('regular');
+    setSelectedProgram(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
     }
   };
 
   const handleShareWorkout = async (postData) => {
     try {
-      console.log('About to send post data:', postData); // Debug log
+      console.log('About to send post data:', postData);
       
       const response = await api.post('/posts/', postData);
       
-      console.log('Response from API:', response.data); // Debug log
-      console.log('Response headers:', response.headers); // Debug headers
+      console.log('Response from API:', response.data);
+      console.log('Response headers:', response.headers);
       
       onPostCreated(response.data);
       setShowShareWorkout(false);
       setPostType('regular');
     } catch (err) {
       console.error('Failed to share workout:', err);
-      console.error('Error response:', err.response?.data); // Debug error response
+      console.error('Error response:', err.response?.data);
       if (err.response?.data) {
         alert('Error sharing workout: ' + JSON.stringify(err.response.data));
       }
     }
+  };
+
+  const handleProgramSelect = (program) => {
+    console.log('Selected program:', program);
+    setSelectedProgram(program);
+    setShowProgramSelector(false);
+    // Auto-populate content with program name
+    setContent(`Check out my workout program: ${program.name}`);
   };
 
   const currentType = postTypes[postType];
@@ -171,79 +203,109 @@ const CreatePost = ({ onPostCreated }) => {
               )}
             </div>
 
-            {/* Regular Post Content */}
-            {postType === 'regular' && (
-              <>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="What's on your mind?"
-                  className="w-full bg-gray-900/50 text-gray-100 rounded-lg p-4 min-h-[120px] resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder-gray-500"
-                />
+            {/* Regular Post Content or Program Share */}
+            <div>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder={postType === 'program' && selectedProgram 
+                  ? "Add a note about this program..." 
+                  : "What's on your mind?"}
+                className="w-full bg-gray-900/50 text-gray-100 rounded-lg p-4 min-h-[120px] resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder-gray-500"
+              />
 
-                {/* Image Preview */}
-                {imagePreview && (
-                  <div className="relative mt-4">
-                    <div className="relative rounded-lg overflow-hidden">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImage(null);
-                          URL.revokeObjectURL(imagePreview);
-                          setImagePreview(null);
-                        }}
-                        className="absolute top-2 right-2 p-1 bg-gray-900/80 rounded-full hover:bg-gray-900 transition-colors"
-                      >
-                        <X className="w-5 h-5 text-white" />
-                      </button>
+              {/* Program Preview if selected */}
+              {postType === 'program' && selectedProgram && (
+                <div className="mt-4 bg-gray-900/50 rounded-lg p-4 border border-purple-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Dumbbell className="w-5 h-5 text-purple-400" />
+                      <h4 className="font-medium text-white">{selectedProgram.name}</h4>
                     </div>
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedProgram(null)}
+                      className="p-1 hover:bg-gray-800 rounded-full"
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
                   </div>
-                )}
-
-                {imageError && (
-                  <p className="mt-2 text-sm text-red-400">
-                    {imageError}
-                  </p>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between mt-4">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-gray-900/50"
-                  >
-                    <ImageIcon className="w-5 h-5" />
-                    <span className="text-sm">Add Image</span>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={!content.trim()}
-                    className={`px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50
-                    ${postType === 'workout_log' ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400' :
-                      postType === 'workout_invite' ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400' :
-                      postType === 'program' ? 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-400' :
-                      'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'}`}
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>Post</span>
-                  </button>
+                  <p className="text-gray-400 text-sm">{selectedProgram.description}</p>
+                  <div className="mt-2 text-xs text-gray-500">
+                    {selectedProgram.sessions_per_week}x per week • 
+                    {selectedProgram.focus.replace(/_/g, ' ')} • 
+                    {selectedProgram.workouts?.length || 0} workouts
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500 flex items-center">
+                    <span className="font-semibold">Program ID:</span>
+                    <span className="ml-1">{selectedProgram.id}</span>
+                  </div>
                 </div>
-              </>
-            )}
+              )}
+
+              {/* Image Preview */}
+              {imagePreview && (
+                <div className="relative mt-4">
+                  <div className="relative rounded-lg overflow-hidden">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImage(null);
+                        URL.revokeObjectURL(imagePreview);
+                        setImagePreview(null);
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-gray-900/80 rounded-full hover:bg-gray-900 transition-colors"
+                    >
+                      <X className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {imageError && (
+                <p className="mt-2 text-sm text-red-400">
+                  {imageError}
+                </p>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between mt-4">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-gray-900/50"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                  <span className="text-sm">Add Image</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={(postType === 'program' && !selectedProgram) || 
+                            (postType !== 'program' && !content.trim())}
+                  className={`px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50
+                  ${postType === 'workout_log' ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400' :
+                    postType === 'workout_invite' ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400' :
+                    postType === 'program' ? 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-400' :
+                    'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'}`}
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Post</span>
+                </button>
+              </div>
+            </div>
           </form>
         </div>
       </div>
@@ -256,6 +318,17 @@ const CreatePost = ({ onPostCreated }) => {
             setPostType('regular');
           }}
           onShare={handleShareWorkout}
+        />
+      )}
+
+      {/* Program Selector Modal */}
+      {showProgramSelector && (
+        <ProgramSelector
+          onSelect={handleProgramSelect}
+          onCancel={() => {
+            setShowProgramSelector(false);
+            setPostType('regular');
+          }}
         />
       )}
     </>

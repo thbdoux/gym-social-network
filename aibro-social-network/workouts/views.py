@@ -143,8 +143,10 @@ class ProgramViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Include both created programs and public programs
         return Program.objects.filter(
-            creator=self.request.user
+            Q(creator=self.request.user) |  # Created by user
+            Q(is_public=True)               # Public programs
         ).prefetch_related(
             'workout_instances',
             'workout_instances__exercises',
