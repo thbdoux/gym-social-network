@@ -7,6 +7,7 @@ import api from '../../../api';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import ProgramCardPost from './ProgramCardPost';
 import WorkoutLogPreview from './WorkoutLogPreview';
+import { ModalProvider } from './ModalController';
 
 // Make sure to import the ProgramCardPost component at the top of your file
 
@@ -86,6 +87,10 @@ const Post = ({
       // Fallback navigation if the prop isn't provided
       window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
     }
+  };
+  const handleWorkoutLogClick = (workoutLog) => {
+    // The modal is now handled internally in the WorkoutLogPreview component
+    console.log('Workout log clicked:', workoutLog);
   };
 
   const PostMenu = ({ isOpen }) => {
@@ -380,18 +385,17 @@ const Post = ({
 
           {post.post_type === 'program' && (
             <div className="mt-2">
-              
-              {/* Try to use program_id from multiple possible locations */}
-              <ProgramCardPost 
-                programId={post.program_id || (post.program_details && post.program_details.id)}
-                initialProgramData={
-                  typeof post.program_details === 'string' 
-                    ? JSON.parse(post.program_details) 
-                    : post.program_details
-                }
-                onClick={handleProgramClick}
-              />
-            </div>
+            <ProgramCardPost 
+              programId={post.program_id || (post.program_details && post.program_details.id)}
+              initialProgramData={
+                typeof post.program_details === 'string' 
+                  ? JSON.parse(post.program_details) 
+                  : post.program_details
+              }
+              onClick={handleProgramClick}
+              onProgramSelect={handleProgramClick}
+            />
+          </div>
           )}
           
           {/* Workout Log */}

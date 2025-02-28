@@ -118,6 +118,13 @@ const CreatePost = ({ onPostCreated }) => {
     try {
       console.log('About to send post data:', postData);
       
+      // Ensure we're using the right parameter name for the API
+      // If postData contains workout_log instead of workout_log_id, fix it
+      if (postData.workout_log && !postData.workout_log_id) {
+        postData.workout_log_id = postData.workout_log;
+        delete postData.workout_log;
+      }
+      
       const response = await api.post('/posts/', postData);
       
       console.log('Response from API:', response.data);

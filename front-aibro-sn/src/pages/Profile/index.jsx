@@ -6,7 +6,6 @@ import ProfileHeader from './components/ProfileHeader';
 import EnhancedFriendsList from './components/EnhancedFriendsList';
 import ProgressCharts from './components/ProgressCharts';
 import RecentPosts from './components/RecentPosts';
-import WorkoutLog from './components/WorkoutLog';
 import EditProfileModal from './components/EditProfileModal';
 
 const ProfilePage = () => {
@@ -66,7 +65,6 @@ const ProfilePage = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <WorkoutLog logs={workoutLogs} />
           <ProgressCharts />
           <RecentPosts posts={posts} username={user?.username}/>
         </div>

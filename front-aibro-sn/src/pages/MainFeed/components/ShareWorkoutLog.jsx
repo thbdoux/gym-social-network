@@ -11,8 +11,9 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
 
   // Filter logs based on search query
   const filteredLogs = logs.filter(log =>
-    log.workout_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    log.date.toLowerCase().includes(searchQuery.toLowerCase())
+    log.workout_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    log.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    log.date?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleShare = () => {
@@ -24,7 +25,7 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
     const postData = {
       content: shareComment,
       post_type: 'workout_log',
-      workout_log: selectedLog.id
+      workout_log_id: selectedLog.id  // Changed from workout_log to workout_log_id
     };
     
     console.log('Sending post data:', postData);

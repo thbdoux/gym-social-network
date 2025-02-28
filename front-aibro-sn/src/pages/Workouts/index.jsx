@@ -98,6 +98,7 @@ const WorkoutSpace = ({ user }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
 
+  
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
@@ -149,7 +150,58 @@ const WorkoutSpace = ({ user }) => {
   const recentLogs = logs.slice(0, 4);
 
   // Calculate next workout
-  const nextWorkout = logs.find(log => !log.completed);
+  const getNextWorkout = () => {
+    if (!activeProgram?.workouts || activeProgram.workouts.length === 0) {
+      return null;
+    }
+  
+    // Get current day of week (0 = Sunday, 1 = Monday, etc.)
+    const today = new Date().getDay();
+    
+    // Find the next upcoming workout based on preferred_weekday
+    // First try to find a workout later this week
+    let nextWorkoutInstance = activeProgram.workouts.find(workout => {
+      // preferred_weekday is 1-based (1 = Monday, 2 = Tuesday, etc.)
+      // Convert to 0-based to match JavaScript's getDay() (0 = Sunday, 1 = Monday, etc.)
+      const workoutDay = workout.preferred_weekday === 7 ? 0 : workout.preferred_weekday;
+      return workoutDay > today;
+    });
+    
+    // If no workout found later this week, get the first workout of next week
+    if (!nextWorkoutInstance) {
+      const sortedWorkouts = [...activeProgram.workouts].sort((a, b) => {
+        // Convert 7 (Sunday in the API) to 0 to match JavaScript's Sunday=0
+        const dayA = a.preferred_weekday === 7 ? 0 : a.preferred_weekday;
+        const dayB = b.preferred_weekday === 7 ? 0 : b.preferred_weekday;
+        return dayA - dayB;
+      });
+      nextWorkoutInstance = sortedWorkouts[0];
+    }
+    
+    if (!nextWorkoutInstance) return null;
+    
+    // Get day name based on preferred_weekday
+    const getDayName = (dayNum) => {
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      // Convert from 1-based (API) to 0-based (array index)
+      const index = dayNum === 7 ? 0 : dayNum % 7;
+      return days[index];
+    };
+    
+    // Format the workout data for the NextWorkout component
+    return {
+      id: nextWorkoutInstance.id,
+      workout_name: nextWorkoutInstance.name || "Scheduled Workout",
+      date: `Next ${nextWorkoutInstance.weekday_name || getDayName(nextWorkoutInstance.preferred_weekday)}`,
+      duration: nextWorkoutInstance.estimated_duration || 60,
+      exercise_count: nextWorkoutInstance.exercises?.length || 0,
+      split_method: nextWorkoutInstance.split_method || "custom",
+      difficulty_level: nextWorkoutInstance.difficulty_level || "intermediate",
+      description: nextWorkoutInstance.description || ""
+    };
+  };
+
+  const nextWorkout = getNextWorkout();
 
   const [selectedPlan, setSelectedPlan] = useState(null);
 
@@ -410,98 +462,98 @@ const WorkoutSpace = ({ user }) => {
             </div>
             
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left Column - Active Program + Quick Stats */}
-                <div className="lg:col-span-1 space-y-8">
-                  {/* Active Program */}
-                  <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30 relative overflow-hidden">
-                    <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-500/10 rounded-full"></div>
-                    
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold text-white">Active Program</h2>
-                      <button 
-                        onClick={() => setView('plans')}
-                        className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1 text-sm"
-                      >
-                        <span>All Programs</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                    
-                    {plansLoading ? (
-                      <LoadingSpinner />
-                    ) : activeProgram ? (
-                      <div className="mx-[-1rem]">
-                        <WorkoutPlansGrid
-                          plans={[activeProgram]}
-                          onSelect={handlePlanSelect}
-                          onDelete={deletePlan}
-                          hideActions={true}
-                          singleColumn={true}
-                          onToggleActive={handleTogglePlanActive}
-                        />
-                      </div>
-                    ) : (
-                      <EmptyState
-                        title="No active program"
-                        description="Select or create a program to start your fitness journey"
-                        action={{
-                          label: 'Browse Programs',
-                          onClick: () => setView('plans')
-                        }}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left Column - Active Program + Quick Stats */}
+              <div className="lg:col-span-4 space-y-8">
+                {/* Active Program */}
+                <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30 relative overflow-hidden">
+                  <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-500/10 rounded-full"></div>
+                  
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">Active Program</h2>
+                    <button 
+                      onClick={() => setView('plans')}
+                      className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1 text-sm"
+                    >
+                      <span>All Programs</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {plansLoading ? (
+                    <LoadingSpinner />
+                  ) : activeProgram ? (
+                    <div className="mx-[-1rem]">
+                      <WorkoutPlansGrid
+                        plans={[activeProgram]}
+                        onSelect={handlePlanSelect}
+                        onDelete={deletePlan}
+                        hideActions={true}
+                        singleColumn={true}
+                        onToggleActive={handleTogglePlanActive}
                       />
-                    )}
-                  </div>
-
-                  {/* Quick Stats */}
-                  <QuickStats stats={stats} />
-                  
-                  {/* Next Workout Section - Now separated from logs */}
-                  <NextWorkout workout={nextWorkout} />
-                  
-                  {/* Templates Section */}
-                  <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold text-white flex items-center">
-                        <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
-                        Templates
-                      </h2>
-                      <button 
-                        onClick={() => setView('all-workouts')}
-                        className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
-                      >
-                        <span>View All</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
                     </div>
-                    
-                    <div className="text-gray-300 text-sm">
-                      {templatesLoading ? (
-                        <LoadingSpinner />
-                      ) : templates.length > 0 ? (
-                        <div className="space-y-3">
-                          {templates.slice(0, 3).map((template) => (
-                            <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
-                              <p className="font-medium text-white">{template.name}</p>
-                              <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
-                                <span>{template.split_method?.replace(/_/g, ' ')}</span>
-                                <span>•</span>
-                                <span>{template.exercises?.length || 0} exercises</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p>Create your first workout template to get started.</p>
-                      )}
-                    </div>
-                  </div>
+                  ) : (
+                    <EmptyState
+                      title="No active program"
+                      description="Select or create a program to start your fitness journey"
+                      action={{
+                        label: 'Browse Programs',
+                        onClick: () => setView('plans')
+                      }}
+                    />
+                  )}
                 </div>
 
-                {/* Right Column - Workout Logs */}
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
-                    {/* Header with filter */}
+                {/* Quick Stats */}
+                <QuickStats stats={stats} />
+                
+                {/* Next Workout Section */}
+                <NextWorkout workout={nextWorkout} />
+                
+                {/* Templates Section */}
+                <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white flex items-center">
+                      <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
+                      Templates
+                    </h2>
+                    <button 
+                      onClick={() => setView('all-workouts')}
+                      className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
+                    >
+                      <span>View All</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="text-gray-300 text-sm">
+                    {templatesLoading ? (
+                      <LoadingSpinner />
+                    ) : templates.length > 0 ? (
+                      <div className="space-y-3">
+                        {templates.slice(0, 3).map((template) => (
+                          <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
+                            <p className="font-medium text-white">{template.name}</p>
+                            <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
+                              <span>{template.split_method?.replace(/_/g, ' ')}</span>
+                              <span>•</span>
+                              <span>{template.exercises?.length || 0} exercises</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p>Create your first workout template to get started.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Workout Logs */}
+              <div className="lg:col-span-8 space-y-6">
+                <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
+                  {/* Rest of the workout logs section remains the same */}
                     <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
                       <div>
                         <h2 className="text-2xl font-bold text-white">Workout Logs</h2>
