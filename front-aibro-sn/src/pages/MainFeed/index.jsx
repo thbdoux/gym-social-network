@@ -3,7 +3,6 @@ import WelcomeHeader from './components/WelcomeHeader';
 import CreatePost from './components/CreatePost';
 import ProgressCard from './components/ProgressCard';
 import NextWorkout from './components/NextWorkout';
-import RecentWorkouts from './components/RecentWorkouts';
 import FeedContainer from './components/FeedContainer';
 import EditPostModal from './components/EditPostModal';
 import SharePostModal from './components/SharePostModal';
@@ -14,7 +13,6 @@ const MainFeed = () => {
   const [stats, setStats] = useState({});
   const [user, setUser] = useState(null);
   const [nextWorkout, setNextWorkout] = useState(null);
-  const [recentWorkouts, setRecentWorkouts] = useState([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -42,24 +40,16 @@ const MainFeed = () => {
         const [
           userResponse, 
           postsResponse, 
-          statsResponse, 
-          workoutLogsResponse
+          statsResponse
         ] = await Promise.all([
           api.get('/users/me/'),
           api.get('/posts/feed/'),
-          api.get('/workouts/logs/stats/'),
-          api.get('/workouts/logs/', {
-            params: {
-              limit: 5,
-              sort: '-date'
-            }
-          })
+          api.get('/workouts/logs/stats/')
         ]);
         
         setUser(userResponse.data);
         setPosts(postsResponse.data);
         setStats(statsResponse.data);
-        setRecentWorkouts(workoutLogsResponse.data);
   
         // Fixed: Get the correct program ID
         const currentProgramId = userResponse.data.current_program?.id || userResponse.data.current_program;
@@ -190,13 +180,8 @@ const MainFeed = () => {
         {/* Right Sidebar */}
         <div className="lg:col-span-4">
           <div className="space-y-6 lg:sticky lg:top-8">
-            <ProgressCard stats={stats} />
             <NextWorkout workout={nextWorkout} />
-            {/* Update RecentWorkouts to include the handler */}
-            <RecentWorkouts 
-              workouts={recentWorkouts} 
-              onProgramSelect={handleProgramSelect}
-            />
+            <ProgressCard stats={stats} />
           </div>
         </div>
       </div>

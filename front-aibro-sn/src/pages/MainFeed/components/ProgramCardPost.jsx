@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Dumbbell, ChevronDown, ChevronUp, Calendar, Target, Activity, GitFork, User, Clock } from 'lucide-react';
+import { 
+  Dumbbell, ChevronDown, ChevronUp, Calendar, Target, 
+  Activity, GitFork, User, Clock, Users, Star, Trophy,
+  Award, Layers, BarChart, Eye
+} from 'lucide-react';
 import api from '../../../api';
 import ExpandableProgramModal from './ExpandableProgramModal';
 
@@ -32,9 +36,14 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
   if (loading) {
     return (
       <div className="mt-4 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 p-6 animate-pulse">
-        <div className="h-6 bg-gray-700 rounded w-1/3 mb-4"></div>
-        <div className="h-4 bg-gray-700 rounded w-1/2 mb-2"></div>
-        <div className="h-4 bg-gray-700 rounded w-1/4"></div>
+        <div className="h-6 bg-gray-700 rounded-lg w-1/3 mb-4"></div>
+        <div className="h-4 bg-gray-700 rounded-lg w-1/2 mb-2"></div>
+        <div className="h-4 bg-gray-700 rounded-lg w-1/4"></div>
+        <div className="grid grid-cols-3 gap-4 mt-4">
+          <div className="h-20 bg-gray-700 rounded-lg"></div>
+          <div className="h-20 bg-gray-700 rounded-lg"></div>
+          <div className="h-20 bg-gray-700 rounded-lg"></div>
+        </div>
       </div>
     );
   }
@@ -48,23 +57,33 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
   }
 
   const progressColors = {
-    strength: 'from-red-500 to-orange-500',
+    strength: 'from-red-600 to-rose-600',
     hypertrophy: 'from-blue-500 to-purple-500',
     endurance: 'from-green-500 to-emerald-500',
-    weight_loss: 'from-yellow-500 to-orange-500',
-    general_fitness: 'from-blue-400 to-cyan-500',
+    weight_loss: 'from-blue-600 to-indigo-600',
+    general_fitness: 'from-blue-600 to-indigo-700',
     strength_hypertrophy: 'from-indigo-500 to-purple-500'
   };
 
   const getProgressColor = (focus) => {
-    return progressColors[focus] || 'from-gray-500 to-slate-500';
+    return progressColors[focus] || 'from-blue-600 to-indigo-700';
+  };
+
+  const getFocusIcon = (focus) => {
+    switch(focus) {
+      case 'strength': return <Trophy className="w-4 h-4 text-red-400" />;
+      case 'hypertrophy': return <Layers className="w-4 h-4 text-purple-400" />;
+      case 'endurance': return <Activity className="w-4 h-4 text-green-400" />;
+      case 'weight_loss': return <Award className="w-4 h-4 text-blue-400" />;
+      case 'strength_hypertrophy': return <Star className="w-4 h-4 text-indigo-400" />;
+      default: return <Target className="w-4 h-4 text-blue-400" />;
+    }
   };
 
   // Check if the program was forked
   const isForked = !!program.forked_from;
 
   const handleCardClick = (e) => {
-    // Open the modal instead of the previous behavior
     e.stopPropagation();
     setShowModal(true);
   };
@@ -74,17 +93,28 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
     setIsExpanded(!isExpanded);
   };
 
-  // Handle program selection (either navigating to details or handling fork)
+  // Handle program selection
   const handleProgramSelect = (selectedProgram) => {
     if (onProgramSelect) {
       onProgramSelect(selectedProgram);
     }
   };
 
+  // Get difficulty label
+  const getDifficultyLabel = (level) => {
+    switch(level?.toLowerCase()) {
+      case 'beginner': return 'Beginner';
+      case 'intermediate': return 'Intermediate';
+      case 'advanced': return 'Advanced';
+      case 'expert': return 'Expert';
+      default: return level || 'All Levels';
+    }
+  };
+
   return (
     <>
       <div 
-        className="mt-4 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
+        className="mt-4 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer"
         onClick={handleCardClick}
       >
         {/* Status Indicator Line */}
@@ -95,12 +125,14 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <Dumbbell className="w-5 h-5 text-purple-400" />
+                <div className="bg-blue-500/20 p-2 rounded-lg">
+                  <Dumbbell className="w-5 h-5 text-blue-400" />
+                </div>
                 <h4 className="text-lg font-semibold text-white">
                   {program.name}
                 </h4>
                 {isForked && (
-                  <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-md flex items-center gap-1">
                     <GitFork className="w-3 h-3" />
                     Forked
                   </span>
@@ -115,98 +147,139 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
                   </span>
                 )}
               </div>
-              <p className="mt-2 text-sm text-gray-300">{program.description}</p>
+              <p className="mt-2 text-sm text-gray-300 line-clamp-2">{program.description}</p>
             </div>
             
             <button
               onClick={handleExpandClick}
-              className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors group"
+              aria-label={isExpanded ? "Collapse program details" : "Expand program details"}
             >
               {isExpanded ? 
-                <ChevronUp className="w-5 h-5 text-gray-400" /> : 
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronUp className="w-5 h-5 text-gray-400 group-hover:text-white" /> : 
+                <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-white" />
               }
             </button>
           </div>
 
-          {/* Stats Grid - Always visible */}
-          <div className="grid grid-cols-3 gap-4 mt-4">
-            <div className="bg-gray-800/50 p-3 rounded-lg">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
               <div className="flex items-center text-gray-400 mb-1 text-sm">
-                <Activity className="w-4 h-4 mr-1" />
+                <Activity className="w-4 h-4 mr-1 text-blue-400" />
                 <span>Workouts</span>
               </div>
-              <p className="text-white font-medium">
-                {program.workouts?.length || 0} total
+              <p className="text-white font-bold text-lg">
+                {program.workouts?.length || 0}
               </p>
             </div>
             
-            <div className="bg-gray-800/50 p-3 rounded-lg">
+            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
               <div className="flex items-center text-gray-400 mb-1 text-sm">
-                <Calendar className="w-4 h-4 mr-1" />
+                <Calendar className="w-4 h-4 mr-1 text-purple-400" />
                 <span>Frequency</span>
               </div>
-              <p className="text-white font-medium">
-                {program.sessions_per_week}x weekly
+              <p className="text-white font-bold text-lg">
+                {program.sessions_per_week}<span className="text-sm font-normal">/week</span>
               </p>
             </div>
             
-            <div className="bg-gray-800/50 p-3 rounded-lg">
+            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
               <div className="flex items-center text-gray-400 mb-1 text-sm">
-                <Target className="w-4 h-4 mr-1" />
+                <Target className="w-4 h-4 mr-1 text-indigo-400" />
                 <span>Focus</span>
               </div>
-              <p className="text-white font-medium capitalize">
-                {program.focus.replace(/_/g, ' ')}
+              <p className="text-white font-bold text-lg flex items-center">
+                <span className="capitalize mr-1">{program.focus.split('_')[0]}</span>
+                {getFocusIcon(program.focus)}
+              </p>
+            </div>
+            
+            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+              <div className="flex items-center text-gray-400 mb-1 text-sm">
+                <Users className="w-4 h-4 mr-1 text-red-400" />
+                <span>Difficulty</span>
+              </div>
+              <p className="text-white font-bold text-lg capitalize">
+                {getDifficultyLabel(program.difficulty_level)}
               </p>
             </div>
           </div>
 
-          {/* Expanded Content - Only visible when expanded */}
+          {/* Expanded Content */}
           {isExpanded && (
             <div className="mt-4 space-y-4">
-              <div className="p-3 bg-gray-800/70 rounded-lg">
-                <h5 className="font-medium text-white mb-2 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-gray-400" />
+              {/* Program Details Card */}
+              <div className="bg-gray-800/80 p-4 rounded-lg border border-gray-700/50">
+                <h5 className="font-medium text-white mb-3 flex items-center gap-2">
+                  <BarChart className="w-4 h-4 text-blue-400" />
                   Program Details
                 </h5>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center py-1.5 border-b border-gray-700/30">
                     <span className="text-gray-400">Duration:</span>
                     <span className="text-white">{program.estimated_completion_weeks} weeks</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Difficulty:</span>
-                    <span className="text-white capitalize">{program.difficulty_level}</span>
-                  </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center py-1.5 border-b border-gray-700/30">
                     <span className="text-gray-400">Created:</span>
                     <span className="text-white">{new Date(program.created_at).toLocaleDateString()}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center py-1.5 border-b border-gray-700/30">
                     <span className="text-gray-400">Likes:</span>
                     <span className="text-white">{program.likes_count || 0}</span>
                   </div>
+                  <div className="flex justify-between items-center py-1.5 border-b border-gray-700/30">
+                    <span className="text-gray-400">Split:</span>
+                    <span className="text-white capitalize">{program.workouts?.[0]?.split_method?.replace(/_/g, ' ') || "Various"}</span>
+                  </div>
                 </div>
+                
+                {program.tags && program.tags.length > 0 && (
+                  <div className="mt-3">
+                    <div className="text-gray-400 mb-2">Tags:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {program.tags.map(tag => (
+                        <span 
+                          key={tag} 
+                          className="px-2 py-0.5 bg-gray-700/70 text-gray-300 rounded-md text-xs"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Workouts List Preview */}
+              {/* Workouts List */}
               {program.workouts && program.workouts.length > 0 && (
                 <div>
-                  <h5 className="font-medium text-white mb-2">Included Workouts</h5>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-medium text-white">Weekly Workouts</h5>
+                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
+                      {program.workouts.length} total
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
                     {program.workouts.map((workout, index) => (
-                      <div key={index} className="p-3 bg-gray-700/50 rounded-lg">
+                      <div key={index} className="bg-gray-800/80 rounded-lg p-3 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
                         <div className="flex justify-between items-center">
-                          <h6 className="font-medium text-white">{workout.name}</h6>
-                          <span className="text-xs bg-gray-600 px-2 py-0.5 rounded text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-blue-500/20">
+                              <Dumbbell className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <h6 className="font-medium text-white">{workout.name}</h6>
+                          </div>
+                          <span className="text-xs bg-gray-700/70 text-gray-300 px-2 py-1 rounded">
                             Day {workout.preferred_weekday + 1}
                           </span>
                         </div>
-                        <div className="mt-1 text-xs text-gray-400 flex items-center gap-2">
-                          <span>{workout.split_method?.replace(/_/g, ' ')}</span>
-                          <span>•</span>
-                          <span>{workout.exercises?.length || 0} exercises</span>
+                        <div className="mt-2 text-xs text-gray-400 flex items-center gap-3">
+                          <span className="capitalize">{workout.split_method?.replace(/_/g, ' ') || "General"}</span>
+                          <span className="flex items-center gap-1">
+                            <Activity className="w-3 h-3" />
+                            {workout.exercises?.length || 0} exercises
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -214,11 +287,13 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
                 </div>
               )}
               
-              <div className="text-center mt-4">
+              {/* View Full Program Button */}
+              <div className="text-center mt-2">
                 <button 
-                  className="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium mx-auto"
                   onClick={handleCardClick}
                 >
+                  <Eye className="w-4 h-4" />
                   View Full Program
                 </button>
               </div>

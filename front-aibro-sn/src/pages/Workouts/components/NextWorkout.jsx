@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ChevronRight, Activity, Info, Clock, Dumbbell } from 'lucide-react';
+import { Calendar, Activity, Info, Clock, Dumbbell } from 'lucide-react';
 
 const NextWorkout = ({ workout }) => {
   if (!workout) {
@@ -55,7 +55,7 @@ const NextWorkout = ({ workout }) => {
         </div>
 
         {/* Workout Info */}
-        <div className="bg-gray-900/50 rounded-lg p-4 mb-6">
+        <div className="bg-gray-900/50 rounded-lg p-4">
           <h4 className="text-lg font-semibold text-white mb-2">{workout.workout_name}</h4>
           
           <div className="grid grid-cols-2 gap-4 mt-3">
@@ -102,18 +102,6 @@ const NextWorkout = ({ workout }) => {
             </div>
           )}
         </div>
-
-        {/* Start Button */}
-        <button 
-          onClick={() => {
-            // This would be connected to a function to start logging this workout
-            console.log('Start logging workout:', workout);
-          }}
-          className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center group"
-        >
-          <span>Start Workout</span>
-          <ChevronRight className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" />
-        </button>
       </div>
     </div>
   );

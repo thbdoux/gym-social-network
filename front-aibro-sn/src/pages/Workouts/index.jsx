@@ -93,7 +93,6 @@ const WorkoutSpace = ({ user }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
-  const [filterPeriod, setFilterPeriod] = useState('week'); // 'week', 'month', 'all'
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
@@ -462,141 +461,83 @@ const WorkoutSpace = ({ user }) => {
     default:
         return (
           <div className="min-h-screen bg-gray-900 text-white">
-            {/* Hero header */}
-            <div className="bg-gradient-to-b from-indigo-900/30 to-gray-900 border-b border-gray-800">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                <h1 className="text-4xl font-extrabold text-white mb-2">
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
-                    Workout Space
-                  </span>
+            {/* Header with title and active program */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              <div className="flex flex-col">
+                <h1 className="text-3xl font-bold text-white mb-4">
+                  Workout Space
                 </h1>
-                <p className="text-gray-300 text-lg max-w-3xl">
-                  Track your progress, log your workouts, and stay motivated on your fitness journey.
-                </p>
+                
+                {/* Active Program - Full width */}
+                <div className="w-full">
+                  {plansLoading ? (
+                    <LoadingSpinner />
+                  ) : activeProgram ? (
+                    <div 
+                      onClick={() => handlePlanSelect(activeProgram)}
+                      className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg px-4 py-3 border border-gray-700/30 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center">
+                        {activeProgram.is_active && <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>}
+                        <div>
+                          <div className="text-sm text-gray-400">Active Program</div>
+                          <div className="text-white font-medium text-lg">{activeProgram.name}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePlanActive(activeProgram.id);
+                          }}
+                          className="mr-4 px-3 py-1 text-sm bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 transition-colors"
+                        >
+                          Active
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setView('plans');
+                          }}
+                          className="bg-gray-700 hover:bg-gray-600 text-white rounded-lg px-3 py-2 flex items-center border border-gray-600/30"
+                        >
+                          <LayoutGrid className="w-4 h-4 mr-2" />
+                          <span>All Programs</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 border border-gray-700/30">
+                      <div>
+                        <div className="text-sm text-gray-400">Active Program</div>
+                        <div className="text-white font-medium text-lg">No active program selected</div>
+                      </div>
+                      <button 
+                        onClick={() => setView('plans')}
+                        className="bg-gray-700 hover:bg-gray-600 text-white rounded-lg px-3 py-2 flex items-center border border-gray-600/30"
+                      >
+                        <LayoutGrid className="w-4 h-4 mr-2" />
+                        <span>Browse Programs</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left Column - Active Program + Quick Stats */}
-              <div className="lg:col-span-4 space-y-8">
-                {/* Active Program */}
-                <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30 relative overflow-hidden">
-                  <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-500/10 rounded-full"></div>
-                  
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-white">Active Program</h2>
-                    <button 
-                      onClick={() => setView('plans')}
-                      className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1 text-sm"
-                    >
-                      <span>All Programs</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  {plansLoading ? (
-                    <LoadingSpinner />
-                  ) : activeProgram ? (
-                    <div className="mx-[-1rem]">
-                      <WorkoutPlansGrid
-                        plans={[activeProgram]}
-                        onSelect={handlePlanSelect}
-                        onDelete={deletePlan}
-                        hideActions={true}
-                        singleColumn={true}
-                        onToggleActive={handleTogglePlanActive}
-                      />
-                    </div>
-                  ) : (
-                    <EmptyState
-                      title="No active program"
-                      description="Select or create a program to start your fitness journey"
-                      action={{
-                        label: 'Browse Programs',
-                        onClick: () => setView('plans')
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Quick Stats */}
-                <QuickStats stats={stats} />
-                
-                {/* Next Workout Section */}
-                <NextWorkout workout={nextWorkout} />
-                
-                {/* Templates Section */}
-                <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-white flex items-center">
-                      <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
-                      Templates
-                    </h2>
-                    <button 
-                      onClick={() => setView('all-workouts')}
-                      className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
-                    >
-                      <span>View All</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="text-gray-300 text-sm">
-                    {templatesLoading ? (
-                      <LoadingSpinner />
-                    ) : templates.length > 0 ? (
-                      <div className="space-y-3">
-                        {templates.slice(0, 3).map((template) => (
-                          <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
-                            <p className="font-medium text-white">{template.name}</p>
-                            <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
-                              <span>{template.split_method?.replace(/_/g, ' ')}</span>
-                              <span>•</span>
-                              <span>{template.exercises?.length || 0} exercises</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p>Create your first workout template to get started.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Workout Logs */}
-              <div className="lg:col-span-8 space-y-6">
-                <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
-                  {/* Rest of the workout logs section remains the same */}
+              {/* Main content - Restructured layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column - Now contains Workout Logs */}
+                <div className="lg:col-span-8 space-y-6">
+                  <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
                     <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
                       <div>
                         <h2 className="text-2xl font-bold text-white">Workout Logs</h2>
                         <p className="text-gray-400 text-sm mt-1">Track and monitor your fitness progress</p>
                       </div>
                       
-                      <div className="flex items-center space-x-3">
-                        <div className="hidden sm:flex bg-gray-700 rounded-lg overflow-hidden">
-                          <button
-                            onClick={() => setFilterPeriod('week')}
-                            className={`px-3 py-1.5 text-sm ${filterPeriod === 'week' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
-                          >
-                            Week
-                          </button>
-                          <button
-                            onClick={() => setFilterPeriod('month')}
-                            className={`px-3 py-1.5 text-sm ${filterPeriod === 'month' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
-                          >
-                            Month
-                          </button>
-                          <button
-                            onClick={() => setFilterPeriod('all')}
-                            className={`px-3 py-1.5 text-sm ${filterPeriod === 'all' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
-                          >
-                            All
-                          </button>
-                        </div>
-                        
+                      <div className="flex items-center">
                         <button 
                           onClick={() => setShowLogModal(true)}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
@@ -607,13 +548,13 @@ const WorkoutSpace = ({ user }) => {
                       </div>
                     </div>
                     
-                    {/* List with filters */}
+                    {/* List of workout logs */}
                     <div className="p-6">                      
                       <div className="space-y-4">
                         {logsLoading ? (
                           <LoadingSpinner />
                         ) : recentLogs.length > 0 ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 gap-4">
                             {recentLogs.map((log, index) => (
                               <WorkoutLogCard
                                 key={log.id || `log-${index}`}
@@ -664,6 +605,55 @@ const WorkoutSpace = ({ user }) => {
                       )}
                     </div>
                   </div>
+                </div>
+
+                {/* Right Column - Now contains Next Workout, Quick Stats, and Templates */}
+                <div className="lg:col-span-4 space-y-8">
+                  {/* Next Workout Section */}
+                  <NextWorkout workout={nextWorkout} />
+                  
+                  {/* Quick Stats */}
+                  <QuickStats stats={stats} />
+                  
+                  {/* Templates Section */}
+                  <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-xl font-bold text-white flex items-center">
+                        <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
+                        Templates
+                      </h2>
+                      <button 
+                        onClick={() => setView('all-workouts')}
+                        className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
+                      >
+                        <span>View All</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="text-gray-300 text-sm">
+                      {templatesLoading ? (
+                        <LoadingSpinner />
+                      ) : templates.length > 0 ? (
+                        <div className="space-y-3">
+                          {templates.slice(0, 3).map((template) => (
+                            <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
+                              <p className="font-medium text-white">{template.name}</p>
+                              <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
+                                <span>{template.split_method?.replace(/_/g, ' ')}</span>
+                                <span>•</span>
+                                <span>{template.exercises?.length || 0} exercises</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p>Create your first workout template to get started.</p>
+                      )}
+                    </div>
+                  </div>
+
+
                 </div>
               </div>
             </div>
