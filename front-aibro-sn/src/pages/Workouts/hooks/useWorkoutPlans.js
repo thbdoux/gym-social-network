@@ -11,10 +11,21 @@ export const useWorkoutPlans = () => {
     try {
       setLoading(true);
       const response = await api.get('/workouts/programs/');
-      const updatedPlans = response.data?.results || [];
-      setWorkoutPlans(updatedPlans);
+      const allPlans = response.data?.results || [];
+      
+      // Use the is_owner field from the serializer to verify ownership
+      // Only display programs that the user owns, has explicitly forked, or that have been shared with them
+      const filteredPlans = allPlans.filter(plan => {
+        return (
+          plan.is_owner ||                                // User created this plan
+          (plan.program_shares && plan.program_shares.length > 0) || // Plan shared with user
+          (plan.forked_from !== null)                     // User explicitly forked this plan
+        );
+      });
+      
+      setWorkoutPlans(filteredPlans);
       setError(null);
-      return updatedPlans;
+      return filteredPlans;
     } catch (err) {
       setError('Failed to load workout plans');
       setWorkoutPlans([]);

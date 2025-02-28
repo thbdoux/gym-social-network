@@ -25,6 +25,26 @@ const PlansListView = ({
   const totalWorkouts = workoutPlans.reduce((acc, plan) => acc + (plan.workouts?.length || 0), 0);
   const averageSessionsPerWeek = workoutPlans.reduce((acc, plan) => acc + (plan.sessions_per_week || 0), 0) / workoutPlans.length || 0;
 
+  // Add an access verification wrapper function
+  const handlePlanSelection = (plan) => {
+    // Double-check access permission based on ownership
+    if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
+      console.error('Unauthorized access attempt to plan:', plan.id);
+      alert('You do not have permission to view this program.');
+      return;
+    }
+    
+    onPlanSelect(plan);
+  };
+  
+  // Filter programs shown in the list to only those the user should see
+  const getAccessiblePrograms = () => {
+    return workoutPlans.filter(plan => 
+      plan.is_owner || 
+      plan.program_shares?.length > 0 || 
+      plan.forked_from !== null
+    );
+  };
   const handleDeletePlan = async (planId) => {
     try {
       await deletePlan(planId);
@@ -104,8 +124,8 @@ const PlansListView = ({
       {/* Plans Grid */}
       {hasPlans ? (
         <WorkoutPlansGrid
-          plans={workoutPlans}
-          onSelect={onPlanSelect}
+          plans={getAccessiblePrograms()}
+          onSelect={handlePlanSelection}
           onDelete={handleDeletePlan}
           onToggleActive={handleToggleActive}
           onCreatePlan={() => setView('create-plan')}

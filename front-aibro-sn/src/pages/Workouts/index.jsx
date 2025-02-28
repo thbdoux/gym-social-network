@@ -248,8 +248,23 @@ const WorkoutSpace = ({ user }) => {
   const stats = calculateStats();
 
   const handlePlanSelect = async (plan) => {
-    setSelectedPlan(plan);
-    setView('plan-detail');
+    // Check if user has access to this plan using the serializer's is_owner field
+    if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
+      console.error('Unauthorized access attempt to plan:', plan.id);
+      alert('You do not have permission to view this program.');
+      return;
+    }
+    
+    // Perform an additional server-side check before displaying the plan
+    try {
+      // Fetch the specific plan to ensure user has proper access rights
+      const response = await api.get(`/workouts/programs/${plan.id}/`);
+      setSelectedPlan(response.data);
+      setView('plan-detail');
+    } catch (err) {
+      console.error('Error accessing plan:', err);
+      alert('You do not have permission to view this program.');
+    }
   };
 
   const handleTogglePlanActive = async (planId) => {

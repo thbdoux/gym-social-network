@@ -3,7 +3,7 @@ from rest_framework import serializers
 from .models import User, Friendship, FriendRequest
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False)  # Changed to not required
+    password = serializers.CharField(write_only=True)
     current_password = serializers.CharField(write_only=True, required=False)
     # Use a SerializerMethodField to avoid circular imports
     current_program = serializers.SerializerMethodField()
@@ -44,9 +44,7 @@ class UserSerializer(serializers.ModelSerializer):
             'bio': {'required': False},
             'avatar': {'required': False},
             'preferred_gym': {'required': False},
-            'username': {'read_only': True}  # Prevent username changes in profile updates
         }
-
         
     def create(self, validated_data):
         try:
