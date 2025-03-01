@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import api from '../../../api';
 import ExpandableWorkoutLogModal from './ExpandableWorkoutLogModal';
+import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+
+const workoutColors = getPostTypeDetails('workout_log').colors;
 
 const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdit }) => {
   const [expanded, setExpanded] = useState(false);
@@ -55,16 +58,15 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
         onClick={handleCardClick}
       >
         {/* Status Indicator Line */}
-        <div className="h-1 w-full bg-gradient-to-r from-blue-600 to-indigo-700" />
-        
+        <div className={`h-1 w-full bg-gradient-to-r ${workoutColors.gradient}`} />
         <div className="p-4">
           {/* Header with basic info */}
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <div className="bg-blue-500/20 p-2 rounded-lg">
-                  <Activity className="w-5 h-5 text-blue-400" />
-                </div>
+              <div className={`${workoutColors.bg} p-2 rounded-lg`}>
+                <Activity className={`w-5 h-5 ${workoutColors.text}`} />
+              </div>
                 <h4 className="text-lg font-semibold text-white">
                   {workoutLog.name || "Workout"}
                 </h4>
@@ -106,7 +108,7 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
 
           {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-3 mt-4">
-            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+          <div className={`bg-gray-800/80 p-3 rounded-lg border ${workoutColors.border} hover:border-gray-600/50 transition-colors`}>
               <div className="flex items-center text-gray-400 mb-1 text-sm">
                 <Dumbbell className="w-4 h-4 mr-1 text-blue-400" />
                 <span>Exercises</span>
@@ -116,7 +118,7 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
               </p>
             </div>
             
-            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+            <div className={`bg-gray-800/80 p-3 rounded-lg border ${workoutColors.border} hover:border-gray-600/50 transition-colors`}>
               <div className="flex items-center text-gray-400 mb-1 text-sm">
                 <Clock className="w-4 h-4 mr-1 text-purple-400" />
                 <span>Duration</span>
@@ -126,7 +128,7 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
               </p>
             </div>
             
-            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+            <div className={`bg-gray-800/80 p-3 rounded-lg border ${workoutColors.border} hover:border-gray-600/50 transition-colors`}>
               <div className="flex items-center text-gray-400 mb-1 text-sm">
                 <Target className="w-4 h-4 mr-1 text-indigo-400" />
                 <span>Mood</span>
@@ -141,7 +143,7 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
               </p>
             </div>
             
-            <div className="bg-gray-800/80 p-3 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+            <div className={`bg-gray-800/80 p-3 rounded-lg border ${workoutColors.border} hover:border-gray-600/50 transition-colors`}>
               <div className="flex items-center text-gray-400 mb-1 text-sm">
                 <Flame className="w-4 h-4 mr-1 text-red-400" />
                 <span>Difficulty</span>
@@ -166,8 +168,8 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
                 <div key={index} className="bg-gray-800/80 rounded-lg p-3 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-blue-500/20">
-                        <Dumbbell className="w-4 h-4 text-blue-400" />
+                      <div className={`p-2 rounded-lg ${workoutColors.bg}`}>
+                        <Dumbbell className={`w-4 h-4 ${workoutColors.text}`} />
                       </div>
                       <h5 className="font-medium text-white">{exercise.name}</h5>
                     </div>
@@ -233,7 +235,7 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
           <div className="mt-4 flex justify-center">
             <button 
               onClick={handleCardClick}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
+              className={`flex items-center gap-2 px-4 py-2 ${workoutColors.darkBg} ${workoutColors.hoverBg} ${workoutColors.text} rounded-lg transition-colors text-sm font-medium`}
             >
               <Eye className="w-4 h-4" />
               View Full Workout

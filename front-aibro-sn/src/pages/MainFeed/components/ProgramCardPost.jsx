@@ -6,6 +6,10 @@ import {
 } from 'lucide-react';
 import api from '../../../api';
 import ExpandableProgramModal from './ExpandableProgramModal';
+import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+
+
+const programColors = getPostTypeDetails('program').colors;
 
 const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => {
   const [program, setProgram] = useState(initialProgramData);
@@ -56,19 +60,8 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
     );
   }
 
-  const progressColors = {
-    strength: 'from-red-600 to-rose-600',
-    hypertrophy: 'from-blue-500 to-purple-500',
-    endurance: 'from-green-500 to-emerald-500',
-    weight_loss: 'from-blue-600 to-indigo-600',
-    general_fitness: 'from-blue-600 to-indigo-700',
-    strength_hypertrophy: 'from-indigo-500 to-purple-500'
-  };
-
-  const getProgressColor = (focus) => {
-    return progressColors[focus] || 'from-blue-600 to-indigo-700';
-  };
-
+  const getProgressColor = () => programColors.gradient;
+  
   const getFocusIcon = (focus) => {
     switch(focus) {
       case 'strength': return <Trophy className="w-4 h-4 text-red-400" />;
@@ -118,16 +111,16 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
         onClick={handleCardClick}
       >
         {/* Status Indicator Line */}
-        <div className={`h-1 w-full bg-gradient-to-r ${getProgressColor(program.focus)}`} />
+        <div className={`h-1 w-full bg-gradient-to-r ${programColors.gradient} opacity-75`} />
         
         <div className="p-4">
           {/* Header with basic info */}
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <div className="bg-blue-500/20 p-2 rounded-lg">
-                  <Dumbbell className="w-5 h-5 text-blue-400" />
-                </div>
+              <div className={`${programColors.bg} p-2 rounded-lg`}>
+                <Dumbbell className={`w-5 h-5 ${programColors.text}`} />
+              </div>
                 <h4 className="text-lg font-semibold text-white">
                   {program.name}
                 </h4>
@@ -265,8 +258,8 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
                       <div key={index} className="bg-gray-800/80 rounded-lg p-3 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-blue-500/20">
-                              <Dumbbell className="w-4 h-4 text-blue-400" />
+                            <div className={`p-2 rounded-lg ${programColors.bg}`}>
+                              <Dumbbell className={`w-4 h-4 ${programColors.text}`} />
                             </div>
                             <h6 className="font-medium text-white">{workout.name}</h6>
                           </div>
@@ -290,7 +283,7 @@ const ProgramCardPost = ({ programId, initialProgramData, onProgramSelect }) => 
               {/* View Full Program Button */}
               <div className="text-center mt-2">
                 <button 
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium mx-auto"
+                  className={`flex items-center gap-2 px-4 py-2 ${programColors.darkBg} ${programColors.hoverBg} ${programColors.text} rounded-lg transition-colors text-sm font-medium mx-auto`}
                   onClick={handleCardClick}
                 >
                   <Eye className="w-4 h-4" />

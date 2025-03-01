@@ -5,7 +5,6 @@ import ProgressCard from './components/ProgressCard';
 import NextWorkout from './components/NextWorkout';
 import FeedContainer from './components/FeedContainer';
 import EditPostModal from './components/EditPostModal';
-import SharePostModal from './components/SharePostModal';
 import api from '../../api';
 
 const MainFeed = () => {
@@ -15,15 +14,8 @@ const MainFeed = () => {
   const [nextWorkout, setNextWorkout] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [sharingPost, setSharingPost] = useState(null);
-
-  const [view, setView] = useState('feed'); // Add this state
-  const [selectedProgram, setSelectedProgram] = useState(null); // Add this state
-
   const handleProgramSelect = async (program) => {
     try {
-      // Get fresh program data
       const response = await api.get(`/workouts/programs/${program.id}/`);
       setSelectedProgram(response.data);
       // Change view to program detail
@@ -105,24 +97,37 @@ const MainFeed = () => {
       console.error('Error commenting on post:', err);
     }
   };
-  
-  const handleShareClick = (post) => {
-    setSharingPost(post);
-    setIsShareModalOpen(true);
-  };
-  
-  const handleShare = async (postId, content) => {
-    try {
-      const response = await api.post(`/posts/${postId}/share/`, {
-        content: content || undefined
+
+  // In MainFeed.jsx
+const handleSharePost = async (postId, newSharedPostOrContent) => {
+  try {
+    let response;
+    
+    // Check if we received a full post object or just content text
+    if (typeof newSharedPostOrContent === 'object' && newSharedPostOrContent !== null) {
+      // If we already have the full shared post data, use it directly
+      setPosts(prevPosts => [newSharedPostOrContent, ...prevPosts]);
+      return newSharedPostOrContent;
+    } else {
+      // If we just have the content text, make the API call
+      const content = typeof newSharedPostOrContent === 'string' 
+        ? newSharedPostOrContent 
+        : '';
+        
+      response = await api.post(`/posts/${postId}/share/`, {
+        content: content  // Pass only the text content
       });
-      setPosts([response.data, ...posts]);
-      setIsShareModalOpen(false);
-      setSharingPost(null);
-    } catch (error) {
-      console.error('Error sharing post:', error);
+      
+      // Update the posts state with the new shared post
+      setPosts(prevPosts => [response.data, ...prevPosts]);
+      return response.data;
     }
-  };
+  } catch (err) {
+    console.error('Error sharing post:', err);
+    alert('Failed to share post. Please try again.');
+  }
+};
+  
 
   const handleEditClick = (post) => {
     setEditingPost(post);
@@ -169,7 +174,7 @@ const MainFeed = () => {
               currentUser={user?.username}
               onLike={handlePostLike}
               onComment={handlePostComment}
-              onShare={handleShareClick}
+              onShare={handleSharePost} 
               onEdit={handleEditClick}
               onDelete={handleDeletePost}
               onProgramSelect={handleProgramSelect}
@@ -195,18 +200,6 @@ const MainFeed = () => {
             setEditingPost(null);
           }}
           onSave={handleEditPost}
-        />
-      )}
-      
-      {sharingPost && (
-        <SharePostModal
-          post={sharingPost}
-          isOpen={isShareModalOpen}
-          onClose={() => {
-            setIsShareModalOpen(false);
-            setSharingPost(null);
-          }}
-          onShare={handleShare}
         />
       )}
     </div>

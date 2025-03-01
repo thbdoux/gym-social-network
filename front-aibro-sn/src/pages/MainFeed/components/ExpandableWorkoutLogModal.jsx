@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 import api from '../../../api';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+
+const workoutColors = getPostTypeDetails('workout_log').colors;
 
 const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen, onClose }) => {
   const [workoutLog, setWorkoutLog] = useState(initialWorkoutLogData);
@@ -101,11 +104,11 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 overflow-y-auto py-4 backdrop-blur-sm">
       <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700">
         {/* Header with background gradient */}
-        <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-indigo-800 flex justify-between items-center sticky top-0 z-10">
+        <div className={`px-6 py-5 bg-gradient-to-r ${workoutColors.gradient} flex justify-between items-center sticky top-0 z-10`}>
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg">
-              <Activity className="w-7 h-7 text-white" />
-            </div>
+          <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg">
+            <Activity className="w-7 h-7 text-white" />
+          </div>
             <div>
               <h2 className="text-2xl font-bold text-white tracking-tight">{workoutLog.name || "Workout"}</h2>
               <div className="flex items-center mt-1 text-sm text-white/80">
@@ -334,7 +337,7 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
-                              <div className="p-3 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 group-hover:scale-110 transition-transform">
+                              <div className={`p-3 rounded-lg bg-gradient-to-br ${workoutColors.bg} group-hover:scale-110 transition-transform`}>
                                 <Dumbbell className="w-5 h-5 text-white" />
                               </div>
                               <div>
@@ -460,7 +463,7 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
           <div className="flex gap-3">
             <button
               onClick={handleShareWorkout}
-              className="px-4 py-2 bg-gray-700/70 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors flex items-center gap-2"
+              className={`px-4 py-2 bg-gray-700/70 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors flex items-center gap-2`}
             >
               <Share2 className="w-4 h-4" />
               <span>Share</span>
@@ -468,7 +471,7 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
             
             <button
               onClick={handleDownloadWorkout}
-              className="px-4 py-2 bg-gray-700/70 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors flex items-center gap-2"
+              className={`px-4 py-2 bg-gray-700/70 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors flex items-center gap-2`}
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
@@ -476,7 +479,7 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
             
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              className={`px-4 py-2 ${workoutColors.darkBg} ${workoutColors.hoverBg} text-white rounded-lg transition-colors flex items-center gap-2`}
             >
               Close
             </button>

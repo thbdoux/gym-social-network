@@ -8,6 +8,8 @@ import { getAvatarUrl } from '../../../utils/imageUtils';
 import ProgramCardPost from './ProgramCardPost';
 import WorkoutLogPreview from './WorkoutLogPreview';
 import { ModalProvider } from './ModalController';
+import SharePostModal from './SharePostModal';
+import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 
 // Make sure to import the ProgramCardPost component at the top of your file
 
@@ -30,6 +32,7 @@ const Post = ({
   const [programData, setProgramData] = useState(null);
   const menuRef = useRef(null);
   const shareInputRef = useRef(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Fetch program data if this is a program post
   useEffect(() => {
@@ -65,19 +68,13 @@ const Post = ({
     fetchProgramData();
   }, [post.post_type, post.program_id]);
 
-  const getPostTypeDetails = (type) => {
-    switch(type) {
-      case 'regular':
-        return { label: 'Regular Post', Icon: Edit, colors: 'bg-blue-500/20 text-blue-400' };
-      case 'workout_log':
-        return { label: 'Workout', Icon: Activity, colors: 'bg-green-500/20 text-green-400' };
-      case 'workout_invite':
-        return { label: 'Group Workout', Icon: Users, colors: 'bg-orange-500/20 text-orange-400' };
-      case 'program':
-        return { label: 'Program', Icon: Dumbbell, colors: 'bg-purple-500/20 text-purple-400' };
-      default:
-        return { label: 'Post', Icon: Edit, colors: 'bg-gray-500/20 text-gray-400' };
+
+  const handleShareSuccess = (newSharedPost) => {
+    // Pass the new shared post to the parent component's onShare handler
+    if (onShare) {
+      onShare(post.id, newSharedPost);
     }
+    setIsShareModalOpen(false);
   };
 
   const handleProgramClick = (program) => {
@@ -87,10 +84,6 @@ const Post = ({
       // Fallback navigation if the prop isn't provided
       window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
     }
-  };
-  const handleWorkoutLogClick = (workoutLog) => {
-    // The modal is now handled internally in the WorkoutLogPreview component
-    console.log('Workout log clicked:', workoutLog);
   };
 
   const PostMenu = ({ isOpen }) => {
@@ -134,125 +127,138 @@ const Post = ({
     );
   };
 
-  const SharedPostContent = ({ originalPost }) => (
-    <div className="mt-4 bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-          {userData?.avatar ? (
-            <img 
-              src={getAvatarUrl(userData.avatar)}
-              alt={originalPost.user_username}
-              className="w-full h-full rounded-full object-cover"
-            />
-          ) : (
-            <span className="text-white text-sm font-medium">
-              {originalPost.user_username[0].toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div>
-          <p className="font-medium text-white">{originalPost.user_username}</p>
-          <p className="text-sm text-gray-400">
-            {new Date(originalPost.created_at).toLocaleDateString()}
-          </p>
-        </div>
-      </div>
-      <p className="text-gray-200">{originalPost.content}</p>
-      {originalPost.image && (
-        <img
-          src={getAvatarUrl(originalPost.image)}
-          alt="Original post content"
-          className="mt-3 rounded-lg w-full object-cover"
-        />
-      )}
-    </div>
-  );
+    // In FeedContainer.jsx - update the SharedPostContent component to properly render workout logs and programs
+  const SharedPostContent = ({ originalPost }) => {
+    const [loading, setLoading] = useState(true);
+    const [workoutLog, setWorkoutLog] = useState(null);
+    const [programData, setProgramData] = useState(null);
+    
 
-  const ShareDialog = () => {
+    // Fetch the full data for workout logs and programs
     useEffect(() => {
-      if (showShareInput && shareInputRef.current) {
-        shareInputRef.current.focus();
-      }
-    }, [showShareInput]);
+      const fetchFullData = async () => {
+        setLoading(true);
+        
+        try {
+          // For workout logs
+          if (originalPost.post_type === 'workout_log' && originalPost.workout_log_details) {
+            const workoutLogId = originalPost.workout_log_details.id;
+            if (workoutLogId) {
+              const response = await api.get(`/workouts/logs/${workoutLogId}/`);
+              setWorkoutLog(response.data);
+            } else if (typeof originalPost.workout_log_details === 'object') {
+              // If we already have the details, use them directly
+              setWorkoutLog(originalPost.workout_log_details);
+            }
+          }
+          
+          // For programs
+          // For programs - extract ID from program_details
+          if (originalPost.post_type === 'program' && originalPost.program_details) {
+            // Handle if program_details is a string (JSON) or already an object
+            const programDetails = typeof originalPost.program_details === 'string'
+              ? JSON.parse(originalPost.program_details)
+              : originalPost.program_details;
+              
+            const programId = programDetails?.id;
+            
+            if (programId) {
+              const response = await api.get(`/workouts/programs/${programId}/`);
+              setProgramData(response.data);
+            } else {
+              // If no ID but we have details, use them directly
+              setProgramData(programDetails);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching full data:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchFullData();
+    }, [originalPost]);
 
-    const handleShare = () => {
-      onShare(post.id, shareText);
-      setShareText('');
-      setShowShareInput(false);
-    };
-
-    if (!showShareInput) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-gray-800 rounded-lg w-full max-w-lg mx-4 overflow-hidden shadow-xl">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Share Post</h3>
-            <button
-              onClick={() => {
-                setShowShareInput(false);
-                setShareText('');
-              }}
-              className="p-1 hover:bg-gray-700 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
+    if (loading) {
+      return (
+        <div className="mt-4 bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+              <span className="text-white text-sm font-medium">
+                {originalPost.user_username[0].toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <p className="font-medium text-white">{originalPost.user_username}</p>
+              <p className="text-xs text-gray-400">
+                {new Date(originalPost.created_at).toLocaleDateString()}
+              </p>
+            </div>
           </div>
           
-          {/* Content */}
-          <div className="p-6">
-            <div className="mb-4">
-              <label htmlFor="share-comment" className="block text-sm font-medium text-gray-400 mb-2">
-                Add your thoughts
-              </label>
-              <textarea
-                id="share-comment"
-                ref={shareInputRef}
-                value={shareText}
-                onChange={(e) => setShareText(e.target.value)}
-                placeholder="What do you think about this post?"
-                rows={4}
-                className="w-full bg-gray-900 text-gray-100 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
-              />
-            </div>
-
-            {/* Original post preview */}
-            <div className="bg-gray-900 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
-                  <span className="text-sm text-gray-300">{post.user_username[0]}</span>
-                </div>
-                <div className="text-sm text-gray-400">
-                  Original post by <span className="text-white">{post.user_username}</span>
-                </div>
-              </div>
-              <p className="text-gray-300 line-clamp-2">{post.content}</p>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 bg-gray-900 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setShowShareInput(false);
-                setShareText('');
-              }}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleShare}
-              disabled={!shareText.trim()}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:hover:bg-blue-500"
-            >
-              Share
-            </button>
+          <p className="text-gray-200 mb-3">{originalPost.content}</p>
+          
+          <div className="animate-pulse space-y-3">
+            <div className="h-24 bg-gray-700 rounded-lg"></div>
+            <div className="h-5 bg-gray-700 rounded w-1/2"></div>
           </div>
         </div>
+      );
+    }
+
+    // Get post type details for the original post
+  const postTypeDetails = originalPost.post_type 
+    ? getPostTypeDetails(originalPost.post_type) 
+    : getPostTypeDetails('regular');
+  const postTypeGradient = postTypeDetails.colors.gradient;
+  const postTypeBg = postTypeDetails.colors.bg;
+  const postTypeText = postTypeDetails.colors.text;
+
+    return (
+      <div className={`mt-4 bg-gray-800/50 rounded-lg p-4 border ${postTypeDetails.colors.border}`}>
+      
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${postTypeGradient} flex items-center justify-center`}>
+          <span className="text-white text-sm font-medium">
+            {originalPost.user_username[0].toUpperCase()}
+          </span>
+        </div>
+          <div>
+            <p className="font-medium text-white">{originalPost.user_username}</p>
+            <p className="text-xs text-gray-400">
+              {new Date(originalPost.created_at).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        
+        <p className="text-gray-200 mb-3">{originalPost.content}</p>
+        
+        {/* Use WorkoutLogPreview component for workout logs */}
+        {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && workoutLog && (
+          <WorkoutLogPreview 
+            workoutLogId={originalPost.workout_log}
+            workoutLog={workoutLog}
+            canEdit={false}
+          />
+        )}
+        
+        {/* Use ProgramCardPost component for programs */}
+        {originalPost.post_type === 'program' && (programData) && (
+          <ProgramCardPost 
+            programId={originalPost.program_id || originalPost.program}
+            initialProgramData={programData}
+          />
+        )}
+        
+        {/* Regular Image */}
+        {originalPost.image && (
+          <img
+            src={getAvatarUrl(originalPost.image)}
+            alt="Original post content"
+            className="mt-3 rounded-lg w-full object-cover"
+          />
+        )}
       </div>
     );
   };
@@ -261,7 +267,7 @@ const Post = ({
     <div className="mt-4 space-y-3">
       {post.comments?.map(comment => (
         <div key={comment.id} className="flex gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${post.post_type ? getPostTypeDetails(post.post_type).colors.gradient : 'from-blue-500 to-indigo-500'} flex items-center justify-center`}>
             <span className="text-white text-sm font-medium">
               {comment.user_username[0].toUpperCase()}
             </span>
@@ -284,55 +290,89 @@ const Post = ({
     </div>
   );
 
-  const ActionButtons = () => (
-    <div className="grid grid-cols-3 gap-4">
-      <button 
-        onClick={() => onLike(post.id)}
-        className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-gray-800 transition-colors group"
-      >
-        <Heart 
-          className={`w-5 h-5 ${
-            post.is_liked 
-              ? 'fill-red-500 text-red-500' 
-              : 'text-gray-400 group-hover:text-red-500'
-          }`}
-        />
-        <span className={`text-sm font-medium ${
-          post.is_liked ? 'text-red-500' : 'text-gray-400 group-hover:text-red-500'
-        }`}>{post.likes_count || 0}</span>
-      </button>
+  // In FeedContainer.jsx - Post component
+  // Add a check for shared posts before showing the share button
 
-      <button 
-        onClick={() => setShowCommentInput(!showCommentInput)}
-        className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-gray-800 transition-colors group"
-      >
-        <MessageCircle className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
-        <span className="text-sm font-medium text-gray-400 group-hover:text-blue-500">
-          {post.comments?.length || 0}
-        </span>
-      </button>
+  const ActionButtons = () => {
+    const postColorText = post.post_type ? getPostTypeDetails(post.post_type).colors.text : 'text-blue-400';
+    
+    return (
+      <div className="grid grid-cols-3 gap-4">
+        <button 
+          onClick={() => onLike(post.id)}
+          className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-gray-800 transition-colors group"
+        >
+          <Heart 
+            className={`w-5 h-5 ${
+              post.is_liked 
+                ? 'fill-red-500 text-red-500' 
+                : 'text-gray-400 group-hover:text-red-500'
+            }`}
+          />
+          <span className={`text-sm font-medium ${
+            post.is_liked ? 'text-red-500' : 'text-gray-400 group-hover:text-red-500'
+          }`}>{post.likes_count || 0}</span>
+        </button>
+    
+        <button 
+          onClick={() => setShowCommentInput(!showCommentInput)}
+          className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-gray-800 transition-colors group"
+        >
+          <MessageCircle className={`w-5 h-5 text-gray-400 group-hover:${postColorText}`} />
+          <span className={`text-sm font-medium text-gray-400 group-hover:${postColorText}`}>
+            {post.comments?.length || 0}
+          </span>
+        </button>
+    
+        {post.is_share ? (
+          // For shared posts - show disabled button with tooltip
+          <div className="relative group">
+            <button 
+              disabled
+              className="flex items-center justify-center gap-2 py-2 rounded-lg opacity-50 cursor-not-allowed w-full"
+            >
+              <Share2 className="w-5 h-5 text-gray-500" />
+              <span className="text-sm font-medium text-gray-500">
+                {post.shares_count || 0}
+              </span>
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow">
+              Shared posts cannot be shared again
+            </div>
+          </div>
+        ) : (
+          // For regular posts - show functional share button
+          <button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-gray-800 transition-colors group"
+          >
+            <Share2 className={`w-5 h-5 text-gray-400 group-hover:${postColorText}`} />
+            <span className={`text-sm font-medium text-gray-400 group-hover:${postColorText}`}>
+              {post.shares_count || 0}
+            </span>
+          </button>
+        )}
+      </div>
+    );
+  };
 
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowShareInput(!showShareInput);
-        }}
-        className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-gray-800 transition-colors group"
-      >
-        <Share2 className="w-5 h-5 text-gray-400 group-hover:text-green-500" />
-        <span className="text-sm font-medium text-gray-400 group-hover:text-green-500">
-          {post.shares_count || 0}
-        </span>
-      </button>
-    </div>
-  );
+  const effectivePostType = (post.is_share && post.original_post_details?.post_type) 
+  ? post.original_post_details.post_type 
+  : post.post_type || 'regular';
+
+  const postTypeDetails = getPostTypeDetails(effectivePostType);
+  const colorGradient = postTypeDetails.colors.gradient;
+  const colorText = postTypeDetails.colors.text;
+  const colorBg = postTypeDetails.colors.bg;
+  const colorBorder = postTypeDetails.colors.border;
+  const ringColor = colorText.split('-')[0] || 'blue';
 
   return (
     <div className="bg-gray-900/50 rounded-lg overflow-hidden">
       <div className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+            <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colorGradient} flex items-center justify-center`}>
               {userData?.avatar ? (
                 <img 
                   src={getAvatarUrl(userData.avatar)}
@@ -352,9 +392,16 @@ const Post = ({
                   <span className="text-gray-400 text-sm">shared a post</span>
                 )}
                 {post.post_type && (() => {
-                  const { Icon, label, colors } = getPostTypeDetails(post.post_type);
+                  const { Icon: IconName, label, colors } = getPostTypeDetails(post.post_type);
+                  // Find the actual Icon component from the imported icons
+                  const Icon = 
+                    IconName === 'Edit' ? Edit :
+                    IconName === 'Activity' ? Activity :
+                    IconName === 'Users' ? Users :
+                    IconName === 'Dumbbell' ? Dumbbell : Edit;
+                  
                   return (
-                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm font-medium ${colors}`}>
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm font-medium ${colors.bg} ${colors.text}`}>
                       <Icon className="w-3.5 h-3.5" />
                       <span>{label}</span>
                     </div>
@@ -382,7 +429,6 @@ const Post = ({
           {post.content && <p className="text-gray-100 text-lg">{post.content}</p>}
           
           {/* Program Card */}
-
           {post.post_type === 'program' && (
             <div className="mt-2">
             <ProgramCardPost 
@@ -426,12 +472,18 @@ const Post = ({
           <ActionButtons />
         </div>
 
-        {showShareInput && <ShareDialog />}
+        {/* Share Modal */}
+        <SharePostModal 
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          post={post}
+          onShareSuccess={handleShareSuccess}
+        />
 
         {showCommentInput && (
         <div className="mt-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${colorGradient} flex items-center justify-center`}>
               <span className="text-white text-sm font-medium">
                 {currentUser ? currentUser[0].toUpperCase() : "?"}
               </span>
@@ -442,7 +494,7 @@ const Post = ({
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Write a comment..."
-                className="flex-1 bg-gray-800 text-gray-100 rounded-full px-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className={`flex-1 bg-gray-800 text-gray-100 rounded-full px-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-${ringColor}-500`}
               />
               <button
                 onClick={() => {
@@ -454,7 +506,7 @@ const Post = ({
                 disabled={!commentText.trim()}
                 className="p-2 rounded-full hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
-                <Send className="w-5 h-5 text-blue-500" />
+                <Send className={`w-5 h-5 ${colorText}`} />
               </button>
             </div>
           </div>

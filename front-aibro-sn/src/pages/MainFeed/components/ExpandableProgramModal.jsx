@@ -5,6 +5,7 @@ import {
   Heart, Award, Star, Layers, Copy, CheckCircle
 } from 'lucide-react';
 import api from '../../../api';
+import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 
 const FOCUS_OPTIONS = [
   { value: 'strength', label: 'Strength', description: 'Focus on building maximal strength', icon: <Award className="w-5 h-5" /> },
@@ -26,6 +27,9 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
   const [isForkingProgram, setIsForkingProgram] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [forkSuccess, setForkSuccess] = useState(false);
+
+  // Get program-specific colors
+  const programColors = getPostTypeDetails('program').colors;
 
   useEffect(() => {
     const fetchProgramDetails = async () => {
@@ -133,20 +137,13 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
     }));
   };
 
-  // Get focus display details
+  // Get focus display details - preserve the icon and descriptions but use program colors
   const getFocusDetails = () => {
     const focusOption = FOCUS_OPTIONS.find(option => option.value === program.focus) || {};
     return {
       label: focusOption.label || program.focus.replace(/_/g, ' '),
       description: focusOption.description || '',
-      icon: focusOption.icon || <Target className="w-5 h-5" />,
-      color: 
-        program.focus === 'strength' ? 'from-red-600 to-rose-600' :
-        program.focus === 'hypertrophy' ? 'from-blue-500 to-purple-500' :
-        program.focus === 'endurance' ? 'from-green-500 to-emerald-500' :
-        program.focus === 'weight_loss' ? 'from-blue-600 to-indigo-600' :
-        program.focus === 'strength_hypertrophy' ? 'from-indigo-500 to-purple-500' :
-        'from-blue-600 to-blue-400'
+      icon: focusOption.icon || <Target className="w-5 h-5" />
     };
   };
 
@@ -155,8 +152,8 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 overflow-y-auto py-4 backdrop-blur-sm">
       <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700">
-        {/* Header with background gradient */}
-        <div className={`px-6 py-5 bg-gradient-to-r ${focusDetails.color} flex justify-between items-center sticky top-0 z-10`}>
+        {/* Header with program-specific gradient */}
+        <div className={`px-6 py-5 bg-gradient-to-r ${programColors.gradient} flex justify-between items-center sticky top-0 z-10`}>
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg">
               <Dumbbell className="w-7 h-7 text-white" />
@@ -190,7 +187,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
             onClick={() => setActiveTab('overview')}
             className={`px-5 py-4 text-sm font-medium transition-colors rounded-t-lg ${
               activeTab === 'overview'
-                ? 'text-white bg-gray-900 border-t-2 border-l border-r border-gray-700 border-t-blue-400'
+                ? `text-white bg-gray-900 border-t-2 border-l border-r border-gray-700 ${programColors.active}`
                 : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
             }`}
           >
@@ -200,7 +197,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
             onClick={() => setActiveTab('workouts')}
             className={`px-5 py-4 text-sm font-medium transition-colors rounded-t-lg ${
               activeTab === 'workouts'
-                ? 'text-white bg-gray-900 border-t-2 border-l border-r border-gray-700 border-t-blue-400'
+                ? `text-white bg-gray-900 border-t-2 border-l border-r border-gray-700 ${programColors.active}`
                 : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
             }`}
           >
@@ -210,7 +207,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
             onClick={() => setActiveTab('schedule')}
             className={`px-5 py-4 text-sm font-medium transition-colors rounded-t-lg ${
               activeTab === 'schedule'
-                ? 'text-white bg-gray-900 border-t-2 border-l border-r border-gray-700 border-t-blue-400'
+                ? `text-white bg-gray-900 border-t-2 border-l border-r border-gray-700 ${programColors.active}`
                 : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
             }`}
           >
@@ -223,10 +220,10 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
           <div className="p-6">
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                {/* Focus Banner */}
-                <div className={`p-5 rounded-xl bg-gradient-to-r ${focusDetails.color} bg-opacity-10 shadow-md border border-gray-800 hover:border-gray-700 transition-colors`}>
+                {/* Focus Banner - using program colors */}
+                <div className={`p-5 rounded-xl ${programColors.lightBg} shadow-md border ${programColors.border} hover:border-gray-700 transition-colors`}>
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center">
+                    <div className={`h-12 w-12 rounded-full ${programColors.bg} flex items-center justify-center`}>
                       {focusDetails.icon}
                     </div>
                     <div>
@@ -246,7 +243,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors hover:bg-gray-800">
                     <div className="flex items-center text-gray-400 mb-3">
-                      <Calendar className="w-5 h-5 mr-2 text-blue-400" />
+                      <Calendar className={`w-5 h-5 mr-2 ${programColors.text}`} />
                       <span className="text-gray-300">Frequency</span>
                     </div>
                     <p className="text-xl font-bold text-white">{program.sessions_per_week}x weekly</p>
@@ -254,7 +251,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                   
                   <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors hover:bg-gray-800">
                     <div className="flex items-center text-gray-400 mb-3">
-                      <Clock className="w-5 h-5 mr-2 text-purple-400" />
+                      <Clock className={`w-5 h-5 mr-2 ${programColors.text}`} />
                       <span className="text-gray-300">Duration</span>
                     </div>
                     <p className="text-xl font-bold text-white">{program.estimated_completion_weeks} weeks</p>
@@ -262,7 +259,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                   
                   <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors hover:bg-gray-800">
                     <div className="flex items-center text-gray-400 mb-3">
-                      <Users className="w-5 h-5 mr-2 text-green-400" />
+                      <Users className={`w-5 h-5 mr-2 ${programColors.text}`} />
                       <span className="text-gray-300">Difficulty</span>
                     </div>
                     <p className="text-xl font-bold text-white capitalize">{program.difficulty_level}</p>
@@ -333,7 +330,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
-                              <div className={`p-3 rounded-lg bg-gradient-to-br ${focusDetails.color} group-hover:scale-110 transition-transform`}>
+                              <div className={`p-3 rounded-lg bg-gradient-to-br ${programColors.gradient} group-hover:scale-110 transition-transform`}>
                                 <Dumbbell className="w-5 h-5 text-white" />
                               </div>
                               <div>
@@ -441,7 +438,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                               {dayWorkouts.map((workout, i) => (
                                 <div key={i} className="p-3 bg-gray-700/40 hover:bg-gray-700/70 transition-colors rounded-lg border border-gray-600/30 group-hover:border-gray-600/70">
                                   <div className="flex items-center gap-2">
-                                    <div className={`h-8 w-8 rounded-full bg-gradient-to-br ${focusDetails.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                                    <div className={`h-8 w-8 rounded-full bg-gradient-to-br ${programColors.gradient} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                                       <Dumbbell className="w-4 h-4 text-white" />
                                     </div>
                                     <span className="font-medium text-white">{workout.name}</span>
@@ -491,7 +488,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                 className={`px-4 py-2 text-white rounded-lg transition-all flex items-center gap-2 ${
                   forkSuccess ? 
                   'bg-green-600' : 
-                  'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                  programColors.button + ' active:scale-95'
                 } disabled:opacity-50`}
               >
                 {forkSuccess ? (
