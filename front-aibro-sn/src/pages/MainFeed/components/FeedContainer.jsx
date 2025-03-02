@@ -128,102 +128,81 @@ const Post = ({
   };
 
     // In FeedContainer.jsx - update the SharedPostContent component to properly render workout logs and programs
-  const SharedPostContent = ({ originalPost }) => {
-    const [loading, setLoading] = useState(true);
-    const [workoutLog, setWorkoutLog] = useState(null);
-    const [programData, setProgramData] = useState(null);
-    
+  // Updated SharedPostContent component for FeedContainer.jsx
 
-    // Fetch the full data for workout logs and programs
-    useEffect(() => {
-      const fetchFullData = async () => {
-        setLoading(true);
-        
-        try {
-          // For workout logs
-          if (originalPost.post_type === 'workout_log' && originalPost.workout_log_details) {
-            const workoutLogId = originalPost.workout_log_details.id;
-            if (workoutLogId) {
-              const response = await api.get(`/workouts/logs/${workoutLogId}/`);
-              setWorkoutLog(response.data);
-            } else if (typeof originalPost.workout_log_details === 'object') {
-              // If we already have the details, use them directly
-              setWorkoutLog(originalPost.workout_log_details);
-            }
+const SharedPostContent = ({ originalPost }) => {
+  const [loading, setLoading] = useState(true);
+  const [workoutLog, setWorkoutLog] = useState(null);
+  const [programData, setProgramData] = useState(null);
+  const [userData, setUserData] = useState(null);
+  
+
+  // Fetch the full data for workout logs, programs, and user data
+  useEffect(() => {
+    const fetchFullData = async () => {
+      setLoading(true);
+      
+      try {
+        // For workout logs
+        if (originalPost.post_type === 'workout_log' && originalPost.workout_log_details) {
+          const workoutLogId = originalPost.workout_log_details.id;
+          if (workoutLogId) {
+            const response = await api.get(`/workouts/logs/${workoutLogId}/`);
+            setWorkoutLog(response.data);
+          } else if (typeof originalPost.workout_log_details === 'object') {
+            // If we already have the details, use them directly
+            setWorkoutLog(originalPost.workout_log_details);
           }
-          
-          // For programs
-          // For programs - extract ID from program_details
-          if (originalPost.post_type === 'program' && originalPost.program_details) {
-            // Handle if program_details is a string (JSON) or already an object
-            const programDetails = typeof originalPost.program_details === 'string'
-              ? JSON.parse(originalPost.program_details)
-              : originalPost.program_details;
-              
-            const programId = programDetails?.id;
+        }
+        
+        // For programs
+        if (originalPost.post_type === 'program' && originalPost.program_details) {
+          // Handle if program_details is a string (JSON) or already an object
+          const programDetails = typeof originalPost.program_details === 'string'
+            ? JSON.parse(originalPost.program_details)
+            : originalPost.program_details;
             
-            if (programId) {
-              const response = await api.get(`/workouts/programs/${programId}/`);
-              setProgramData(response.data);
-            } else {
-              // If no ID but we have details, use them directly
-              setProgramData(programDetails);
-            }
+          const programId = programDetails?.id;
+          
+          if (programId) {
+            const response = await api.get(`/workouts/programs/${programId}/`);
+            setProgramData(response.data);
+          } else {
+            // If no ID but we have details, use them directly
+            setProgramData(programDetails);
+          }
+        }
+
+        // Fetch user data to get the avatar
+        try {
+          const usersResponse = await api.get('/users/');
+          const allUsers = usersResponse.data.results || usersResponse.data;
+          const user = allUsers.find(u => u.username === originalPost.user_username);
+          if (user) {
+            setUserData(user);
           }
         } catch (error) {
-          console.error("Error fetching full data:", error);
-        } finally {
-          setLoading(false);
+          console.error('Error fetching user data:', error);
         }
-      };
-      
-      fetchFullData();
-    }, [originalPost]);
+      } catch (error) {
+        console.error("Error fetching full data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchFullData();
+  }, [originalPost]);
 
-    if (loading) {
-      return (
-        <div className="mt-4 bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-              <span className="text-white text-sm font-medium">
-                {originalPost.user_username[0].toUpperCase()}
-              </span>
-            </div>
-            <div>
-              <p className="font-medium text-white">{originalPost.user_username}</p>
-              <p className="text-xs text-gray-400">
-                {new Date(originalPost.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          
-          <p className="text-gray-200 mb-3">{originalPost.content}</p>
-          
-          <div className="animate-pulse space-y-3">
-            <div className="h-24 bg-gray-700 rounded-lg"></div>
-            <div className="h-5 bg-gray-700 rounded w-1/2"></div>
-          </div>
-        </div>
-      );
-    }
-
-    // Get post type details for the original post
-  const postTypeDetails = originalPost.post_type 
-    ? getPostTypeDetails(originalPost.post_type) 
-    : getPostTypeDetails('regular');
-  const postTypeGradient = postTypeDetails.colors.gradient;
-  const postTypeBg = postTypeDetails.colors.bg;
-  const postTypeText = postTypeDetails.colors.text;
-
+  if (loading) {
     return (
-      <div className={`mt-4 bg-gray-800/50 rounded-lg p-4 border ${postTypeDetails.colors.border}`}>
-      
-      <div className="flex items-center gap-3 mb-2">
-        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${postTypeGradient} flex items-center justify-center`}>
-          <span className="text-white text-sm font-medium">
-            {originalPost.user_username[0].toUpperCase()}
-          </span>
-        </div>
+      <div className="mt-4 bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+            <span className="text-white text-sm font-medium">
+              {originalPost.user_username[0].toUpperCase()}
+            </span>
+          </div>
           <div>
             <p className="font-medium text-white">{originalPost.user_username}</p>
             <p className="text-xs text-gray-400">
@@ -234,34 +213,77 @@ const Post = ({
         
         <p className="text-gray-200 mb-3">{originalPost.content}</p>
         
-        {/* Use WorkoutLogPreview component for workout logs */}
-        {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && workoutLog && (
-          <WorkoutLogPreview 
-            workoutLogId={originalPost.workout_log}
-            workoutLog={workoutLog}
-            canEdit={false}
-          />
-        )}
-        
-        {/* Use ProgramCardPost component for programs */}
-        {originalPost.post_type === 'program' && (programData) && (
-          <ProgramCardPost 
-            programId={originalPost.program_id || originalPost.program}
-            initialProgramData={programData}
-          />
-        )}
-        
-        {/* Regular Image */}
-        {originalPost.image && (
-          <img
-            src={getAvatarUrl(originalPost.image)}
-            alt="Original post content"
-            className="mt-3 rounded-lg w-full object-cover"
-          />
-        )}
+        <div className="animate-pulse space-y-3">
+          <div className="h-24 bg-gray-700 rounded-lg"></div>
+          <div className="h-5 bg-gray-700 rounded w-1/2"></div>
+        </div>
       </div>
     );
-  };
+  }
+
+  // Get post type details for the original post
+  const postTypeDetails = originalPost.post_type 
+    ? getPostTypeDetails(originalPost.post_type) 
+    : getPostTypeDetails('regular');
+  const postTypeGradient = postTypeDetails.colors.gradient;
+  const postTypeBg = postTypeDetails.colors.bg;
+  const postTypeText = postTypeDetails.colors.text;
+
+  return (
+    <div className={`mt-4 bg-gray-800/50 rounded-lg p-4 border ${postTypeDetails.colors.border}`}>
+    
+    <div className="flex items-center gap-3 mb-2">
+      <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${postTypeGradient} flex items-center justify-center overflow-hidden`}>
+        {userData?.avatar ? (
+          <img 
+            src={getAvatarUrl(userData.avatar)}
+            alt={originalPost.user_username}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="text-white text-sm font-medium">
+            {originalPost.user_username[0].toUpperCase()}
+          </span>
+        )}
+      </div>
+        <div>
+          <p className="font-medium text-white">{originalPost.user_username}</p>
+          <p className="text-xs text-gray-400">
+            {new Date(originalPost.created_at).toLocaleDateString()}
+          </p>
+        </div>
+      </div>
+      
+      <p className="text-gray-200 mb-3">{originalPost.content}</p>
+      
+      {/* Use WorkoutLogPreview component for workout logs */}
+      {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && workoutLog && (
+        <WorkoutLogPreview 
+          workoutLogId={originalPost.workout_log}
+          workoutLog={workoutLog}
+          canEdit={false}
+        />
+      )}
+      
+      {/* Use ProgramCardPost component for programs */}
+      {originalPost.post_type === 'program' && (programData) && (
+        <ProgramCardPost 
+          programId={originalPost.program_id || originalPost.program}
+          initialProgramData={programData}
+        />
+      )}
+      
+      {/* Regular Image */}
+      {originalPost.image && (
+        <img
+          src={getAvatarUrl(originalPost.image)}
+          alt="Original post content"
+          className="mt-3 rounded-lg w-full object-cover"
+        />
+      )}
+    </div>
+  );
+};
 
   const Comments = () => (
     <div className="mt-4 space-y-3">
