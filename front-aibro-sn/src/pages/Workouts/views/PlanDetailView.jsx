@@ -39,13 +39,57 @@ const PlanDetailView = ({
     return plan.workouts.find(w => w.id === workoutId);
   };
 
-  const handleDayChange = async (workoutId, newDay) => {
+  const refreshPlans = async () => {
     try {
-      await onUpdateWorkout(plan.id, workoutId, { preferred_weekday: newDay });
-    } catch (err) {
-      setError('Failed to update workout day');
+      const updatedPlan = await api.get(`/workouts/programs/${plan.id}/`);
+      if (updatedPlan.data) {
+        onUpdate(plan.id, updatedPlan.data);
+      }
+    } catch (error) {
+      console.error('Error refreshing plan data:', error);
     }
   };
+  // Replace the entire handleDayChange function with this implementation
+const handleDayChange = async (workoutId, newDay) => {
+  try {
+    // 1. First, get the current workout data
+    console.log(`Getting current workout data for ID: ${workoutId}`);
+    const currentWorkoutResponse = await api.get(`/workouts/programs/${plan.id}/workouts/${workoutId}/`);
+    const currentWorkout = currentWorkoutResponse.data;
+    
+    console.log('BEFORE UPDATE - Current workout data:', currentWorkout);
+    console.log('BEFORE UPDATE - Exercise count:', currentWorkout.exercises?.length);
+    
+    // 2. Create a copy of the workout data with the new weekday
+    const updatedWorkout = {
+      ...currentWorkout,
+      preferred_weekday: newDay
+    };
+    
+    console.log('Sending update with full workout data but changed day:', updatedWorkout);
+    console.log('Update includes exercises:', updatedWorkout.exercises?.length);
+    
+    // 3. Send the entire workout data back with just the weekday changed
+    const response = await api.put(
+      `/workouts/programs/${plan.id}/workouts/${workoutId}/`,
+      updatedWorkout,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    
+    console.log('AFTER UPDATE - Updated workout data:', response.data);
+    console.log('AFTER UPDATE - Exercise count:', response.data.exercises?.length);
+    
+    // 4. Refresh the plan data to update UI
+    await refreshPlans();
+  } catch (err) {
+    console.error('Error updating workout day:', err);
+    setError('Failed to update workout day');
+  }
+};
 
   const handleCreateNewWorkout = async (workoutData) => {
     try {

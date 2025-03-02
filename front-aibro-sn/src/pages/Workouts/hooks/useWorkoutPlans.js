@@ -85,24 +85,53 @@ export const useWorkoutPlans = () => {
     }
   };
 
+  // Updated updateWorkoutInstance function in useWorkoutPlans.js
   const updateWorkoutInstance = async (planId, workoutId, updates) => {
     try {
-        // For minimal updates (preferred_weekday only)
+        console.log(`Updating workout instance ${workoutId} in plan ${planId}`);
+        console.log('Update data:', updates);
+        
+        // If this is just a weekday update, get the full workout data and update just the day
         if (Object.keys(updates).length === 1 && 'preferred_weekday' in updates) {
-            const response = await api.patch(
+            console.log('This is a weekday-only update');
+            
+            // 1. Get current workout data
+            const currentWorkoutResponse = await api.get(`/workouts/programs/${planId}/workouts/${workoutId}/`);
+            const currentWorkout = currentWorkoutResponse.data;
+            
+            console.log('Current workout before update:', currentWorkout);
+            console.log('Current exercises count:', currentWorkout.exercises?.length);
+            
+            // 2. Create updated workout with just the weekday changed
+            const updatedWorkout = {
+                ...currentWorkout,
+                preferred_weekday: updates.preferred_weekday
+            };
+            
+            console.log('Sending update with day change only:', updatedWorkout);
+            console.log('Exercises included in update:', updatedWorkout.exercises?.length);
+            
+            // 3. Send the full data back
+            const response = await api.put(
                 `/workouts/programs/${planId}/workouts/${workoutId}/`,
-                updates,  // Send the updates directly
+                updatedWorkout,
                 {
                     headers: {
                         'Content-Type': 'application/json',
                     }
                 }
             );
+            
+            console.log('Response after update:', response.data);
+            console.log('Exercises after update:', response.data.exercises?.length);
+            
             await fetchWorkoutPlans();
             return response.data;
         }
-
-        // For full updates
+        
+        // Otherwise, proceed with normal full update
+        console.log('This is a full update including multiple fields');
+        
         const formattedUpdates = {
             name: updates.name,
             description: updates.description || '',
@@ -111,9 +140,9 @@ export const useWorkoutPlans = () => {
             difficulty_level: updates.difficulty_level,
             equipment_required: updates.equipment_required,
             estimated_duration: updates.estimated_duration,
-            tags:updates.tags,
-            order:updates.order,
-            program:updates.program,
+            tags: updates.tags,
+            order: updates.order,
+            program: updates.program,
             exercises: updates.exercises?.map(exercise => ({
                 name: exercise.name,
                 equipment: exercise.equipment || '',
@@ -128,6 +157,9 @@ export const useWorkoutPlans = () => {
             })) || []
         };
 
+        console.log('Sending formatted update:', formattedUpdates);
+        console.log('Exercises in formatted update:', formattedUpdates.exercises?.length);
+
         const response = await api.put(
             `/workouts/programs/${planId}/workouts/${workoutId}/`,
             formattedUpdates,
@@ -138,6 +170,7 @@ export const useWorkoutPlans = () => {
             }
         );
 
+        console.log('Response after full update:', response.data);
         await fetchWorkoutPlans();
         return response.data;
     } catch (err) {
