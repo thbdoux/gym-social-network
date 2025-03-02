@@ -1,4 +1,3 @@
-// Updated PlansListView.jsx
 import React, { useState } from 'react';
 import { Plus, LayoutGrid, ArrowLeft } from 'lucide-react';
 import WorkoutPlansGrid from '../components/WorkoutPlansGrid';
@@ -13,6 +12,8 @@ const PlansListView = ({
   user,
   deletePlan,
   togglePlanActive,
+  onShareProgram,
+  onForkProgram
 }) => {
   // State for share modal
   const [showShareModal, setShowShareModal] = useState(false);
@@ -45,6 +46,7 @@ const PlansListView = ({
       plan.forked_from !== null
     );
   };
+  
   const handleDeletePlan = async (planId) => {
     try {
       await deletePlan(planId);
@@ -62,21 +64,33 @@ const PlansListView = ({
   };
 
   const handleShareProgram = (program) => {
-    setProgramToShare(program);
-    setShowShareModal(true);
+    if (onShareProgram) {
+      onShareProgram(program);
+    } else {
+      setProgramToShare(program);
+      setShowShareModal(true);
+    }
   };
 
   const handleForkProgram = async (program) => {
-    try {
-      if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
-        const response = await api.post(`/workouts/programs/${program.id}/fork/`);
-        // Redirect to the newly forked program
-        onPlanSelect(response.data);
+    if (onForkProgram) {
+      onForkProgram(program);
+    } else {
+      try {
+        if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
+          const response = await api.post(`/workouts/programs/${program.id}/fork/`);
+          // Redirect to the newly forked program
+          onPlanSelect(response.data);
+        }
+      } catch (err) {
+        console.error('Error forking program:', err);
+        alert('Failed to fork program. Please try again.');
       }
-    } catch (err) {
-      console.error('Error forking program:', err);
-      alert('Failed to fork program. Please try again.');
     }
+  };
+
+  const handleEditProgram = (plan) => {
+    onPlanSelect(plan);
   };
 
   return (
@@ -131,6 +145,7 @@ const PlansListView = ({
           onCreatePlan={() => setView('create-plan')}
           onShare={handleShareProgram}
           onFork={handleForkProgram}
+          onEdit={handleEditProgram}
           currentUser={user?.username}
         />
       ) : (

@@ -1,5 +1,7 @@
-import React from 'react';
-import { Plus, Calendar, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Calendar, X, Edit2, Clipboard, BookOpen } from 'lucide-react';
+import WorkoutLogForm from './WorkoutLogForm';
+import { POST_TYPE_COLORS } from '../../../utils/postTypeUtils';
 
 const LogWorkoutModal = ({ onClose, onNewLog, onLogFromInstance, activeProgram }) => {
   const hasScheduledWorkouts = activeProgram?.workouts?.length > 0;
@@ -22,8 +24,8 @@ const LogWorkoutModal = ({ onClose, onNewLog, onLogFromInstance, activeProgram }
             onClick={onNewLog}
             className="w-full bg-gray-800 hover:bg-gray-700 p-4 rounded-xl transition-colors flex items-center space-x-4 group"
           >
-            <div className="bg-blue-500/20 p-3 rounded-xl group-hover:bg-blue-500/30 transition-colors">
-              <Plus className="w-6 h-6 text-blue-400" />
+            <div className={`${POST_TYPE_COLORS.workout_log.bg} p-3 rounded-xl group-hover:${POST_TYPE_COLORS.workout_log.hoverBg} transition-colors`}>
+              <Plus className={`w-6 h-6 ${POST_TYPE_COLORS.workout_log.icon}`} />
             </div>
             <div className="text-left">
               <h3 className="text-lg font-semibold text-white">New Custom Log</h3>

@@ -25,8 +25,12 @@ import WorkoutLogCard from './components/WorkoutLogCard';
 import NextWorkout from './components/NextWorkout';
 import WorkoutLogForm from './components/WorkoutLogForm';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
+import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
+import ShareProgramModal from './components/ShareProgramModal';
 
 import api from './../../api';
+
+const workoutColors = POST_TYPE_COLORS.workout_log;
 
 const QuickStats = ({ stats = {} }) => {
   const weeklyWorkouts = stats.weeklyWorkouts || 0;
@@ -461,75 +465,67 @@ const WorkoutSpace = ({ user }) => {
     default:
         return (
           <div className="min-h-screen bg-gray-900 text-white">
-            {/* Header with title and active program */}
+            {/* Header with title */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <div className="flex flex-col">
                 <h1 className="text-3xl font-bold text-white mb-4">
                   Workout Space
                 </h1>
-                
-                {/* Active Program - Full width */}
-                <div className="w-full">
-                  {plansLoading ? (
-                    <LoadingSpinner />
-                  ) : activeProgram ? (
-                    <div 
-                      onClick={() => handlePlanSelect(activeProgram)}
-                      className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg px-4 py-3 border border-gray-700/30 cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center">
-                        {activeProgram.is_active && <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>}
-                        <div>
-                          <div className="text-sm text-gray-400">Active Program</div>
-                          <div className="text-white font-medium text-lg">{activeProgram.name}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTogglePlanActive(activeProgram.id);
-                          }}
-                          className="mr-4 px-3 py-1 text-sm bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 transition-colors"
-                        >
-                          Active
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setView('plans');
-                          }}
-                          className="bg-gray-700 hover:bg-gray-600 text-white rounded-lg px-3 py-2 flex items-center border border-gray-600/30"
-                        >
-                          <LayoutGrid className="w-4 h-4 mr-2" />
-                          <span>All Programs</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 border border-gray-700/30">
-                      <div>
-                        <div className="text-sm text-gray-400">Active Program</div>
-                        <div className="text-white font-medium text-lg">No active program selected</div>
-                      </div>
-                      <button 
-                        onClick={() => setView('plans')}
-                        className="bg-gray-700 hover:bg-gray-600 text-white rounded-lg px-3 py-2 flex items-center border border-gray-600/30"
-                      >
-                        <LayoutGrid className="w-4 h-4 mr-2" />
-                        <span>Browse Programs</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
             
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {/* Main content - Restructured layout */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Column - Now contains Workout Logs */}
+                {/* Left Column - Workout Logs */}
                 <div className="lg:col-span-8 space-y-6">
+                  {/* Current Program Section */}
+                  <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
+                    <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">Current Program</h2>
+                        <p className="text-gray-400 text-sm mt-1">Your active training plan</p>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <button 
+                          onClick={() => setView('plans')}
+                          className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                        >
+                          <span>View All Programs</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="p-6">
+                      {plansLoading ? (
+                        <LoadingSpinner />
+                      ) : activeProgram ? (
+                        <WorkoutPlansGrid
+                          plans={[activeProgram]}
+                          onSelect={handlePlanSelect}
+                          onDelete={deletePlan}
+                          onToggleActive={handleTogglePlanActive}
+                          onShare={handleShareProgram}
+                          onFork={handleForkProgram}
+                          currentUser={currentUser?.username}
+                          singleColumn={true}
+                        />
+                      ) : (
+                        <EmptyState
+                          title="No active program"
+                          description="Select or create a program to get started"
+                          action={{
+                            label: 'Browse Programs',
+                            onClick: () => setView('plans')
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Workout Logs Section */}
                   <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
                     <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
                       <div>
@@ -538,13 +534,16 @@ const WorkoutSpace = ({ user }) => {
                       </div>
                       
                       <div className="flex items-center">
-                        <button 
-                          onClick={() => setShowLogModal(true)}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
-                        >
-                          <Plus className="w-5 h-5" />
-                          <span>Log Workout</span>
-                        </button>
+                      <button 
+                        onClick={() => {
+                          setSelectedLog(null);
+                          setShowLogModal(true);
+                        }}
+                        className={`px-4 py-2 ${workoutColors.bg} hover:${workoutColors.hoverBg} rounded-lg transition-colors flex items-center space-x-2 shadow-md border ${workoutColors.border}`}
+                      >
+                        <Plus className="w-5 h-5" />
+                        <span className={workoutColors.text}>Log Workout</span>
+                      </button>
                       </div>
                     </div>
                     
@@ -607,13 +606,13 @@ const WorkoutSpace = ({ user }) => {
                   </div>
                 </div>
 
-                {/* Right Column - Now contains Next Workout, Quick Stats, and Templates */}
+                {/* Right Column - Next Workout, Quick Stats, and Templates */}
                 <div className="lg:col-span-4 space-y-8">
-                  {/* Next Workout Section */}
-                  <NextWorkout workout={nextWorkout} />
-                  
                   {/* Quick Stats */}
                   <QuickStats stats={stats} />
+                  
+                  {/* Next Workout Section */}
+                  <NextWorkout workout={nextWorkout} />
                   
                   {/* Templates Section */}
                   <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
@@ -652,8 +651,6 @@ const WorkoutSpace = ({ user }) => {
                       )}
                     </div>
                   </div>
-
-
                 </div>
               </div>
             </div>
