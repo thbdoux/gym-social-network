@@ -1,13 +1,15 @@
-import React from 'react';
-import { ArrowLeft } from 'lucide-react';
-import WorkoutPlanForm from '../components/WorkoutPlanForm';
+import React, { useState } from 'react';
+import { ArrowLeft, Info } from 'lucide-react';
+import EnhancedProgramForm from './../components/EnhancedProgramForm';
 
-const CreatePlanView = ({
+const EnhancedCreatePlanView = ({
   onCreatePlan,
   onCancel,
   onError,
   workoutTemplates
 }) => {
+  const [error, setError] = useState(null);
+
   const handleCreatePlan = async (planData) => {
     try {
       await onCreatePlan({
@@ -17,6 +19,7 @@ const CreatePlanView = ({
       onCancel(); // Navigate back to plans list on success
     } catch (err) {
       console.error('Error creating plan:', err);
+      setError(err.response?.data?.detail || 'Failed to create workout plan');
       onError?.(err.response?.data?.detail || 'Failed to create workout plan');
     }
   };
@@ -30,7 +33,7 @@ const CreatePlanView = ({
           className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
           aria-label="Go back to plans"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-6 h-6 text-gray-400" />
         </button>
         <div>
           <h1 className="text-3xl font-bold text-white">Create Workout Plan</h1>
@@ -40,17 +43,30 @@ const CreatePlanView = ({
         </div>
       </div>
 
+      {error && (
+        <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg">
+          {error}
+          <button 
+            onClick={() => setError(null)}
+            className="float-right text-red-400 hover:text-red-300"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Form Container */}
       <div className="bg-gray-800/40 rounded-xl p-6">
-        <WorkoutPlanForm
+        <EnhancedProgramForm
           onSubmit={handleCreatePlan}
           onCancel={onCancel}
         />
       </div>
 
-      {/* Helper Text */}
+      {/* Helper Tips */}
       <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-        <h3 className="text-sm font-medium text-blue-400 mb-2">
+        <h3 className="text-sm font-medium text-blue-400 mb-2 flex items-center">
+          <Info className="w-4 h-4 mr-2" />
           Tips for creating an effective plan:
         </h3>
         <ul className="text-sm text-blue-300 space-y-1 list-disc list-inside">
@@ -64,4 +80,4 @@ const CreatePlanView = ({
   );
 };
 
-export default CreatePlanView;
+export default EnhancedCreatePlanView;

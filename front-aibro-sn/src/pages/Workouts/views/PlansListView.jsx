@@ -13,7 +13,8 @@ const PlansListView = ({
   deletePlan,
   togglePlanActive,
   onShareProgram,
-  onForkProgram
+  onForkProgram,
+  onEditProgram
 }) => {
   // State for share modal
   const [showShareModal, setShowShareModal] = useState(false);
@@ -145,7 +146,7 @@ const PlansListView = ({
           onCreatePlan={() => setView('create-plan')}
           onShare={handleShareProgram}
           onFork={handleForkProgram}
-          onEdit={handleEditProgram}
+          onEdit={onEditProgram}
           currentUser={user?.username}
         />
       ) : (

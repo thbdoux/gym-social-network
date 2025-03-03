@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { 
   Trash2, Activity, Calendar, Target, ChevronDown, ChevronUp, 
   Users, Share2, GitFork, Dumbbell, User, Clock, 
-  Edit, BarChart, Eye, CheckCircle, X, Award
+  Edit, BarChart, Eye, CheckCircle, X, Award, Trophy
 } from 'lucide-react';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 import ExpandableProgramModal from '../../MainFeed/components/ExpandableProgramModal';
 
 const programColors = getPostTypeDetails('program').colors;
 
-const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive, onShare, onFork, currentUser }) => {
+const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive, onShare, onFork, onEdit, currentUser }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
@@ -19,6 +19,7 @@ const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive, onShare, on
   // Check if program has is_owner field directly from API
   const canShare = isCreator;
   const canFork = !isCreator;
+  const canEdit = isCreator;
   
   // If the plan has a forked_from property, it means it was forked from another program
   const isForked = !!plan.forked_from;
@@ -121,6 +122,17 @@ const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive, onShare, on
                   title="Fork Program"
                 >
                   <GitFork className="w-5 h-5" />
+                </button>
+              )}
+
+              {/* Add Edit button here */}
+              {canEdit && onEdit && (
+                <button
+                  onClick={(e) => handleButtonClick(e, () => onEdit(plan))}
+                  className="p-2 hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 rounded-lg transition-colors"
+                  title="Edit Program"
+                >
+                  <Edit className="w-5 h-5" />
                 </button>
               )}
               

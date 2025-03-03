@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, 
-  ChevronRight, 
   Calendar, 
   Activity, 
   Target, 
@@ -9,15 +7,13 @@ import {
   LayoutGrid,
   BarChart2,
   Clock,
-  Filter
+  Plus,
+  ChevronRight,
+  Dumbbell,
+  Search
 } from 'lucide-react';
 import WorkoutPlansGrid from './components/WorkoutPlansGrid';
 import EmptyState from './components/EmptyState';
-import PlansListView from './views/PlansListView';
-import PlanDetailView from './views/PlanDetailView';
-import AllWorkoutLogsView from './views/AllWorkoutLogsView';
-import AllWorkoutsView from './views/AllWorkoutsView';
-import CreatePlanView from './views/CreatePlanView';
 import { useWorkoutPlans } from './hooks/useWorkoutPlans';
 import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
 import { useWorkoutLogs } from './hooks/useWorkoutLogs';
@@ -27,7 +23,12 @@ import WorkoutLogForm from './components/WorkoutLogForm';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
 import ShareProgramModal from './components/ShareProgramModal';
-
+import ExpandableWorkoutModal from './components/ExpandableWorkoutModal';
+import AllWorkoutLogsView from './views/AllWorkoutLogsView';
+import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
+import EnhancedPlanDetailView from './views/EnhancedPlanDetailView';
+import EnhancedAllWorkoutsView from './views/EnhancedAllWorkoutsView';
+import PlansListView from './views/PlansListView';
 import api from './../../api';
 
 const workoutColors = POST_TYPE_COLORS.workout_log;
@@ -74,21 +75,44 @@ const QuickStats = ({ stats = {} }) => {
   );
 };
 
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center p-8">
-    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-    <span className="ml-2 text-gray-400">Loading...</span>
-  </div>
-);
-
-const ErrorMessage = ({ message }) => (
-  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400 flex items-center">
-    <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center mr-3">
-      <span className="text-red-400 font-bold">!</span>
+const TemplatePreview = ({ templates, onViewAll }) => {
+  return (
+    <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-white flex items-center">
+          <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
+          Templates
+        </h2>
+        <button 
+          onClick={onViewAll}
+          className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
+        >
+          <span>View All</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      
+      <div className="text-gray-300 text-sm">
+        {templates.length === 0 ? (
+          <p>Create your first workout template to get started.</p>
+        ) : (
+          <div className="space-y-3">
+            {templates.slice(0, 3).map((template) => (
+              <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
+                <p className="font-medium text-white">{template.name}</p>
+                <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
+                  <span>{template.split_method?.replace(/_/g, ' ')}</span>
+                  <span>•</span>
+                  <span>{template.exercises?.length || 0} exercises</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-    <p>{message}</p>
-  </div>
-);
+  );
+};
 
 const WorkoutSpace = ({ user }) => {
   const [showLogForm, setShowLogForm] = useState(false);
@@ -97,10 +121,12 @@ const WorkoutSpace = ({ user }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
-
   const [showShareModal, setShowShareModal] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
-
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
   
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -146,121 +172,30 @@ const WorkoutSpace = ({ user }) => {
     error: logsError,
     createLog,
     updateLog,
-    refreshLogs
+    refreshLogs,
+    nextWorkout
   } = useWorkoutLogs(activeProgram);
   
-  // Get only the most recent logs for the preview
-  const recentLogs = logs.slice(0, 4);
-
-  // Calculate next workout
-  const getNextWorkout = () => {
-    if (!activeProgram?.workouts || activeProgram.workouts.length === 0) {
-      return null;
-    }
-  
-    // Get current day of week (0 = Sunday, 1 = Monday, etc.)
-    const today = new Date().getDay();
+  // Filter logs by search query
+  const filteredLogs = logs.filter(log => {
+    if (!searchQuery) return true;
     
-    // Find the next upcoming workout based on preferred_weekday
-    // First try to find a workout later this week
-    let nextWorkoutInstance = activeProgram.workouts.find(workout => {
-      // preferred_weekday is 1-based (1 = Monday, 2 = Tuesday, etc.)
-      // Convert to 0-based to match JavaScript's getDay() (0 = Sunday, 1 = Monday, etc.)
-      const workoutDay = workout.preferred_weekday === 7 ? 0 : workout.preferred_weekday;
-      return workoutDay > today;
-    });
-    
-    // If no workout found later this week, get the first workout of next week
-    if (!nextWorkoutInstance) {
-      const sortedWorkouts = [...activeProgram.workouts].sort((a, b) => {
-        // Convert 7 (Sunday in the API) to 0 to match JavaScript's Sunday=0
-        const dayA = a.preferred_weekday === 7 ? 0 : a.preferred_weekday;
-        const dayB = b.preferred_weekday === 7 ? 0 : b.preferred_weekday;
-        return dayA - dayB;
-      });
-      nextWorkoutInstance = sortedWorkouts[0];
-    }
-    
-    if (!nextWorkoutInstance) return null;
-    
-    // Get day name based on preferred_weekday
-    const getDayName = (dayNum) => {
-      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      // Convert from 1-based (API) to 0-based (array index)
-      const index = dayNum === 7 ? 0 : dayNum % 7;
-      return days[index];
-    };
-    
-    // Format the workout data for the NextWorkout component
-    return {
-      id: nextWorkoutInstance.id,
-      workout_name: nextWorkoutInstance.name || "Scheduled Workout",
-      date: `Next ${nextWorkoutInstance.weekday_name || getDayName(nextWorkoutInstance.preferred_weekday)}`,
-      duration: nextWorkoutInstance.estimated_duration || 60,
-      exercise_count: nextWorkoutInstance.exercises?.length || 0,
-      split_method: nextWorkoutInstance.split_method || "custom",
-      difficulty_level: nextWorkoutInstance.difficulty_level || "intermediate",
-      description: nextWorkoutInstance.description || ""
-    };
-  };
-
-  const nextWorkout = getNextWorkout();
-
-  const [selectedPlan, setSelectedPlan] = useState(null);
-
-  // Calculate stats for the quick stats component
-  const calculateStats = () => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now);
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    
-    const weeklyWorkouts = logs.filter(log => 
-      new Date(log.date) >= oneWeekAgo && log.completed
-    ).length;
-    
-    const totalWorkouts = logs.filter(log => log.completed).length;
-    
-    // Calculate streak (simplified)
-    let streak = 0;
-    const dayMap = {};
-    
-    // Map logs to days
-    logs.forEach(log => {
-      if (log.completed) {
-        const dateStr = new Date(log.date).toDateString();
-        dayMap[dateStr] = true;
-      }
-    });
-    
-    // Count streak (not entirely accurate, just for the demo)
-    for (let i = 0; i < 30; i++) {
-      const checkDate = new Date(now);
-      checkDate.setDate(checkDate.getDate() - i);
-      const checkDateStr = checkDate.toDateString();
-      
-      if (dayMap[checkDateStr]) {
-        streak++;
-      } else if (i < 7) { // Only break streak if within last week
-        break;
-      }
-    }
-    
-    return { weeklyWorkouts, totalWorkouts, streak };
-  };
-
-  const stats = calculateStats();
+    const query = searchQuery.toLowerCase();
+    return (
+      (log.workout_name && log.workout_name.toLowerCase().includes(query)) ||
+      (log.gym_name && log.gym_name.toLowerCase().includes(query)) ||
+      (log.exercises && log.exercises.some(ex => ex.name.toLowerCase().includes(query)))
+    );
+  });
 
   const handlePlanSelect = async (plan) => {
-    // Check if user has access to this plan using the serializer's is_owner field
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
       console.error('Unauthorized access attempt to plan:', plan.id);
       alert('You do not have permission to view this program.');
       return;
     }
     
-    // Perform an additional server-side check before displaying the plan
     try {
-      // Fetch the specific plan to ensure user has proper access rights
       const response = await api.get(`/workouts/programs/${plan.id}/`);
       setSelectedPlan(response.data);
       setView('plan-detail');
@@ -269,17 +204,7 @@ const WorkoutSpace = ({ user }) => {
       alert('You do not have permission to view this program.');
     }
   };
-
-  const handleTogglePlanActive = async (planId) => {
-    try {
-      await api.post(`/workouts/programs/${planId}/toggle_active/`);
-      await refreshPlans();
-    } catch (err) {
-      console.error('Error toggling plan active status:', err);
-      throw err;
-    }
-  };
-
+  
   const handleCreatePlan = async (planData) => {
     try {
       const newPlan = await createPlan(planData);
@@ -291,27 +216,7 @@ const WorkoutSpace = ({ user }) => {
       throw err;
     }
   };
-
-  const handleShareProgram = (program) => {
-    setProgramToShare(program);
-    setShowShareModal(true);
-  };
-
-  // New function to handle program forking
-  const handleForkProgram = async (program) => {
-    try {
-      if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
-        const response = await api.post(`/workouts/programs/${program.id}/fork/`);
-        await refreshPlans();
-        // Select the newly forked program
-        handlePlanSelect(response.data);
-      }
-    } catch (err) {
-      console.error('Error forking program:', err);
-      alert('Failed to fork program. Please try again.');
-    }
-  };
-
+  
   const handleAddWorkout = async (planId, templateId, weekday) => {
     try {
       await addWorkoutToPlan(planId, templateId, weekday);
@@ -326,80 +231,155 @@ const WorkoutSpace = ({ user }) => {
     }
   };
 
-  const handleUpdateWorkout = async (planId, instanceId, updates) => {
+  const handleTogglePlanActive = async (planId) => {
     try {
-      await updateWorkoutInstance(planId, instanceId, updates);
+      await api.post(`/workouts/programs/${planId}/toggle_active/`);
       await refreshPlans();
     } catch (err) {
-      console.error('Error updating workout:', err);
-      throw err;
+      console.error('Error toggling plan active status:', err);
     }
   };
 
-  const handleRemoveWorkout = async (planId, instanceId) => {
+  const handleShareProgram = (program) => {
+    setProgramToShare(program);
+    setShowShareModal(true);
+  };
+
+  const handleForkProgram = async (program) => {
     try {
-      await removeWorkoutFromPlan(planId, instanceId);
-      await refreshPlans();
+      if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
+        await api.post(`/workouts/programs/${program.id}/fork/`);
+        await refreshPlans();
+      }
     } catch (err) {
-      console.error('Error removing workout:', err);
-      throw err;
+      console.error('Error forking program:', err);
+      alert('Failed to fork program. Please try again.');
     }
   };
-  
-  // Add state for all logs view
-  const [showAllLogs, setShowAllLogs] = useState(false);
-  
-  if (showAllLogs) {
-    return (
-      <AllWorkoutLogsView 
-        onBack={() => setShowAllLogs(false)}
-        activeProgram={activeProgram}
-      />
-    );
-  }
+
+  // Calculate stats for the quick stats component
+  const calculateStats = () => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const weeklyWorkouts = logs.filter(log => 
+      new Date(log.date) >= oneWeekAgo && log.completed
+    ).length;
+    
+    const totalWorkouts = logs.filter(log => log.completed).length;
+    
+    // Calculate streak
+    let streak = 0;
+    const dayMap = {};
+    
+    // Map logs to days
+    logs.forEach(log => {
+      if (log.completed) {
+        const dateStr = new Date(log.date).toDateString();
+        dayMap[dateStr] = true;
+      }
+    });
+    
+    // Count streak
+    for (let i = 0; i < 30; i++) {
+      const checkDate = new Date(now);
+      checkDate.setDate(checkDate.getDate() - i);
+      const checkDateStr = checkDate.toDateString();
+      
+      if (dayMap[checkDateStr]) {
+        streak++;
+      } else if (i < 7) {
+        break;
+      }
+    }
+    
+    return { weeklyWorkouts, totalWorkouts, streak };
+  };
+
+  const stats = calculateStats();
+
+  const handleViewNextWorkout = () => {
+    if (nextWorkout) {
+      setSelectedWorkout(nextWorkout);
+      setShowWorkoutModal(true);
+    }
+  };
 
   if (plansError || templatesError) {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <ErrorMessage message={plansError || templatesError} />
+        <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg">
+          {plansError || templatesError}
+        </div>
       </div>
     );
   }
 
-  switch (view) {
-    case 'plans':
-      return (
-        <div className="min-h-screen bg-gray-900 text-white p-8">
-          <PlansListView
-            workoutPlans={workoutPlans}
-            isLoading={plansLoading}
-            onPlanSelect={handlePlanSelect}
-            setView={setView}
-            user={currentUser}
-            deletePlan={deletePlan}
-            onCreatePlan={handleCreatePlan}
-            togglePlanActive={handleTogglePlanActive}
-            onShareProgram={handleShareProgram}
-            onForkProgram={handleForkProgram}
-          />
-          
-          {/* Share Program Modal */}
-          {showShareModal && programToShare && (
-            <ShareProgramModal 
-              program={programToShare}
-              onClose={() => {
-                setShowShareModal(false);
-                setProgramToShare(null);
-              }}
-            />
-          )}
-        </div>
-      );
+  if (view === 'logs') {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <AllWorkoutLogsView 
+          onBack={() => setView('main')}
+          activeProgram={activeProgram}
+        />
+      </div>
+    );
+  }
 
-    case 'plan-detail':
-      if (!selectedPlan) return null;
-      return (
-        <PlanDetailView
+  if (view === 'plans') {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <PlansListView
+          workoutPlans={workoutPlans}
+          isLoading={plansLoading}
+          onPlanSelect={handlePlanSelect}
+          setView={setView}
+          user={currentUser}
+          deletePlan={deletePlan}
+          onCreatePlan={handleCreatePlan}
+          togglePlanActive={handleTogglePlanActive}
+          onShareProgram={handleShareProgram}
+          onForkProgram={handleForkProgram}
+          onEditProgram={(plan) => {
+            setSelectedPlan(plan);
+            setView('plan-detail');
+          }}
+        />
+        
+        {showShareModal && programToShare && (
+          <ShareProgramModal 
+            program={programToShare}
+            onClose={() => {
+              setShowShareModal(false);
+              setProgramToShare(null);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (view === 'all-workouts') {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <EnhancedAllWorkoutsView
+          workoutTemplates={templates}
+          isLoading={templatesLoading}
+          onCreateTemplate={createTemplate}
+          onUpdateTemplate={updateTemplate}
+          onDeleteTemplate={deleteTemplate}
+          setView={setView}
+        />
+      </div>
+    );
+  }
+  
+  if (view === 'plan-detail') {
+    if (!selectedPlan) return null;
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <EnhancedPlanDetailView
           plan={workoutPlans.find(p => p.id === selectedPlan.id) || selectedPlan}
           templates={templates.results || templates}
           onBack={() => {
@@ -434,338 +414,344 @@ const WorkoutSpace = ({ user }) => {
           }}
           user={currentUser}
         />
-      );
+      </div>
+    );
+  }
+  
+  if (view === 'create-plan') {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-8">
+        <EnhancedCreatePlanView
+          onCreatePlan={handleCreatePlan}
+          onCancel={() => setView('plans')}
+          onError={(error) => console.error('Create plan error:', error)}
+          workoutTemplates={templates}
+        />
+      </div>
+    );
+  }
+  
+  if (view !== 'main') return null;
 
-    case 'all-workouts':
-      return (
-        <div className="min-h-screen bg-gray-900 text-white p-8">
-          <AllWorkoutsView
-            workoutTemplates={templates}
-            isLoading={templatesLoading}
-            onCreateTemplate={createTemplate}
-            onUpdateTemplate={updateTemplate}
-            onDeleteTemplate={deleteTemplate}
-            setView={setView}
-          />
-        </div>
-      );
-
-    case 'create-plan':
-      return (
-        <div className="min-h-screen bg-gray-900 text-white p-8">
-          <CreatePlanView
-            onCreatePlan={handleCreatePlan}
-            onCancel={() => setView('plans')}
-            onError={(error) => console.error('Create plan error:', error)}
-            workoutTemplates={templates}
-          />
-        </div>
-      );
-
-    default:
-        return (
-          <div className="min-h-screen bg-gray-900 text-white">
-            {/* Header with title */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              <div className="flex flex-col">
-                <h1 className="text-3xl font-bold text-white mb-4">
-                  Workout Space
-                </h1>
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Header with title */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
+        <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
+          Tinker Your Fitness Routine
+        </h1>
+        <p className="mt-2 text-gray-400 max-w-3xl">
+          Track your progress, customize your workouts, and reach your fitness goals.
+        </p>
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Main content - Two-Column 50/50 Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Workout Logs (50%) */}
+          <div className="space-y-6">
+            {/* Search and Log Button */}
+            <div className="flex items-center gap-4 mb-2">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search workout logs..."
+                  className="pl-10 w-full bg-gray-800 border border-gray-700 rounded-lg py-2 text-white focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
+              <button 
+                onClick={() => {
+                  setSelectedLog(null);
+                  setShowLogModal(true);
+                }}
+                className={`px-4 py-2 ${workoutColors.bg} hover:${workoutColors.hoverBg} rounded-lg transition-colors flex items-center space-x-2 shadow-md border ${workoutColors.border}`}
+              >
+                <Plus className="w-5 h-5" />
+                <span className={workoutColors.text}>Log Workout</span>
+              </button>
             </div>
             
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              {/* Main content - Restructured layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Column - Workout Logs */}
-                <div className="lg:col-span-8 space-y-6">
-                  {/* Current Program Section */}
-                  <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
-                    <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
-                      <div>
-                        <h2 className="text-2xl font-bold text-white">Current Program</h2>
-                        <p className="text-gray-400 text-sm mt-1">Your active training plan</p>
-                      </div>
-                      
-                      <div className="flex items-center">
-                        <button 
-                          onClick={() => setView('plans')}
-                          className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                        >
-                          <span>View All Programs</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
+            {/* Workout Logs Section */}
+            <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
+              <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Workout Logs</h2>
+                  <p className="text-gray-400 text-sm mt-1">Track and monitor your fitness progress</p>
+                </div>
+                
+                <div className="flex items-center">
+                  <button 
+                    onClick={() => setView('logs')}
+                    className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <span>View All Logs</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* List of workout logs */}
+              <div className="p-6">                      
+                <div className="space-y-4">
+                  {logsLoading ? (
+                    <div className="flex items-center justify-center p-8">
+                      <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                      <span className="ml-2 text-gray-400">Loading logs...</span>
                     </div>
-                    
-                    <div className="p-6">
-                      {plansLoading ? (
-                        <LoadingSpinner />
-                      ) : activeProgram ? (
-                        <WorkoutPlansGrid
-                          plans={[activeProgram]}
-                          onSelect={handlePlanSelect}
-                          onDelete={deletePlan}
-                          onToggleActive={handleTogglePlanActive}
-                          onShare={handleShareProgram}
-                          onFork={handleForkProgram}
-                          currentUser={currentUser?.username}
-                          singleColumn={true}
-                        />
-                      ) : (
-                        <EmptyState
-                          title="No active program"
-                          description="Select or create a program to get started"
-                          action={{
-                            label: 'Browse Programs',
-                            onClick: () => setView('plans')
+                  ) : filteredLogs.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {filteredLogs.slice(0, 5).map((log) => (
+                        <WorkoutLogCard
+                          key={log.id}
+                          log={log}
+                          onEdit={(log) => {
+                            setSelectedLog(log);
+                            setShowLogForm(true);
+                          }}
+                          onDelete={async (log) => {
+                            if (window.confirm('Are you sure you want to delete this workout log?')) {
+                              try {
+                                await api.delete(`/workouts/logs/${log.id}/`);
+                                await refreshLogs();
+                              } catch (err) {
+                                console.error('Error deleting log:', err);
+                              }
+                            }
                           }}
                         />
-                      )}
+                      ))}
                     </div>
-                  </div>
-                  
-                  {/* Workout Logs Section */}
-                  <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
-                    <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
-                      <div>
-                        <h2 className="text-2xl font-bold text-white">Workout Logs</h2>
-                        <p className="text-gray-400 text-sm mt-1">Track and monitor your fitness progress</p>
-                      </div>
-                      
-                      <div className="flex items-center">
+                  ) : searchQuery ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-400">No workout logs found matching "{searchQuery}"</p>
                       <button 
-                        onClick={() => {
-                          setSelectedLog(null);
-                          setShowLogModal(true);
-                        }}
-                        className={`px-4 py-2 ${workoutColors.bg} hover:${workoutColors.hoverBg} rounded-lg transition-colors flex items-center space-x-2 shadow-md border ${workoutColors.border}`}
+                        onClick={() => setSearchQuery('')}
+                        className="mt-2 text-blue-400 hover:text-blue-300"
                       >
-                        <Plus className="w-5 h-5" />
-                        <span className={workoutColors.text}>Log Workout</span>
-                      </button>
-                      </div>
-                    </div>
-                    
-                    {/* List of workout logs */}
-                    <div className="p-6">                      
-                      <div className="space-y-4">
-                        {logsLoading ? (
-                          <LoadingSpinner />
-                        ) : recentLogs.length > 0 ? (
-                          <div className="grid grid-cols-1 gap-4">
-                            {recentLogs.map((log, index) => (
-                              <WorkoutLogCard
-                                key={log.id || `log-${index}`}
-                                log={log}
-                                onEdit={(log) => {
-                                  setSelectedLog(log);
-                                  setShowLogForm(true);
-                                }}
-                                onDelete={async (log) => {
-                                  if (window.confirm('Are you sure you want to delete this workout log?')) {
-                                    try {
-                                      await api.delete(`/workouts/logs/${log.id}/`);
-                                      await refreshLogs();
-                                    } catch (err) {
-                                      console.error('Error deleting log:', err);
-                                    }
-                                  }
-                                }}
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <EmptyState
-                            title="No workout logs yet"
-                            description="Start logging your workouts to track your progress"
-                            action={{
-                              label: 'Log First Workout',
-                              onClick: () => {
-                                setSelectedLog(null); 
-                                setShowLogForm(true);
-                              }
-                            }}
-                          />
-                        )}
-                      </div>
-                    
-                      {/* View All Logs Button - Prominent */}
-                      {recentLogs.length > 0 && (
-                        <div className="mt-8 flex justify-center">
-                          <button 
-                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-medium flex items-center space-x-2 shadow-md"
-                            onClick={() => setShowAllLogs(true)}
-                          >
-                            <span>View All Workout Logs</span>
-                            <ChevronRight className="w-5 h-5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column - Next Workout, Quick Stats, and Templates */}
-                <div className="lg:col-span-4 space-y-8">
-                  {/* Quick Stats */}
-                  <QuickStats stats={stats} />
-                  
-                  {/* Next Workout Section */}
-                  <NextWorkout workout={nextWorkout} />
-                  
-                  {/* Templates Section */}
-                  <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold text-white flex items-center">
-                        <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
-                        Templates
-                      </h2>
-                      <button 
-                        onClick={() => setView('all-workouts')}
-                        className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
-                      >
-                        <span>View All</span>
-                        <ChevronRight className="w-4 h-4" />
+                        Clear search
                       </button>
                     </div>
-                    
-                    <div className="text-gray-300 text-sm">
-                      {templatesLoading ? (
-                        <LoadingSpinner />
-                      ) : templates.length > 0 ? (
-                        <div className="space-y-3">
-                          {templates.slice(0, 3).map((template) => (
-                            <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
-                              <p className="font-medium text-white">{template.name}</p>
-                              <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
-                                <span>{template.split_method?.replace(/_/g, ' ')}</span>
-                                <span>•</span>
-                                <span>{template.exercises?.length || 0} exercises</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p>Create your first workout template to get started.</p>
-                      )}
-                    </div>
-                  </div>
+                  ) : (
+                    <EmptyState
+                      title="No workout logs yet"
+                      description="Start logging your workouts to track your progress"
+                      action={{
+                        label: 'Log First Workout',
+                        onClick: () => {
+                          setSelectedLog(null); 
+                          setShowLogForm(true);
+                        }
+                      }}
+                    />
+                  )}
                 </div>
+              
+                {/* View All Logs Button */}
+                {filteredLogs.length > 5 && (
+                  <div className="mt-8 flex justify-center">
+                    <button 
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-medium flex items-center space-x-2 shadow-md"
+                      onClick={() => setView('logs')}
+                    >
+                      <span>View All Workout Logs</span>
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             
-            {/* Instance Selector Modal */}
-            {showInstanceSelector && (
-              <WorkoutInstanceSelector
-                onClose={() => setShowInstanceSelector(false)}
-                onSelect={(workout) => {
-                  setShowInstanceSelector(false);
-                  setSelectedLog({
-                    name: workout.name || 'Workout Log',
-                    based_on_instance: workout.id,
-                    program: activeProgram.id,
-                    exercises: workout.exercises?.map(ex => ({
-                      ...ex,
-                      sets: ex.sets?.map(set => ({
-                        ...set,
-                        id: Math.floor(Date.now() + Math.random() * 1000)
-                      }))
-                    })) || []
-                  });
-                  setShowLogForm(true);
-                }}
-                activeProgram={activeProgram}
-              />
-            )}
+            {/* Quick Stats */}
+            <QuickStats stats={stats} />
+          </div>
 
-            {/* Log Workout Form */}
-            {showLogForm && (
-              <WorkoutLogForm
-                log={selectedLog}
-                programs={workoutPlans}
-                onSubmit={async (formData) => {
-                  try {
-                    console.log("Form submission data:", formData);
-    
-                    // Ensure based_on_instance and program are proper integers, not strings
-                    const preparedData = {
-                      ...formData,
-                      based_on_instance: formData.based_on_instance ? 
-                        (typeof formData.based_on_instance === 'string' ? 
-                          parseInt(formData.based_on_instance, 10) : formData.based_on_instance) : 
-                        null,
-                      program: formData.program ? 
-                        (typeof formData.program === 'string' ? 
-                          parseInt(formData.program, 10) : formData.program) : 
-                        null
-                    };
-                    
-                    console.log("Prepared data for API:", preparedData);
-                    if (selectedLog?.id) {
-                      const updateData = {
-                        ...preparedData,
-                        exercises: preparedData.exercises.map(exercise => ({
-                          ...exercise,
-                          id: exercise.id,
-                          sets: exercise.sets.map(set => ({
-                            ...set,
-                            id: set.id,
-                          }))
-                        }))
-                      };
-                      console.log("Update data:", updateData);
-                      await updateLog(selectedLog.id, updateData);
-                    } else {
-                      console.log("Create data:", preparedData);
-                      await createLog(preparedData);
-                    }
-                    
-                    setShowLogForm(false);
-                    setSelectedLog(null);
-                    await refreshLogs();
-                  } catch (err) {
-                    console.error('Error saving log:', err);
-                    // Display error to user
-                    alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
-                  }
-                }}
+          {/* Right Column - Current Program & Next Workout (50%) */}
+          <div className="space-y-6">
+            {/* Current Program Section */}
+            <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
+              <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Current Program</h2>
+                  <p className="text-gray-400 text-sm mt-1">Your active training plan</p>
+                </div>
                 
-                onClose={() => {
-                  setShowLogForm(false);
-                  setSelectedLog(null);
-                }}
-              />
-            )}
+                <button 
+                  onClick={() => setView('plans')}
+                  className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <span>View All Programs</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                {plansLoading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                    <span className="ml-2 text-gray-400">Loading...</span>
+                  </div>
+                ) : activeProgram ? (
+                  <WorkoutPlansGrid
+                    plans={[activeProgram]}
+                    onSelect={handlePlanSelect}
+                    onDelete={deletePlan}
+                    onToggleActive={handleTogglePlanActive}
+                    onShare={handleShareProgram}
+                    onFork={handleForkProgram}
+                    currentUser={currentUser?.username}
+                    singleColumn={true}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No active program"
+                    description="Select or create a program to get started"
+                    action={{
+                      label: 'Browse Programs',
+                      onClick: () => setView('plans')
+                    }}
+                  />
+                )}
+              </div>
+            </div>
             
-            {/* Log Workout Modal */}
-            {showLogModal && (
-              <LogWorkoutModal
-                onClose={() => setShowLogModal(false)}
-                onNewLog={() => {
-                  setShowLogModal(false);
-                  setSelectedLog(null);
-                  setShowLogForm(true);
-                }}
-                onLogFromInstance={() => {
-                  setShowLogModal(false);
-                  setShowInstanceSelector(true);
-                }}
-                activeProgram={activeProgram}
-              />
-            )}
-            {showShareModal && programToShare && (
-            <ShareProgramModal 
-              program={programToShare}
-              onClose={() => {
-                setShowShareModal(false);
-                setProgramToShare(null);
-              }}
+            {/* Next Workout - Clickable */}
+            <div onClick={handleViewNextWorkout} className="cursor-pointer">
+              <NextWorkout workout={nextWorkout} />
+            </div>
+            
+            {/* Templates Preview */}
+            <TemplatePreview 
+              templates={templates.slice(0, 3)} 
+              onViewAll={() => setView('all-workouts')}
             />
-          )}
+          </div>
         </div>
-      );
-  }
+      </div>
+      
+      {/* Modals */}
+      {/* Log Workout Form */}
+      {showLogForm && (
+        <WorkoutLogForm
+          log={selectedLog}
+          programs={workoutPlans}
+          onSubmit={async (formData) => {
+            try {
+              const preparedData = {
+                ...formData,
+                based_on_instance: formData.based_on_instance ? 
+                  (typeof formData.based_on_instance === 'string' ? 
+                    parseInt(formData.based_on_instance, 10) : formData.based_on_instance) : 
+                  null,
+                program: formData.program ? 
+                  (typeof formData.program === 'string' ? 
+                    parseInt(formData.program, 10) : formData.program) : 
+                  null
+              };
+              
+              if (selectedLog?.id) {
+                const updateData = {
+                  ...preparedData,
+                  exercises: preparedData.exercises.map(exercise => ({
+                    ...exercise,
+                    id: exercise.id,
+                    sets: exercise.sets.map(set => ({
+                      ...set,
+                      id: set.id,
+                    }))
+                  }))
+                };
+                await updateLog(selectedLog.id, updateData);
+              } else {
+                await createLog(preparedData);
+              }
+              
+              setShowLogForm(false);
+              setSelectedLog(null);
+              await refreshLogs();
+            } catch (err) {
+              console.error('Error saving log:', err);
+              alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
+            }
+          }}
+          onClose={() => {
+            setShowLogForm(false);
+            setSelectedLog(null);
+          }}
+        />
+      )}
+      
+      {/* Log Workout Modal */}
+      {showLogModal && (
+        <LogWorkoutModal
+          onClose={() => setShowLogModal(false)}
+          onNewLog={() => {
+            setShowLogModal(false);
+            setSelectedLog(null);
+            setShowLogForm(true);
+          }}
+          onLogFromInstance={() => {
+            setShowLogModal(false);
+            setShowInstanceSelector(true);
+          }}
+          activeProgram={activeProgram}
+        />
+      )}
+      
+      {/* Instance Selector Modal */}
+      {showInstanceSelector && (
+        <WorkoutInstanceSelector
+          onClose={() => setShowInstanceSelector(false)}
+          onSelect={(workout) => {
+            setShowInstanceSelector(false);
+            setSelectedLog({
+              name: workout.name || 'Workout Log',
+              based_on_instance: workout.id,
+              program: activeProgram.id,
+              exercises: workout.exercises?.map(ex => ({
+                ...ex,
+                sets: ex.sets?.map(set => ({
+                  ...set,
+                  id: Math.floor(Date.now() + Math.random() * 1000)
+                }))
+              })) || []
+            });
+            setShowLogForm(true);
+          }}
+          activeProgram={activeProgram}
+        />
+      )}
+
+      {/* Share Program Modal */}
+      {showShareModal && programToShare && (
+        <ShareProgramModal 
+          program={programToShare}
+          onClose={() => {
+            setShowShareModal(false);
+            setProgramToShare(null);
+          }}
+        />
+      )}
+
+      {/* Workout Detail Modal */}
+      {showWorkoutModal && selectedWorkout && (
+        <ExpandableWorkoutModal
+          workoutId={selectedWorkout.id}
+          initialWorkoutData={selectedWorkout}
+          isOpen={showWorkoutModal}
+          onClose={() => {
+            setShowWorkoutModal(false);
+            setSelectedWorkout(null);
+          }}
+          isTemplate={false}
+        />
+      )}
+    </div>
+  );
 };
 
 export default WorkoutSpace;
