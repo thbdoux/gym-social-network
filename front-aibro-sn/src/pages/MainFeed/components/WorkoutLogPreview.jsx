@@ -10,7 +10,7 @@ import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 
 const workoutColors = getPostTypeDetails('workout_log').colors;
 
-const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdit }) => {
+const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdit, onWorkoutLogSelect }) => {
   const [expanded, setExpanded] = useState(false);
   const [workoutLog, setWorkoutLog] = useState(initialWorkoutLog);
   const [loading, setLoading] = useState(!initialWorkoutLog);
@@ -39,7 +39,12 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
 
   const handleCardClick = (e) => {
     e.stopPropagation();
-    setShowModal(true);
+    // If onWorkoutLogSelect is provided, use it instead of showing the modal directly
+    if (onWorkoutLogSelect) {
+      onWorkoutLogSelect(workoutLog);
+    } else {
+      setShowModal(true);
+    }
   };
 
   const getMoodEmoji = (rating) => {
@@ -244,13 +249,15 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
         </div>
       </div>
 
-      {/* Workout Log Modal */}
-      <ExpandableWorkoutLogModal
-        workoutLogId={workoutLogId}
-        initialWorkoutLogData={workoutLog}
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-      />
+      {/* Workout Log Modal - Only show if onWorkoutLogSelect is not provided */}
+      {!onWorkoutLogSelect && (
+        <ExpandableWorkoutLogModal
+          workoutLogId={workoutLogId}
+          initialWorkoutLogData={workoutLog}
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </>
   );
 };
