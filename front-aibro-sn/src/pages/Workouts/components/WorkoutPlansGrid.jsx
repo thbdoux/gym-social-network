@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Trash2, Activity, Calendar, Target, ChevronDown, ChevronUp, 
   Users, Share2, GitFork, Dumbbell, User, Clock, 
-  Edit, BarChart, Eye, CheckCircle, X, Award, Trophy
+  Edit, BarChart, Eye, CheckCircle, X, Award, Trophy, Layers, Star
 } from 'lucide-react';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 import ExpandableProgramModal from '../../MainFeed/components/ExpandableProgramModal';
