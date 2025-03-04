@@ -1,19 +1,27 @@
 // src/api.js
 import axios from 'axios';
 
+// Simple event for authentication errors
+export const AUTH_ERROR_EVENT = 'api_auth_error';
+
 const api = axios.create({
   baseURL: 'http://localhost:8000/api',
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 seconds
 });
 
-// Request interceptor for API calls
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
+      // Try both formats to see which works
       config.headers.Authorization = `Bearer ${token}`;
+      
+      // Debug info
+      console.log(`Request to ${config.url} with Authorization header`);
     }
     return config;
   },
@@ -23,23 +31,25 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for API calls
+// Response interceptor
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // Handle 401 errors (unauthorized)
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      // Clear token and redirect to login
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Debug error details
+    console.error('API Error:', 
+      error.config?.url, 
+      error.response?.status, 
+      error.response?.data
+    );
+    
+    // Handle auth errors (except during login)
+    if (error.response?.status === 401 && !error.config.url.includes('/users/token/')) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
-      return Promise.reject(error);
+      window.dispatchEvent(new CustomEvent(AUTH_ERROR_EVENT));
     }
-
-    console.error('Response error:', error);
+    
     return Promise.reject(error);
   }
 );

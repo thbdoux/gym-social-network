@@ -1,23 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useContext, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import { DataProvider } from './context/DataContext';
 import { PostsProvider } from './pages/MainFeed/contexts/PostsContext';
 import { WorkoutProvider } from './pages/Workouts/contexts/WorkoutContext';
-import { useContext } from 'react';
-import api from './api';
-
-// Pages
-import LoginPage from './pages/Login';
-import WorkoutsSpace from './pages/Workouts';
-import CoachPage from './pages/Coach';
-import ProfilePage from './pages/Profile';
-import MainFeed from './pages/MainFeed';
-import UserPostsPage from './pages/Profile/components/UserPostsPage';
+import ErrorBoundary from './components/common/ErrorBoundary';
+import { AUTH_ERROR_EVENT } from './api';
 
 // Components
-import { Sidebar, Feed } from './components';
+import { Sidebar } from './components';
 
-// Layout and other components remain the same...
+// Lazy load pages for better initial load performance
+const LoginPage = lazy(() => import('./pages/Login'));
+const MainFeed = lazy(() => import('./pages/MainFeed'));
+const WorkoutsSpace = lazy(() => import('./pages/Workouts'));
+const CoachPage = lazy(() => import('./pages/Coach'));
+const ProfilePage = lazy(() => import('./pages/Profile'));
+const UserPostsPage = lazy(() => import('./pages/Profile/components/UserPostsPage'));
+
+// Loading spinner component
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center h-screen w-full">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-900 border-t-transparent"></div>
+  </div>
+);
+
+// Layout component
 const Layout = ({ children }) => {
   const { logout } = useContext(AuthContext);
   
@@ -25,14 +33,21 @@ const Layout = ({ children }) => {
     <div className="flex min-h-screen bg-gray-900">
       <Sidebar onLogout={logout} />
       <main className="flex-1 ml-72 p-8">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   );
 };
 
+// Protected route component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useContext(AuthContext);
+  const { isAuthenticated, isLoading } = useContext(AuthContext);
+  
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -41,111 +56,104 @@ const ProtectedRoute = ({ children }) => {
   return <Layout>{children}</Layout>;
 };
 
-const FeedPage = () => {
-  // FeedPage implementation remains the same...
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  const fetchPosts = async () => {
-    try {
-      const response = await api.get('/posts/feed/');
-      setPosts(Array.isArray(response.data) ? response.data : []);
-    } catch (err) {
-      setError('Failed to load posts');
-      console.error('Error fetching posts:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Feed 
-      posts={posts} 
-      loading={loading} 
-      error={error} 
-      onUpdatePost={setPosts}
-    />
-  );
-};
-
 // Main App component
 function App() {
-  return (
-    <AuthProvider>
-      <PostsProvider>
-        <WorkoutProvider>
-          <Router>
-            <Routes>
-              {/* Public route */}
-              <Route path="/login" element={<LoginPage />} />
+  // Listen for auth errors globally
+  useEffect(() => {
+    const handleAuthError = () => {
+      // Redirect to login
+      window.location.href = '/login';
+    };
+    
+    window.addEventListener(AUTH_ERROR_EVENT, handleAuthError);
+    
+    return () => {
+      window.removeEventListener(AUTH_ERROR_EVENT, handleAuthError);
+    };
+  }, []);
 
-              {/* Protected routes */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Navigate to="/feed" replace />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/feed"
-                element={
-                  <ProtectedRoute>
-                    <MainFeed />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/workouts"
-                element={
-                  <ProtectedRoute>
-                    <WorkoutsSpace />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/coach"
-                element={
-                  <ProtectedRoute>
-                    <CoachPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/feed/posts"
-                element={
-                  <ProtectedRoute>
-                    <FeedPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/users/:username/posts"
-                element={
-                  <ProtectedRoute>
-                    <UserPostsPage />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Router>
-        </WorkoutProvider>
-      </PostsProvider>
-    </AuthProvider>
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <DataProvider>
+          <PostsProvider>
+            <WorkoutProvider>
+              <Router>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Routes>
+                    {/* Public route */}
+                    <Route path="/login" element={<LoginPage />} />
+
+                    {/* Protected routes */}
+                    <Route
+                      path="/"
+                      element={
+                        <ProtectedRoute>
+                          <Navigate to="/feed" replace />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/feed"
+                      element={
+                        <ProtectedRoute>
+                          <MainFeed />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/workouts"
+                      element={
+                        <ProtectedRoute>
+                          <WorkoutsSpace />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/coach"
+                      element={
+                        <ProtectedRoute>
+                          <CoachPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/profile"
+                      element={
+                        <ProtectedRoute>
+                          <ProfilePage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/users/:username/posts"
+                      element={
+                        <ProtectedRoute>
+                          <UserPostsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    
+                    {/* Catch-all route */}
+                    <Route
+                      path="*"
+                      element={
+                        <ProtectedRoute>
+                          <div className="text-center py-12">
+                            <h2 className="text-2xl font-bold mb-4">Page Not Found</h2>
+                            <p>The page you're looking for doesn't exist or has been moved.</p>
+                          </div>
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Routes>
+                </Suspense>
+              </Router>
+            </WorkoutProvider>
+          </PostsProvider>
+        </DataProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
