@@ -270,9 +270,10 @@ const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick, friends }
       {selectedProgram && (
         <ExpandableProgramModal 
           programId={selectedProgram.id}
-          initialProgramData={selectedProgram}
+          // initialProgramData={selectedProgram}
           isOpen={!!selectedProgram}
           onClose={handleCloseModal}
+          currentUser={user}
           onProgramSelect={(program) => {
             window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
           }}

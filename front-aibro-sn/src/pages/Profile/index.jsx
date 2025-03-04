@@ -88,7 +88,7 @@ const ProfilePage = () => {
 
   // Calculate the number of user posts
   const userPosts = posts.filter(post => post.user_username === user?.username);
-
+  console.log("user", user);
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <ProfileHeader 

@@ -19,14 +19,13 @@ const FOCUS_OPTIONS = [
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose, onProgramSelect }) => {
+const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose, onProgramSelect, currentUser = null }) => {
   const [program, setProgram] = useState(initialProgramData);
   const [loading, setLoading] = useState(!initialProgramData);
   const [error, setError] = useState(null);
   const [expandedWorkouts, setExpandedWorkouts] = useState({});
   const [expandedExercises, setExpandedExercises] = useState({});
   const [isForkingProgram, setIsForkingProgram] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [forkSuccess, setForkSuccess] = useState(false);
 
   // Get program-specific colors
@@ -48,18 +47,8 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
       }
     };
 
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await api.get('/users/me/');
-        setCurrentUser(response.data);
-      } catch (err) {
-        console.error('Error fetching current user:', err);
-      }
-    };
-
     if (isOpen) {
       fetchProgramDetails();
-      fetchCurrentUser();
     }
   }, [programId, program, isOpen]);
 
@@ -472,7 +461,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
             >
               Close
             </button>
-            
+            {console.log("creator : ",program)}
             {currentUser && program.creator_username !== currentUser.username && (
               <button
                 onClick={handleForkProgram}
