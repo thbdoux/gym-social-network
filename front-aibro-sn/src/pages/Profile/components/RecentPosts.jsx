@@ -14,20 +14,21 @@ import {
   Sparkles,
   ThumbsUp
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import api from '../../../api';
 import ProgramCardPost from '../../MainFeed/components/ProgramCardPost';
-import ExpandableProgramModal from '../../MainFeed/components/ExpandableProgramModal';
-import ExpandableWorkoutLogModal from '../../MainFeed/components/ExpandableWorkoutLogModal';
 import WorkoutLogPreview from '../../MainFeed/components/WorkoutLogPreview';
 
-const RecentPosts = ({ posts, username, onViewAll }) => {
+const RecentPosts = ({ 
+  posts, 
+  username, 
+  onViewAll, 
+  onProgramSelect, 
+  onWorkoutLogSelect 
+}) => {
   const [userData, setUserData] = useState(null);
   const [expandedPost, setExpandedPost] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
-  const [selectedProgram, setSelectedProgram] = useState(null);
-  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
   const [expandedView, setExpandedView] = useState(false);
   const [hoveredPost, setHoveredPost] = useState(null);
   const [likedPosts, setLikedPosts] = useState({});
@@ -43,21 +44,17 @@ const RecentPosts = ({ posts, username, onViewAll }) => {
     ? userPosts.slice(0, 13) 
     : userPosts.slice(0, 3);
 
-  // Handler for program card selection
+  // Updated handlers to pass data up to parent
   const handleProgramSelect = (program) => {
-    setSelectedProgram(program);
+    if (onProgramSelect) {
+      onProgramSelect(program);
+    }
   };
   
-  // Handler for workout log selection
   const handleWorkoutLogSelect = (workoutLog) => {
-    // Ensure we have the full workout log object with all properties
-    setSelectedWorkoutLog(workoutLog);
-  };
-  
-  // Close the modals
-  const handleCloseModals = () => {
-    setSelectedProgram(null);
-    setSelectedWorkoutLog(null);
+    if (onWorkoutLogSelect) {
+      onWorkoutLogSelect(workoutLog);
+    }
   };
 
   // Handle liking a post
@@ -406,28 +403,7 @@ const RecentPosts = ({ posts, username, onViewAll }) => {
         </div>
       )}
       
-      {/* Program Modal */}
-      {selectedProgram && (
-        <ExpandableProgramModal 
-          programId={selectedProgram.id}
-          initialProgramData={selectedProgram}
-          isOpen={!!selectedProgram}
-          onClose={handleCloseModals}
-          onProgramSelect={(program) => {
-            window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
-          }}
-        />
-      )}
-
-      {/* Workout Log Modal */}
-      {selectedWorkoutLog && (
-        <ExpandableWorkoutLogModal
-          workoutLogId={selectedWorkoutLog.id}
-          initialWorkoutData={selectedWorkoutLog}
-          isOpen={!!selectedWorkoutLog}
-          onClose={handleCloseModals}
-        />
-      )}
+      {/* Removed the modals from here */}
     </div>
   );
 };

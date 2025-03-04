@@ -6,6 +6,7 @@ import ProgressCharts from './components/ProgressCharts';
 import RecentPosts from './components/RecentPosts';
 import EditProfileModal from './components/EditProfileModal';
 import ExpandableProgramModal from '../MainFeed/components/ExpandableProgramModal';
+import ExpandableWorkoutLogModal from '../MainFeed/components/ExpandableWorkoutLogModal';
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -15,6 +16,8 @@ const ProfilePage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedProgram, setSelectedProgram] = useState(null);
+  // Add state for workout log modal
+  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -65,12 +68,24 @@ const ProfilePage = () => {
     fetchProfileData();
   }, []);
 
+  // Handler for program selection
   const handleProgramSelect = (program) => {
     setSelectedProgram(program);
   };
 
-  const handleCloseModal = () => {
+  // Handler for workout log selection
+  const handleWorkoutLogSelect = (workoutLog) => {
+    setSelectedWorkoutLog(workoutLog);
+  };
+
+  // Handler to close program modal
+  const handleCloseProgramModal = () => {
     setSelectedProgram(null);
+  };
+
+  // Handler to close workout log modal
+  const handleCloseWorkoutLogModal = () => {
+    setSelectedWorkoutLog(null);
   };
 
   if (loading) {
@@ -88,7 +103,7 @@ const ProfilePage = () => {
 
   // Calculate the number of user posts
   const userPosts = posts.filter(post => post.user_username === user?.username);
-  console.log("user", user);
+  
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <ProfileHeader 
@@ -107,7 +122,9 @@ const ProfilePage = () => {
         <div className="lg:col-span-3">
           <RecentPosts 
             posts={userPosts} 
-            username={user?.username} 
+            username={user?.username}
+            onProgramSelect={handleProgramSelect}
+            onWorkoutLogSelect={handleWorkoutLogSelect}
           />
         </div>
       </div>
@@ -125,10 +142,20 @@ const ProfilePage = () => {
           programId={selectedProgram.id}
           initialProgramData={selectedProgram}
           isOpen={!!selectedProgram}
-          onClose={handleCloseModal}
+          onClose={handleCloseProgramModal}
           onProgramSelect={(program) => {
             window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
           }}
+        />
+      )}
+      
+      {/* Workout Log Modal */}
+      {selectedWorkoutLog && (
+        <ExpandableWorkoutLogModal
+          workoutLogId={selectedWorkoutLog.id}
+          initialWorkoutData={selectedWorkoutLog}
+          isOpen={!!selectedWorkoutLog}
+          onClose={handleCloseWorkoutLogModal}
         />
       )}
     </div>
