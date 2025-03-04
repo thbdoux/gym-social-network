@@ -147,10 +147,9 @@ const SharedPostContent = ({ originalPost }) => {
         if (originalPost.post_type === 'workout_log' && originalPost.workout_log_details) {
           const workoutLogId = originalPost.workout_log_details.id;
           if (workoutLogId) {
-            const response = await api.get(`/workouts/logs/${workoutLogId}/`);
+            const response = await api.get(`/workouts/logs/${workoutLogId}/shared/`);
             setWorkoutLog(response.data);
           } else if (typeof originalPost.workout_log_details === 'object') {
-            // If we already have the details, use them directly
             setWorkoutLog(originalPost.workout_log_details);
           }
         }

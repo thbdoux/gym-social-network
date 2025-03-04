@@ -157,7 +157,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
 
   // Find days with workouts
   const activeDays = workoutsByDay.filter(day => day.workouts.length > 0);
-
+  console.log(program);
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 overflow-y-auto py-4 backdrop-blur-sm">
       <div className="bg-gray-900 rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700">
@@ -461,7 +461,6 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
             >
               Close
             </button>
-            {console.log("creator : ",program)}
             {currentUser && program.creator_username !== currentUser.username && (
               <button
                 onClick={handleForkProgram}

@@ -560,6 +560,27 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(detail=True, methods=['get'], url_path='shared')
+    def shared_log(self, request, pk=None):
+        """Endpoint for accessing workout logs shared in social feed"""
+        try:
+            log = WorkoutLog.objects.select_related(
+                'program', 'based_on_instance', 'gym'
+            ).prefetch_related(
+                'exercises', 'exercises__sets'
+            ).get(id=pk)
+            
+            # You could add additional permission checks here if needed
+            # For example, only allow access if the log is referenced in a public post
+            
+            serializer = WorkoutLogSerializer(log)
+            return Response(serializer.data)
+        except WorkoutLog.DoesNotExist:
+            return Response(
+                {"detail": "Workout log not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
     @action(detail=False)
     def stats(self, request):
         """Get workout statistics"""
