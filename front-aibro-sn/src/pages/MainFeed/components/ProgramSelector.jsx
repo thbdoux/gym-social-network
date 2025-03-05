@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Dumbbell, Calendar, Target, Loader2, GitFork } from 'lucide-react';
+import { Search, X, Dumbbell, Calendar, Target, Loader2, GitFork, Users, Clock } from 'lucide-react';
 import api from '../../../api';
 
 const ProgramSelector = ({ onSelect, onCancel }) => {
@@ -51,7 +51,7 @@ const ProgramSelector = ({ onSelect, onCancel }) => {
           <h3 className="text-lg font-semibold text-white">Select Program to Share</h3>
           <button
             onClick={onCancel}
-            className="p-1 hover:bg-gray-700 rounded-full transition-colors"
+            className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
           >
             <X className="w-5 h-5 text-gray-400" />
           </button>
@@ -74,7 +74,7 @@ const ProgramSelector = ({ onSelect, onCancel }) => {
 
           {loading ? (
             <div className="text-center py-6">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
+              <Loader2 className="w-8 h-8 text-purple-500 animate-spin mx-auto" />
               <p className="mt-2 text-gray-400">Loading programs...</p>
             </div>
           ) : error ? (
@@ -91,31 +91,48 @@ const ProgramSelector = ({ onSelect, onCancel }) => {
                 <div
                   key={program.id}
                   onClick={() => onSelect(program)}
-                  className="p-3 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer mb-2 border border-gray-700/50"
+                  className="p-4 hover:bg-gray-700 rounded-lg transition-colors cursor-pointer mb-3 border border-gray-700/50 hover:border-purple-500/50"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Dumbbell className="w-4 h-4 text-purple-400" />
-                    <h4 className="font-medium text-white">{program.name}</h4>
-                    {program.forked_from && (
-                      <span className="text-xs bg-gray-600 text-gray-300 px-1.5 py-0.5 rounded flex items-center gap-1">
-                        <GitFork className="w-3 h-3" />
-                        Forked
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-purple-500/20 p-2 rounded-lg">
+                        <Dumbbell className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-white text-base">{program.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs bg-gray-700 text-purple-400 px-2 py-0.5 rounded-full">
+                            {program.focus.replace(/_/g, ' ')}
+                          </span>
+                          {program.forked_from && (
+                            <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                              <GitFork className="w-3 h-3" />
+                              Forked
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-400 line-clamp-2 mb-2">{program.description}</p>
                   
-                  <div className="grid grid-cols-3 gap-2 mt-2">
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <Calendar className="w-3 h-3" />
-                      <span>{program.sessions_per_week}x weekly</span>
+                  <p className="text-sm text-gray-400 line-clamp-2 my-3 bg-gray-800/50 p-2 rounded-lg">
+                    {program.description || "No description available"}
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-3 bg-gray-800/50 p-3 rounded-lg">
+                    <div className="flex flex-col items-center p-2 border-r border-gray-700">
+                      <span className="text-xs text-gray-400">Frequency</span>
+                      <span className="text-sm font-medium text-white mt-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-purple-400" />
+                        {program.sessions_per_week}x weekly
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <Target className="w-3 h-3" />
-                      <span className="capitalize">{program.focus.replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {program.workouts?.length || 0} workouts
+                    <div className="flex flex-col items-center p-2">
+                      <span className="text-xs text-gray-400">Workouts</span>
+                      <span className="text-sm font-medium text-white mt-1 flex items-center gap-1">
+                        <Users className="w-3 h-3 text-purple-400" />
+                        {program.workouts?.length || 0}
+                      </span>
                     </div>
                   </div>
                 </div>

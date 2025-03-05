@@ -7,11 +7,13 @@ import {
   ImageIcon,
   Send,
   X,
-  ChevronDown 
+  ChevronDown,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import api from '../../../api';
-import ShareWorkoutLog from './ShareWorkoutLog';
 import ProgramSelector from './ProgramSelector';
+import WorkoutLogSelector from './WorkoutLogSelector';
 
 const CreatePost = ({ onPostCreated }) => {
   const [content, setContent] = useState('');
@@ -21,9 +23,11 @@ const CreatePost = ({ onPostCreated }) => {
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const typeButtonRef = useRef(null);
   const [postType, setPostType] = useState('regular');
-  const [showShareWorkout, setShowShareWorkout] = useState(false);
+  const [showWorkoutLogSelector, setShowWorkoutLogSelector] = useState(false);
   const [showProgramSelector, setShowProgramSelector] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState(null);
+  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
+  const [gymName, setGymName] = useState(null);
   const fileInputRef = useRef(null);
 
   const postTypes = {
@@ -36,7 +40,7 @@ const CreatePost = ({ onPostCreated }) => {
       label: 'Share Workout',
       icon: Activity,
       color: 'green',
-      action: () => setShowShareWorkout(true)
+      action: () => setShowWorkoutLogSelector(true)
     },
     program: {
       label: 'Share Program',
@@ -70,7 +74,9 @@ const CreatePost = ({ onPostCreated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content.trim() && !selectedProgram) return;
+    
+    // Validation: Either content or an attachment (program/workout) is required
+    if (!content.trim() && !selectedProgram && !selectedWorkoutLog) return;
 
     try {
       const formData = new FormData();
@@ -86,11 +92,18 @@ const CreatePost = ({ onPostCreated }) => {
         formData.append('program_id', selectedProgram.id);
         console.log('Sharing program with ID:', selectedProgram.id);
       }
+      
+      // If sharing a workout log, add the workout log ID
+      if (postType === 'workout_log' && selectedWorkoutLog) {
+        formData.append('workout_log_id', selectedWorkoutLog.id);
+        console.log('Sharing workout log with ID:', selectedWorkoutLog.id);
+      }
 
       console.log('Sending post data:', {
         content,
         post_type: postType,
-        program_id: selectedProgram?.id || null
+        program_id: selectedProgram?.id || null,
+        workout_log_id: selectedWorkoutLog?.id || null
       });
 
       const response = await api.post('/posts/', formData);
@@ -109,37 +122,10 @@ const CreatePost = ({ onPostCreated }) => {
     setImage(null);
     setPostType('regular');
     setSelectedProgram(null);
+    setSelectedWorkoutLog(null);
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
       setImagePreview(null);
-    }
-  };
-
-  const handleShareWorkout = async (postData) => {
-    try {
-      console.log('About to send post data:', postData);
-      
-      // Ensure we're using the right parameter name for the API
-      // If postData contains workout_log instead of workout_log_id, fix it
-      if (postData.workout_log && !postData.workout_log_id) {
-        postData.workout_log_id = postData.workout_log;
-        delete postData.workout_log;
-      }
-      
-      const response = await api.post('/posts/', postData);
-      
-      console.log('Response from API:', response.data);
-      console.log('Response headers:', response.headers);
-      
-      onPostCreated(response.data);
-      setShowShareWorkout(false);
-      setPostType('regular');
-    } catch (err) {
-      console.error('Failed to share workout:', err);
-      console.error('Error response:', err.response?.data);
-      if (err.response?.data) {
-        alert('Error sharing workout: ' + JSON.stringify(err.response.data));
-      }
     }
   };
 
@@ -149,6 +135,28 @@ const CreatePost = ({ onPostCreated }) => {
     setShowProgramSelector(false);
     // Auto-populate content with program name
     setContent(`Check out my workout program: ${program.name}`);
+  };
+  
+  const handleWorkoutLogSelect = async (workoutLog) => {
+    console.log('Selected workout log:', workoutLog);
+    
+    // Fetch gym name if workoutLog has a gym ID
+    if (workoutLog.gym) {
+      try {
+        const response = await api.get(`/gyms/${workoutLog.gym}/`);
+        setGymName(response.data.name);
+      } catch (error) {
+        console.error('Error fetching gym details:', error);
+        setGymName('Unknown Gym');
+      }
+    } else {
+      setGymName(null);
+    }
+    
+    setSelectedWorkoutLog(workoutLog);
+    setShowWorkoutLogSelector(false);
+    // Auto-populate content with workout name
+    setContent(`Just completed: ${workoutLog.workout_name || workoutLog.name || "a workout"}`);
   };
 
   const currentType = postTypes[postType];
@@ -233,9 +241,13 @@ const CreatePost = ({ onPostCreated }) => {
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder={postType === 'program' && selectedProgram 
-                    ? "Add a note about this program..." 
-                    : "What's on your mind?"}
+                  placeholder={
+                    postType === 'program' && selectedProgram 
+                      ? "Add a note about this program..." 
+                      : postType === 'workout_log' && selectedWorkoutLog
+                      ? "Add a note about this workout..."
+                      : "What's on your mind?"
+                  }
                   className="w-full bg-gray-800 text-gray-100 rounded-lg p-3 h-10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder-gray-500 transition-all"
                   style={{ minHeight: '40px', paddingTop: '8px', paddingBottom: '8px' }}
                 />
@@ -263,8 +275,11 @@ const CreatePost = ({ onPostCreated }) => {
                 {/* Post Button */}
                 <button
                   type="submit"
-                  disabled={(postType === 'program' && !selectedProgram) || 
-                            (postType !== 'program' && !content.trim())}
+                  disabled={
+                    (postType === 'program' && !selectedProgram && !content.trim()) || 
+                    (postType === 'workout_log' && !selectedWorkoutLog && !content.trim()) || 
+                    (postType !== 'program' && postType !== 'workout_log' && !content.trim())
+                  }
                   className={`h-10 px-4 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50
                   ${postType === 'workout_log' ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400' :
                     postType === 'workout_invite' ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400' :
@@ -279,25 +294,105 @@ const CreatePost = ({ onPostCreated }) => {
 
             {/* Program Preview if selected */}
             {postType === 'program' && selectedProgram && (
-              <div className="mt-3 bg-gray-800 rounded-lg p-3 border border-purple-500/20">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Dumbbell className="w-5 h-5 text-purple-400" />
-                    <h4 className="font-medium text-white">{selectedProgram.name}</h4>
+              <div className="mt-3 bg-gray-800 rounded-lg p-4 border border-purple-500/20 hover:border-purple-500/50 transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-purple-500/20 p-2 rounded-lg">
+                      <Dumbbell className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-white">{selectedProgram.name}</h4>
+                      <span className="text-xs bg-gray-700 text-purple-400 px-2 py-0.5 rounded-full mt-1 inline-block">
+                        {selectedProgram.focus.replace(/_/g, ' ')}
+                      </span>
+                    </div>
                   </div>
                   <button 
                     type="button"
                     onClick={() => setSelectedProgram(null)}
-                    className="p-1 hover:bg-gray-700 rounded-full"
+                    className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
                   >
                     <X className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>
-                <p className="text-gray-400 text-sm">{selectedProgram.description}</p>
-                <div className="mt-2 text-xs text-gray-500">
-                  {selectedProgram.sessions_per_week}x per week • 
-                  {selectedProgram.focus.replace(/_/g, ' ')} • 
-                  {selectedProgram.workouts?.length || 0} workouts
+                
+                <p className="text-gray-400 text-sm bg-gray-900/50 p-3 rounded-lg mb-3">{selectedProgram.description}</p>
+                
+                <div className="grid grid-cols-2 gap-3 bg-gray-900/50 p-3 rounded-lg">
+                  <div className="flex flex-col items-center p-2 border-r border-gray-700">
+                    <span className="text-xs text-gray-400">Frequency</span>
+                    <span className="text-sm font-medium text-white mt-1">
+                      {selectedProgram.sessions_per_week}x weekly
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-2">
+                    <span className="text-xs text-gray-400">Workouts</span>
+                    <span className="text-sm font-medium text-white mt-1">
+                      {selectedProgram.workouts?.length || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Workout Log Preview if selected */}
+            {postType === 'workout_log' && selectedWorkoutLog && (
+              <div className="mt-3 bg-gray-800 rounded-lg p-4 border border-green-500/20 hover:border-green-500/50 transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-500/20 p-2 rounded-lg">
+                      <Activity className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-white">
+                        {selectedWorkoutLog.workout_name || selectedWorkoutLog.name || "Workout"}
+                      </h4>
+                      {selectedWorkoutLog.program_name && (
+                        <span className="text-xs bg-gray-700 text-green-400 px-2 py-0.5 rounded-full mt-1 inline-block">
+                          {selectedWorkoutLog.program_name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-white">
+                        {selectedWorkoutLog.date || "No date"}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {selectedWorkoutLog.location || gymName || "No location"}
+                      </div>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedWorkoutLog(null)}
+                      className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3 bg-gray-900/50 p-3 rounded-lg">
+                  <div className="flex flex-col items-center p-2 border-r border-gray-700">
+                    <span className="text-xs text-gray-400">Duration</span>
+                    <span className="text-sm font-medium text-white mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-green-400" />
+                      {selectedWorkoutLog.duration_mins || 0} mins
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-2 border-r border-gray-700">
+                    <span className="text-xs text-gray-400">Volume</span>
+                    <span className="text-sm font-medium text-white mt-1">
+                      {selectedWorkoutLog.total_volume || 0} kg
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-2">
+                    <span className="text-xs text-gray-400">Exercises</span>
+                    <span className="text-sm font-medium text-white mt-1">
+                      {selectedWorkoutLog.exercise_count || selectedWorkoutLog.exercises?.length || 0}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -335,14 +430,16 @@ const CreatePost = ({ onPostCreated }) => {
         </div>
       </div>
 
-      {/* Share Workout Modal */}
-      {showShareWorkout && (
-        <ShareWorkoutLog
-          onClose={() => {
-            setShowShareWorkout(false);
-            setPostType('regular');
+      {/* Workout Log Selector Modal */}
+      {showWorkoutLogSelector && (
+        <WorkoutLogSelector
+          onSelect={handleWorkoutLogSelect}
+          onCancel={() => {
+            setShowWorkoutLogSelector(false);
+            if (!selectedWorkoutLog) {
+              setPostType('regular');
+            }
           }}
-          onShare={handleShareWorkout}
         />
       )}
 
@@ -352,7 +449,9 @@ const CreatePost = ({ onPostCreated }) => {
           onSelect={handleProgramSelect}
           onCancel={() => {
             setShowProgramSelector(false);
-            setPostType('regular');
+            if (!selectedProgram) {
+              setPostType('regular');
+            }
           }}
         />
       )}
