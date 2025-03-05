@@ -14,20 +14,3 @@ export const getAvatarUrl = (avatarPath, size = 120) => {
   return `${API_URL}${avatarPath}`.replace(/([^:]\/)\/+/g, "$1");
 };
 
-
-export const getMediaUrl = (media) => {
-  if (!media) return null;
-  
-  // If it's a File object (new upload)
-  if (media instanceof File) {
-    return URL.createObjectURL(media);
-  }
-  
-  // If it's a media object from the API
-  if (typeof media === 'object' && media.name) {
-    // Assuming the backend stores workout media in a 'workout_logs' subdirectory
-    return `${API_URL}/media/workout_logs/${media.name}`;
-  }
-  
-  return null;
-};

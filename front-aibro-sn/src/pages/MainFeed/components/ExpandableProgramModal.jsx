@@ -20,7 +20,7 @@ const FOCUS_OPTIONS = [
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose, onProgramSelect, currentUser = null }) => {
-  const [program, setProgram] = useState(initialProgramData);
+  const [program, setProgram] = useState();
   const [loading, setLoading] = useState(!initialProgramData);
   const [error, setError] = useState(null);
   const [expandedWorkouts, setExpandedWorkouts] = useState({});

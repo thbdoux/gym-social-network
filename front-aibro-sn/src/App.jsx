@@ -14,35 +14,28 @@ import ProfilePage from './pages/Profile';
 import MainFeed from './pages/MainFeed';
 import UserPostsPage from './pages/Profile/components/UserPostsPage';
 
-// Components
-import { Sidebar, Feed } from './components';
+// Updated Components
+import Sidebar from './components/Sidebar';
+import Layout from './components/Layout';
 
-// Layout and other components remain the same...
-const Layout = ({ children }) => {
-  const { logout } = useContext(AuthContext);
-  
-  return (
-    <div className="flex min-h-screen bg-gray-900">
-      <Sidebar onLogout={logout} />
-      <main className="flex-1 ml-72 p-8">
-        {children}
-      </main>
-    </div>
-  );
-};
-
+// ProtectedRoute component that includes both Sidebar and Layout
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useContext(AuthContext);
+  const { isAuthenticated, logout } = useContext(AuthContext);
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  return <Layout>{children}</Layout>;
+  return (
+    <>
+      <Sidebar onLogout={logout} />
+      <Layout>{children}</Layout>
+    </>
+  );
 };
 
+// Feed page implementation
 const FeedPage = () => {
-  // FeedPage implementation remains the same...
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -63,13 +56,18 @@ const FeedPage = () => {
     }
   };
 
+  // Import the Feed component dynamically to avoid circular dependencies
+  const Feed = React.lazy(() => import('./components/Feed'));
+
   return (
-    <Feed 
-      posts={posts} 
-      loading={loading} 
-      error={error} 
-      onUpdatePost={setPosts}
-    />
+    <React.Suspense fallback={<div>Loading...</div>}>
+      <Feed 
+        posts={posts} 
+        loading={loading} 
+        error={error} 
+        onUpdatePost={setPosts}
+      />
+    </React.Suspense>
   );
 };
 

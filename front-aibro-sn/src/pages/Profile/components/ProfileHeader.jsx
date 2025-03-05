@@ -3,6 +3,7 @@ import { Edit, Dumbbell, Target, Crown, Heart, Calendar, MapPin, Trophy, Chevron
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import ExpandableProgramModal from '../../MainFeed/components/ExpandableProgramModal';
 import FriendsModal from './FriendsModal';
+import UserProfilePreviewModal from './UserProfilePreviewModal';
 import { POST_TYPE_COLORS } from '../../../utils/postTypeUtils';
 
 const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick, friends }) => {
@@ -10,6 +11,7 @@ const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick, friends }
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
+  const [selectedFriend, setSelectedFriend] = useState(null);
   
   const getGymDisplay = (user) => {
     if (!user?.preferred_gym_details || !user?.preferred_gym_details?.name) {
@@ -30,6 +32,14 @@ const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick, friends }
 
   const handleCloseModal = () => {
     setSelectedProgram(null);
+  };
+
+  const handleViewFriendProfile = (friend) => {
+    setSelectedFriend(friend);
+  };
+
+  const handleCloseFriendProfile = () => {
+    setSelectedFriend(null);
   };
 
   // Get the number of posts from the user object if available
@@ -107,42 +117,111 @@ const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick, friends }
           className={`p-4 bg-gray-800/50 rounded-xl shadow-md transition-all duration-300 transform ${activeSection === 'friends' ? 'scale-[1.02] bg-gray-800/70 shadow-lg' : 'hover:bg-gray-800/60 hover:shadow-lg hover:scale-[1.01]'}`}
           onMouseEnter={() => setActiveSection('friends')}
           onMouseLeave={() => setActiveSection(null)}
-          onClick={() => setIsFriendsModalOpen(true)}
         >
-          <div className="h-full cursor-pointer">
+          <div className="h-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2 group">
                 <Users className="w-4 h-4 text-green-400 transition-all duration-300 group-hover:scale-110" />
                 <span className="group-hover:text-green-300 transition-colors duration-300">Friends ({friendCount})</span>
               </h2>
-              <button className="text-blue-400 hover:text-blue-300 text-xs transition-all duration-200 hover:scale-110">
+              <button 
+                onClick={() => setIsFriendsModalOpen(true)}
+                className="text-blue-400 hover:text-blue-300 text-xs transition-all duration-200 hover:scale-110"
+              >
                 View All
               </button>
             </div>
             
             {friends && Array.isArray(friends) && friends.length > 0 ? (
-              <div className="space-y-2">
-                {friends.map((friendData) => (
-                  <div 
-                    key={friendData.id} 
-                    className="flex items-center gap-2 p-2 bg-gray-900/50 hover:bg-gray-900/70 rounded-lg transition-all duration-200 transform hover:translate-x-1 hover:shadow-md"
-                  >
-                    <img
-                      src={getAvatarUrl(friendData.friend ? friendData.friend.avatar : friendData.avatar)}
-                      alt={friendData.friend ? friendData.friend.username : friendData.username}
-                      className="w-8 h-8 rounded-full object-cover border-2 border-transparent hover:border-green-500/30 transition-all duration-300"
-                    />
-                    <div>
-                      <div className="font-medium text-sm">{friendData.friend ? friendData.friend.username : friendData.username}</div>
-                      <div className="text-xs text-gray-400">{formatText(friendData.friend ? friendData.friend.training_level : friendData.training_level)}</div>
+              <div className="space-y-3">
+                {friends.map((friendData) => {
+                  // Determine friend object structure
+                  const friend = friendData.friend ? friendData.friend : friendData;
+                  
+                  // Generate personality color based on personality type
+                  const getPersonalityColor = (type) => {
+                    switch(type) {
+                      case 'casual': return 'from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400';
+                      case 'competitor': return 'from-red-500/20 to-orange-500/20 border-red-500/30 text-red-400';
+                      case 'lone_wolf': return 'from-purple-500/20 to-indigo-500/20 border-purple-500/30 text-purple-400';
+                      case 'extrovert_bro': return 'from-green-500/20 to-teal-500/20 border-green-500/30 text-green-400';
+                      default: return 'from-gray-500/20 to-slate-500/20 border-gray-500/30 text-gray-400';
+                    }
+                  };
+
+                  // Level color classes
+                  const getLevelColor = (level) => {
+                    switch(level) {
+                      case 'beginner': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+                      case 'intermediate': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+                      case 'advanced': return 'bg-red-500/20 text-red-400 border-red-500/30';
+                      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+                    }
+                  };
+                  
+                  const personalityColor = getPersonalityColor(friend.personality_type);
+                  const levelColor = getLevelColor(friend.training_level);
+                  
+                  return (
+                    <div 
+                      key={friendData.id} 
+                      className="group relative p-3 bg-gradient-to-br from-gray-900/60 to-gray-800/60 hover:from-gray-800/80 hover:to-gray-700/80 rounded-lg transition-all duration-300 transform hover:scale-[1.03] hover:shadow-lg cursor-pointer overflow-hidden"
+                      onClick={() => handleViewFriendProfile(friend)}
+                    >
+                      {/* Subtle background pattern */}
+                      <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.2)_0,_transparent_70%)] bg-[length:20px_20px]"></div>
+                      
+                      <div className="flex items-center gap-3 relative z-10">
+                        {/* Avatar with colored border based on personality */}
+                        <div className="relative">
+                          <div className={`absolute inset-0 bg-gradient-to-br ${personalityColor} rounded-full blur-sm opacity-70 group-hover:opacity-100 transition-opacity`}></div>
+                          <img
+                            src={getAvatarUrl(friend.avatar)}
+                            alt={friend.username}
+                            className="relative w-10 h-10 rounded-full object-cover border-2 border-transparent group-hover:border-white/30 transition-all duration-300 z-10"
+                          />
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-gray-800 shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"></div>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="font-medium text-white group-hover:text-white transition-colors duration-300">
+                            {friend.username}
+                          </div>
+                          
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full border ${levelColor}`}>
+                              {formatText(friend.training_level || 'beginner')}
+                            </span>
+                            
+                            {friend.personality_type && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full border ${personalityColor}`}>
+                                {formatText(friend.personality_type)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* "View profile" action on hover */}
+                        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-blue-600/20 to-transparent flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="w-5 h-5 rounded-full bg-blue-500/30 flex items-center justify-center">
+                            <span className="text-blue-200 text-xs">+</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Animated highlight line on hover */}
+                      <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 w-0 group-hover:w-full transition-all duration-700"></div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-4 flex flex-col items-center">
                 <div className="text-gray-400 text-sm mb-2">No friends yet</div>
-                <button className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded-lg text-xs transition-all duration-300 hover:shadow-md hover:scale-105">
+                <button 
+                  onClick={() => setIsFriendsModalOpen(true)}
+                  className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded-lg text-xs transition-all duration-300 hover:shadow-md hover:scale-105"
+                >
                   Find Friends
                 </button>
               </div>
@@ -270,7 +349,7 @@ const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick, friends }
       {selectedProgram && (
         <ExpandableProgramModal 
           programId={selectedProgram.id}
-          // initialProgramData={selectedProgram}
+          initialProgramData={selectedProgram}
           isOpen={!!selectedProgram}
           onClose={handleCloseModal}
           currentUser={user}
@@ -286,6 +365,16 @@ const ProfileHeader = ({ user, workoutCount, friendCount, onEditClick, friends }
         onClose={() => setIsFriendsModalOpen(false)}
         currentUser={user}
       />
+      
+      {/* Friend Profile Preview Modal */}
+      {selectedFriend && (
+        <UserProfilePreviewModal
+          isOpen={!!selectedFriend}
+          onClose={handleCloseFriendProfile}
+          userId={selectedFriend.id}
+          username={selectedFriend.username}
+        />
+      )}
     </div>
   );
 };

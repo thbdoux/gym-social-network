@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
 
+// Import the updated ProfileHeader
 import ProfileHeader from './components/ProfileHeader';
 import ProgressCharts from './components/ProgressCharts';
 import RecentPosts from './components/RecentPosts';
 import EditProfileModal from './components/EditProfileModal';
 import ExpandableProgramModal from '../MainFeed/components/ExpandableProgramModal';
 import ExpandableWorkoutLogModal from '../MainFeed/components/ExpandableWorkoutLogModal';
-import EditPostModal from '../MainFeed/components/EditPostModal'; // Import EditPostModal
+import EditPostModal from '../MainFeed/components/EditPostModal';
+// Import UserProfilePreviewModal - we don't need to import here as it's used in ProfileHeader
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -153,7 +155,7 @@ const ProfilePage = () => {
 
   // Calculate the number of user posts
   const userPosts = posts.filter(post => post.user_username === user?.username);
-  
+  console.log("USER : ", user)
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <ProfileHeader 

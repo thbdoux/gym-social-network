@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, UserPlus, UserMinus, Check, UserCheck, Search } from 'lucide-react';
+import { X, Users, UserPlus, UserMinus, Check, UserCheck, Search, User, Eye } from 'lucide-react';
 import api from '../../../api';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import UserProfilePreviewModal from './UserProfilePreviewModal';
 
 const FriendsModal = ({ isOpen, onClose, currentUser }) => {
   const [friends, setFriends] = useState([]);
@@ -10,6 +11,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
   const [activeTab, setActiveTab] = useState('friends');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFriend, setSelectedFriend] = useState(null);
 
   const fetchFriendData = async () => {
     try {
@@ -58,6 +60,14 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
     } catch (error) {
       console.error('Error responding to friend request:', error);
     }
+  };
+
+  const handleViewFriendProfile = (friend) => {
+    setSelectedFriend(friend);
+  };
+
+  const handleCloseFriendProfile = () => {
+    setSelectedFriend(null);
   };
 
   // Get sets of user IDs for each category
@@ -124,7 +134,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fadeIn">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fadeIn backdrop-blur-sm">
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between bg-gray-800/50 px-6 py-4 border-b border-gray-700/50">
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -204,9 +214,18 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                               )}
                             </div>
                           </div>
-                          <button className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-all text-sm text-red-400">
-                            Remove
-                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleViewFriendProfile(friendData.friend)}
+                              className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-sm text-blue-400"
+                              title="View Profile"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-all text-sm text-red-400">
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -241,6 +260,13 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                                   <div className="text-sm text-gray-400">{formatText(request.from_user.training_level)}</div>
                                 </div>
                                 <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => handleViewFriendProfile(request.from_user)}
+                                    className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-blue-400"
+                                    title="View Profile"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
                                   <button 
                                     onClick={() => handleRespondToRequest(request.from_user.id, 'accept')}
                                     className="p-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-all text-green-400"
@@ -279,9 +305,18 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                                   <div className="font-medium text-white">{request.to_user.username}</div>
                                   <div className="text-sm text-gray-400">{formatText(request.to_user.training_level)}</div>
                                 </div>
-                                <div className="text-sm text-yellow-400 flex items-center gap-1">
-                                  <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                                  Pending
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => handleViewFriendProfile(request.to_user)}
+                                    className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-blue-400"
+                                    title="View Profile"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <div className="text-sm text-yellow-400 flex items-center gap-1">
+                                    <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                                    Pending
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -321,13 +356,22 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                               )}
                             </div>
                           </div>
-                          <button 
-                            onClick={() => handleSendRequest(user.id)}
-                            className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-sm text-blue-400 flex items-center gap-1"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                            <span>Add</span>
-                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleViewFriendProfile(user)}
+                              className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-blue-400"
+                              title="View Profile"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleSendRequest(user.id)}
+                              className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-sm text-blue-400 flex items-center gap-1"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                              <span>Add</span>
+                            </button>
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -343,6 +387,16 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
           </div>
         </div>
       </div>
+
+      {/* User Profile Preview Modal */}
+      {selectedFriend && (
+        <UserProfilePreviewModal
+          isOpen={!!selectedFriend}
+          onClose={handleCloseFriendProfile}
+          userId={selectedFriend.id}
+          username={selectedFriend.username}
+        />
+      )}
     </div>
   );
 };
