@@ -1,43 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ChevronDown,
-  Heart,
-  MessageCircle,
-  Share2,
-  MoreHorizontal,
   Dumbbell,
-  Calendar,
   Clock,
   Trash2,
   Edit2,
   Send,
   Sparkles,
-  ThumbsUp
+  ThumbsUp,
+  MoreHorizontal
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import api from '../../../api';
 import ProgramCardPost from '../../MainFeed/components/ProgramCardPost';
 import WorkoutLogPreview from '../../MainFeed/components/WorkoutLogPreview';
+import EditPostModal from '../../MainFeed/components/EditPostModal'; // Import EditPostModal
 
 const RecentPosts = ({ 
-  posts, 
+  posts: initialPosts, 
   username, 
   onViewAll, 
   onProgramSelect, 
-  onWorkoutLogSelect 
+  onWorkoutLogSelect,
+  onEditPost,
+  onDeletePost
 }) => {
   const [userData, setUserData] = useState(null);
   const [expandedPost, setExpandedPost] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
   const [expandedView, setExpandedView] = useState(false);
   const [hoveredPost, setHoveredPost] = useState(null);
-  const [likedPosts, setLikedPosts] = useState({});
   const [commentText, setCommentText] = useState('');
   const [hoveredButton, setHoveredButton] = useState(null);
   
-  const userPosts = Array.isArray(posts) 
-    ? posts.filter(post => post.user_username === username)
-    : [];
+  // State for managing posts locally
+  const [posts, setPosts] = useState(Array.isArray(initialPosts) ? [...initialPosts] : []);
+  
+  const userPosts = posts.filter(post => post.user_username === username) || [];
     
   // Display only first 3 posts, or up to 13 if expanded
   const displayPosts = expandedView 
@@ -57,14 +56,6 @@ const RecentPosts = ({
     }
   };
 
-  // Handle liking a post
-  const handleLikePost = (postId) => {
-    setLikedPosts(prev => ({
-      ...prev,
-      [postId]: !prev[postId]
-    }));
-  };
-  
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -105,12 +96,28 @@ const RecentPosts = ({
     }
   };
 
-  // Function to toggle post expansion
-  const togglePostExpansion = (postId) => {
-    if (expandedPost === postId) {
-      setExpandedPost(null);
-    } else {
-      setExpandedPost(postId);
+  // Function to handle edit post request
+  const handleEditPost = (post) => {
+    if (onEditPost) {
+      onEditPost(post);
+    }
+    setMenuOpen(null);
+  };
+
+  // Function to handle delete post request
+  const handleDeletePost = async (postId) => {
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      try {
+        if (onDeletePost) {
+          await onDeletePost(postId);
+          // Update local state
+          setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+        }
+        setMenuOpen(null);
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        alert('Failed to delete post. Please try again.');
+      }
     }
   };
   
@@ -135,6 +142,11 @@ const RecentPosts = ({
       document.removeEventListener('click', handleClickOutside);
     };
   }, []);
+
+  // Use effect to update posts when initialPosts changes
+  useEffect(() => {
+    setPosts(Array.isArray(initialPosts) ? [...initialPosts] : []);
+  }, [initialPosts]);
 
   return (
     <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/60 rounded-xl p-6 shadow-xl transition-all duration-300 hover:shadow-2xl hover:from-gray-800/60 hover:to-gray-900/80 transform hover:scale-[1.005]">
@@ -187,27 +199,36 @@ const RecentPosts = ({
                         </span>
                       )}
                       
-                      <div className="relative">
-                        <button 
-                          onClick={(e) => toggleMenu(post.id, e)} 
-                          className="p-1 hover:bg-gray-800 rounded-full transition-all duration-300"
-                        >
-                          <MoreHorizontal className="w-4 h-4 text-gray-400 hover:text-white" />
-                        </button>
-                        
-                        {menuOpen === post.id && (
-                          <div className="absolute right-0 top-full mt-1 bg-gray-800 rounded-lg shadow-xl py-1 w-36 z-10 animate-fadeIn">
-                            <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-700 transition-all duration-200 group">
-                              <Edit2 className="w-4 h-4 text-blue-400 group-hover:rotate-12 transition-transform duration-200" />
-                              <span className="group-hover:translate-x-1 transition-transform duration-200">Edit Post</span>
-                            </button>
-                            <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-700 transition-all duration-200 group">
-                              <Trash2 className="w-4 h-4 text-red-400 group-hover:rotate-12 transition-transform duration-200" />
-                              <span className="group-hover:translate-x-1 transition-transform duration-200">Delete</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      {/* Only show menu button if the current user is the post author */}
+                      {userData && userData.username === post.user_username && (
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => toggleMenu(post.id, e)} 
+                            className="p-1 hover:bg-gray-800 rounded-full transition-all duration-300"
+                          >
+                            <MoreHorizontal className="w-4 h-4 text-gray-400 hover:text-white" />
+                          </button>
+                          
+                          {menuOpen === post.id && (
+                            <div className="absolute right-0 top-full mt-1 bg-gray-800 rounded-lg shadow-xl py-1 w-36 z-10 animate-fadeIn">
+                              <button 
+                                onClick={() => handleEditPost(post)}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-700 transition-all duration-200 group"
+                              >
+                                <Edit2 className="w-4 h-4 text-blue-400 group-hover:rotate-12 transition-transform duration-200" />
+                                <span className="group-hover:translate-x-1 transition-transform duration-200">Edit Post</span>
+                              </button>
+                              <button 
+                                onClick={() => handleDeletePost(post.id)}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-700 transition-all duration-200 group"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-400 group-hover:rotate-12 transition-transform duration-200" />
+                                <span className="group-hover:translate-x-1 transition-transform duration-200">Delete</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -266,113 +287,7 @@ const RecentPosts = ({
                     </div>
                   )}
                   
-                  {/* Post Actions */}
-                  <div className="flex items-center gap-4 mt-4 text-gray-400">
-                    <button 
-                      className={`flex items-center gap-1 text-sm transition-all duration-300 group ${
-                        likedPosts[post.id] ? 'text-red-400' : 'hover:text-red-400'
-                      }`}
-                      onClick={() => handleLikePost(post.id)}
-                      onMouseEnter={() => setHoveredButton(`like-${post.id}`)}
-                      onMouseLeave={() => setHoveredButton(null)}
-                    >
-                      <Heart 
-                        className={`w-4 h-4 transition-all duration-300 ${
-                          likedPosts[post.id] 
-                            ? 'fill-red-400 scale-110' 
-                            : 'group-hover:scale-110 group-hover:fill-red-400/20'
-                        } ${hoveredButton === `like-${post.id}` ? 'animate-pulse' : ''}`} 
-                      />
-                      <span className="group-hover:font-medium">{(post.likes_count || 0) + (likedPosts[post.id] ? 1 : 0)}</span>
-                    </button>
-                    
-                    <button 
-                      className="flex items-center gap-1 hover:text-blue-400 text-sm transition-all duration-300 group"
-                      onClick={() => togglePostExpansion(post.id)}
-                      onMouseEnter={() => setHoveredButton(`comment-${post.id}`)}
-                      onMouseLeave={() => setHoveredButton(null)}
-                    >
-                      <MessageCircle 
-                        className={`w-4 h-4 transition-transform duration-200 ${hoveredButton === `comment-${post.id}` ? 'rotate-12 scale-110' : 'group-hover:scale-110'}`} 
-                      />
-                      <span className="group-hover:font-medium">{post.comments?.length || 0}</span>
-                    </button>
-                    
-                    <button 
-                      className="flex items-center gap-1 hover:text-green-400 text-sm transition-all duration-300 group"
-                      onMouseEnter={() => setHoveredButton(`share-${post.id}`)}
-                      onMouseLeave={() => setHoveredButton(null)}
-                    >
-                      <Share2 
-                        className={`w-4 h-4 transition-all duration-200 ${hoveredButton === `share-${post.id}` ? 'rotate-12 scale-110' : 'group-hover:scale-110'}`} 
-                      />
-                      <span className="group-hover:font-medium">Share</span>
-                    </button>
-                  </div>
-                  
-                  {/* Comments Section - Expandable */}
-                  {expandedPost === post.id && post.comments && (
-                    <div className="mt-4 space-y-3 pt-3 border-t border-gray-700/50 animate-fadeIn">
-                      <div className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-blue-400" />
-                        <span>Comments</span>
-                      </div>
-
-                      {post.comments.length > 0 ? (
-                        post.comments.map((comment, index) => (
-                          <div key={index} className="flex items-start gap-2 group hover:bg-gray-800/30 p-2 rounded-lg transition-all duration-200">
-                            <img
-                              src={getAvatarUrl(comment.user_avatar, 24)}
-                              alt={`${comment.user_username}'s avatar`}
-                              className="w-6 h-6 rounded-full object-cover border border-transparent group-hover:border-blue-500/30 transition-all duration-300"
-                            />
-                            <div className="flex-1 bg-gray-800/40 p-2 rounded-lg group-hover:bg-gray-800/60 transition-colors duration-200">
-                              <div className="flex items-baseline justify-between">
-                                <span className="font-medium text-sm">{comment.user_username}</span>
-                                <span className="text-xs text-gray-500">{formatTimestamp(comment.created_at)}</span>
-                              </div>
-                              <p className="text-sm mt-1 text-gray-300 group-hover:text-white transition-colors duration-300">{comment.content}</p>
-                            </div>
-                            <button className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-gray-500 hover:text-blue-400 p-1">
-                              <ThumbsUp className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-3 text-gray-500 text-sm italic">
-                          No comments yet. Be the first to comment!
-                        </div>
-                      )}
-                      
-                      {/* Comment input */}
-                      <div className="flex items-start gap-2 mt-2">
-                        <img
-                          src={getAvatarUrl(userData?.avatar, 24)}
-                          alt="Your avatar"
-                          className="w-6 h-6 rounded-full object-cover"
-                        />
-                        <div className="flex-1 bg-gray-800/40 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-blue-500/50 transition-all duration-300 hover:bg-gray-800/60">
-                          <input
-                            type="text"
-                            placeholder="Add a comment..."
-                            className="w-full bg-transparent border-none p-2 text-sm focus:outline-none"
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                          />
-                        </div>
-                        <button 
-                          className={`p-2 rounded-full transition-all duration-300 ${
-                            commentText 
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                              : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                          } hover:shadow-md`}
-                          disabled={!commentText}
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Like/Comment/Share buttons are removed */}
                 </div>
               </div>
             </div>
@@ -403,7 +318,7 @@ const RecentPosts = ({
         </div>
       )}
       
-      {/* Removed the modals from here */}
+      {/* No Edit Post Modal here - it's now in the parent component */}
     </div>
   );
 };

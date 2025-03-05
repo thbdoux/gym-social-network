@@ -7,6 +7,7 @@ import RecentPosts from './components/RecentPosts';
 import EditProfileModal from './components/EditProfileModal';
 import ExpandableProgramModal from '../MainFeed/components/ExpandableProgramModal';
 import ExpandableWorkoutLogModal from '../MainFeed/components/ExpandableWorkoutLogModal';
+import EditPostModal from '../MainFeed/components/EditPostModal'; // Import EditPostModal
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -16,8 +17,11 @@ const ProfilePage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedProgram, setSelectedProgram] = useState(null);
-  // Add state for workout log modal
   const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
+  
+  // Add state for edit post modal
+  const [isEditPostModalOpen, setIsEditPostModalOpen] = useState(false);
+  const [postToEdit, setPostToEdit] = useState(null);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -88,6 +92,52 @@ const ProfilePage = () => {
     setSelectedWorkoutLog(null);
   };
 
+  // Handler to open edit post modal
+  const handleEditPost = (post) => {
+    setPostToEdit(post);
+    setIsEditPostModalOpen(true);
+  };
+
+  // Handler to save edited post
+  const handleSaveEditedPost = async (editedPost) => {
+    try {
+      const response = await api.put(`/posts/${editedPost.id}/`, editedPost);
+      
+      // Update the post in state
+      setPosts(prevPosts => 
+        prevPosts.map(post => 
+          post.id === editedPost.id ? response.data : post
+        )
+      );
+      
+      setIsEditPostModalOpen(false);
+      setPostToEdit(null);
+    } catch (error) {
+      console.error('Error updating post:', error);
+      alert('Failed to update post. Please try again.');
+    }
+  };
+  
+  // Ensure we're using the updated EditPostModal component
+  useEffect(() => {
+    if (postToEdit) {
+      setIsEditPostModalOpen(true);
+    }
+  }, [postToEdit]);
+
+  // Handler to delete post
+  const handleDeletePost = async (postId) => {
+    try {
+      await api.delete(`/posts/${postId}/`);
+      
+      // Remove the deleted post from state
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert('Failed to delete post. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -125,6 +175,8 @@ const ProfilePage = () => {
             username={user?.username}
             onProgramSelect={handleProgramSelect}
             onWorkoutLogSelect={handleWorkoutLogSelect}
+            onEditPost={handleEditPost}
+            onDeletePost={handleDeletePost}
           />
         </div>
       </div>
@@ -135,6 +187,19 @@ const ProfilePage = () => {
         user={user}
         setUser={setUser}
       />
+
+      {/* Edit Post Modal */}
+      {isEditPostModalOpen && postToEdit && (
+        <EditPostModal
+          isOpen={isEditPostModalOpen}
+          onClose={() => {
+            setIsEditPostModalOpen(false);
+            setPostToEdit(null);
+          }}
+          post={postToEdit}
+          onSave={handleSaveEditedPost}
+        />
+      )}
 
       {/* Program Modal */}
       {selectedProgram && (
