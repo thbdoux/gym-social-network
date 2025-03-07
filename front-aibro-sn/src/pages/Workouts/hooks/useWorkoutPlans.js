@@ -1,68 +1,87 @@
-// hooks/useWorkoutPlans.js
+// hooks/useWorkoutPlans.js (Refactored)
 import { useState, useEffect } from 'react';
-import api from '../../../api';
+import { programService } from '../../../api/services';
 
+/**
+ * Hook for managing workout plans/programs
+ * 
+ * @returns {Object} Workout plans state and operations
+ */
 export const useWorkoutPlans = () => {
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  /**
+   * Fetches workout plans from the API
+   * 
+   * @returns {Promise<Array>} The fetched workout plans
+   */
   const fetchWorkoutPlans = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/workouts/programs/');
-      const allPlans = response.data?.results || [];
-      
-      // Use the is_owner field from the serializer to verify ownership
-      // Only display programs that the user owns, has explicitly forked, or that have been shared with them
-      const filteredPlans = allPlans.filter(plan => {
-        return (
-          plan.is_owner ||                                // User created this plan
-          (plan.program_shares && plan.program_shares.length > 0) || // Plan shared with user
-          (plan.forked_from !== null)                     // User explicitly forked this plan
-        );
-      });
-      
-      setWorkoutPlans(filteredPlans);
+      const plans = await programService.getPrograms();
+      setWorkoutPlans(plans);
       setError(null);
-      return filteredPlans;
+      return plans;
     } catch (err) {
       setError('Failed to load workout plans');
       setWorkoutPlans([]);
+      return [];
     } finally {
       setLoading(false);
     }
   };
   
+  // Fetch workout plans on mount
   useEffect(() => {
     fetchWorkoutPlans();
   }, []);
 
+  /**
+   * Creates a new workout plan
+   * 
+   * @param {Object} planData - Plan data
+   * @returns {Promise<Object>} Created plan
+   */
   const createPlan = async (planData) => {
     try {
-      const response = await api.post('/workouts/programs/', planData);
+      const newPlan = await programService.createProgram(planData);
       await fetchWorkoutPlans();
-      return response.data;
+      return newPlan;
     } catch (err) {
       setError('Failed to create workout plan');
       throw err;
     }
   };
 
+  /**
+   * Updates an existing workout plan
+   * 
+   * @param {number|string} planId - Plan ID
+   * @param {Object} updates - Plan updates
+   * @returns {Promise<Object>} Updated plan
+   */
   const updatePlan = async (planId, updates) => {
     try {
-      const response = await api.patch(`/workouts/programs/${planId}/`, updates);
+      const updatedPlan = await programService.updateProgram(planId, updates);
       await fetchWorkoutPlans();
-      return response.data;
+      return updatedPlan;
     } catch (err) {
       setError('Failed to update workout plan');
       throw err;
     }
   };
 
+  /**
+   * Deletes a workout plan
+   * 
+   * @param {number|string} planId - Plan ID
+   * @returns {Promise<void>}
+   */
   const deletePlan = async (planId) => {
     try {
-      await api.delete(`/workouts/programs/${planId}/`);
+      await programService.deleteProgram(planId);
       await fetchWorkoutPlans();
     } catch (err) {
       setError('Failed to delete workout plan');
@@ -70,118 +89,55 @@ export const useWorkoutPlans = () => {
     }
   };
 
+  /**
+   * Adds a workout to a plan
+   * 
+   * @param {number|string} planId - Plan ID
+   * @param {number|string} templateId - Template ID
+   * @param {number} weekday - Preferred weekday (0-6)
+   * @returns {Promise<Object>} Added workout
+   */
   const addWorkoutToPlan = async (planId, templateId, weekday) => {
     try {
-      const response = await api.post(`/workouts/programs/${planId}/add_workout/`, {
-        template_id: templateId,
-        preferred_weekday: weekday
-      });
+      const result = await programService.addWorkoutToProgram(planId, templateId, weekday);
       await fetchWorkoutPlans();
-      return response.data;
+      return result;
     } catch (err) {
-      console.error('Error adding workout:', err.response || err);
+      console.error('Error adding workout:', err);
       setError('Failed to add workout to plan');
       throw err;
     }
   };
 
-  // Updated updateWorkoutInstance function in useWorkoutPlans.js
+  /**
+   * Updates a workout in a plan
+   * 
+   * @param {number|string} planId - Plan ID
+   * @param {number|string} workoutId - Workout ID
+   * @param {Object} updates - Workout updates
+   * @returns {Promise<Object>} Updated workout
+   */
   const updateWorkoutInstance = async (planId, workoutId, updates) => {
     try {
-        console.log(`Updating workout instance ${workoutId} in plan ${planId}`);
-        console.log('Update data:', updates);
-        
-        // If this is just a weekday update, get the full workout data and update just the day
-        if (Object.keys(updates).length === 1 && 'preferred_weekday' in updates) {
-            console.log('This is a weekday-only update');
-            
-            // 1. Get current workout data
-            const currentWorkoutResponse = await api.get(`/workouts/programs/${planId}/workouts/${workoutId}/`);
-            const currentWorkout = currentWorkoutResponse.data;
-            
-            console.log('Current workout before update:', currentWorkout);
-            console.log('Current exercises count:', currentWorkout.exercises?.length);
-            
-            // 2. Create updated workout with just the weekday changed
-            const updatedWorkout = {
-                ...currentWorkout,
-                preferred_weekday: updates.preferred_weekday
-            };
-            
-            console.log('Sending update with day change only:', updatedWorkout);
-            console.log('Exercises included in update:', updatedWorkout.exercises?.length);
-            
-            // 3. Send the full data back
-            const response = await api.put(
-                `/workouts/programs/${planId}/workouts/${workoutId}/`,
-                updatedWorkout,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                }
-            );
-            
-            console.log('Response after update:', response.data);
-            console.log('Exercises after update:', response.data.exercises?.length);
-            
-            await fetchWorkoutPlans();
-            return response.data;
-        }
-        
-        // Otherwise, proceed with normal full update
-        console.log('This is a full update including multiple fields');
-        
-        const formattedUpdates = {
-            name: updates.name,
-            description: updates.description || '',
-            split_method: updates.split_method,
-            preferred_weekday: updates.preferred_weekday,
-            difficulty_level: updates.difficulty_level,
-            equipment_required: updates.equipment_required,
-            estimated_duration: updates.estimated_duration,
-            tags: updates.tags,
-            order: updates.order,
-            program: updates.program,
-            exercises: updates.exercises?.map(exercise => ({
-                name: exercise.name,
-                equipment: exercise.equipment || '',
-                notes: exercise.notes || '',
-                order: exercise.order,
-                sets: exercise.sets.map((set, idx) => ({
-                    reps: parseInt(set.reps),
-                    weight: parseFloat(set.weight),
-                    rest_time: parseInt(set.rest_time),
-                    order: idx
-                }))
-            })) || []
-        };
-
-        console.log('Sending formatted update:', formattedUpdates);
-        console.log('Exercises in formatted update:', formattedUpdates.exercises?.length);
-
-        const response = await api.put(
-            `/workouts/programs/${planId}/workouts/${workoutId}/`,
-            formattedUpdates,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            }
-        );
-
-        console.log('Response after full update:', response.data);
-        await fetchWorkoutPlans();
-        return response.data;
+      const result = await programService.updateProgramWorkout(planId, workoutId, updates);
+      await fetchWorkoutPlans();
+      return result;
     } catch (err) {
-        console.error('Error updating workout:', err.response || err);
-        throw err;
+      console.error('Error updating workout:', err);
+      throw err;
     }
-};
+  };
 
+  /**
+   * Removes a workout from a plan
+   * 
+   * @param {number|string} planId - Plan ID
+   * @param {number|string} workoutId - Workout ID
+   * @returns {Promise<Array>} Updated plans
+   */
   const removeWorkoutFromPlan = async (planId, workoutId) => {
     try {
-      await api.delete(`/workouts/programs/${planId}/workouts/${workoutId}/`);
+      await programService.removeWorkoutFromProgram(planId, workoutId);
       const updatedPlans = await fetchWorkoutPlans();
       return updatedPlans;
     } catch (err) {

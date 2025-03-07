@@ -1,17 +1,27 @@
-// hooks/useGyms.js
+// hooks/useGyms.js (Refactored)
 import { useState, useEffect } from 'react';
-import api from '../../../api';
+import { gymService } from '../../../api/services';
 
+/**
+ * Hook for managing gyms
+ * 
+ * @returns {Object} Gyms state and operations
+ */
 export const useGyms = () => {
   const [gyms, setGyms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  /**
+   * Fetches gyms from the API
+   * 
+   * @returns {Promise<void>}
+   */
   const fetchGyms = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/gyms/');
-      setGyms(response.data?.results || []);
+      const fetchedGyms = await gymService.getGyms();
+      setGyms(fetchedGyms);
       setError(null);
     } catch (err) {
       console.error('Error fetching gyms:', err);
@@ -22,6 +32,7 @@ export const useGyms = () => {
     }
   };
 
+  // Fetch gyms on mount
   useEffect(() => {
     fetchGyms();
   }, []);

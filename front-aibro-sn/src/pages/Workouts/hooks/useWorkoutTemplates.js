@@ -1,17 +1,26 @@
-// hooks/useWorkoutTemplates.js
+// hooks/useWorkoutTemplates.js (Refactored)
 import { useState, useEffect } from 'react';
-import api from '../../../api';
+import { workoutService } from '../../../api/services';
 
+/**
+ * Hook for managing workout templates
+ * 
+ * @returns {Object} Workout templates state and operations
+ */
 export const useWorkoutTemplates = () => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  /**
+   * Fetches workout templates from the API
+   * 
+   * @returns {Promise<Array>} Fetched templates
+   */
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/workouts/templates/');
-      const fetchedTemplates = response.data?.results || [];
+      const fetchedTemplates = await workoutService.getTemplates();
       setTemplates(fetchedTemplates);
       setError(null);
       return fetchedTemplates;
@@ -25,39 +34,15 @@ export const useWorkoutTemplates = () => {
     }
   };
 
+  /**
+   * Creates a new workout template
+   * 
+   * @param {Object} templateData - Template data
+   * @returns {Promise<Object>} Created template
+   */
   const createTemplate = async (templateData) => {
     try {
-      const response = await api.post('/workouts/templates/', {
-        name: templateData.name,
-        description: templateData.description,
-        split_method: templateData.split_method,
-        difficulty_level: templateData.difficulty_level,
-        estimated_duration: templateData.estimated_duration,
-        equipment_required: templateData.equipment_required,
-        tags: templateData.tags,
-        is_public: templateData.is_public
-      });
-
-      const newTemplate = response.data;
-
-      // Add exercises if they exist
-      if (templateData.exercises?.length > 0) {
-        for (const exercise of templateData.exercises) {
-          await api.post(`/workouts/templates/${newTemplate.id}/add_exercise/`, {
-            name: exercise.name,
-            equipment: exercise.equipment,
-            notes: exercise.notes,
-            order: exercise.order,
-            sets: exercise.sets.map((set, idx) => ({
-              reps: parseInt(set.reps),
-              weight: parseFloat(set.weight),
-              rest_time: parseInt(set.rest_time),
-              order: idx
-            }))
-          });
-        }
-      }
-
+      const newTemplate = await workoutService.createTemplate(templateData);
       await fetchTemplates();
       return newTemplate;
     } catch (err) {
@@ -66,76 +51,18 @@ export const useWorkoutTemplates = () => {
     }
   };
 
-  // hooks/useWorkoutTemplates.js
+  /**
+   * Updates an existing workout template
+   * 
+   * @param {number|string} templateId - Template ID
+   * @param {Object} updates - Template updates
+   * @returns {Promise<Object>} Updated template
+   */
   const updateTemplate = async (templateId, updates) => {
     try {
-      // First update the template basic info
-      const templateResponse = await api.patch(`/workouts/templates/${templateId}/`, {
-        name: updates.name,
-        description: updates.description,
-        split_method: updates.split_method,
-        difficulty_level: updates.difficulty_level,
-        estimated_duration: updates.estimated_duration,
-        equipment_required: updates.equipment_required || [],
-        tags: updates.tags || [],
-        is_public: updates.is_public ?? false,
-      });
-
-      // Get existing template data to compare exercises
-      const currentTemplate = await api.get(`/workouts/templates/${templateId}/`);
-      const existingExercises = currentTemplate.data.exercises || [];
-      
-      // Handle exercises
-      if (updates.exercises) {
-        for (const exercise of updates.exercises) {
-          if (!exercise.id) {
-            // New exercise - add it
-            
-            await api.post(`/workouts/templates/${templateId}/exercises/new/`, {
-              name: exercise.name,
-              equipment: exercise.equipment || '',
-              notes: exercise.notes || '',
-              order: exercise.order,
-              sets: exercise.sets.map((set, setIndex) => ({
-                reps: parseInt(set.reps) || 0,
-                weight: parseFloat(set.weight) || 0,
-                rest_time: parseInt(set.rest_time) || 60,
-                order: setIndex
-              }))
-            });
-          } else {
-            // Update existing exercise
-            await api.put(`/workouts/templates/${templateId}/exercises/${exercise.id}/`, {
-              name: exercise.name,
-              equipment: exercise.equipment || '',
-              notes: exercise.notes || '',
-              order: exercise.order,
-              sets: exercise.sets.map((set, setIndex) => ({
-                reps: parseInt(set.reps) || 0,
-                weight: parseFloat(set.weight) || 0,
-                rest_time: parseInt(set.rest_time) || 60,
-                order: setIndex
-              }))
-            });
-          }
-        }
-
-        // Delete exercises that are no longer present
-        const updatedExerciseIds = updates.exercises.map(e => e.id).filter(Boolean);
-        for (const existingExercise of existingExercises) {
-          if (!updatedExerciseIds.includes(existingExercise.id)) {
-            await api.delete(`/workouts/templates/${templateId}/exercises/${existingExercise.id}/`);
-          }
-        }
-      }
-
-      // Fetch updated data
-      const finalTemplate = await api.get(`/workouts/templates/${templateId}/`);
-
-      // Refresh the templates list
+      const updatedTemplate = await workoutService.updateTemplate(templateId, updates);
       await fetchTemplates();
-
-      return finalTemplate.data;
+      return updatedTemplate;
     } catch (err) {
       console.error('Failed to update template:', err);
       console.error('Error details:', err.response?.data || err.message);
@@ -143,10 +70,15 @@ export const useWorkoutTemplates = () => {
     }
   };
 
-
+  /**
+   * Deletes a workout template
+   * 
+   * @param {number|string} templateId - Template ID
+   * @returns {Promise<void>}
+   */
   const deleteTemplate = async (templateId) => {
     try {
-      await api.delete(`/workouts/templates/${templateId}/`);
+      await workoutService.deleteTemplate(templateId);
       setTemplates(prevTemplates => prevTemplates.filter(t => t.id !== templateId));
     } catch (err) {
       console.error('Failed to delete template:', err);
@@ -154,6 +86,7 @@ export const useWorkoutTemplates = () => {
     }
   };
 
+  // Fetch templates on mount
   useEffect(() => {
     fetchTemplates();
   }, []);
