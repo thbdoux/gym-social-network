@@ -12,7 +12,8 @@ import {
   Dumbbell,
   Search
 } from 'lucide-react';
-import WorkoutPlansGrid from './components/WorkoutPlansGrid';
+import { ProgramCard } from './components/ProgramCard';
+import { ProgramGrid } from './components/ProgramCard';
 import EmptyState from './components/EmptyState';
 import { useWorkoutPlans } from './hooks/useWorkoutPlans';
 import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
@@ -556,15 +557,17 @@ const WorkoutSpace = () => {
                     <span className="ml-2 text-gray-400">Loading...</span>
                   </div>
                 ) : activeProgram ? (
-                  <WorkoutPlansGrid
-                    plans={[activeProgram]}
-                    onSelect={handlePlanSelect}
+                  <ProgramCard
+                    program={activeProgram}
+                    currentUser={currentUser?.username}
+                    canManage={true}
+                    onProgramSelect={handlePlanSelect}
                     onDelete={deletePlan}
                     onToggleActive={handleTogglePlanActive}
                     onShare={handleShareProgram}
                     onFork={handleForkProgram}
-                    currentUser={currentUser?.username}
                     singleColumn={true}
+                    canEdit
                   />
                 ) : (
                   <EmptyState

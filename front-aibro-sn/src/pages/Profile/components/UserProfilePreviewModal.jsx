@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import api from '../../../api';
 import { getAvatarUrl } from '../../../utils/imageUtils';
-import ExpandableProgramModal from '../../MainFeed/components/ExpandableProgramModal';
+import ExpandableProgramModal from '../../Workouts/components/ExpandableProgramModal';
 
 const UserProfilePreviewModal = ({ isOpen, onClose, userId, username }) => {
   const [userData, setUserData] = useState(null);

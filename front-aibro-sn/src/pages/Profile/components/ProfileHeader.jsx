@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Edit, Dumbbell, Target, Crown, Heart, Calendar, MapPin, Trophy, ChevronDown, Activity, Users, TrendingUp } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
-import ExpandableProgramModal from '../../MainFeed/components/ExpandableProgramModal';
+import ExpandableProgramModal from '../../Workouts/components/ExpandableProgramModal';
 import FriendsModal from './FriendsModal';
 import UserProfilePreviewModal from './UserProfilePreviewModal';
 import { POST_TYPE_COLORS } from '../../../utils/postTypeUtils';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, LayoutGrid, ArrowLeft } from 'lucide-react';
-import WorkoutPlansGrid from '../components/WorkoutPlansGrid';
+import { ProgramCard, ProgramGrid } from '../components/ProgramCard';
 import EmptyState from '../components/EmptyState';
 import ShareProgramModal from '../components/ShareProgramModal';
 import api from '../../../api';
@@ -138,8 +138,8 @@ const PlansListView = ({
 
       {/* Plans Grid */}
       {hasPlans ? (
-        <WorkoutPlansGrid
-          plans={getAccessiblePrograms()}
+        <ProgramGrid
+          programs={getAccessiblePrograms()}
           onSelect={handlePlanSelection}
           onDelete={handleDeletePlan}
           onToggleActive={handleToggleActive}

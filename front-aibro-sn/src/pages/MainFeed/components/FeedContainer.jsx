@@ -5,13 +5,11 @@ import { User, MoreVertical, Heart, MessageCircle, Share2, Send, Pencil,
 import { FileEdit } from "lucide-react";
 import api from '../../../api';
 import { getAvatarUrl } from '../../../utils/imageUtils';
-import ProgramCardPost from './ProgramCardPost';
-import WorkoutLogPreview from './WorkoutLogPreview';
+import { ProgramCard } from '../../Workouts/components/ProgramCard';
+import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
 import { ModalProvider } from './ModalController';
 import SharePostModal from './SharePostModal';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
-
-// Make sure to import the ProgramCardPost component at the top of your file
 
 const Post = ({ 
   post, 
@@ -27,11 +25,8 @@ const Post = ({
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
-  const [showShareInput, setShowShareInput] = useState(false);
-  const [shareText, setShareText] = useState('');
   const [programData, setProgramData] = useState(null);
   const menuRef = useRef(null);
-  const shareInputRef = useRef(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Fetch program data if this is a program post
@@ -127,15 +122,11 @@ const Post = ({
     );
   };
 
-    // In FeedContainer.jsx - update the SharedPostContent component to properly render workout logs and programs
-  // Updated SharedPostContent component for FeedContainer.jsx
-
-const SharedPostContent = ({ originalPost }) => {
+const SharedPostContent = ({ originalPost, currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [workoutLog, setWorkoutLog] = useState(null);
   const [programData, setProgramData] = useState(null);
   const [userData, setUserData] = useState(null);
-  
 
   // Fetch the full data for workout logs, programs, and user data
   useEffect(() => {
@@ -255,20 +246,25 @@ const SharedPostContent = ({ originalPost }) => {
       
       <p className="text-gray-200 mb-3">{originalPost.content}</p>
       
-      {/* Use WorkoutLogPreview component for workout logs */}
+      {/* Use WorkoutLogCard component for workout logs */}
       {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && workoutLog && (
-        <WorkoutLogPreview 
-          workoutLogId={originalPost.workout_log}
-          workoutLog={workoutLog}
-          canEdit={false}
-        />
+
+        <WorkoutLogCard
+          user={currentUser}
+          logId={originalPost.workout_log}
+          log= {workoutLog}
+          canEdit= {post.user_username === currentUser}
+          inFeedMode={true}
+          
+          />
       )}
       
-      {/* Use ProgramCardPost component for programs */}
+      {/* Use ProgramCard component for programs */}
       {originalPost.post_type === 'program' && (programData) && (
-        <ProgramCardPost 
+        <ProgramCard 
           programId={originalPost.program_id || originalPost.program}
-          initialProgramData={programData}
+          program = {programData}
+          inFeedMode = {true}
         />
       )}
       
@@ -452,31 +448,35 @@ const SharedPostContent = ({ originalPost }) => {
           {/* Program Card */}
           {post.post_type === 'program' && (
             <div className="mt-2">
-            <ProgramCardPost 
+            <ProgramCard
               programId={post.program_id || (post.program_details && post.program_details.id)}
-              initialProgramData={
+              program={
                 typeof post.program_details === 'string' 
                   ? JSON.parse(post.program_details) 
                   : post.program_details
               }
-              onClick={handleProgramClick}
+              // onClick={handleProgramClick}
               onProgramSelect={handleProgramClick}
+              currentUser = {currentUser}
             />
           </div>
           )}
           
           {/* Workout Log */}
           {post.post_type === 'workout_log' && post.workout_log_details && (
-            <WorkoutLogPreview 
-              workoutLogId={post.workout_log}
-              workoutLog={post.workout_log_details}
-              canEdit={post.user_username === currentUser}
+            <WorkoutLogCard 
+              user={currentUser}
+              logId={post.workout_log}
+              log={post.workout_log_details}
             />
           )}
           
           {/* Shared Post */}
           {post.is_share && post.original_post_details && (
-            <SharedPostContent originalPost={post.original_post_details} />
+            <SharedPostContent 
+              originalPost={post.original_post_details}
+              currentUser = {currentUser} 
+              />
           )}
           
           {/* Regular Image */}
@@ -554,7 +554,6 @@ const FeedContainer = ({
   const [friendUsernames, setFriendUsernames] = useState(null);
   const [filteredPosts, setFilteredPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-
   // Fetch friends list
   useEffect(() => {
     const fetchFriends = async () => {

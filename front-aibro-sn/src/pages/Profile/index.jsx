@@ -6,10 +6,9 @@ import ProfileHeader from './components/ProfileHeader';
 import ProgressCharts from './components/ProgressCharts';
 import RecentPosts from './components/RecentPosts';
 import EditProfileModal from './components/EditProfileModal';
-import ExpandableProgramModal from '../MainFeed/components/ExpandableProgramModal';
-import ExpandableWorkoutLogModal from '../MainFeed/components/ExpandableWorkoutLogModal';
+import ExpandableProgramModal from '../Workouts/components/ExpandableProgramModal';
+import ExpandableWorkoutLogModal from '../Workouts/components/ExpandableWorkoutLogModal';
 import EditPostModal from '../MainFeed/components/EditPostModal';
-// Import UserProfilePreviewModal - we don't need to import here as it's used in ProfileHeader
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);

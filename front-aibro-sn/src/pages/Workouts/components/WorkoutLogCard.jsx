@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useGyms } from '../hooks/useGyms';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
-import ExpandableWorkoutLogModal from './../../MainFeed/components/ExpandableWorkoutLogModal';
+import ExpandableWorkoutLogModal from './ExpandableWorkoutLogModal';
 import api from '../../../api';
 
 const WorkoutLogCard = ({ 
@@ -28,7 +28,6 @@ const WorkoutLogCard = ({
   const [loading, setLoading] = useState(!initialLog);
   
   const { gyms, loading: gymsLoading } = useGyms();
-  // Fetch workout log details if not provided
   const canEdit = log.username == user;
   useEffect(() => {
     const fetchWorkoutLog = async () => {

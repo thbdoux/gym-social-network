@@ -12,9 +12,8 @@ import {
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import api from '../../../api';
-import ProgramCardPost from '../../MainFeed/components/ProgramCardPost';
-import WorkoutLogPreview from '../../MainFeed/components/WorkoutLogPreview';
-import EditPostModal from '../../MainFeed/components/EditPostModal'; // Import EditPostModal
+import { ProgramCard } from '../../Workouts/components/ProgramCard';
+import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
 
 const RecentPosts = ({ 
   posts: initialPosts, 
@@ -255,10 +254,11 @@ const RecentPosts = ({
                         onClick={() => handleWorkoutLogSelect(post.workout_log_details)}
                         className="cursor-pointer transition-all duration-300 transform hover:scale-[1.02] hover:shadow-md"
                       >
-                        <WorkoutLogPreview
-                          workoutLogId={post.workout_log_details.id}
-                          workoutLog={post.workout_log_details}
-                          onWorkoutLogSelect={handleWorkoutLogSelect}
+                        <WorkoutLogCard
+                          user = {currentUser}
+                          logId={post.workout_log_details.id}
+                          log={post.workout_log_details}
+                          onSelect={handleWorkoutLogSelect}
                         />
                         {/* Overlay to catch all clicks */}
                         <div className="absolute inset-0 bg-transparent"></div>
@@ -273,10 +273,10 @@ const RecentPosts = ({
                         onClick={() => handleProgramSelect(post.program_details)}
                         className="cursor-pointer transition-all duration-300 transform hover:scale-[1.02] hover:shadow-md"
                       >
-                        <ProgramCardPost 
+                        <ProgramCard
                           programId={post.program_details.id} 
-                          initialProgramData={post.program_details}
-                          onClick={(e) => {
+                          program={post.program_details}
+                          onProgramSelect={(e) => {
                             e.stopPropagation(); // Prevent double firing
                             handleProgramSelect(post.program_details);
                           }}
