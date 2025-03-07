@@ -1,54 +1,30 @@
 import React, { useState } from 'react';
 import { X, Share2, Activity, Target, Calendar, Send } from 'lucide-react';
-import api from '../../../api';
+import { programService } from '../../../api/services';
 
 const ShareProgramModal = ({ program, onClose }) => {
   const [content, setContent] = useState(`Check out my workout program: ${program.name}`);
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState(null);
 
-  // In ShareProgramModal.jsx, update to ensure program_id is correctly included
-
-// In ShareProgramModal.jsx, update the handleShareToFeed function
-
-const handleShareToFeed = async () => {
-  if (!content.trim()) return;
-  
-  setIsSharing(true);
-  try {
-    console.log('Program being shared:', program);
+  const handleShareToFeed = async () => {
+    if (!content.trim()) return;
     
-    // Create post data with ONE program_id field
-    const postData = new FormData();
-    postData.append('content', content);
-    postData.append('post_type', 'program');
-    
-    // Only append program_id ONCE as a string
-    postData.append('program_id', String(program.id));
-    
-    // Include program details as JSON
-    postData.append('program_details', JSON.stringify(program));
-    
-    console.log('Sending data:', {
-      content: content,
-      post_type: 'program',
-      program_id: String(program.id)
-    });
-    
-    // Send the post request
-    const response = await api.post('/posts/', postData);
-    console.log('Shared program post response:', response.data);
-    
-    onClose();
-  } catch (err) {
-    console.error('Error sharing program:', err);
-    console.error('Error details:', err.response?.data);
-    setError(`Failed to share program: ${err.response?.data?.detail || err.message}`);
-  } finally {
-    setIsSharing(false);
-  }
-};
-
+    setIsSharing(true);
+    try {
+      await programService.shareProgram(program.id, {
+        content: content,
+        programDetails: program
+      });
+      
+      onClose();
+    } catch (err) {
+      console.error('Error sharing program:', err);
+      setError(`Failed to share program: ${err.message}`);
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">

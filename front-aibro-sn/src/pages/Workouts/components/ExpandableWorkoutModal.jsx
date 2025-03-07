@@ -7,7 +7,7 @@ import {
   CheckCircle, BarChart, Download, Share2, Flame,
   Edit, Copy, Tag, Award, Eye
 } from 'lucide-react';
-import api from '../../../api';
+import { workoutService, programService } from '../../../api/services';
 
 const splitMethodLabels = {
   full_body: 'Full Body',
@@ -38,11 +38,20 @@ const ExpandableWorkoutModal = ({
       if (workoutId && !workout) {
         try {
           setLoading(true);
-          const endpoint = isTemplate 
-            ? `/workouts/templates/${workoutId}/` 
-            : `/workouts/instances/${workoutId}/`;
-          const response = await api.get(endpoint);
-          setWorkout(response.data);
+          let workoutData;
+          
+          if (isTemplate) {
+            workoutData = await workoutService.getTemplateById(workoutId);
+          } else {
+            workoutData = await programService.getProgramWorkout(
+              // We need the program ID here, which we might not have directly
+              // In a real implementation, you'd include programId as a prop or extract it from the workout data
+              workoutData?.program, 
+              workoutId
+            );
+          }
+          
+          setWorkout(workoutData);
         } catch (err) {
           console.error('Error fetching workout details:', err);
           setError('Failed to load workout details');

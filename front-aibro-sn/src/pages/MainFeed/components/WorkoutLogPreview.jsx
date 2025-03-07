@@ -257,8 +257,8 @@ const WorkoutLogPreview = ({ workoutLogId, workoutLog: initialWorkoutLog, canEdi
       {/* Workout Log Modal - Only show if onWorkoutLogSelect is not provided */}
       {!onWorkoutLogSelect && (
         <ExpandableWorkoutLogModal
-          workoutLogId={workoutLogId}
-          initialWorkoutLogData={workoutLog}
+          logId={workoutLogId}
+          initialLogData={workoutLog}
           isOpen={showModal}
           onClose={() => setShowModal(false)}
         />

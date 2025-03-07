@@ -3,47 +3,45 @@ import {
   X, Activity, Calendar, Clock, Target, MapPin, 
   User, ClipboardList, ChevronDown, ChevronUp, 
   Dumbbell, Scale, CircleDot, Book, 
-  Heart, Droplets, Timer, Zap, Bookmark,
-  CheckCircle, BarChart, Download, Share2, Flame,
-  Edit, Camera, Info
+  Heart, Droplets, Timer, Zap, 
+  CheckCircle, BarChart, Flame,
+  Edit, Copy, Tag, Award
 } from 'lucide-react';
-import api from '../../../api';
-import { getAvatarUrl } from '../../../utils/imageUtils';
-import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+import { logService } from '../../../api/services';
 
-const workoutColors = getPostTypeDetails('workout_log').colors;
-
-// Helper function to correctly format dates
-const formatDate = (dateString) => {
-  try {
-    // Check if date is in DD/MM/YYYY format
-    if (typeof dateString === 'string' && dateString.includes('/')) {
-      const [day, month, year] = dateString.split('/');
-      return new Date(`${year}-${month}-${day}`).toLocaleDateString();
-    }
-    // Otherwise try standard parsing
-    return new Date(dateString).toLocaleDateString();
-  } catch(e) {
-    return dateString; // Return as is if parsing fails
-  }
-};
-
-const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen, onClose, onEdit }) => {
-  const [workoutLog, setWorkoutLog] = useState(initialWorkoutLogData);
-  const [loading, setLoading] = useState(!initialWorkoutLogData);
+/**
+ * Modal component for displaying detailed workout log information
+ * 
+ * @param {Object} props Component props
+ * @param {string|number} props.logId ID of the workout log to display
+ * @param {Object} props.initialLogData Initial log data (optional)
+ * @param {boolean} props.isOpen Whether the modal is open
+ * @param {Function} props.onClose Callback when modal is closed
+ * @param {Function} props.onEdit Callback when edit is requested (optional)
+ * @returns {JSX.Element} Expandable workout log modal component
+ */
+const ExpandableWorkoutLogModal = ({ 
+  logId, 
+  initialLogData, 
+  isOpen, 
+  onClose, 
+  onEdit
+}) => {
+  const [log, setLog] = useState(initialLogData);
+  const [loading, setLoading] = useState(!initialLogData);
   const [error, setError] = useState(null);
   const [expandedExercises, setExpandedExercises] = useState({});
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'exercises', 'details'
 
   useEffect(() => {
-    const fetchWorkoutLogDetails = async () => {
-      if (workoutLogId && !workoutLog) {
+    const fetchLogDetails = async () => {
+      if (logId && !log) {
         try {
+          console.log("HEYHEYHEY")
           setLoading(true);
-          const response = await api.get(`/workouts/logs/${workoutLogId}/`);
-          setWorkoutLog(response.data);
+          const logData = await logService.getLogById(logId);
+          setLog(logData);
         } catch (err) {
           console.error('Error fetching workout log details:', err);
           setError('Failed to load workout log details');
@@ -54,27 +52,27 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
     };
 
     if (isOpen) {
-      fetchWorkoutLogDetails();
+      fetchLogDetails();
     }
-  }, [workoutLogId, workoutLog, isOpen]);
+  }, [logId, log, isOpen]);
 
   useEffect(() => {
-    if (workoutLog?.exercises?.length > 0) {
+    if (log?.exercises?.length > 0) {
       // Initialize only the first exercise as expanded
       const initialExpanded = {};
-      const firstExerciseId = workoutLog.exercises[0].id || 0;
+      const firstExerciseId = log.exercises[0].id || 0;
       initialExpanded[firstExerciseId] = true;
       setExpandedExercises(initialExpanded);
     }
-  }, [workoutLog]);
+  }, [log]);
 
   if (!isOpen) return null;
 
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[95vh] overflow-hidden shadow-xl animate-pulse">
-          <div className="h-16 bg-gradient-to-r from-green-600/50 to-emerald-600/50 mb-4"></div>
+        <div className="bg-gray-900 rounded-xl w-full max-w-5xl max-h-[95vh] overflow-hidden shadow-xl animate-pulse">
+          <div className="h-16 bg-gray-800 mb-4"></div>
           <div className="p-6 space-y-4">
             <div className="h-6 bg-gray-800 rounded w-1/3"></div>
             <div className="h-24 bg-gray-800 rounded"></div>
@@ -89,7 +87,7 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
     );
   }
 
-  if (error || !workoutLog) {
+  if (error || !log) {
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="bg-gray-900 rounded-xl w-full max-w-5xl overflow-hidden shadow-xl">
@@ -107,7 +105,17 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
     );
   }
 
-  // Track expanded exercises independently
+  // Calculate workout metrics
+  const totalExercises = log.exercises?.length || 0;
+  const totalSets = log.exercises?.reduce((sum, ex) => sum + (ex.sets?.length || 0), 0) || 0;
+  const totalVolume = log.exercises?.reduce((sum, ex) => 
+    sum + (ex.sets?.reduce((setSum, set) => 
+      setSum + ((set.weight || 0) * (set.reps || 0)), 0) || 0), 0) || 0;
+  const totalReps = log.exercises?.reduce((sum, ex) => 
+    sum + (ex.sets?.reduce((setSum, set) => 
+      setSum + (set.reps || 0), 0) || 0), 0) || 0;
+
+  // Track expanded exercises
   const toggleExerciseExpand = (exerciseId) => {
     setExpandedExercises(prev => ({
       ...prev,
@@ -115,73 +123,29 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
     }));
   };
 
-  const handleShareWorkout = () => {
-    setToastMessage('Workout link copied to clipboard!');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-  };
-
-  const getMoodEmoji = (rating) => {
-    if (!rating) return null;
-    if (rating >= 8) return '😀';
-    if (rating >= 6) return '🙂';
-    if (rating >= 4) return '😐';
-    if (rating >= 2) return '☹️';
-    return '😫';
-  };
-
-  // Calculate total volume, heaviest weight, and total reps
-  const calculateStats = () => {
-    let totalVolume = 0;
-    let heaviestWeight = 0;
-    let totalReps = 0;
-    let totalSets = 0;
-
-    if (workoutLog.exercises) {
-      workoutLog.exercises.forEach(exercise => {
-        if (exercise.sets) {
-          totalSets += exercise.sets.length;
-          
-          exercise.sets.forEach(set => {
-            const weight = Number(set.weight) || 0;
-            const reps = Number(set.reps) || 0;
-            
-            totalVolume += weight * reps;
-            totalReps += reps;
-            
-            if (weight > heaviestWeight) {
-              heaviestWeight = weight;
-            }
-          });
-        }
-      });
-    }
-
-    return { totalVolume, heaviestWeight, totalReps, totalSets };
-  };
-
-  const stats = calculateStats();
-
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 overflow-y-auto py-4 backdrop-blur-md">
-      <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700/50 animate-fadeIn">
-        {/* Header with background gradient */}
-        <div className="px-6 py-5 bg-gradient-to-r from-green-600 to-emerald-600 flex justify-between items-center sticky top-0 z-10">
+      <div className="bg-gray-900 rounded-xl w-full max-w-6xl max-h-[95vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700 transform transition-all duration-300">
+        {/* Header with gradient */}
+        <div className="px-6 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg">
-              <Activity className="w-7 h-7 text-white" />
+            <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110">
+              <Activity className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">{workoutLog.name || "Workout"}</h2>
-              <div className="flex items-center flex-wrap mt-1 text-sm text-white/80">
-                <div className="flex items-center">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  <span>{workoutLog.date ? formatDate(workoutLog.date) : 'No date'}</span>
-                </div>
-                {workoutLog.user_username && (
+              <h2 className="text-2xl font-bold text-white tracking-tight">{log.name || log.workout_name || "Workout Log"}</h2>
+              <div className="flex items-center mt-1 text-sm text-white/80">
+                <span>{log.date || new Date().toLocaleDateString()}</span>
+                {log.gym_name && (
                   <div className="flex items-center ml-3">
-                    <User className="w-4 h-4 mr-1" />
-                    <span>by {workoutLog.user_username}</span>
+                    <MapPin className="w-4 h-4 mr-1" />
+                    <span>{log.gym_name}</span>
+                  </div>
+                )}
+                {log.completed && (
+                  <div className="flex items-center ml-3">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    <span>Completed</span>
                   </div>
                 )}
               </div>
@@ -190,246 +154,191 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
           <div className="flex items-center gap-3">
             {onEdit && (
               <button
-                onClick={() => onEdit(workoutLog)}
+                onClick={() => onEdit(log)}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-1 text-white"
               >
                 <Edit className="w-5 h-5" />
-                <span className="hidden sm:inline">Edit</span>
+                <span>Edit</span>
               </button>
             )}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors group"
+              className="p-2 hover:bg-white/20 rounded-full transition-colors"
               aria-label="Close"
             >
-              <X className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
-            </button>
-          </div>
-        </div>
-        
-        {/* Tabs Navigation */}
-        <div className="border-b border-gray-800 bg-gray-900/80 sticky top-[73px] z-10 backdrop-blur-sm">
-          <div className="flex px-6">
-            <button
-              className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'overview' 
-                  ? 'border-green-500 text-green-400' 
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'
-              }`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Overview
-            </button>
-            <button
-              className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'exercises' 
-                  ? 'border-green-500 text-green-400' 
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'
-              }`}
-              onClick={() => setActiveTab('exercises')}
-            >
-              Exercises
-            </button>
-            <button
-              className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'details' 
-                  ? 'border-green-500 text-green-400' 
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'
-              }`}
-              onClick={() => setActiveTab('details')}
-            >
-              Details
+              <X className="w-6 h-6 text-white" />
             </button>
           </div>
         </div>
 
-        {/* Content Area */}
+        {/* Content Layout */}
         <div className="flex-1 overflow-y-auto bg-gray-900 p-6">
-          {/* Overview Tab */}
-          {activeTab === 'overview' && (
-            <div className="animate-fadeIn">
-              {/* Workout Summary Card */}
-              <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 rounded-xl overflow-hidden border border-green-700/30 mb-6">
-                <div className="p-5">
-                  <div className="flex flex-col sm:flex-row justify-between gap-4 mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-2">Workout Summary</h3>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 bg-green-600/20 text-green-400 rounded-full border border-green-600/30 flex items-center text-sm">
-                          <Dumbbell className="w-4 h-4 mr-1.5" />
-                          {workoutLog.exercises?.length || 0} exercises
-                        </span>
-                        {workoutLog.completed && (
-                          <span className="px-3 py-1 bg-green-600/20 text-green-400 rounded-full border border-green-600/30 flex items-center text-sm">
-                            <CheckCircle className="w-4 h-4 mr-1.5" />
-                            Completed
-                          </span>
-                        )}
-                        {workoutLog.program && (
-                          <span className="px-3 py-1 bg-indigo-600/20 text-indigo-400 rounded-full border border-indigo-600/30 flex items-center text-sm">
-                            <Book className="w-4 h-4 mr-1.5" />
-                            {workoutLog.program_name}
-                          </span>
-                        )}
-                      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Left Column - Log Details */}
+            <div className="md:col-span-1">
+              {/* Workout Details Card */}
+              <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                  <ClipboardList className="w-5 h-5 mr-2 text-blue-400" />
+                  Workout Details
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Date */}
+                  <div className="flex items-center">
+                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3">
+                      <Calendar className="w-5 h-5 text-blue-400" />
                     </div>
-                    
-                    {/* Mood and Difficulty */}
-                    <div className="flex flex-wrap gap-4 items-center">
-                      {workoutLog.mood_rating && (
-                        <div className="bg-pink-900/30 rounded-lg p-3 border border-pink-700/30 text-center min-w-[90px]">
-                          <div className="text-3xl mb-1">{getMoodEmoji(workoutLog.mood_rating)}</div>
-                          <div className="text-xs text-gray-400">Mood: {workoutLog.mood_rating}/10</div>
-                        </div>
-                      )}
-                      
-                      {workoutLog.perceived_difficulty && (
-                        <div className="bg-amber-900/30 rounded-lg p-3 border border-amber-700/30 text-center min-w-[90px]">
-                          <div className="text-xl font-bold text-white mb-1">{workoutLog.perceived_difficulty}/10</div>
-                          <div className="text-xs text-gray-400">Difficulty</div>
-                        </div>
-                      )}
+                    <div>
+                      <span className="text-sm text-gray-400">Date</span>
+                      <p className="text-white font-medium">{log.date}</p>
                     </div>
                   </div>
                   
-                  {/* Performance Notes */}
-                  {workoutLog.performance_notes && (
-                    <div className="mt-4 bg-gray-800/30 rounded-lg p-3 border border-gray-700/30">
-                      <p className="text-gray-300 text-sm">{workoutLog.performance_notes}</p>
+                  {/* Gym */}
+                  {log.gym_name && (
+                    <div className="flex items-center">
+                      <div className="p-2 rounded-lg bg-green-500/20 mr-3">
+                        <MapPin className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-400">Gym</span>
+                        <p className="text-white font-medium">{log.gym_name}</p>
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
-              
-              {/* Key Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-green-900/20 to-green-800/30 p-4 rounded-lg border border-green-700/30 text-center">
-                  <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Clock className="w-5 h-5 text-green-400" />
-                  </div>
-                  <p className="text-xl font-bold text-white">{workoutLog.duration || '—'}</p>
-                  <p className="text-xs text-gray-400 mt-1">Minutes</p>
-                </div>
-                
-                <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/30 p-4 rounded-lg border border-blue-700/30 text-center">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Activity className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <p className="text-xl font-bold text-white">{stats.totalSets}</p>
-                  <p className="text-xs text-gray-400 mt-1">Total Sets</p>
-                </div>
-                
-                <div className="bg-gradient-to-br from-purple-900/20 to-purple-800/30 p-4 rounded-lg border border-purple-700/30 text-center">
-                  <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Target className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <p className="text-xl font-bold text-white">{stats.totalReps}</p>
-                  <p className="text-xs text-gray-400 mt-1">Total Reps</p>
-                </div>
-                
-                <div className="bg-gradient-to-br from-pink-900/20 to-pink-800/30 p-4 rounded-lg border border-pink-700/30 text-center">
-                  <div className="w-10 h-10 bg-pink-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Scale className="w-5 h-5 text-pink-400" />
-                  </div>
-                  <p className="text-xl font-bold text-white">{stats.totalVolume}</p>
-                  <p className="text-xs text-gray-400 mt-1">Total Volume (kg)</p>
-                </div>
-              </div>
-              
-              {/* Location */}
-              {workoutLog.gym && (
-                <div className="bg-gray-800/50 rounded-lg border border-gray-700/50 p-5 mb-6">
-                  <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
-                    <MapPin className="w-5 h-5 mr-2 text-blue-400" />
-                    Workout Location
-                  </h3>
                   
+                  {/* Duration */}
+                  {log.duration && (
+                    <div className="flex items-center">
+                      <div className="p-2 rounded-lg bg-amber-500/20 mr-3">
+                        <Clock className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-400">Duration</span>
+                        <p className="text-white font-medium">{log.duration} min</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Mood Rating */}
+                  {log.mood_rating !== undefined && (
+                    <div className="flex items-center">
+                      <div className="p-2 rounded-lg bg-purple-500/20 mr-3">
+                        <Heart className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-400">Mood</span>
+                        <p className="text-white font-medium">{log.mood_rating}/10</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Perceived Difficulty */}
+                  {log.perceived_difficulty !== undefined && (
+                    <div className="flex items-center">
+                      <div className="p-2 rounded-lg bg-red-500/20 mr-3">
+                        <Flame className="w-5 h-5 text-red-400" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-400">Difficulty</span>
+                        <p className="text-white font-medium">{log.perceived_difficulty}/10</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Completed Status */}
                   <div className="flex items-center">
-                    <div className="w-12 h-12 rounded-lg bg-blue-900/30 flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-blue-400" />
+                    <div className="p-2 rounded-lg bg-indigo-500/20 mr-3">
+                      <CheckCircle className="w-5 h-5 text-indigo-400" />
                     </div>
-                    <div className="ml-3">
-                      <h4 className="text-white font-medium">{workoutLog.gym_name || workoutLog.gym.name}</h4>
-                      {workoutLog.gym.location && (
-                        <p className="text-sm text-gray-400">{workoutLog.gym.location}</p>
-                      )}
+                    <div>
+                      <span className="text-sm text-gray-400">Status</span>
+                      <p className="text-white font-medium">
+                        {log.completed ? 'Completed' : 'In Progress'}
+                      </p>
                     </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Performance Notes */}
+              {log.performance_notes && (
+                <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
+                  <div className="flex items-start mb-4">
+                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3">
+                      <Book className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-medium text-white">Performance Notes</h4>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-700/30">
+                    <p className="text-gray-300 whitespace-pre-line leading-relaxed">
+                      {log.performance_notes}
+                    </p>
                   </div>
                 </div>
               )}
               
-              {/* Exercises Summary */}
-              {workoutLog.exercises && workoutLog.exercises.length > 0 && (
-                <div className="bg-gray-800/50 rounded-lg border border-gray-700/50 p-5">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-white flex items-center">
-                      <Dumbbell className="w-5 h-5 mr-2 text-green-400" />
-                      Exercise Summary
-                    </h3>
-                    <button
-                      onClick={() => setActiveTab('exercises')}
-                      className="text-sm text-gray-400 hover:text-white transition-colors flex items-center"
-                    >
-                      <span>View All</span>
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </button>
+              {/* Workout Summary */}
+              <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
+                <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+                  <BarChart className="w-5 h-5 mr-2 text-blue-400" />
+                  Workout Summary
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-700/30 p-3 rounded-lg text-center">
+                    <div className="text-sm text-gray-400">Total Exercises</div>
+                    <div className="text-xl font-bold text-white">{totalExercises}</div>
                   </div>
                   
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                    {workoutLog.exercises.slice(0, 3).map((exercise, index) => (
-                      <div 
-                        key={index} 
-                        className="bg-gray-800/80 rounded-lg p-3 border border-gray-700/50 flex justify-between items-center"
-                      >
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 rounded-full bg-green-900/30 flex items-center justify-center mr-2 text-green-400 text-xs">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-white text-sm">{exercise.name}</h4>
-                            <p className="text-xs text-gray-400">{exercise.sets?.length || 0} sets</p>
-                          </div>
-                        </div>
-                        <div className="text-xs bg-gray-700/50 text-gray-300 px-2 py-1 rounded">
-                          {exercise.sets?.reduce((total, set) => total + (Number(set.weight) * Number(set.reps)), 0) || 0} kg
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {workoutLog.exercises.length > 3 && (
-                      <div className="text-center py-2 text-sm text-green-400">
-                        +{workoutLog.exercises.length - 3} more exercises
-                      </div>
-                    )}
+                  <div className="bg-gray-700/30 p-3 rounded-lg text-center">
+                    <div className="text-sm text-gray-400">Total Sets</div>
+                    <div className="text-xl font-bold text-white">{totalSets}</div>
+                  </div>
+                  
+                  <div className="bg-gray-700/30 p-3 rounded-lg text-center">
+                    <div className="text-sm text-gray-400">Total Volume</div>
+                    <div className="text-xl font-bold text-white">{totalVolume} kg</div>
+                  </div>
+                  
+                  <div className="bg-gray-700/30 p-3 rounded-lg text-center">
+                    <div className="text-sm text-gray-400">Total Reps</div>
+                    <div className="text-xl font-bold text-white">{totalReps}</div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
-          )}
-          
-          {/* Exercises Tab */}
-          {activeTab === 'exercises' && (
-            <div className="animate-fadeIn">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-                <Dumbbell className="w-6 h-6 mr-2 text-green-400" />
-                Exercises
-              </h3>
+            
+            {/* Right Column - Exercises */}
+            <div className="md:col-span-2">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center">
+                  <Dumbbell className="w-6 h-6 mr-2 text-blue-400" />
+                  Exercises
+                </h3>
+                <span className="px-3 py-1 bg-gray-800 text-gray-300 rounded-lg text-sm border border-gray-700">
+                  {log.exercises?.length || 0} total
+                </span>
+              </div>
               
-              {workoutLog.exercises && workoutLog.exercises.length > 0 ? (
+              {log.exercises && log.exercises.length > 0 ? (
                 <div className="space-y-4">
-                  {workoutLog.exercises.map((exercise, index) => (
+                  {log.exercises.map((exercise, index) => (
                     <div 
                       key={index} 
-                      className="bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 hover:border-green-700/30 transition-all"
+                      className="bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700 hover:border-gray-600 transition-all hover:shadow-md"
                     >
                       <div 
                         className={`p-4 cursor-pointer transition-all ${expandedExercises[exercise.id || index] ? 'bg-gray-800/80' : ''}`}
                         onClick={() => toggleExerciseExpand(exercise.id || index)}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="p-3 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20 mr-3">
-                              <Dumbbell className="w-5 h-5 text-green-400" />
+                          <div className="flex items-center space-x-4">
+                            <div className="p-3 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 hover:scale-110 transition-transform">
+                              <Dumbbell className="w-5 h-5 text-white" />
                             </div>
                             <div>
                               <h4 className="font-semibold text-white text-lg">{exercise.name}</h4>
@@ -448,26 +357,27 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
                           </div>
                           <div className="flex items-center">
                             <div className="text-right mr-4 hidden sm:block">
-                              <div className="text-gray-400 text-sm">Volume</div>
+                              <div className="text-gray-400 text-sm">Total Volume</div>
                               <div className="text-white font-medium">
                                 {exercise.sets ? 
-                                  exercise.sets.reduce((sum, s) => sum + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0) : 0} kg
+                                  exercise.sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0) : 0} kg
                               </div>
                             </div>
-                            <div className="p-1.5 rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors">
+                            <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors">
                               {expandedExercises[exercise.id || index] ? 
-                                <ChevronUp className="w-4 h-4 text-gray-300" /> : 
-                                <ChevronDown className="w-4 h-4 text-gray-300" />}
+                                <ChevronUp className="w-5 h-5 text-gray-300" /> : 
+                                <ChevronDown className="w-5 h-5 text-gray-300" />
+                              }
                             </div>
                           </div>
                         </div>
                       </div>
 
                       {expandedExercises[exercise.id || index] && exercise.sets && (
-                        <div className="border-t border-gray-700 p-5 bg-gray-800/50">
+                        <div className="border-t border-gray-700 p-5 bg-gray-800/80">
                           {/* Sets Table */}
-                          <div className="overflow-x-auto rounded-lg border border-gray-700/30 mb-4">
-                            <table className="w-full text-left bg-gray-800/30">
+                          <div className="overflow-x-auto rounded-lg border border-gray-600/30 mb-4">
+                            <table className="w-full text-left bg-gray-800/50">
                               <thead>
                                 <tr className="border-b border-gray-700/50 bg-gray-700/30">
                                   <th className="py-2 px-4 font-medium text-gray-300">
@@ -509,29 +419,28 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
                             </table>
                           </div>
                           
-                          {/* Exercise Stats */}
+                          {/* Exercise Stats & Notes */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                             <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30 text-center">
                               <div className="text-sm text-gray-400">Total Volume</div>
                               <div className="text-xl font-bold text-white">
-                                {exercise.sets.reduce((sum, s) => sum + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0)} kg
+                                {exercise.sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0)} kg
                               </div>
                             </div>
                             <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30 text-center">
                               <div className="text-sm text-gray-400">Max Weight</div>
                               <div className="text-xl font-bold text-white">
-                                {Math.max(...exercise.sets.map(s => Number(s.weight) || 0))} kg
+                                {Math.max(...exercise.sets.map(s => s.weight || 0))} kg
                               </div>
                             </div>
                             <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30 text-center">
                               <div className="text-sm text-gray-400">Total Reps</div>
                               <div className="text-xl font-bold text-white">
-                                {exercise.sets.reduce((sum, s) => sum + (Number(s.reps) || 0), 0)}
+                                {exercise.sets.reduce((sum, s) => sum + (s.reps || 0), 0)}
                               </div>
                             </div>
                           </div>
                           
-                          {/* Notes */}
                           {exercise.notes && (
                             <div className="p-3 bg-gray-700/30 rounded-lg border border-gray-700/30">
                               <p className="text-sm text-gray-300">
@@ -546,167 +455,12 @@ const ExpandableWorkoutLogModal = ({ workoutLogId, initialWorkoutLogData, isOpen
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 bg-gray-800/30 rounded-xl border border-gray-700">
-                  <p className="text-gray-400">No exercises recorded for this workout.</p>
+                <div className="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700">
+                  <p className="text-gray-400">No exercises found in this workout log.</p>
                 </div>
               )}
             </div>
-          )}
-          
-          {/* Details Tab */}
-          {activeTab === 'details' && (
-            <div className="animate-fadeIn">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-                <Info className="w-6 h-6 mr-2 text-green-400" />
-                Workout Details
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Workout Details Card */}
-                <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
-                  <h4 className="text-lg font-medium text-white mb-3 flex items-center">
-                    <ClipboardList className="w-5 h-5 mr-2 text-blue-400" />
-                    Basic Information
-                  </h4>
-                  
-                  <ul className="space-y-3">
-                    <li className="flex justify-between items-center py-2 border-b border-gray-700/30">
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-green-400" />
-                        <span className="text-gray-300">Date</span>
-                      </div>
-                      <span className="text-white font-medium">{workoutLog.date ? formatDate(workoutLog.date) : 'No date'}</span>
-                    </li>
-                    
-                    <li className="flex justify-between items-center py-2 border-b border-gray-700/30">
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-2 text-amber-400" />
-                        <span className="text-gray-300">Duration</span>
-                      </div>
-                      <span className="text-white font-medium">{workoutLog.duration || '—'} min</span>
-                    </li>
-                    
-                    {workoutLog.program && (
-                      <li className="flex justify-between items-center py-2 border-b border-gray-700/30">
-                        <div className="flex items-center">
-                          <Book className="w-4 h-4 mr-2 text-purple-400" />
-                          <span className="text-gray-300">Program</span>
-                        </div>
-                        <span className="text-white font-medium">{workoutLog.program_name}</span>
-                      </li>
-                    )}
-                    
-                    {workoutLog.gym && (
-                      <li className="flex justify-between items-center py-2 border-b border-gray-700/30">
-                        <div className="flex items-center">
-                          <MapPin className="w-4 h-4 mr-2 text-indigo-400" />
-                          <span className="text-gray-300">Location</span>
-                        </div>
-                        <span className="text-white font-medium">{workoutLog.gym_name || workoutLog.gym.name}</span>
-                      </li>
-                    )}
-                    
-                    {workoutLog.mood_rating && (
-                      <li className="flex justify-between items-center py-2 border-b border-gray-700/30">
-                        <div className="flex items-center">
-                          <Heart className="w-4 h-4 mr-2 text-pink-400" />
-                          <span className="text-gray-300">Mood</span>
-                        </div>
-                        <span className="text-white font-medium flex items-center">
-                          {workoutLog.mood_rating}/10 {getMoodEmoji(workoutLog.mood_rating)}
-                        </span>
-                      </li>
-                    )}
-                    
-                    {workoutLog.perceived_difficulty && (
-                      <li className="flex justify-between items-center py-2">
-                        <div className="flex items-center">
-                          <Flame className="w-4 h-4 mr-2 text-red-400" />
-                          <span className="text-gray-300">Difficulty</span>
-                        </div>
-                        <span className="text-white font-medium">{workoutLog.perceived_difficulty}/10</span>
-                      </li>
-                    )}
-                  </ul>
-                </div>
-                
-                {/* Media Gallery Card - Only show if media exists */}
-                {workoutLog.media && workoutLog.media.length > 0 ? (
-                  <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
-                    <h4 className="text-lg font-medium text-white mb-3 flex items-center">
-                      <Camera className="w-5 h-5 mr-2 text-green-400" />
-                      Workout Photos
-                    </h4>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      {workoutLog.media.map((media, index) => (
-                        <div key={index} className="aspect-square rounded-lg overflow-hidden border border-gray-700 hover:border-green-600/50 transition-all group">
-                          <img
-                            src={typeof media === 'string' ? media : getAvatarUrl(media)}
-                            alt={`Workout ${index + 1}`}
-                            className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
-                    <h4 className="text-lg font-medium text-white mb-3 flex items-center">
-                      <BarChart className="w-5 h-5 mr-2 text-green-400" />
-                      Workout Statistics
-                    </h4>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30">
-                        <div className="text-sm text-gray-400">Total Volume</div>
-                        <div className="text-xl font-bold text-white">{stats.totalVolume} kg</div>
-                      </div>
-                      
-                      <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30">
-                        <div className="text-sm text-gray-400">Heaviest Weight</div>
-                        <div className="text-xl font-bold text-white">{stats.heaviestWeight} kg</div>
-                      </div>
-                      
-                      <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30">
-                        <div className="text-sm text-gray-400">Total Sets</div>
-                        <div className="text-xl font-bold text-white">{stats.totalSets}</div>
-                      </div>
-                      
-                      <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30">
-                        <div className="text-sm text-gray-400">Total Reps</div>
-                        <div className="text-xl font-bold text-white">{stats.totalReps}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Performance Notes Card - Only show if notes exist */}
-              {workoutLog.performance_notes && (
-                <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50 mt-6">
-                  <h4 className="text-lg font-medium text-white mb-3 flex items-center">
-                    <Book className="w-5 h-5 mr-2 text-blue-400" />
-                    Performance Notes
-                  </h4>
-                  
-                  <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-700/30">
-                    <p className="text-gray-300 whitespace-pre-line leading-relaxed">{workoutLog.performance_notes}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        
-        {/* Simple Footer */}
-        <div className="bg-gray-800 px-6 py-4 border-t border-gray-700 flex justify-end items-center sticky bottom-0">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg transition-all bg-green-600 hover:bg-green-700 text-white text-sm font-medium"
-          >
-            Close
-          </button>
+          </div>
         </div>
 
         {/* Toast Notification */}

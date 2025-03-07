@@ -9,7 +9,7 @@ import WorkoutLogCard from '../components/WorkoutLogCard';
 import { parseDate } from './ActivityComponents';
 
 // Timeline view component
-export const TimelineView = ({ logs, onEditLog, onDeleteLog }) => {
+export const TimelineView = ({ logs, onEditLog, onDeleteLog, user}) => {
   // Sort logs chronologically
   const sortedLogs = [...logs].sort((a, b) => {
     return new Date(a.date) - new Date(b.date);
@@ -60,6 +60,7 @@ export const TimelineView = ({ logs, onEditLog, onDeleteLog }) => {
                   log={log} 
                   onEdit={() => onEditLog(log)} 
                   onDelete={() => onDeleteLog(log)} 
+                  user ={user}
                 />
               </div>
             ))}
@@ -77,7 +78,7 @@ export const TimelineView = ({ logs, onEditLog, onDeleteLog }) => {
 };
 
 // Enhanced calendar component
-export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, onDeleteLog }) => {
+export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, onDeleteLog , user }) => {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarDates, setCalendarDates] = useState([]);
   const [workoutsByDate, setWorkoutsByDate] = useState({});
@@ -266,6 +267,9 @@ export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, o
                 log={log} 
                 onEdit={() => onEditLog(log)} 
                 onDelete={() => onDeleteLog(log)} 
+                inFeedMode = {false}
+                expandable = {true}
+                user = {user}
               />
             ))}
           </div>

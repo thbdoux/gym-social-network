@@ -24,7 +24,7 @@ import FilterPanel from './FilterPanel';
 import WorkoutLogForm from '../components/WorkoutLogForm';
 
 // Main component: Enhanced Workout Logs View
-const AllWorkoutLogsView = ({ onBack, activeProgram }) => {
+const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
   const [view, setView] = useState('grid'); // 'grid', 'list', 'calendar', 'timeline', 'stats'
   const [selectedDate, setSelectedDate] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -355,6 +355,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram }) => {
                     selectedDate={selectedDate}
                     onEditLog={handleEditLog}
                     onDeleteLog={handleDeleteLog}
+                    user = {user}
                   />
                 </div>
                 <div>
@@ -382,6 +383,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram }) => {
                 logs={filteredLogs} 
                 onEditLog={handleEditLog}
                 onDeleteLog={handleDeleteLog}
+                user = {user}
               />
             )}
             
@@ -415,6 +417,9 @@ const AllWorkoutLogsView = ({ onBack, activeProgram }) => {
                         log={log}
                         onEdit={() => handleEditLog(log)}
                         onDelete={() => handleDeleteLog(log)}
+                        inFeedMode = {false}
+                        expandable = {true}
+                        user= {user}
                       />
                     ))}
                   </div>

@@ -9,12 +9,11 @@ import ExpandableProgramModal from '../../MainFeed/components/ExpandableProgramM
 
 const programColors = getPostTypeDetails('program').colors;
 
-const WorkoutPlanCard = ({ plan, onSelect, onDelete, onToggleActive, onShare, onFork, onEdit, currentUser }) => {
+const ProgramCard = ({ plan, onSelect, onDelete, onToggleActive, onShare, onFork, onEdit, currentUser }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
   // Check if current user is the creator of the plan
-  console.log(currentUser)
   const isCreator = plan.creator_username === currentUser;
   
   // Check if program has is_owner field directly from API
@@ -323,7 +322,7 @@ const WorkoutPlansGrid = ({
   return (
     <div className={gridClass}>
       {plans.map(plan => (
-        <WorkoutPlanCard
+        <ProgramCard
           key={plan.id}
           plan={plan}
           onSelect={onSelect}

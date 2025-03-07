@@ -29,7 +29,8 @@ import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
 import EnhancedPlanDetailView from './views/EnhancedPlanDetailView';
 import EnhancedAllWorkoutsView from './views/EnhancedAllWorkoutsView';
 import PlansListView from './views/PlansListView';
-import api from './../../api';
+// Import centralized API services
+import { programService, logService } from '../../api/services';
 
 const workoutColors = POST_TYPE_COLORS.workout_log;
 
@@ -114,7 +115,7 @@ const TemplatePreview = ({ templates, onViewAll }) => {
   );
 };
 
-const WorkoutSpace = ({ user }) => {
+const WorkoutSpace = () => {
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [view, setView] = useState('main');
@@ -131,8 +132,9 @@ const WorkoutSpace = ({ user }) => {
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const response = await api.get('/users/me/');
-        setCurrentUser(response.data);
+        // Use our API client directly for this one-off call
+        const response = await programService.getCurrentUser();
+        setCurrentUser(response);
       } catch (err) {
         console.error('Error fetching current user:', err);
       }
@@ -172,21 +174,13 @@ const WorkoutSpace = ({ user }) => {
     error: logsError,
     createLog,
     updateLog,
+    deleteLog,
     refreshLogs,
     nextWorkout
   } = useWorkoutLogs(activeProgram);
   
-  // Filter logs by search query
-  const filteredLogs = logs.filter(log => {
-    if (!searchQuery) return true;
-    
-    const query = searchQuery.toLowerCase();
-    return (
-      (log.workout_name && log.workout_name.toLowerCase().includes(query)) ||
-      (log.gym_name && log.gym_name.toLowerCase().includes(query)) ||
-      (log.exercises && log.exercises.some(ex => ex.name.toLowerCase().includes(query)))
-    );
-  });
+  // Filter logs by search query - Using logService filter utility
+  const filteredLogs = logService.filterLogs(logs, searchQuery);
 
   const handlePlanSelect = async (plan) => {
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
@@ -196,8 +190,8 @@ const WorkoutSpace = ({ user }) => {
     }
     
     try {
-      const response = await api.get(`/workouts/programs/${plan.id}/`);
-      setSelectedPlan(response.data);
+      const programData = await programService.getProgramById(plan.id);
+      setSelectedPlan(programData);
       setView('plan-detail');
     } catch (err) {
       console.error('Error accessing plan:', err);
@@ -233,7 +227,7 @@ const WorkoutSpace = ({ user }) => {
 
   const handleTogglePlanActive = async (planId) => {
     try {
-      await api.post(`/workouts/programs/${planId}/toggle_active/`);
+      await programService.toggleProgramActive(planId);
       await refreshPlans();
     } catch (err) {
       console.error('Error toggling plan active status:', err);
@@ -248,7 +242,7 @@ const WorkoutSpace = ({ user }) => {
   const handleForkProgram = async (program) => {
     try {
       if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
-        await api.post(`/workouts/programs/${program.id}/fork/`);
+        await programService.forkProgram(program.id);
         await refreshPlans();
       }
     } catch (err) {
@@ -257,47 +251,8 @@ const WorkoutSpace = ({ user }) => {
     }
   };
 
-  // Calculate stats for the quick stats component
-  const calculateStats = () => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now);
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    
-    const weeklyWorkouts = logs.filter(log => 
-      new Date(log.date) >= oneWeekAgo && log.completed
-    ).length;
-    
-    const totalWorkouts = logs.filter(log => log.completed).length;
-    
-    // Calculate streak
-    let streak = 0;
-    const dayMap = {};
-    
-    // Map logs to days
-    logs.forEach(log => {
-      if (log.completed) {
-        const dateStr = new Date(log.date).toDateString();
-        dayMap[dateStr] = true;
-      }
-    });
-    
-    // Count streak
-    for (let i = 0; i < 30; i++) {
-      const checkDate = new Date(now);
-      checkDate.setDate(checkDate.getDate() - i);
-      const checkDateStr = checkDate.toDateString();
-      
-      if (dayMap[checkDateStr]) {
-        streak++;
-      } else if (i < 7) {
-        break;
-      }
-    }
-    
-    return { weeklyWorkouts, totalWorkouts, streak };
-  };
-
-  const stats = calculateStats();
+  // Use logService utility to calculate stats
+  const stats = logService.calculateStats(logs);
 
   const handleViewNextWorkout = () => {
     if (nextWorkout) {
@@ -322,6 +277,7 @@ const WorkoutSpace = ({ user }) => {
         <AllWorkoutLogsView 
           onBack={() => setView('main')}
           activeProgram={activeProgram}
+          user = {currentUser?.username}
         />
       </div>
     );
@@ -507,6 +463,7 @@ const WorkoutSpace = ({ user }) => {
                     <div className="grid grid-cols-1 gap-4">
                       {filteredLogs.slice(0, 5).map((log) => (
                         <WorkoutLogCard
+                          user = {currentUser?.username}
                           key={log.id}
                           log={log}
                           onEdit={(log) => {
@@ -516,13 +473,16 @@ const WorkoutSpace = ({ user }) => {
                           onDelete={async (log) => {
                             if (window.confirm('Are you sure you want to delete this workout log?')) {
                               try {
-                                await api.delete(`/workouts/logs/${log.id}/`);
+                                await deleteLog(log.id);
                                 await refreshLogs();
                               } catch (err) {
                                 console.error('Error deleting log:', err);
                               }
                             }
                           }}
+                          inFeedMode = {false}
+                          expandable = {true}
+                          canEdit = {true}
                         />
                       ))}
                     </div>
