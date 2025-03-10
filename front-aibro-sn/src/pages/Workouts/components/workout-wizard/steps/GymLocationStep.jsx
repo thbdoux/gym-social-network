@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Home, Check, Activity, ArrowUp, ArrowDown, Clock, Plus, Target } from 'lucide-react';
+import { MapPin, Home, Check, Clock, Plus } from 'lucide-react';
 import { useGyms } from '../../../hooks/useGyms';
 import { AddGymModal } from '../../GymComponents';
 
@@ -86,74 +86,38 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
     }
   }, [formData.duration]);
 
-  // Render location options
-  const renderLocationOptions = () => (
-    <div className="grid grid-cols-2 gap-3 mb-4">
-      {/* Gym option */}
-      <div
+  // Render location type buttons
+  const renderLocationTypeButtons = () => (
+    <div className="flex space-x-3 mb-4">
+      <button
+        type="button"
         onClick={() => handleLocationTypeSelect('gym')}
         className={`
-          p-3 rounded-xl border cursor-pointer transition-all duration-300 group relative overflow-hidden
+          px-4 py-2 rounded-lg flex items-center transition-all duration-200
           ${locationType === 'gym' 
-            ? `${colors.borderLight} ${colors.bg}/10 shadow-lg` 
-            : 'border-gray-700 hover:border-gray-500 bg-gray-800/50'}
+            ? `${colors.bg} text-white` 
+            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}
         `}
       >
-        {/* Animated background effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        
-        <div className="flex items-center justify-between relative z-10">
-          <div className={`
-            p-2 rounded-lg transition-transform duration-300 group-hover:scale-110
-            ${locationType === 'gym' ? colors.bg : 'bg-gray-700'}
-          `}>
-            <MapPin className="w-5 h-5" />
-          </div>
-          <div className="text-white font-medium group-hover:translate-x-1 transition-transform duration-300">
-            At the Gym
-          </div>
-          {locationType === 'gym' ? (
-            <Check className="w-4 h-4 text-green-400 animate-pulse" />
-          ) : (
-            <div className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <Check className="w-4 h-4 text-gray-500" />
-            </div>
-          )}
-        </div>
-      </div>
+        <MapPin className="w-4 h-4 mr-2" />
+        At Gym
+        {locationType === 'gym' && <Check className="w-4 h-4 ml-2" />}
+      </button>
       
-      {/* Home option */}
-      <div
+      <button
+        type="button"
         onClick={() => handleLocationTypeSelect('home')}
         className={`
-          p-3 rounded-xl border cursor-pointer transition-all duration-300 group relative overflow-hidden
+          px-4 py-2 rounded-lg flex items-center transition-all duration-200
           ${locationType === 'home' 
-            ? `${colors.borderLight} ${colors.bg}/10 shadow-lg` 
-            : 'border-gray-700 hover:border-gray-500 bg-gray-800/50'}
+            ? `${colors.bg} text-white` 
+            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}
         `}
       >
-        {/* Animated background effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        
-        <div className="flex items-center justify-between relative z-10">
-          <div className={`
-            p-2 rounded-lg transition-transform duration-300 group-hover:scale-110
-            ${locationType === 'home' ? colors.bg : 'bg-gray-700'}
-          `}>
-            <Home className="w-5 h-5" />
-          </div>
-          <div className="text-white font-medium group-hover:translate-x-1 transition-transform duration-300">
-            Home Workout
-          </div>
-          {locationType === 'home' ? (
-            <Check className="w-4 h-4 text-green-400 animate-pulse" />
-          ) : (
-            <div className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <Check className="w-4 h-4 text-gray-500" />
-            </div>
-          )}
-        </div>
-      </div>
+        <Home className="w-4 h-4 mr-2" />
+        At Home
+        {locationType === 'home' && <Check className="w-4 h-4 ml-2" />}
+      </button>
     </div>
   );
   
@@ -178,7 +142,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
           Couldn't load gyms
         </div>
       ) : (
-        <div className="max-h-40 overflow-y-auto pr-1 gym-scroll">
+        <div className="max-h-72 overflow-y-auto pr-1 gym-scroll">
           {gyms.length === 0 ? (
             <div 
               onClick={() => setShowAddGym(true)}
@@ -248,7 +212,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
     </div>
   );
   
-  // Vertical gauge for duration
+  // Improved vertical gauge for duration
   const renderVerticalDurationGauge = () => {
     const maxDuration = 120;
     const percentage = (formData.duration / maxDuration) * 100;
@@ -292,7 +256,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
             ))}
           </div>
           
-          {/* Vertical gauge */}
+          {/* Improved vertical gauge */}
           <div 
             ref={gaugeRef}
             className="w-12 h-64 bg-gray-800 rounded-full cursor-pointer relative overflow-hidden"
@@ -305,7 +269,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
             onTouchEnd={handleVerticalDragEnd}
             onTouchMove={handleVerticalDragMove}
           >
-            {/* New indicator lines at 30/45/60/75/90/105/120 */}
+            {/* Duration indicator lines */}
             {[120, 105, 90, 75, 60, 45, 30].map((duration) => {
               const linePosition = (duration / maxDuration) * 100;
               return (
@@ -320,41 +284,16 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
               );
             })}
             
-            {/* Filled area */}
+            {/* Filled area with gradient overlay */}
             <div 
               className={`absolute bottom-0 w-full transition-all duration-300 ${intensityColor}`}
               style={{ height: `${percentage}%` }}
             >
+              {/* Subtle gradient overlay for better visual effect */}
+              <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10"></div>
+              
               {/* Pulse effect */}
-              <div className="absolute inset-0 animate-pulse-subtle opacity-50"></div>
-            </div>
-            
-            {/* Handle */}
-            <div 
-              id="duration-handle"
-              className="absolute left-1/2 transform -translate-x-1/2 z-20 transition-all duration-300"
-              style={{ bottom: `${percentage}%` }}
-            >
-              <div className="w-8 h-8 flex items-center justify-center">
-                <div className="w-4 h-4 rounded-full bg-white shadow-lg border-2 border-gray-800 transform transition-transform"></div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="ml-3 h-64 flex items-center">
-            <div className="flex flex-col items-center space-y-1">
-              <button 
-                onClick={() => updateFormData({ duration: Math.min(180, formData.duration + 5) })}
-                className="p-1 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition-colors"
-              >
-                <ArrowUp size={16} />
-              </button>
-              <button 
-                onClick={() => updateFormData({ duration: Math.max(5, formData.duration - 5) })}
-                className="p-1 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition-colors"
-              >
-                <ArrowDown size={16} />
-              </button>
+              <div className="absolute inset-0 animate-pulse-subtle opacity-30"></div>
             </div>
           </div>
         </div>
@@ -364,21 +303,23 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
 
   return (
     <div className="space-y-4">
-      <label className="block text-gray-300 mb-2 font-medium">
-        Where did you work out?
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="block text-gray-300 font-medium mr-4">
+          Where did you work out?
+        </label>
+        {/* Location type buttons next to the question */}
+        {renderLocationTypeButtons()}
+      </div>
       
       <div className="flex gap-6">
-        {/* Left side - Location selection and gym list */}
-        <div className="flex-1">
-          {renderLocationOptions()}
-          
+        {/* Left side - Gym list with 65% of space */}
+        <div className="w-[65%]">
           {/* Show gym selector if "gym" is selected */}
           {locationType === 'gym' && renderGymSelector()}
         </div>
         
-        {/* Right side - Vertical duration gauge */}
-        <div className="flex-1 border-l border-gray-700 pl-6">
+        {/* Right side - Vertical duration gauge with 35% of space */}
+        <div className="w-[35%] border-l border-gray-700 pl-6">
           {renderVerticalDurationGauge()}
         </div>
       </div>

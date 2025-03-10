@@ -38,11 +38,11 @@ const ExerciseCard = ({ exercise, onChange, onDelete, index, colors }) => {
   // Get max weight based on equipment for slider
   function getMaxWeight(equipment) {
     switch(equipment) {
-      case "Barbell": return 500;
-      case "Dumbbell": return 150;
+      case "Barbell": return 250;
+      case "Dumbbell": return 70;
       case "Kettlebell": return 100;
-      case "Machine": return 300;
-      case "Cable": return 200;
+      case "Machine": return 200;
+      case "Cable": return 100;
       default: return 100;
     }
   }
