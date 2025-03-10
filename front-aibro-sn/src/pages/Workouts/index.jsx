@@ -21,6 +21,7 @@ import { useWorkoutLogs } from './hooks/useWorkoutLogs';
 import WorkoutLogCard from './components/WorkoutLogCard';
 import NextWorkout from './components/NextWorkout';
 import WorkoutLogForm from './components/WorkoutLogForm';
+import WorkoutWizard from './components/workout-wizard/WorkoutWizard';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
 import ShareProgramModal from './components/ShareProgramModal';
@@ -599,7 +600,7 @@ const WorkoutSpace = () => {
       {/* Modals */}
       {/* Log Workout Form */}
       {showLogForm && (
-        <WorkoutLogForm
+        <WorkoutWizard
           log={selectedLog}
           programs={workoutPlans}
           onSubmit={async (formData) => {
