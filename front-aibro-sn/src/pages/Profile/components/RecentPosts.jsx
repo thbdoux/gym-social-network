@@ -255,7 +255,7 @@ const RecentPosts = ({
                         className="cursor-pointer transition-all duration-300 transform hover:scale-[1.02] hover:shadow-md"
                       >
                         <WorkoutLogCard
-                          user = {currentUser}
+                          user = {username}
                           logId={post.workout_log_details.id}
                           log={post.workout_log_details}
                           onSelect={handleWorkoutLogSelect}
