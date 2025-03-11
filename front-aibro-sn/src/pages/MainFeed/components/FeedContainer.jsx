@@ -23,6 +23,7 @@ const Post = ({
   const [commentText, setCommentText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [programData, setProgramData] = useState(null);
+  const [isHovered, setIsHovered] = useState(false);
   const menuRef = useRef(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
@@ -210,7 +211,7 @@ const Post = ({
     const postTypeText = postTypeDetails.colors.text;
 
     return (
-      <div className={`mt-4 bg-gray-800/50 rounded-lg p-4 border ${postTypeDetails.colors.border}`}>
+      <div className={`mt-4 bg-gray-800/50 rounded-lg p-4 border border-gray-700/30 ${postTypeDetails.colors.border}`}>
       
       <div className="flex items-center gap-3 mb-2">
         <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${postTypeGradient} flex items-center justify-center overflow-hidden`}>
@@ -268,32 +269,48 @@ const Post = ({
     );
   };
 
-  const Comments = () => (
-    <div className="mt-4 space-y-3">
-      {post.comments?.map(comment => (
-        <div key={comment.id} className="flex gap-3">
-          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${post.post_type ? getPostTypeDetails(post.post_type).colors.gradient : 'from-blue-500 to-indigo-500'} flex items-center justify-center`}>
-            <span className="text-white text-sm font-medium">
-              {comment.user_username[0].toUpperCase()}
-            </span>
-          </div>
-          <div className="flex-1">
-            <div className="bg-gray-800/50 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-white">
-                  {comment.user_username}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {new Date(comment.created_at).toLocaleDateString()}
-                </span>
+  const Comments = ({ limitToTwo = false }) => {
+    // Sort comments by date (newest first) and limit to last 2 if requested
+    const commentsToShow = limitToTwo && post.comments?.length > 0 
+      ? [...post.comments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 2).reverse()
+      : post.comments;
+      
+    return (
+      <div className="mt-4 space-y-3">
+        {commentsToShow?.map(comment => (
+          <div key={comment.id} className="flex gap-3">
+            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${post.post_type ? getPostTypeDetails(post.post_type).colors.gradient : 'from-blue-500 to-indigo-500'} flex items-center justify-center`}>
+              <span className="text-white text-sm font-medium">
+                {comment.user_username[0].toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1">
+              <div className="bg-gray-800/50 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-white">
+                    {comment.user_username}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(comment.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-300 mt-1">{comment.content}</p>
               </div>
-              <p className="text-sm text-gray-300 mt-1">{comment.content}</p>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+        
+        {limitToTwo && post.comments?.length > 2 && (
+          <button 
+            onClick={() => setShowCommentInput(true)} 
+            className="text-sm text-gray-400 hover:text-white transition-colors mt-1"
+          >
+            View all {post.comments.length} comments
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const ActionButtons = () => {
     const postColorText = post.post_type ? getPostTypeDetails(post.post_type).colors.text : 'text-blue-400';
@@ -352,7 +369,11 @@ const Post = ({
   const ringColor = colorText.split('-')[0] || 'blue';
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg mb-5">
+    <div 
+      className={`bg-gray-900 rounded-lg overflow-hidden shadow-md transition-all duration-300 hover:shadow-md hover:translate-y-[-1px] border border-gray-700/30 mb-5 ${isHovered ? `translate-y-[-1px] shadow-md` : ''}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center">
@@ -401,7 +422,7 @@ const Post = ({
           <div className="relative" ref={menuRef}>
             <button 
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1.5 hover:bg-gray-800 rounded-full transition-colors group"
+              className={`p-1.5 hover:bg-gray-800 rounded-full transition-colors group ${isHovered ? 'bg-gray-700' : ''}`}
             >
               <MoreVertical className="w-4 h-4 text-gray-400 group-hover:text-white" />
             </button>
@@ -460,6 +481,13 @@ const Post = ({
         <div className="mt-3 pt-3 border-t border-gray-800">
           <ActionButtons />
         </div>
+        
+        {/* Display last 2 comments if available */}
+        {post.comments && post.comments.length > 0 && !showCommentInput && (
+          <div className="mt-3 pt-2">
+            <Comments limitToTwo={true} />
+          </div>
+        )}
 
         {/* Share Modal */}
         <SharePostModal 
@@ -500,7 +528,7 @@ const Post = ({
             </div>
           </div>
           
-          <Comments />
+          <Comments limitToTwo={false} />
         </div>
         )}
       </div>
