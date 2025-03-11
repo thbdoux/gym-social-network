@@ -1,26 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { 
+  LayoutGrid, 
   Calendar, 
-  Activity, 
-  Target, 
-  Loader2,
-  LayoutGrid,
-  BarChart2,
-  Clock,
-  Plus,
-  ChevronRight,
   Dumbbell,
-  Search
+  Plus,
+  Loader2,
+  TrendingUp
 } from 'lucide-react';
 import { ProgramCard } from './components/ProgramCard';
-import { ProgramGrid } from './components/ProgramCard';
 import EmptyState from './components/EmptyState';
 import { useWorkoutPlans } from './hooks/useWorkoutPlans';
 import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
 import { useWorkoutLogs } from './hooks/useWorkoutLogs';
 import WorkoutLogCard from './components/WorkoutLogCard';
 import NextWorkout from './components/NextWorkout';
-import WorkoutLogForm from './components/WorkoutLogForm';
 import WorkoutWizard from './components/workout-wizard/WorkoutWizard';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
@@ -36,87 +29,6 @@ import { programService, logService } from '../../api/services';
 
 const workoutColors = POST_TYPE_COLORS.workout_log;
 
-const QuickStats = ({ stats = {} }) => {
-  const weeklyWorkouts = stats.weeklyWorkouts || 0;
-  const totalWorkouts = stats.totalWorkouts || 0;
-  const streak = stats.streak || 0;
-
-  return (
-    <div className="bg-gradient-to-br from-gray-800 to-gray-850 rounded-xl p-6 shadow-lg overflow-hidden relative">
-      {/* Background decoration */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16"></div>
-      <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/5 rounded-full -ml-12 -mb-12"></div>
-      
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-white flex items-center">
-          <BarChart2 className="w-5 h-5 mr-2 text-blue-400" />
-          Quick Stats
-        </h2>
-        <span className="text-sm text-gray-400 px-3 py-1 bg-gray-700/50 rounded-full">This Week</span>
-      </div>
-      
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-gray-700/40 p-4 rounded-xl">
-          <div className="text-sm text-gray-400 mb-1">Week</div>
-          <div className="text-2xl font-bold text-white">{weeklyWorkouts}</div>
-          <div className="text-xs text-gray-400 mt-1">workouts</div>
-        </div>
-        
-        <div className="bg-gray-700/40 p-4 rounded-xl">
-          <div className="text-sm text-gray-400 mb-1">Total</div>
-          <div className="text-2xl font-bold text-white">{totalWorkouts}</div>
-          <div className="text-xs text-gray-400 mt-1">workouts</div>
-        </div>
-        
-        <div className="bg-gray-700/40 p-4 rounded-xl">
-          <div className="text-sm text-gray-400 mb-1">Streak</div>
-          <div className="text-2xl font-bold text-white">{streak}</div>
-          <div className="text-xs text-gray-400 mt-1">days</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const TemplatePreview = ({ templates, onViewAll }) => {
-  return (
-    <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700/30">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-white flex items-center">
-          <LayoutGrid className="w-5 h-5 mr-2 text-purple-400" />
-          Templates
-        </h2>
-        <button 
-          onClick={onViewAll}
-          className="text-purple-400 hover:text-purple-300 transition-colors flex items-center space-x-1 text-sm"
-        >
-          <span>View All</span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-      
-      <div className="text-gray-300 text-sm">
-        {templates.length === 0 ? (
-          <p>Create your first workout template to get started.</p>
-        ) : (
-          <div className="space-y-3">
-            {templates.slice(0, 3).map((template) => (
-              <div key={template.id} className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors">
-                <p className="font-medium text-white">{template.name}</p>
-                <div className="flex items-center mt-1 text-xs text-gray-400 space-x-3">
-                  <span>{template.split_method?.replace(/_/g, ' ')}</span>
-                  <span>•</span>
-                  <span>{template.exercises?.length || 0} exercises</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const WorkoutSpace = () => {
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
@@ -127,14 +39,12 @@ const WorkoutSpace = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        // Use our API client directly for this one-off call
         const response = await programService.getCurrentUser();
         setCurrentUser(response);
       } catch (err) {
@@ -180,9 +90,6 @@ const WorkoutSpace = () => {
     refreshLogs,
     nextWorkout
   } = useWorkoutLogs(activeProgram);
-  
-  // Filter logs by search query - Using logService filter utility
-  const filteredLogs = logService.filterLogs(logs, searchQuery);
 
   const handlePlanSelect = async (plan) => {
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
@@ -253,9 +160,6 @@ const WorkoutSpace = () => {
     }
   };
 
-  // Use logService utility to calculate stats
-  const stats = logService.calculateStats(logs);
-
   const handleViewNextWorkout = () => {
     if (nextWorkout) {
       setSelectedWorkout(nextWorkout);
@@ -279,7 +183,7 @@ const WorkoutSpace = () => {
         <AllWorkoutLogsView 
           onBack={() => setView('main')}
           activeProgram={activeProgram}
-          user = {currentUser?.username}
+          user={currentUser?.username}
         />
       </div>
     );
@@ -393,212 +297,299 @@ const WorkoutSpace = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header with title */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
-        <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
-          Tinker Your Fitness Routine
-        </h1>
-        <p className="mt-2 text-gray-400 max-w-3xl">
-          Track your progress, customize your workouts, and reach your fitness goals.
-        </p>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Main content - Two-Column 50/50 Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Workout Logs (50%) */}
-          <div className="space-y-6">
-            {/* Search and Log Button */}
-            <div className="flex items-center gap-4 mb-2">
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search workout logs..."
-                  className="pl-10 w-full bg-gray-800 border border-gray-700 rounded-lg py-2 text-white focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Title and Navigation */}
+          <div className="lg:col-span-7">
+            <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
+              Your Fitness Journey
+            </h1>
+            
+            {/* Navigation buttons - Updated order and colors */}
+            <div className="flex flex-wrap items-center gap-3 mt-6">
+              <button 
+                onClick={() => setView('all-workouts')}
+                className="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+              >
+                <LayoutGrid className="w-5 h-5 text-white" />
+                <span className="text-white">Templates</span>
+              </button>
+              
+              <button 
+                onClick={() => setView('plans')}
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+              >
+                <Dumbbell className="w-5 h-5 text-white" />
+                <span className="text-white">Programs</span>
+              </button>
+              
+              <button 
+                onClick={() => setView('logs')}
+                className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+              >
+                <Calendar className="w-5 h-5 text-white" />
+                <span className="text-white">Workout History</span>
+              </button>
+              
               <button 
                 onClick={() => {
                   setSelectedLog(null);
                   setShowLogModal(true);
                 }}
-                className={`px-4 py-2 ${workoutColors.bg} hover:${workoutColors.hoverBg} rounded-lg transition-colors flex items-center space-x-2 shadow-md border ${workoutColors.border}`}
+                className={`px-4 py-2 ${workoutColors.bg} hover:${workoutColors.hoverBg} rounded-lg transition-colors flex items-center space-x-2 shadow-md`}
               >
                 <Plus className="w-5 h-5" />
-                <span className={workoutColors.text}>Log Workout</span>
+                <span className={workoutColors.text}>Log</span>
               </button>
             </div>
-            
-            {/* Workout Logs Section */}
-            <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
-              <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Workout Logs</h2>
-                  <p className="text-gray-400 text-sm mt-1">Track and monitor your fitness progress</p>
-                </div>
-                
-                <div className="flex items-center">
-                  <button 
-                    onClick={() => setView('logs')}
-                    className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    <span>View All Logs</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* List of workout logs */}
-              <div className="p-6">                      
-                <div className="space-y-4">
-                  {logsLoading ? (
-                    <div className="flex items-center justify-center p-8">
-                      <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                      <span className="ml-2 text-gray-400">Loading logs...</span>
-                    </div>
-                  ) : filteredLogs.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4">
-                      {filteredLogs.slice(0, 5).map((log) => (
-                        <WorkoutLogCard
-                          user = {currentUser?.username}
-                          key={log.id}
-                          log={log}
-                          onEdit={(log) => {
-                            setSelectedLog(log);
-                            setShowLogForm(true);
-                          }}
-                          onDelete={async (log) => {
-                            if (window.confirm('Are you sure you want to delete this workout log?')) {
-                              try {
-                                await deleteLog(log.id);
-                                await refreshLogs();
-                              } catch (err) {
-                                console.error('Error deleting log:', err);
-                              }
-                            }
-                          }}
-                          inFeedMode = {false}
-                          expandable = {true}
-                          canEdit = {true}
-                        />
-                      ))}
-                    </div>
-                  ) : searchQuery ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-400">No workout logs found matching "{searchQuery}"</p>
-                      <button 
-                        onClick={() => setSearchQuery('')}
-                        className="mt-2 text-blue-400 hover:text-blue-300"
-                      >
-                        Clear search
-                      </button>
-                    </div>
-                  ) : (
-                    <EmptyState
-                      title="No workout logs yet"
-                      description="Start logging your workouts to track your progress"
-                      action={{
-                        label: 'Log First Workout',
-                        onClick: () => {
-                          setSelectedLog(null); 
-                          setShowLogForm(true);
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-              
-                {/* View All Logs Button */}
-                {filteredLogs.length > 5 && (
-                  <div className="mt-8 flex justify-center">
-                    <button 
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-medium flex items-center space-x-2 shadow-md"
-                      onClick={() => setView('logs')}
-                    >
-                      <span>View All Workout Logs</span>
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Quick Stats */}
-            <QuickStats stats={stats} />
           </div>
-
-          {/* Right Column - Current Program & Next Workout (50%) */}
-          <div className="space-y-6">
-            {/* Current Program Section */}
-            <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700/30 overflow-hidden">
-              <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Current Program</h2>
-                  <p className="text-gray-400 text-sm mt-1">Your active training plan</p>
-                </div>
-                
-                <button 
-                  onClick={() => setView('plans')}
-                  className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  <span>View All Programs</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+          
+          {/* Right Column: Current Program - Adjusted column ratio */}
+          <div className="lg:col-span-5">
+            {plansLoading ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
               </div>
-              
-              <div className="p-6">
-                {plansLoading ? (
-                  <div className="flex items-center justify-center p-8">
-                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                    <span className="ml-2 text-gray-400">Loading...</span>
-                  </div>
-                ) : activeProgram ? (
-                  <ProgramCard
-                    program={activeProgram}
-                    currentUser={currentUser?.username}
-                    canManage={true}
-                    onProgramSelect={handlePlanSelect}
-                    onDelete={deletePlan}
-                    onToggleActive={handleTogglePlanActive}
-                    onShare={handleShareProgram}
-                    onFork={handleForkProgram}
-                    singleColumn={true}
-                    canEdit
-                  />
-                ) : (
-                  <EmptyState
-                    title="No active program"
-                    description="Select or create a program to get started"
-                    action={{
-                      label: 'Browse Programs',
-                      onClick: () => setView('plans')
-                    }}
-                  />
-                )}
+            ) : activeProgram ? (
+              <ProgramCard
+                program={activeProgram}
+                currentUser={currentUser?.username}
+                canManage={true}
+                onProgramSelect={handlePlanSelect}
+                onDelete={deletePlan}
+                onToggleActive={handleTogglePlanActive}
+                onShare={handleShareProgram}
+                onFork={handleForkProgram}
+                singleColumn={true}
+                canEdit
+                compact={true}
+              />
+            ) : (
+              <div className="p-4">
+                <EmptyState
+                  title="No active program"
+                  description="Set up a program"
+                  action={{
+                    label: 'Browse Programs',
+                    onClick: () => setView('plans')
+                  }}
+                  compact={true}
+                />
               </div>
-            </div>
-            
-            {/* Next Workout - Clickable */}
-            <div onClick={handleViewNextWorkout} className="cursor-pointer">
-              <NextWorkout workout={nextWorkout} />
-            </div>
-            
-            {/* Templates Preview */}
-            <TemplatePreview 
-              templates={templates.slice(0, 3)} 
-              onViewAll={() => setView('all-workouts')}
-            />
+            )}
           </div>
         </div>
       </div>
       
-      {/* Modals */}
-      {/* Log Workout Form */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Full-width Timeline */}
+        <div className="relative p-6">
+          {(logsLoading || plansLoading) ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+            </div>
+          ) : (nextWorkout || logs.length > 0) ? (
+            <div className="relative">
+              {/* Horizontal timeline line - Removed border */}
+              <div className="absolute left-0 right-0 top-6 h-0.5 bg-gray-700"></div>
+              
+              <div className="flex flex-col lg:flex-row items-start mt-16 lg:mt-0 space-y-8 lg:space-y-0 lg:space-x-6">
+                {/* Next Workout - Left side with future indicator */}
+                {nextWorkout && (
+                  <div className="lg:w-1/4 relative">
+                    {/* Timeline dot and label - Fixed z-index and positioning */}
+                    <div className="absolute left-1/2 lg:left-1/2 transform -translate-x-1/2 top-0 lg:-top-10 flex flex-col items-center z-20">
+                      <div className="w-4 h-4 rounded-full bg-blue-500 shadow-md"></div>
+                      <div className="mt-2 text-blue-400 text-sm font-medium whitespace-nowrap">
+                        Coming up on {nextWorkout.preferred_weekday !== undefined ? 
+                          ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][nextWorkout.preferred_weekday] : 
+                          'soon'}
+                      </div>
+                      {/* Vertical connector line - Made more visible */}
+                      <div className="w-0.5 h-16 bg-blue-700 mt-2"></div>
+                    </div>
+                    
+                    {/* Upcoming workout card - Using the same style as past workout cards */}
+                    <div className="mt-20 lg:mt-16" onClick={handleViewNextWorkout}>
+                      <div className="bg-gray-800 border border-blue-700/30 rounded-xl overflow-hidden shadow-md cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-blue-500/50">
+                        {/* Status Indicator Line - Blue for upcoming workout */}
+                        <div className="h-1 w-full bg-gradient-to-r from-blue-400 to-blue-600"></div>
+                        
+                        <div className="p-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-white">{nextWorkout.name}</h3>
+                            <div className="px-2 py-1 bg-blue-900/30 text-blue-400 text-xs rounded-full">
+                              Upcoming
+                            </div>
+                          </div>
+                          
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="flex items-center text-sm text-gray-400">
+                              <TrendingUp className="w-4 h-4 mr-1 text-blue-400" />
+                              {nextWorkout.exercises?.length || 0} exercises
+                            </span>
+                            
+                            {activeProgram && (
+                              <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded-full">
+                                {activeProgram.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Today marker - Center point of timeline */}
+                <div className={`${nextWorkout ? 'lg:w-1/12' : 'lg:w-1/6'} hidden lg:block relative`}>
+                  <div className="absolute left-1/2 transform -translate-x-1/2 top-0 lg:-top-10 flex flex-col items-center z-20">
+                    <div className="w-4 h-4 rounded-full bg-gray-500 shadow-md"></div>
+                    <div className="mt-2 text-gray-400 text-sm font-medium">Today</div>
+                  </div>
+                </div>
+                
+                {/* Past Workouts - Right side */}
+                <div className={`${nextWorkout ? 'lg:w-8/12' : 'lg:w-5/6'} relative`}>
+                  {logs.length > 0 ? (
+                    <div className="space-y-8 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-4">
+                      {logs.slice(0, 3).map((log, index) => {
+                        // Calculate relative date label
+                        let logDate;
+                        try {
+                          // Handle French date format (DD/MM/YYYY)
+                          if (log.date.includes('/')) {
+                            const parts = log.date.split('/');
+                            if (parts.length === 3) {
+                              // Day/Month/Year format
+                              logDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                            } else {
+                              logDate = new Date(log.date);
+                            }
+                          } else {
+                            // Standard ISO format
+                            logDate = new Date(log.date);
+                          }
+                        } catch (e) {
+                          // Fallback if parsing fails
+                          logDate = new Date();
+                        }
+                        
+                        const today = new Date();
+                        
+                        // Reset time parts to compare dates properly
+                        today.setHours(0, 0, 0, 0);
+                        logDate.setHours(0, 0, 0, 0);
+                        
+                        // Simple difference in days calculation
+                        const diffMs = today.getTime() - logDate.getTime();
+                        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+                        
+                        let dateLabel = "Today";
+                        if (diffDays === 1) dateLabel = "Yesterday";
+                        else if (diffDays > 1) dateLabel = `${diffDays} days ago`;
+                        else if (diffDays === -1) dateLabel = "Tomorrow";
+                        else if (diffDays < -1) dateLabel = `In ${Math.abs(diffDays)} days`;
+                        
+                        // Get mood emoji
+                        const getMoodEmoji = (rating) => {
+                          switch(rating) {
+                            case 1: return "😞";
+                            case 2: return "😕";
+                            case 3: return "😐";
+                            case 4: return "🙂";
+                            case 5: return "😄";
+                            default: return "🙂";
+                          }
+                        };
+                        
+                        return (
+                          <div key={log.id} className="relative">
+                            {/* Timeline dot and date label - Fixed z-index and positioning */}
+                            <div className="absolute left-1/2 lg:left-1/2 transform -translate-x-1/2 top-0 lg:-top-10 flex flex-col items-center z-20">
+                              <div className="w-3 h-3 rounded-full bg-green-500 shadow-md"></div>
+                              <div className="mt-2 text-green-400 text-sm font-medium whitespace-nowrap">{dateLabel}</div>
+                              {/* Vertical connector line - Made more visible */}
+                              <div className="w-0.5 h-16 bg-green-700 mt-2"></div>
+                            </div>
+                            
+                            {/* Simplified Workout Card */}
+                            <div className="mt-20 lg:mt-16">
+                              <div 
+                                className="bg-gray-800 border border-green-700/30 rounded-xl overflow-hidden shadow-md cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-green-500/50"
+                                onClick={() => {
+                                  setSelectedWorkout(log);
+                                  setShowWorkoutModal(true);
+                                }}
+                              >
+                                {/* Status Indicator Line - Green for completed workout */}
+                                <div className="h-1 w-full bg-gradient-to-r from-green-400 to-green-600"></div>
+                                
+                                <div className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-white">{log.workout_name}</h3>
+                                    <div className="px-2 py-1 bg-green-900/30 text-green-400 text-xs rounded-full">
+                                      {getMoodEmoji(log.rating || 4)}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="mt-3 flex items-center justify-between">
+                                    <span className="flex items-center text-sm text-gray-400">
+                                      <TrendingUp className="w-4 h-4 mr-1 text-green-400" />
+                                      {log.exercises?.length || 0} exercises
+                                    </span>
+                                    
+                                    {log.program_name && (
+                                      <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded-full">
+                                        {log.program_name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-12">
+                      <EmptyState
+                        title="No workouts logged"
+                        description="Log your first workout"
+                        action={{
+                          label: 'Log Workout',
+                          onClick: () => {
+                            setSelectedLog(null); 
+                            setShowLogForm(true);
+                          }
+                        }}
+                        compact={true}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center p-8">
+              <EmptyState
+                title="No workout history"
+                description="Start your fitness journey by logging a workout or setting up a program"
+                action={{
+                  label: 'Get Started',
+                  onClick: () => {
+                    setSelectedLog(null); 
+                    setShowLogForm(true);
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Modals - Keep all the existing modals */}
       {showLogForm && (
         <WorkoutWizard
           log={selectedLog}
@@ -649,7 +640,6 @@ const WorkoutSpace = () => {
         />
       )}
       
-      {/* Log Workout Modal */}
       {showLogModal && (
         <LogWorkoutModal
           onClose={() => setShowLogModal(false)}
@@ -666,7 +656,6 @@ const WorkoutSpace = () => {
         />
       )}
       
-      {/* Instance Selector Modal */}
       {showInstanceSelector && (
         <WorkoutInstanceSelector
           onClose={() => setShowInstanceSelector(false)}
@@ -690,7 +679,6 @@ const WorkoutSpace = () => {
         />
       )}
 
-      {/* Share Program Modal */}
       {showShareModal && programToShare && (
         <ShareProgramModal 
           program={programToShare}
@@ -701,7 +689,6 @@ const WorkoutSpace = () => {
         />
       )}
 
-      {/* Workout Detail Modal */}
       {showWorkoutModal && selectedWorkout && (
         <ExpandableWorkoutModal
           workoutId={selectedWorkout.id}
