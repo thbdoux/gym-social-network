@@ -38,7 +38,6 @@ const ExpandableWorkoutLogModal = ({
     const fetchLogDetails = async () => {
       if (logId && !log) {
         try {
-          console.log("HEYHEYHEY")
           setLoading(true);
           const logData = await logService.getLogById(logId);
           setLog(logData);
@@ -128,22 +127,24 @@ const ExpandableWorkoutLogModal = ({
       <div className="bg-gray-900 rounded-xl w-full max-w-6xl max-h-[95vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700 transform transition-all duration-300">
         {/* Header with gradient */}
         <div className="px-6 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 flex justify-between items-center sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110">
+          <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+            <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110 flex-shrink-0">
               <Activity className="w-8 h-8 text-white" />
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">{log.name || log.workout_name || "Workout Log"}</h2>
+            <div className="min-w-0 overflow-hidden">
+              <h2 className="text-2xl font-bold text-white tracking-tight truncate">
+                {log.name || log.workout_name || "Workout Log"}
+              </h2>
               <div className="flex items-center mt-1 text-sm text-white/80">
-                <span>{log.date || new Date().toLocaleDateString()}</span>
+                <span className="truncate">{log.date || new Date().toLocaleDateString()}</span>
                 {log.gym_name && (
-                  <div className="flex items-center ml-3">
+                  <div className="flex items-center ml-3 flex-shrink-0">
                     <MapPin className="w-4 h-4 mr-1" />
-                    <span>{log.gym_name}</span>
+                    <span className="truncate">{log.gym_name}</span>
                   </div>
                 )}
                 {log.completed && (
-                  <div className="flex items-center ml-3">
+                  <div className="flex items-center ml-3 flex-shrink-0">
                     <CheckCircle className="w-4 h-4 mr-1" />
                     <span>Completed</span>
                   </div>
@@ -151,11 +152,11 @@ const ExpandableWorkoutLogModal = ({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0 ml-2">
             {onEdit && (
               <button
                 onClick={() => onEdit(log)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-1 text-white"
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-1 text-white whitespace-nowrap"
               >
                 <Edit className="w-5 h-5" />
                 <span>Edit</span>
@@ -163,7 +164,7 @@ const ExpandableWorkoutLogModal = ({
             )}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors"
+              className="p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0"
               aria-label="Close"
             >
               <X className="w-6 h-6 text-white" />
@@ -201,9 +202,9 @@ const ExpandableWorkoutLogModal = ({
                       <div className="p-2 rounded-lg bg-green-500/20 mr-3">
                         <MapPin className="w-5 h-5 text-green-400" />
                       </div>
-                      <div>
+                      <div className="min-w-0 overflow-hidden">
                         <span className="text-sm text-gray-400">Gym</span>
-                        <p className="text-white font-medium">{log.gym_name}</p>
+                        <p className="text-white font-medium truncate">{log.gym_name}</p>
                       </div>
                     </div>
                   )}
@@ -336,26 +337,26 @@ const ExpandableWorkoutLogModal = ({
                         onClick={() => toggleExerciseExpand(exercise.id || index)}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="p-3 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 hover:scale-110 transition-transform">
+                          <div className="flex items-center space-x-4 min-w-0 overflow-hidden flex-1">
+                            <div className="p-3 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 hover:scale-110 transition-transform flex-shrink-0">
                               <Dumbbell className="w-5 h-5 text-white" />
                             </div>
-                            <div>
-                              <h4 className="font-semibold text-white text-lg">{exercise.name}</h4>
+                            <div className="min-w-0 overflow-hidden">
+                              <h4 className="font-semibold text-white text-lg truncate">{exercise.name}</h4>
                               <div className="flex items-center space-x-3 text-sm text-gray-400 mt-1">
                                 {exercise.equipment && (
-                                  <span>{exercise.equipment}</span>
+                                  <span className="truncate">{exercise.equipment}</span>
                                 )}
                                 {exercise.sets && (
                                   <>
                                     {exercise.equipment && <span>•</span>}
-                                    <span>{exercise.sets.length} sets</span>
+                                    <span className="flex-shrink-0">{exercise.sets.length} sets</span>
                                   </>
                                 )}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center">
+                          <div className="flex items-center flex-shrink-0 ml-2">
                             <div className="text-right mr-4 hidden sm:block">
                               <div className="text-gray-400 text-sm">Total Volume</div>
                               <div className="text-white font-medium">

@@ -152,17 +152,17 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
       <div className="bg-gray-900 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-xl flex flex-col border border-gray-800">
         {/* Header */}
         <div className={`px-6 py-5 bg-gradient-to-r ${programColors.gradient} relative flex justify-between items-center`}>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg">
+          <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+            <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg flex-shrink-0">
               <Book className="w-7 h-7 text-white" />
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">{program.name}</h2>
+            <div className="min-w-0 overflow-hidden">
+              <h2 className="text-2xl font-bold text-white tracking-tight truncate">{program.name}</h2>
               <div className="flex items-center mt-1 text-sm text-white/80">
-                <User className="w-4 h-4 mr-1" />
-                <span>by {program.creator_username}</span>
+                <User className="w-4 h-4 mr-1 flex-shrink-0" />
+                <span className="truncate">by {program.creator_username}</span>
                 {program.forked_from && (
-                  <span className="flex items-center ml-2">
+                  <span className="flex items-center ml-2 flex-shrink-0">
                     <GitFork className="w-3 h-3 mx-1" />
                     <span>forked</span>
                   </span>
@@ -172,7 +172,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-full transition-colors"
+            className="p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0 ml-2"
             aria-label="Close"
           >
             <X className="w-6 h-6 text-white" />
@@ -184,12 +184,12 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
           <div className="flex flex-col md:flex-row gap-5">
             {/* Focus Highlight */}
             <div className={`p-4 rounded-xl ${programColors.lightBg} shadow-md border ${programColors.border} flex items-center gap-4 flex-1`}>
-              <div className={`h-12 w-12 rounded-full ${programColors.bg} flex items-center justify-center`}>
+              <div className={`h-12 w-12 rounded-full ${programColors.bg} flex items-center justify-center flex-shrink-0`}>
                 {focusDetails.icon}
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-white">{focusDetails.label}</h3>
-                <p className="text-gray-300 text-sm mt-0.5 line-clamp-1">{focusDetails.description}</p>
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <h3 className="text-lg font-bold text-white truncate">{focusDetails.label}</h3>
+                <p className="text-gray-300 text-sm mt-0.5 truncate">{focusDetails.description}</p>
               </div>
             </div>
 
@@ -263,27 +263,29 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                           onClick={() => setExpandedWorkout(expandedWorkout === workout.id ? null : workout.id)}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-600/20 to-indigo-600/20 flex items-center justify-center border border-purple-700/30">
+                            <div className="flex items-center gap-3 min-w-0 overflow-hidden flex-1">
+                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-600/20 to-indigo-600/20 flex items-center justify-center border border-purple-700/30 flex-shrink-0">
                                 <Dumbbell className="w-5 h-5 text-purple-400" />
                               </div>
-                              <div>
-                                <h4 className="font-medium text-white">{workout.name}</h4>
+                              <div className="min-w-0 overflow-hidden">
+                                <h4 className="font-medium text-white truncate">{workout.name}</h4>
                                 <div className="flex items-center text-sm text-gray-400 mt-0.5">
-                                  <span>{workout.exercises?.length || 0} exercises</span>
+                                  <span className="flex-shrink-0">{workout.exercises?.length || 0} exercises</span>
                                   {workout.estimated_duration && (
                                     <>
-                                      <span className="mx-2">•</span>
-                                      <span>{workout.estimated_duration} min</span>
+                                      <span className="mx-2 flex-shrink-0">•</span>
+                                      <span className="flex-shrink-0">{workout.estimated_duration} min</span>
                                     </>
                                   )}
                                 </div>
                               </div>
                             </div>
-                            {expandedWorkout === workout.id ? 
-                              <ChevronUp className="w-5 h-5 text-purple-400" /> : 
-                              <ChevronDown className="w-5 h-5 text-gray-400" />
-                            }
+                            <div className="flex-shrink-0 ml-2">
+                              {expandedWorkout === workout.id ? 
+                                <ChevronUp className="w-5 h-5 text-purple-400" /> : 
+                                <ChevronDown className="w-5 h-5 text-gray-400" />
+                              }
+                            </div>
                           </div>
                         </div>
                         
@@ -298,14 +300,14 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                                   key={exIndex} 
                                   className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/50"
                                 >
-                                  <div className="flex items-center">
-                                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center mr-3">
+                                  <div className="flex items-center min-w-0 overflow-hidden">
+                                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center mr-3 flex-shrink-0">
                                       <span className="text-white text-xs">{exIndex + 1}</span>
                                     </div>
-                                    <div>
-                                      <h6 className="font-medium text-white text-sm">{exercise.name}</h6>
+                                    <div className="min-w-0 overflow-hidden">
+                                      <h6 className="font-medium text-white text-sm truncate">{exercise.name}</h6>
                                       {exercise.equipment && (
-                                        <p className="text-xs text-gray-400">{exercise.equipment}</p>
+                                        <p className="text-xs text-gray-400 truncate">{exercise.equipment}</p>
                                       )}
                                     </div>
                                   </div>
@@ -352,12 +354,12 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
 
         {/* Action Footer */}
         <div className="bg-gray-850 border-t border-gray-800 p-4 flex justify-between items-center">
-          <div className="text-sm text-gray-400 flex items-center">
-            <Users className="w-4 h-4 mr-1.5" /> 
-            <span>{program.users_count || 0} users following</span>
+          <div className="text-sm text-gray-400 flex items-center min-w-0 overflow-hidden">
+            <Users className="w-4 h-4 mr-1.5 flex-shrink-0" /> 
+            <span className="truncate">{program.users_count || 0} users following</span>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0 ml-2">
             {currentUser && program.creator_username !== currentUser.username && (
               <button
                 onClick={handleForkProgram}
@@ -366,7 +368,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
                   forkSuccess ? 
                   'bg-green-600' : 
                   programColors.button + ' hover:bg-opacity-90 active:scale-95'
-                } disabled:opacity-50`}
+                } disabled:opacity-50 whitespace-nowrap`}
               >
                 {forkSuccess ? (
                   <>
@@ -399,4 +401,4 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
   );
 };
 
-export default ExpandableProgramModal;  
+export default ExpandableProgramModal;

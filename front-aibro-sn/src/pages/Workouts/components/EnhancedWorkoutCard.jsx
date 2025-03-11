@@ -79,7 +79,7 @@ const EnhancedWorkoutCard = ({
               <div 
                 {...dragHandleProps}
                 onClick={e => e.stopPropagation()}
-                className="p-1.5 hover:bg-gray-700/50 rounded-md cursor-move mr-2 text-gray-400 hover:text-gray-300"
+                className="p-1.5 hover:bg-gray-700/50 rounded-md cursor-move mr-2 text-gray-400 hover:text-gray-300 flex-shrink-0"
               >
                 <GripVertical className="w-4 h-4" />
               </div>
@@ -90,17 +90,17 @@ const EnhancedWorkoutCard = ({
               <Dumbbell className="w-5 h-5 text-blue-400" />
             </div>
             
-            <div className="min-w-0">
+            <div className="min-w-0 overflow-hidden">
               {/* Workout Name */}
-              <h3 className={`text-lg font-medium text-white transition-colors ${isHovered ? 'text-blue-300' : ''}`}>
+              <h3 className={`text-lg font-medium text-white transition-colors ${isHovered ? 'text-blue-300' : ''} truncate`}>
                 {workout.name}
               </h3>
               
               {/* Split Method & Exercise Count - Essential metadata */}
-              <div className="flex items-center mt-1 text-sm text-gray-400 space-x-3">
-                <span>{formatSplitMethod(workout.split_method)}</span>
+              <div className="flex items-center mt-1 text-sm text-gray-400 space-x-3 truncate">
+                <span className="truncate">{formatSplitMethod(workout.split_method)}</span>
                 {hasExercises && (
-                  <span className="flex items-center">
+                  <span className="flex items-center flex-shrink-0">
                     <Dumbbell className="w-3.5 h-3.5 mr-1" />
                     {workout.exercises.length} exercises
                   </span>
@@ -138,7 +138,7 @@ const EnhancedWorkoutCard = ({
           )}
           
           {/* Action Buttons - Show on hover for cleaner UI */}
-          <div className={`flex items-center space-x-1 ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`} onClick={e => e.stopPropagation()}>
+          <div className={`flex items-center space-x-1 flex-shrink-0 ml-2 ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`} onClick={e => e.stopPropagation()}>
             {onDuplicate && (
               <button 
                 onClick={(e) => {

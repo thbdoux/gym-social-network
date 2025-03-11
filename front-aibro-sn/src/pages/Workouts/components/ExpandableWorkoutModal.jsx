@@ -143,30 +143,30 @@ const ExpandableWorkoutModal = ({
       <div className="bg-gray-900 rounded-xl w-full max-w-6xl max-h-[95vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700 transform transition-all duration-300">
         {/* Header with background gradient */}
         <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 flex justify-between items-center sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110">
+          <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+            <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110 flex-shrink-0">
               <Dumbbell className="w-8 h-8 text-white" />
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">{workout.name || "Workout"}</h2>
+            <div className="min-w-0 overflow-hidden">
+              <h2 className="text-2xl font-bold text-white tracking-tight truncate">{workout.name || "Workout"}</h2>
               <div className="flex items-center mt-1 text-sm text-white/80">
-                <span className="capitalize">
+                <span className="truncate capitalize">
                   {splitMethodLabels[workout.split_method] || workout.split_method?.replace(/_/g, ' ') || 'General Workout'}
                 </span>
                 {workout.creator_username && (
-                  <div className="flex items-center ml-3">
+                  <div className="flex items-center ml-3 flex-shrink-0">
                     <User className="w-4 h-4 mr-1" />
-                    <span>by {workout.creator_username}</span>
+                    <span className="truncate">{workout.creator_username}</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0 ml-2">
             {onDuplicate && (
               <button
                 onClick={handleDuplicateWorkout}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-1 text-white"
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-1 text-white whitespace-nowrap"
               >
                 <Copy className="w-5 h-5" />
                 <span>Duplicate</span>
@@ -174,7 +174,7 @@ const ExpandableWorkoutModal = ({
             )}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors"
+              className="p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0"
               aria-label="Close"
             >
               <X className="w-6 h-6 text-white" />
@@ -197,12 +197,12 @@ const ExpandableWorkoutModal = ({
                 <div className="space-y-4">
                   {/* Split Method */}
                   <div className="flex items-center">
-                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3">
+                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3 flex-shrink-0">
                       <Activity className="w-5 h-5 text-blue-400" />
                     </div>
-                    <div>
+                    <div className="min-w-0 overflow-hidden">
                       <span className="text-sm text-gray-400">Split Method</span>
-                      <p className="text-white font-medium capitalize">
+                      <p className="text-white font-medium capitalize truncate">
                         {splitMethodLabels[workout.split_method] || workout.split_method?.replace(/_/g, ' ') || 'General Workout'}
                       </p>
                     </div>
@@ -210,7 +210,7 @@ const ExpandableWorkoutModal = ({
                   
                   {/* Duration */}
                   <div className="flex items-center">
-                    <div className="p-2 rounded-lg bg-green-500/20 mr-3">
+                    <div className="p-2 rounded-lg bg-green-500/20 mr-3 flex-shrink-0">
                       <Clock className="w-5 h-5 text-green-400" />
                     </div>
                     <div>
@@ -221,7 +221,7 @@ const ExpandableWorkoutModal = ({
                   
                   {/* Difficulty */}
                   <div className="flex items-center">
-                    <div className="p-2 rounded-lg bg-amber-500/20 mr-3">
+                    <div className="p-2 rounded-lg bg-amber-500/20 mr-3 flex-shrink-0">
                       <Award className="w-5 h-5 text-amber-400" />
                     </div>
                     <div>
@@ -233,12 +233,12 @@ const ExpandableWorkoutModal = ({
                   {/* Equipment Required */}
                   {workout.equipment_required && workout.equipment_required.length > 0 && (
                     <div className="flex items-center">
-                      <div className="p-2 rounded-lg bg-purple-500/20 mr-3">
+                      <div className="p-2 rounded-lg bg-purple-500/20 mr-3 flex-shrink-0">
                         <Dumbbell className="w-5 h-5 text-purple-400" />
                       </div>
-                      <div>
+                      <div className="min-w-0 overflow-hidden">
                         <span className="text-sm text-gray-400">Equipment Required</span>
-                        <p className="text-white font-medium">
+                        <p className="text-white font-medium truncate">
                           {workout.equipment_required.join(', ')}
                         </p>
                       </div>
@@ -248,7 +248,7 @@ const ExpandableWorkoutModal = ({
                   {/* Visibility */}
                   {workout.hasOwnProperty('is_public') && (
                     <div className="flex items-center">
-                      <div className="p-2 rounded-lg bg-indigo-500/20 mr-3">
+                      <div className="p-2 rounded-lg bg-indigo-500/20 mr-3 flex-shrink-0">
                         <Eye className="w-5 h-5 text-indigo-400" />
                       </div>
                       <div>
@@ -266,7 +266,7 @@ const ExpandableWorkoutModal = ({
               {workout.description && (
                 <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
                   <div className="flex items-start mb-4">
-                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3">
+                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3 flex-shrink-0">
                       <Book className="w-5 h-5 text-blue-400" />
                     </div>
                     <div>
@@ -283,7 +283,7 @@ const ExpandableWorkoutModal = ({
               {workout.tags && workout.tags.length > 0 && (
                 <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
                   <div className="flex items-start mb-4">
-                    <div className="p-2 rounded-lg bg-indigo-500/20 mr-3">
+                    <div className="p-2 rounded-lg bg-indigo-500/20 mr-3 flex-shrink-0">
                       <Tag className="w-5 h-5 text-indigo-400" />
                     </div>
                     <h4 className="text-lg font-medium text-white">Tags</h4>
@@ -326,26 +326,26 @@ const ExpandableWorkoutModal = ({
                         onClick={() => toggleExerciseExpand(exercise.id || index)}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 hover:scale-110 transition-transform">
+                          <div className="flex items-center space-x-4 min-w-0 overflow-hidden flex-1">
+                            <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 hover:scale-110 transition-transform flex-shrink-0">
                               <Dumbbell className="w-5 h-5 text-white" />
                             </div>
-                            <div>
-                              <h4 className="font-semibold text-white text-lg">{exercise.name}</h4>
+                            <div className="min-w-0 overflow-hidden">
+                              <h4 className="font-semibold text-white text-lg truncate">{exercise.name}</h4>
                               <div className="flex items-center space-x-3 text-sm text-gray-400 mt-1">
                                 {exercise.equipment && (
-                                  <span>{exercise.equipment}</span>
+                                  <span className="truncate">{exercise.equipment}</span>
                                 )}
                                 {exercise.sets && (
                                   <>
                                     {exercise.equipment && <span>•</span>}
-                                    <span>{exercise.sets.length} sets</span>
+                                    <span className="flex-shrink-0">{exercise.sets.length} sets</span>
                                   </>
                                 )}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center">
+                          <div className="flex items-center flex-shrink-0 ml-2">
                             <div className="text-right mr-4 hidden sm:block">
                               <div className="text-gray-400 text-sm">Total Volume</div>
                               <div className="text-white font-medium">

@@ -118,20 +118,20 @@ const WorkoutLogCard = ({
         <div className="p-4">
           {/* Card Header with Basic Info */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
               {/* Workout Icon */}
-              <div className="p-2 bg-green-500/20 rounded-lg">
+              <div className="p-2 bg-green-500/20 rounded-lg flex-shrink-0">
                 <Activity className="w-5 h-5 text-green-400" />
               </div>
               
-              {/* Workout Title and Completion Status */}
-              <div>
+              {/* Workout Title and Completion Status - with proper overflow handling */}
+              <div className="min-w-0 overflow-hidden">
                 <div className="flex items-center">
-                  <h4 className={`text-lg font-medium text-white group-hover:text-green-400 transition-colors ${isHovered ? 'text-green-300' : ''}`}>
+                  <h4 className={`text-lg font-medium text-white group-hover:text-green-400 transition-colors ${isHovered ? 'text-green-300' : ''} truncate`}>
                     {log.name || log.workout_name || "Workout"}
                   </h4>
                   {log.completed && (
-                    <span className="ml-2 flex items-center text-xs text-green-400">
+                    <span className="ml-2 flex items-center text-xs text-green-400 flex-shrink-0">
                       <CheckCircle className="w-3 h-3 mr-1" />
                       <span className="hidden sm:inline">Completed</span>
                     </span>
@@ -140,13 +140,13 @@ const WorkoutLogCard = ({
                 
                 {/* Essential Metadata - Date and Location */}
                 <div className="flex items-center flex-wrap mt-1 text-sm text-gray-400">
-                  <span className="flex items-center">
+                  <span className="flex items-center flex-shrink-0">
                     <Calendar className="w-3.5 h-3.5 mr-1.5" />
                     {formattedDate}
                   </span>
                   
                   {log.gym && (
-                    <span className="flex items-center ml-3">
+                    <span className="flex items-center ml-3 flex-shrink-0">
                       <MapPin className="w-3.5 h-3.5 mr-1.5" />
                       <span className="truncate max-w-[120px]">{gymName}</span>
                     </span>
@@ -156,7 +156,7 @@ const WorkoutLogCard = ({
             </div>
             
             {/* Action Buttons */}
-            <div className="flex items-center">
+            <div className="flex items-center flex-shrink-0 ml-2">
               {!inFeedMode && canEdit && (
                 <div className={`flex items-center space-x-1 ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
                   <button
