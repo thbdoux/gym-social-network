@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Calendar, Clock, Dumbbell, Edit2, Trash2, 
+  Calendar, Dumbbell, Edit2, Trash2, 
   CheckCircle, MapPin, Heart, Flame, Target,
-  Share2, MessageCircle, ThumbsUp, Activity,
-  ChevronDown, ChevronUp, Eye
+  Activity, ChevronDown, ChevronUp, Eye
 } from 'lucide-react';
 import { useGyms } from '../hooks/useGyms';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
@@ -49,13 +48,21 @@ const WorkoutLogCard = ({
   
   if (!log || loading) return null;
   
-  const gymName = React.useMemo(() => {
-    if (!log.gym) return 'Not specified';
-    if (log.gym_name) return log.gym_name;
+  const gymInfo = React.useMemo(() => {
+    if (!log.gym) return { name: 'Not specified', location: '' };
+    if (log.gym_name) {
+      return { 
+        name: log.gym_name, 
+        location: log.gym_location || '' 
+      };
+    }
     
     const gym = gyms?.find(g => g.id === log.gym);
-    return gym ? `${gym.name}` : 'Loading...';
-  }, [log.gym, log.gym_name, gyms]);
+    return gym ? { 
+      name: gym.name, 
+      location: gym.location || '' 
+    } : { name: 'Loading...', location: '' };
+  }, [log.gym, log.gym_name, log.gym_location, gyms]);
   
   // Format date for better display
   const formatDate = (dateString) => {
@@ -84,9 +91,15 @@ const WorkoutLogCard = ({
     return '😫';
   };
 
-  // Social stats
-  const likes = log.likes || Math.floor(Math.random() * 15);
-  const comments = log.comments?.length || Math.floor(Math.random() * 5);
+  const getDifficultyEffect = (rating) => {
+    if (!rating) return { label: '🔥', color: 'text-gray-400 bg-gray-800/50' };
+    if (rating >= 8) return { label: '🔥🔥🔥', color: 'text-red-400 bg-red-900/30' };
+    if (rating >= 6) return { label: '🔥🔥', color: 'text-orange-400 bg-orange-900/30' };
+    if (rating >= 4) return { label: '🔥', color: 'text-yellow-400 bg-yellow-900/30' };
+    return { label: '✓', color: 'text-green-400 bg-green-900/30' };
+  };
+
+  // Social stats removed as no longer needed
 
   // Get colors from postTypeUtils
   const colors = getPostTypeDetails('workout_log').colors;
@@ -101,7 +114,6 @@ const WorkoutLogCard = ({
 
   // Determine if key stats should be shown based on their existence
   const showMood = !!log.mood_rating;
-  const showDifficulty = !!log.perceived_difficulty;
   const exerciseCount = log.exercise_count || log.exercises?.length || 0;
 
   return (
@@ -146,9 +158,9 @@ const WorkoutLogCard = ({
                   </span>
                   
                   {log.gym && (
-                    <span className="flex items-center ml-3 flex-shrink-0">
-                      <MapPin className="w-3.5 h-3.5 mr-1.5" />
-                      <span className="truncate max-w-[120px]">{gymName}</span>
+                    <span className="flex items-center ml-3 flex-shrink-0 max-w-[150px] md:max-w-full truncate">
+                      <MapPin className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                      <span className="truncate">{gymInfo.name} {gymInfo.location && `• ${gymInfo.location}`}</span>
                     </span>
                   )}
                 </div>
@@ -199,7 +211,7 @@ const WorkoutLogCard = ({
           {/* Stats Grid - With gradient backgrounds */}
           <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 hover:from-blue-900/30 hover:to-blue-800/30 p-3 rounded-lg border border-blue-700/30 transition-all duration-300 transform hover:scale-[1.02]">
-              <div className="flex items-center text-sm text-gray-400 mb-1">
+              <div className="flex items-center text-xs text-gray-400 mb-1">
                 <Dumbbell className="w-3.5 h-3.5 mr-1 text-blue-400" />
                 <span>Exercises</span>
               </div>
@@ -208,137 +220,106 @@ const WorkoutLogCard = ({
               </p>
             </div>
             
-            <div className="bg-gradient-to-br from-purple-900/20 to-purple-800/20 hover:from-purple-900/30 hover:to-purple-800/30 p-3 rounded-lg border border-purple-700/30 transition-all duration-300 transform hover:scale-[1.02]">
-              <div className="flex items-center text-sm text-gray-400 mb-1">
-                <Clock className="w-3.5 h-3.5 mr-1 text-purple-400" />
-                <span>Duration</span>
+            <div className="bg-gradient-to-br from-red-900/20 to-red-800/20 hover:from-red-900/30 hover:to-red-800/30 p-3 rounded-lg border border-red-700/30 transition-all duration-300 transform hover:scale-[1.02]">
+              <div className="flex items-center text-xs text-gray-400 mb-1">
+                <Flame className="w-3.5 h-3.5 mr-1 text-red-400" />
+                <span>Difficulty</span>
               </div>
-              <p className="font-semibold text-white">
-                {log.duration || '—'} <span className="text-xs font-normal">min</span>
+              <p className="font-semibold text-white flex items-center justify-between">
+                <span className={`text-xs px-2 py-0.5 rounded-full ${getDifficultyEffect(log.perceived_difficulty).color}`}>
+                  {getDifficultyEffect(log.perceived_difficulty).label}
+                </span>
+                <span className="text-xs px-1.5 py-0.5 bg-red-900/40 rounded-full">{log.perceived_difficulty || '—'}/10</span>
               </p>
             </div>
             
             {showMood ? (
               <div className="bg-gradient-to-br from-pink-900/20 to-pink-800/20 hover:from-pink-900/30 hover:to-pink-800/30 p-3 rounded-lg border border-pink-700/30 transition-all duration-300 transform hover:scale-[1.02]">
-                <div className="flex items-center text-sm text-gray-400 mb-1">
+                <div className="flex items-center text-xs text-gray-400 mb-1">
                   <Heart className="w-3.5 h-3.5 mr-1 text-pink-400" />
                   <span>Mood</span>
                 </div>
-                <p className="font-semibold text-white flex items-center">
-                  <span className="mr-2">{log.mood_rating}/10</span>
+                <p className="font-semibold text-white flex items-center justify-between">
                   <span className="text-xl">{getMoodEmoji(log.mood_rating)}</span>
-                </p>
-              </div>
-            ) : showDifficulty ? (
-              <div className="bg-gradient-to-br from-red-900/20 to-red-800/20 hover:from-red-900/30 hover:to-red-800/30 p-3 rounded-lg border border-red-700/30 transition-all duration-300 transform hover:scale-[1.02]">
-                <div className="flex items-center text-sm text-gray-400 mb-1">
-                  <Flame className="w-3.5 h-3.5 mr-1 text-red-400" />
-                  <span>Difficulty</span>
-                </div>
-                <p className="font-semibold text-white">
-                  {log.perceived_difficulty}/10
+                  <span className="text-xs px-1.5 py-0.5 bg-pink-900/40 rounded-full">{log.mood_rating}/10</span>
                 </p>
               </div>
             ) : (
               <div className="bg-gradient-to-br from-teal-900/20 to-teal-800/20 hover:from-teal-900/30 hover:to-teal-800/30 p-3 rounded-lg border border-teal-700/30 transition-all duration-300 transform hover:scale-[1.02]">
-                <div className="flex items-center text-sm text-gray-400 mb-1">
+                <div className="flex items-center text-xs text-gray-400 mb-1">
                   <Target className="w-3.5 h-3.5 mr-1 text-teal-400" />
-                  <span>{log.program_name ? 'Program' : 'Gym'}</span>
+                  <span className="truncate">{log.program_name ? 'Program' : 'Gym'}</span>
                 </div>
-                <p className="font-semibold text-white truncate">
-                  {log.program_name || gymName}
+                <p className="font-semibold text-white text-sm truncate">
+                  {log.program_name || gymInfo.name}
                 </p>
               </div>
             )}
           </div>
 
           {/* Expandable Exercise List - Only show if expanded and has exercises */}
-          {expanded && log.exercises?.length > 0 && (
+          {expanded && (
             <div className="mt-5 space-y-3 border-t border-gray-700/50 pt-4 animate-fadeIn">
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="font-medium text-white text-sm flex items-center">
-                  <Dumbbell className="w-4 h-4 mr-2 text-green-400" />
-                  Exercises
-                </h5>
-                <span className="px-1.5 py-0.5 bg-gray-800/80 text-gray-400 rounded text-xs">
-                  {log.exercises.length} total
-                </span>
-              </div>
+              {log.exercises?.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-medium text-white text-sm flex items-center">
+                      <Dumbbell className="w-4 h-4 mr-2 text-green-400" />
+                      Exercises
+                    </h5>
+                    <span className="px-1.5 py-0.5 bg-gray-800/80 text-gray-400 rounded text-xs">
+                      {log.exercises.length} total
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {log.exercises.slice(0, 4).map((exercise, index) => (
+                      <div 
+                        key={index} 
+                        className="bg-gray-800/70 rounded-lg p-2.5 border border-gray-700/50 hover:border-green-700/30 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-green-900/30 text-green-400 text-xs mr-2">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <h6 className="font-medium text-white text-sm">{exercise.name}</h6>
+                              {exercise.equipment && (
+                                <span className="text-xs text-gray-400">{exercise.equipment}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-400 flex items-center">
+                            <span className="bg-gray-700/50 px-1.5 py-0.5 rounded">
+                              {exercise.sets?.length || 0} sets
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {log.exercises.length > 4 && (
+                      <div className="text-center py-1 text-sm text-green-400">
+                        +{log.exercises.length - 4} more exercises
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
               
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {log.exercises.slice(0, 4).map((exercise, index) => (
-                  <div 
-                    key={index} 
-                    className="bg-gray-800/70 rounded-lg p-2.5 border border-gray-700/50 hover:border-green-700/30 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-6 h-6 flex items-center justify-center rounded-full bg-green-900/30 text-green-400 text-xs mr-2">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <h6 className="font-medium text-white text-sm">{exercise.name}</h6>
-                          {exercise.equipment && (
-                            <span className="text-xs text-gray-400">{exercise.equipment}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-400 flex items-center">
-                        <span className="bg-gray-700/50 px-1.5 py-0.5 rounded">
-                          {exercise.sets?.length || 0} sets
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {log.exercises.length > 4 && (
-                  <div className="text-center py-1 text-sm text-green-400">
-                    +{log.exercises.length - 4} more exercises
-                  </div>
-                )}
-              </div>
+              {/* View Details Button - Only show when expanded */}
+              <button 
+                onClick={handleCardClick}
+                className="w-full flex items-center justify-center gap-2 py-2 mt-2 bg-gradient-to-r from-green-600/80 to-emerald-600/80 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg transition-all duration-300 text-sm font-medium border border-green-500/30"
+              >
+                <Eye className="w-4 h-4" />
+                View Full Workout Log
+              </button>
             </div>
           )}
 
-          {/* Social interaction section - Only for feed mode */}
-          {inFeedMode && (
-            <div className="mt-4 pt-3 border-t border-gray-700/30">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <button className="flex items-center text-gray-400 hover:text-green-400 transition-colors">
-                    <ThumbsUp className="w-4 h-4 mr-1.5" />
-                    <span>{likes}</span>
-                  </button>
-                  <button className="flex items-center text-gray-400 hover:text-green-400 transition-colors">
-                    <MessageCircle className="w-4 h-4 mr-1.5" />
-                    <span>{comments}</span>
-                  </button>
-                </div>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShare?.(log);
-                  }}
-                  className="text-gray-400 hover:text-green-400 transition-colors group"
-                >
-                  <Share2 className="w-4 h-4 mr-1 inline-block group-hover:rotate-12 transition-transform duration-300" />
-                  <span className="hidden sm:inline">Share</span>
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {/* View Details Button - Only show if expandable */}
-          {expandable && (
-            <button 
-              onClick={handleCardClick}
-              className="w-full flex items-center justify-center gap-2 py-2 mt-4 bg-gradient-to-r from-green-600/80 to-emerald-600/80 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg transition-all duration-300 text-sm font-medium border border-green-500/30"
-            >
-              <Eye className="w-4 h-4" />
-              View Full Workout Log
-            </button>
-          )}
+          {/* Social interaction section removed as requested */}
           
           {/* Bottom highlight line - animated on hover */}
           <div className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 w-0 ${isHovered ? 'w-full' : ''} transition-all duration-700`}></div>

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Plus, Search, Filter, SortDesc } from 'lucide-react';
-import EnhancedWorkoutCard from './../components/EnhancedWorkoutCard';
-import ExpandableWorkoutModal from './../components/ExpandableWorkoutModal';
-import EnhancedWorkoutDetailModal from './../components/EnhancedWorkoutDetailModal';
+import { 
+  ArrowLeft, Plus, Search, X, SlidersHorizontal, 
+  Dumbbell, Loader2 
+} from 'lucide-react';
+import EnhancedWorkoutCard from '../components/EnhancedWorkoutCard';
+import ExpandableWorkoutModal from '../components/ExpandableWorkoutModal';
 import EmptyState from '../components/EmptyState';
+import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 
 const EnhancedAllWorkoutsView = ({
   workoutTemplates,
@@ -13,13 +16,14 @@ const EnhancedAllWorkoutsView = ({
   onDeleteTemplate,
   setView
 }) => {
+  // State management
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [showWorkoutForm, setShowWorkoutForm] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filters, setFilters] = useState({
     splitMethod: 'all',
     difficultyLevel: 'all'
@@ -49,10 +53,19 @@ const EnhancedAllWorkoutsView = ({
     try {
       await onUpdateTemplate(templateData.id, templateData);
       setSelectedWorkout(null);
+      setShowWorkoutForm(false);
     } catch (err) {
       setError('Failed to update template');
       console.error('Error updating template:', err);
     }
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      splitMethod: 'all',
+      difficultyLevel: 'all'
+    });
+    setSearchQuery('');
   };
 
   // Filter and search workouts
@@ -73,109 +86,108 @@ const EnhancedAllWorkoutsView = ({
     return matchesSearch && matchesSplit && matchesDifficulty;
   });
 
-  const clearFilters = () => {
-    setFilters({
-      splitMethod: 'all',
-      difficultyLevel: 'all'
-    });
-    setSearchQuery('');
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400">Loading workout templates...</div>
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <span className="ml-2 text-gray-400">Loading workout templates...</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div className="flex items-center space-x-4">
+      {/* Header with title */}
+      <div className="space-y-1">
+        <div className="flex items-center">
           <button
             onClick={() => setView('logs')}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 mr-2 hover:bg-gray-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-6 h-6 text-gray-400" />
           </button>
-          <div>
-            <h1 className="text-3xl font-bold text-white">Workout Templates</h1>
-            <p className="text-gray-400 mt-1">
-              Create and manage your workout templates
-            </p>
-          </div>
+          <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
+            Workout Templates
+          </h1>
         </div>
-
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 
-                   transition-colors flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Create Template</span>
-        </button>
+        <p className="text-gray-400 ml-10 text-sm">Build your fitness programs from these reusable workout building blocks.</p>
       </div>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg">
-          {error}
+        <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg flex justify-between items-center">
+          <div className="flex items-center">
+            <span className="mr-2">⚠️</span>
+            {error}
+          </div>
           <button 
-            onClick={() => setError('')}
-            className="float-right text-red-400 hover:text-red-300"
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
           >
-            ×
+            <X className="w-5 h-5" />
           </button>
         </div>
       )}
 
-      {/* Search and Filters */}
-      <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/50">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search templates..."
-              className="pl-10 w-full bg-gray-900 border border-gray-700 rounded-lg py-2 text-white focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          
-          <div className="flex space-x-2">
+      {/* Minimalist search and action bar */}
+      <div className="flex justify-between items-center">
+        <div className="relative w-60">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search templates..."
+            className="pl-9 w-full bg-gray-800 rounded-lg py-2 text-white placeholder-gray-500 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm h-10"
+          />
+          {searchQuery && (
             <button
-              onClick={() => setFilterOpen(!filterOpen)}
-              className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 
-                       transition-colors flex items-center space-x-2"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
             >
-              <Filter className="w-5 h-5" />
-              <span>Filter</span>
+              <X className="w-4 h-4" />
             </button>
-            
-            {(filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all' || searchQuery) && (
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 
-                         transition-colors"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+          )}
         </div>
         
-        {filterOpen && (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowFilterPanel(!showFilterPanel)}
+            className={`p-2 rounded-lg transition-colors relative ${
+              Object.values(filters).some(val => val !== 'all')
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-700 text-gray-400 hover:text-white hover:bg-gray-600'
+            }`}
+            title="Filter Templates"
+          >
+            <SlidersHorizontal className="w-5 h-5" />
+            {Object.values(filters).some(val => val !== 'all') && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-xs font-medium text-blue-500">
+                {Object.values(filters).filter(val => val !== 'all').length}
+              </span>
+            )}
+          </button>
+          
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 
+                     transition-all shadow-lg shadow-blue-700/20"
+            title="Create New Template"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      
+      {/* Filter panel */}
+      {showFilterPanel && (
+        <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Split Method</label>
+              <label className="block text-sm text-gray-400 mb-2">Split Method</label>
               <select
                 value={filters.splitMethod}
                 onChange={(e) => setFilters({...filters, splitMethod: e.target.value})}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg py-2 px-3 text-white"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 text-white focus:border-blue-500 focus:ring-blue-500"
               >
                 <option value="all">All Split Types</option>
                 <option value="full_body">Full Body</option>
@@ -186,11 +198,11 @@ const EnhancedAllWorkoutsView = ({
             </div>
             
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Difficulty Level</label>
+              <label className="block text-sm text-gray-400 mb-2">Difficulty Level</label>
               <select
                 value={filters.difficultyLevel}
                 onChange={(e) => setFilters({...filters, difficultyLevel: e.target.value})}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg py-2 px-3 text-white"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 text-white focus:border-blue-500 focus:ring-blue-500"
               >
                 <option value="all">All Levels</option>
                 <option value="beginner">Beginner</option>
@@ -198,12 +210,62 @@ const EnhancedAllWorkoutsView = ({
                 <option value="advanced">Advanced</option>
               </select>
             </div>
+            
+            <div className="sm:col-span-2 flex justify-end">
+              {(filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all' || searchQuery) && (
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 
+                           transition-colors text-sm"
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Templates List */}
-      <div className="space-y-4">
+      {/* Active filters display */}
+      {(filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all') && (
+        <div className="flex items-center flex-wrap gap-2 bg-gray-800/50 rounded-lg p-3">
+          <span className="text-sm font-medium text-gray-400">Active filters:</span>
+          
+          {filters.splitMethod !== 'all' && (
+            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm flex items-center">
+              Split: {filters.splitMethod.replace(/_/g, ' ')}
+              <button
+                onClick={() => setFilters({...filters, splitMethod: 'all'})}
+                className="ml-2 hover:text-blue-300"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          
+          {filters.difficultyLevel !== 'all' && (
+            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm flex items-center">
+              Difficulty: {filters.difficultyLevel}
+              <button
+                onClick={() => setFilters({...filters, difficultyLevel: 'all'})}
+                className="ml-2 hover:text-blue-300"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          
+          <button
+            onClick={clearFilters}
+            className="ml-auto text-sm text-gray-400 hover:text-gray-300"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Templates Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredWorkouts.length > 0 ? (
           filteredWorkouts.map(workout => (
             <EnhancedWorkoutCard
@@ -215,50 +277,55 @@ const EnhancedAllWorkoutsView = ({
             />
           ))
         ) : (
-          <EmptyState
-            title={searchQuery || filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all' 
-              ? "No matching templates found" 
-              : "No workout templates yet"}
-            description={searchQuery || filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all'
-              ? "Try adjusting your search or filters"
-              : "Create your first template to get started"}
-            action={{
-              label: 'Create Template',
-              onClick: () => setShowCreateModal(true)
-            }}
-          />
+          <div className="col-span-full">
+            <EmptyState
+              title={searchQuery || filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all' 
+                ? "No matching templates found" 
+                : "No workout templates yet"}
+              description={searchQuery || filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all'
+                ? "Try adjusting your search or filters"
+                : "Create your first template to get started"}
+              action={{
+                label: 'Create Template',
+                onClick: () => setShowCreateModal(true)
+              }}
+            />
+          </div>
         )}
       </div>
 
+      {/* Footer info */}
+      {filteredWorkouts.length > 0 && (
+        <div className="flex justify-between mt-8 text-sm text-gray-500">
+          <span>Showing {filteredWorkouts.length} of {workoutTemplates.length} templates</span>
+        </div>
+      )}
+
       {/* Modals */}
-      <ExpandableWorkoutModal
-        workoutId={selectedWorkout?.id}
-        initialWorkoutData={selectedWorkout}
-        isOpen={showWorkoutModal}
-        onClose={() => setShowWorkoutModal(false)}
-        onEdit={() => {handleEditWorkout}}
-        // onDuplicate = {() => {}}
-        isTemplate={true}
-      />
+      {showWorkoutModal && (
+        <ExpandableWorkoutModal
+          workoutId={selectedWorkout?.id}
+          initialWorkoutData={selectedWorkout}
+          isOpen={showWorkoutModal}
+          onClose={() => setShowWorkoutModal(false)}
+          onEdit={() => handleEditWorkout(selectedWorkout)}
+          isTemplate={true}
+        />
+      )}
 
       {/* Workout Edit Form */}
       {showWorkoutForm && selectedWorkout && (
-  <EnhancedWorkoutDetailModal
-    workout={selectedWorkout}
-    onClose={() => setShowWorkoutForm(false)}
-    onSave={async (updatedWorkout) => {
-      await onUpdateTemplate(updatedWorkout.id, updatedWorkout);
-      setShowWorkoutForm(false);
-    }}
-    isNew={false}
-  />
-)}
+        <TemplateWizard
+          template={selectedWorkout}
+          onClose={() => setShowWorkoutForm(false)}
+          onSubmit={handleUpdateTemplate}
+        />
+      )}
 
       {showCreateModal && (
-        <EnhancedWorkoutDetailModal
+        <TemplateWizard
           onClose={() => setShowCreateModal(false)}
-          onSave={handleCreateTemplate}
-          isNew={true}
+          onSubmit={handleCreateTemplate}
         />
       )}
     </div>

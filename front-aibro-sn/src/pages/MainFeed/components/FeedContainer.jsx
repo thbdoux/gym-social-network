@@ -242,7 +242,6 @@ const Post = ({
             user={currentUser}
             logId={originalPost.workout_log}
             log={workoutLog}
-            canEdit={post.user_username === currentUser}
             inFeedMode={true}
           />
         )}
@@ -449,6 +448,7 @@ const Post = ({
                 user={currentUser}
                 logId={post.workout_log}
                 log={post.workout_log_details}
+                inFeedMode={true}
               />
             </div>
           )}

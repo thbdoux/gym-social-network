@@ -5,7 +5,7 @@ import EnhancedWorkoutCard from '../components/EnhancedWorkoutCard';
 import ExpandableWorkoutModal from './../components/ExpandableWorkoutModal';
 import TemplateSelector from '../components/TemplateSelector';
 import EnhancedProgramForm from '../components/EnhancedProgramForm';
-import EnhancedWorkoutForm from '../components/EnhancedWorkoutForm';
+import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 import api from './../../../api';
 
 const EnhancedPlanDetailView = ({
@@ -64,7 +64,7 @@ const EnhancedPlanDetailView = ({
       };
       
       // 3. Send the entire workout data back with just the weekday changed
-      const response = await api.put(
+      await api.put(
         `/workouts/programs/${plan.id}/workouts/${workoutId}/`,
         updatedWorkout,
         {
@@ -367,68 +367,17 @@ const EnhancedPlanDetailView = ({
         </div>
       )}
 
+      {/* Create New Workout Modal (using Wizard) */}
       {showCreateWorkout && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => {
-                    setShowCreateWorkout(false);
-                    setShowTemplateSelector(true);
-                  }}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <ArrowLeft className="w-6 h-6 text-gray-400" />
-                </button>
-                <h2 className="text-2xl font-bold text-white">Create New Workout</h2>
-              </div>
-              <button
-                onClick={() => {
-                  setShowCreateWorkout(false);
-                  setShowTemplateSelector(true);
-                }}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-            
-            {error && (
-              <div className="mb-6 bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg">
-                {error}
-                <button 
-                  onClick={() => setError('')}
-                  className="float-right text-red-400 hover:text-red-300"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            
-            <EnhancedWorkoutForm
-              onSubmit={handleCreateNewWorkout}
-              onCancel={() => {
-                setShowCreateWorkout(false);
-                setShowTemplateSelector(true);
-              }}
-              inProgram={true}
-              selectedPlan={plan}
-              initialData={{
-                name: '',
-                description: '',
-                split_method: 'full_body',
-                preferred_weekday: 0,
-                difficulty_level: 'intermediate',
-                estimated_duration: 60,
-                equipment_required: [],
-                tags: [],
-                exercises: [],
-                is_public: true
-              }}
-            />
-          </div>
-        </div>
+        <TemplateWizard
+          onSubmit={handleCreateNewWorkout}
+          onClose={() => {
+            setShowCreateWorkout(false);
+            setShowTemplateSelector(true);
+          }}
+          inProgram={true}
+          selectedPlan={plan}
+        />
       )}
 
       {/* Program Edit Modal */}
@@ -453,29 +402,15 @@ const EnhancedPlanDetailView = ({
         </div>
       )}
 
-      {/* Workout Edit Modal */}
+      {/* Edit Workout Modal (using Wizard) */}
       {workoutBeingEdited && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
-              <h2 className="text-2xl font-bold text-white">Edit Workout</h2>
-              <button
-                onClick={() => setWorkoutBeingEdited(null)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-            <EnhancedWorkoutForm
-              key={`edit-${workoutBeingEdited.id}-${JSON.stringify(workoutBeingEdited)}`}
-              initialData={workoutBeingEdited}
-              onSubmit={handleWorkoutUpdate}
-              onCancel={() => setWorkoutBeingEdited(null)}
-              inProgram={true}
-              selectedPlan={plan}
-            />
-          </div>
-        </div>
+        <TemplateWizard
+          template={workoutBeingEdited}
+          onSubmit={handleWorkoutUpdate}
+          onClose={() => setWorkoutBeingEdited(null)}
+          inProgram={true}
+          selectedPlan={plan}
+        />
       )}
     </div>
   );

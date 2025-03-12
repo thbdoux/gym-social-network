@@ -112,11 +112,11 @@ const ProgramCard = ({
   // Get difficulty label
   const getDifficultyLabel = (level) => {
     switch(level?.toLowerCase()) {
-      case 'beginner': return 'Beginner';
-      case 'intermediate': return 'Intermediate';
-      case 'advanced': return 'Advanced';
-      case 'expert': return 'Expert';
-      default: return level || 'All Levels';
+      case 'beginner': return { text: 'Beginner', icon: '🔰' };
+      case 'intermediate': return { text: 'Intermediate', icon: '⚡' };
+      case 'advanced': return { text: 'Advanced', icon: '💪' };
+      case 'expert': return { text: 'Expert', icon: '🏆' };
+      default: return { text: level || 'All Levels', icon: '✓' };
     }
   };
 
@@ -164,7 +164,7 @@ const ProgramCard = ({
                   {isForked && (
                     <span className="ml-2 text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0">
                       <GitFork className="w-3 h-3" />
-                      Forked
+                      <span className="hidden sm:inline">Forked</span>
                     </span>
                   )}
                   
@@ -245,7 +245,7 @@ const ProgramCard = ({
           
           {/* Description - Show only if it exists and keep it brief */}
           {program.description && (
-            <p className="mt-2 text-sm text-gray-300 line-clamp-2">{program.description}</p>
+            <p className="mt-2 text-sm text-gray-300 line-clamp-2 hidden sm:block">{program.description}</p>
           )}
 
           {/* Stats Grid */}
@@ -275,9 +275,10 @@ const ProgramCard = ({
                 <Target className="w-3.5 h-3.5 mr-1 text-indigo-400" />
                 <span>Focus</span>
               </div>
-              <p className="font-semibold text-white flex items-center">
-                <span className="capitalize truncate">{program.focus?.split('_')[0] || 'General'}</span>
-              </p>
+              <div className="font-semibold text-white flex items-center justify-between">
+                <span className="capitalize text-xs truncate">{program.focus?.split('_')[0] || 'General'}</span>
+                {getFocusIcon(program.focus)}
+              </div>
             </div>
             
             <div className="bg-gradient-to-br from-fuchsia-900/20 to-fuchsia-800/20 hover:from-fuchsia-900/30 hover:to-fuchsia-800/30 p-3 rounded-lg border border-fuchsia-700/30 transition-all duration-300 transform hover:scale-[1.02]">
@@ -285,9 +286,10 @@ const ProgramCard = ({
                 <Users className="w-3.5 h-3.5 mr-1 text-fuchsia-400" />
                 <span>Level</span>
               </div>
-              <p className="font-semibold text-white capitalize truncate">
-                {getDifficultyLabel(program.difficulty_level)}
-              </p>
+              <div className="font-semibold text-white flex items-center justify-between">
+                <span className="text-xs truncate">{getDifficultyLabel(program.difficulty_level).text}</span>
+                <span className="text-sm">{getDifficultyLabel(program.difficulty_level).icon}</span>
+              </div>
             </div>
           </div>
           
