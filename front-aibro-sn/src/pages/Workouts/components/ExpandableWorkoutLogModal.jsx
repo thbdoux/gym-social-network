@@ -8,62 +8,108 @@ import {
   Edit, Copy, Tag, Award
 } from 'lucide-react';
 import { logService } from '../../../api/services';
+import gymService from '../../../api/services/gymService';
 
 /**
  * Modal component for displaying detailed workout log information
  * 
  * @param {Object} props Component props
  * @param {string|number} props.logId ID of the workout log to display
- * @param {Object} props.initialLogData Initial log data (optional)
  * @param {boolean} props.isOpen Whether the modal is open
  * @param {Function} props.onClose Callback when modal is closed
  * @param {Function} props.onEdit Callback when edit is requested (optional)
+ * @param {Object} props.initialLogData Initial log data (optional)
  * @returns {JSX.Element} Expandable workout log modal component
  */
 const ExpandableWorkoutLogModal = ({ 
   logId, 
-  initialLogData, 
   isOpen, 
   onClose, 
-  onEdit
+  onEdit,
+  initialLogData = null
 }) => {
-  const [log, setLog] = useState(initialLogData);
-  const [loading, setLoading] = useState(!initialLogData);
+  const [log, setLog] = useState(null);
+  const [gymData, setGymData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedExercises, setExpandedExercises] = useState({});
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     const fetchLogDetails = async () => {
-      if (logId && !log) {
-        try {
-          setLoading(true);
-          const logData = await logService.getLogById(logId);
-          setLog(logData);
-        } catch (err) {
-          console.error('Error fetching workout log details:', err);
-          setError('Failed to load workout log details');
-        } finally {
-          setLoading(false);
+      if (!logId) return;
+      
+      try {
+        setLoading(true);
+        
+        // Always fetch complete data from the API to ensure we have all details
+        const logData = await logService.getLogById(logId);
+        setLog(logData);
+        
+        // Fetch gym data if we have a gym ID
+        if (logData.gym && typeof logData.gym === 'number') {
+          try {
+            const fetchedGymData = await gymService.getGymById(logData.gym);
+            setGymData(fetchedGymData);
+          } catch (gymErr) {
+            console.error('Error fetching gym details:', gymErr);
+            // Don't set global error, just log it - we still have the workout data
+          }
         }
+        
+        // Initialize exercise expansion state
+        if (logData?.exercises?.length > 0) {
+          const initialExpanded = {};
+          initialExpanded[logData.exercises[0].id || 0] = true;
+          setExpandedExercises(initialExpanded);
+        }
+      } catch (err) {
+        console.error('Error fetching workout log details:', err);
+        setError('Failed to load workout log details');
+      } finally {
+        setLoading(false);
       }
     };
 
+    // If we're open and either don't have initialLogData or it's incomplete, fetch the data
     if (isOpen) {
-      fetchLogDetails();
+      if (!initialLogData || !initialLogData.exercises) {
+        fetchLogDetails();
+      } else {
+        // Use the provided initialLogData if it seems complete
+        setLog(initialLogData);
+        
+        // Fetch gym data if needed
+        if (initialLogData.gym && typeof initialLogData.gym === 'number') {
+          const fetchGymInfo = async () => {
+            try {
+              const fetchedGymData = await gymService.getGymById(initialLogData.gym);
+              setGymData(fetchedGymData);
+            } catch (gymErr) {
+              console.error('Error fetching gym details:', gymErr);
+            }
+          };
+          fetchGymInfo();
+        }
+        
+        setLoading(false);
+        
+        // Initialize exercise expansion state
+        if (initialLogData.exercises?.length > 0) {
+          const initialExpanded = {};
+          initialExpanded[initialLogData.exercises[0].id || 0] = true;
+          setExpandedExercises(initialExpanded);
+        }
+      }
     }
-  }, [logId, log, isOpen]);
+  }, [logId, isOpen, initialLogData]);
 
-  useEffect(() => {
-    if (log?.exercises?.length > 0) {
-      // Initialize only the first exercise as expanded
-      const initialExpanded = {};
-      const firstExerciseId = log.exercises[0].id || 0;
-      initialExpanded[firstExerciseId] = true;
-      setExpandedExercises(initialExpanded);
-    }
-  }, [log]);
+  // Track expanded exercises
+  const toggleExerciseExpand = (exerciseId) => {
+    setExpandedExercises(prev => ({
+      ...prev,
+      [exerciseId]: !prev[exerciseId]
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -114,13 +160,12 @@ const ExpandableWorkoutLogModal = ({
     sum + (ex.sets?.reduce((setSum, set) => 
       setSum + (set.reps || 0), 0) || 0), 0) || 0;
 
-  // Track expanded exercises
-  const toggleExerciseExpand = (exerciseId) => {
-    setExpandedExercises(prev => ({
-      ...prev,
-      [exerciseId]: !prev[exerciseId]
-    }));
-  };
+  // Handle gym display - combine data from log and gymData
+  const gymDisplayName = gymData ? gymData.name : (
+    typeof log.gym === 'string' ? log.gym : 'Unknown Gym'
+  );
+  
+  const gymDisplayLocation = gymData ? gymData.location : null;
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 overflow-y-auto py-4 backdrop-blur-md">
@@ -137,10 +182,10 @@ const ExpandableWorkoutLogModal = ({
               </h2>
               <div className="flex items-center mt-1 text-sm text-white/80">
                 <span className="truncate">{log.date || new Date().toLocaleDateString()}</span>
-                {log.gym_name && (
+                {log.gym && (
                   <div className="flex items-center ml-3 flex-shrink-0">
                     <MapPin className="w-4 h-4 mr-1" />
-                    <span className="truncate">{log.gym_name}</span>
+                    <span className="truncate">{gymDisplayName}</span>
                   </div>
                 )}
                 {log.completed && (
@@ -197,14 +242,17 @@ const ExpandableWorkoutLogModal = ({
                   </div>
                   
                   {/* Gym */}
-                  {log.gym_name && (
+                  {(log.gym || gymData) && (
                     <div className="flex items-center">
                       <div className="p-2 rounded-lg bg-green-500/20 mr-3">
                         <MapPin className="w-5 h-5 text-green-400" />
                       </div>
                       <div className="min-w-0 overflow-hidden">
                         <span className="text-sm text-gray-400">Gym</span>
-                        <p className="text-white font-medium truncate">{log.gym_name}</p>
+                        <p className="text-white font-medium truncate">{gymDisplayName}</p>
+                        {gymDisplayLocation && (
+                          <p className="text-gray-400 text-sm truncate">{gymDisplayLocation}</p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -278,6 +326,54 @@ const ExpandableWorkoutLogModal = ({
                     <p className="text-gray-300 whitespace-pre-line leading-relaxed">
                       {log.performance_notes}
                     </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Gym Details - Only show if we have extra details from gymData */}
+              {gymData && (gymData.amenities || gymData.hours || gymData.description) && (
+                <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
+                  <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+                    <MapPin className="w-5 h-5 mr-2 text-green-400" />
+                    Gym Details
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {gymData.description && (
+                      <div className="p-3 bg-gray-700/30 rounded-lg">
+                        <p className="text-sm text-gray-300">{gymData.description}</p>
+                      </div>
+                    )}
+                    
+                    {gymData.hours && (
+                      <div className="flex items-center">
+                        <div className="p-2 rounded-lg bg-blue-500/20 mr-3">
+                          <Clock className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-400">Hours</span>
+                          <p className="text-white text-sm">{gymData.hours}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {gymData.amenities && gymData.amenities.length > 0 && (
+                      <div className="flex items-start">
+                        <div className="p-2 rounded-lg bg-purple-500/20 mr-3 mt-1">
+                          <Tag className="w-4 h-4 text-purple-400" />
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-400">Amenities</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {gymData.amenities.map((amenity, i) => (
+                              <span key={i} className="px-2 py-1 bg-gray-700 rounded-md text-xs text-gray-300">
+                                {amenity}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -463,24 +559,6 @@ const ExpandableWorkoutLogModal = ({
             </div>
           </div>
         </div>
-
-        {/* Toast Notification */}
-        {showToast && (
-          <div className="fixed bottom-6 right-6 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg border border-gray-700 animate-fadeIn">
-            {toastMessage}
-          </div>
-        )}
-
-        {/* Add custom CSS for animations */}
-        <style jsx>{`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out forwards;
-          }
-        `}</style>
       </div>
     </div>
   );

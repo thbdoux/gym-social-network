@@ -2,6 +2,10 @@ import React from 'react';
 import { Loader2, TrendingUp } from 'lucide-react';
 import EmptyState from './EmptyState';
 
+/**
+ * WorkoutTimeline component that displays past workout logs and upcoming workouts
+ * Uses different modal types for logs vs upcoming workouts
+ */
 const WorkoutTimeline = ({
   logs,
   nextWorkout,
@@ -100,7 +104,8 @@ const WorkoutTimeline = ({
                           <div 
                             className="bg-gray-800 border border-green-700/30 rounded-xl overflow-hidden shadow-md cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-green-500/50"
                             onClick={() => {
-                              setSelectedWorkout(log);
+                              // Use setSelectedLog for workout logs (for ExpandableWorkoutLogModal)
+                              setSelectedLog(log);
                               setShowWorkoutModal(true);
                             }}
                           >
@@ -109,7 +114,7 @@ const WorkoutTimeline = ({
                             
                             <div className="p-4">
                               <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-white">{log.workout_name}</h3>
+                                <h3 className="text-lg font-semibold text-white">{log.name}</h3>
                                 <div className="px-2 py-1 bg-green-900/30 text-green-400 text-xs rounded-full">
                                   {getMoodEmoji(log.rating || 4)}
                                 </div>

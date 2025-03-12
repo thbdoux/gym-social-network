@@ -12,12 +12,13 @@ import { useWorkoutPlans } from './hooks/useWorkoutPlans';
 import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
 import { useWorkoutLogs } from './hooks/useWorkoutLogs';
 import WorkoutLogCard from './components/WorkoutLogCard';
-import WorkoutTimeline from './components/WorkoutTimeline'; // Import the new component
+import WorkoutTimeline from './components/WorkoutTimeline';
 import WorkoutWizard from './components/workout-wizard/WorkoutWizard';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
 import ShareProgramModal from './components/ShareProgramModal';
 import ExpandableWorkoutModal from './components/ExpandableWorkoutModal';
+import ExpandableWorkoutLogModal from './components/ExpandableWorkoutLogModal';
 import AllWorkoutLogsView from './views/AllWorkoutLogsView';
 import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
 import EnhancedPlanDetailView from './views/EnhancedPlanDetailView';
@@ -38,8 +39,13 @@ const WorkoutSpace = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  
+  // Modal state for workout templates and next workouts
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  
+  // State for workout log modal (past workouts)
+  const [showWorkoutLogModal, setShowWorkoutLogModal] = useState(false);
   
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -159,11 +165,18 @@ const WorkoutSpace = () => {
     }
   };
 
+  // Handle viewing the next/upcoming workout
   const handleViewNextWorkout = () => {
     if (nextWorkout) {
       setSelectedWorkout(nextWorkout);
       setShowWorkoutModal(true);
     }
+  };
+
+  // Handle viewing a past workout log
+  const handleViewWorkoutLog = (log) => {
+    setSelectedLog(log);
+    setShowWorkoutLogModal(true);
   };
 
   if (plansError || templatesError) {
@@ -381,22 +394,22 @@ const WorkoutSpace = () => {
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Use the new WorkoutTimeline component */}
+        {/* Use the updated WorkoutTimeline component with separate handlers for logs and upcoming workouts */}
         <WorkoutTimeline
           logs={logs}
           nextWorkout={nextWorkout}
           logsLoading={logsLoading}
           plansLoading={plansLoading}
           activeProgram={activeProgram}
-          setSelectedWorkout={setSelectedWorkout}
-          setShowWorkoutModal={setShowWorkoutModal}
+          setSelectedWorkout={handleViewWorkoutLog} // For past logs - sets selectedLog and shows log modal
+          setShowWorkoutModal={setShowWorkoutLogModal} // For past logs - shows the log modal
           setSelectedLog={setSelectedLog}
           setShowLogForm={setShowLogForm}
-          handleViewNextWorkout={handleViewNextWorkout}
+          handleViewNextWorkout={handleViewNextWorkout} // For upcoming workouts
         />
       </div>
       
-      {/* Modals - Keep all the existing modals */}
+      {/* Modals */}
       {showLogForm && (
         <WorkoutWizard
           log={selectedLog}
@@ -496,6 +509,7 @@ const WorkoutSpace = () => {
         />
       )}
 
+      {/* ExpandableWorkoutModal for next/upcoming workouts */}
       {showWorkoutModal && selectedWorkout && (
         <ExpandableWorkoutModal
           workoutId={selectedWorkout.id}
@@ -506,6 +520,24 @@ const WorkoutSpace = () => {
             setSelectedWorkout(null);
           }}
           isTemplate={false}
+        />
+      )}
+      
+      {/* ExpandableWorkoutLogModal for past workout logs */}
+      {showWorkoutLogModal && selectedLog && (
+        <ExpandableWorkoutLogModal
+          logId={selectedLog.id}
+          initialLogData={selectedLog}
+          isOpen={showWorkoutLogModal}
+          onClose={() => {
+            setShowWorkoutLogModal(false);
+            setSelectedLog(null);
+          }}
+          onEdit={(log) => {
+            setShowWorkoutLogModal(false);
+            setSelectedLog(log);
+            setShowLogForm(true);
+          }}
         />
       )}
     </div>

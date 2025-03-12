@@ -1,88 +1,102 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  X, Activity, Calendar, Clock, Target, MapPin, 
-  User, ClipboardList, ChevronDown, ChevronUp, 
-  Dumbbell, Scale, CircleDot, Book, 
-  Heart, Droplets, Timer, Zap, Bookmark,
-  CheckCircle, BarChart, Download, Share2, Flame,
-  Edit, Copy, Tag, Award, Eye
+  X, Dumbbell, Calendar, Clock, Target, MapPin, 
+  User, ChevronDown, ChevronUp, 
+  Scale, CircleDot, Book, Award 
 } from 'lucide-react';
-import { workoutService, programService } from '../../../api/services';
+import api from '../../../api';
+import { logService, workoutService } from '../../../api/services';
 
-const splitMethodLabels = {
-  full_body: 'Full Body',
-  upper_lower: 'Upper/Lower',
-  push_pull_legs: 'Push/Pull/Legs',
-  body_part: 'Body Part Split',
-  custom: 'Custom Split'
-};
-
+/**
+ * Modal component for displaying detailed workout information
+ * 
+ * @param {Object} props Component props
+ * @param {string|number} props.workoutId ID of the workout to display
+ * @param {boolean} props.isOpen Whether the modal is open
+ * @param {Function} props.onClose Callback when modal is closed
+ * @param {boolean} props.isTemplate Whether this is a template workout (vs. an instance)
+ * @param {Object} props.initialWorkoutData Initial workout data (optional)
+ * @returns {JSX.Element} Expandable workout modal component
+ */
 const ExpandableWorkoutModal = ({ 
   workoutId, 
-  initialWorkoutData, 
   isOpen, 
   onClose, 
-  onEdit, 
-  onDuplicate,
-  isTemplate = true 
+  isTemplate = false,
+  initialWorkoutData = null
 }) => {
-  const [workout, setWorkout] = useState(initialWorkoutData);
-  const [loading, setLoading] = useState(!initialWorkoutData);
+  const [workout, setWorkout] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedExercises, setExpandedExercises] = useState({});
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     const fetchWorkoutDetails = async () => {
-      if (workoutId && !workout) {
-        try {
-          setLoading(true);
-          let workoutData;
-          
-          if (isTemplate) {
-            workoutData = await workoutService.getTemplateById(workoutId);
-          } else {
-            workoutData = await programService.getProgramWorkout(
-              // We need the program ID here, which we might not have directly
-              // In a real implementation, you'd include programId as a prop or extract it from the workout data
-              workoutData?.program, 
-              workoutId
-            );
-          }
-          
-          setWorkout(workoutData);
-        } catch (err) {
-          console.error('Error fetching workout details:', err);
-          setError('Failed to load workout details');
-        } finally {
-          setLoading(false);
+      if (!workoutId) return;
+      
+      try {
+        setLoading(true);
+        
+        // Always fetch complete data from the API to ensure we have all details
+        let workoutData;
+        
+        if (isTemplate) {
+          workoutData = await workoutService.getTemplateById(workoutId);
+        } else {
+          // For workout logs, use proper service
+          workoutData = await logService.getWorkoutInstanceById(workoutId);
         }
+        
+        setWorkout(workoutData);
+        
+        // Initialize exercise expansion state
+        if (workoutData?.exercises?.length > 0) {
+          const initialExpanded = {};
+          initialExpanded[workoutData.exercises[0].id || 0] = true;
+          setExpandedExercises(initialExpanded);
+        }
+      } catch (err) {
+        console.error('Error fetching workout details:', err);
+        setError(`Failed to load ${isTemplate ? 'workout template' : 'workout'} details`);
+      } finally {
+        setLoading(false);
       }
     };
 
+    // If we're open and either don't have initialWorkoutData or it's incomplete, fetch the data
     if (isOpen) {
-      fetchWorkoutDetails();
+      if (!initialWorkoutData || !initialWorkoutData.exercises) {
+        fetchWorkoutDetails();
+      } else {
+        // Use the provided initialWorkoutData if it seems complete
+        setWorkout(initialWorkoutData);
+        setLoading(false);
+        
+        // Initialize exercise expansion state
+        if (initialWorkoutData.exercises?.length > 0) {
+          const initialExpanded = {};
+          initialExpanded[initialWorkoutData.exercises[0].id || 0] = true;
+          setExpandedExercises(initialExpanded);
+        }
+      }
     }
-  }, [workoutId, workout, isOpen, isTemplate]);
+  }, [workoutId, isOpen, isTemplate, initialWorkoutData]);
 
-  useEffect(() => {
-    if (workout?.exercises?.length > 0) {
-      // Initialize only the first exercise as expanded
-      const initialExpanded = {};
-      const firstExerciseId = workout.exercises[0].id || 0;
-      initialExpanded[firstExerciseId] = true;
-      setExpandedExercises(initialExpanded);
-    }
-  }, [workout]);
+  // Toggle exercise expansion
+  const toggleExerciseExpand = (exerciseId) => {
+    setExpandedExercises(prev => ({
+      ...prev,
+      [exerciseId]: !prev[exerciseId]
+    }));
+  };
 
   if (!isOpen) return null;
 
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-gray-900 rounded-xl w-full max-w-5xl max-h-[95vh] overflow-hidden shadow-xl animate-pulse">
-          <div className="h-16 bg-gray-800 mb-4"></div>
+        <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[95vh] overflow-hidden shadow-xl animate-pulse">
+          <div className="h-16 bg-gray-800"></div>
           <div className="p-6 space-y-4">
             <div className="h-6 bg-gray-800 rounded w-1/3"></div>
             <div className="h-24 bg-gray-800 rounded"></div>
@@ -100,12 +114,14 @@ const ExpandableWorkoutModal = ({
   if (error || !workout) {
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-gray-900 rounded-xl w-full max-w-5xl overflow-hidden shadow-xl">
+        <div className="bg-gray-900 rounded-xl w-full max-w-4xl overflow-hidden shadow-xl">
           <div className="p-6 text-center">
-            <div className="text-red-400 text-lg">{error || "Unable to load workout"}</div>
+            <div className="text-red-400 text-lg mb-4">
+              {error || `Unable to load ${isTemplate ? 'workout template' : 'workout'}`}
+            </div>
             <button 
               onClick={onClose}
-              className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               Close
             </button>
@@ -115,326 +131,206 @@ const ExpandableWorkoutModal = ({
     );
   }
 
-  // Track expanded exercises independently
-  const toggleExerciseExpand = (exerciseId) => {
-    setExpandedExercises(prev => ({
-      ...prev,
-      [exerciseId]: !prev[exerciseId]
-    }));
-  };
-
-  const handleShareWorkout = () => {
-    setToastMessage('Workout link copied to clipboard!');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-  };
-
-  const handleDuplicateWorkout = () => {
-    if (onDuplicate) {
-      onDuplicate(workout);
-      setToastMessage('Workout duplicated successfully!');
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    }
+  // Format function for weekday display
+  const getWeekdayName = (index) => {
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][index];
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 overflow-y-auto py-4 backdrop-blur-md">
-      <div className="bg-gray-900 rounded-xl w-full max-w-6xl max-h-[95vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700 transform transition-all duration-300">
-        {/* Header with background gradient */}
-        <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 flex justify-between items-center sticky top-0 z-10">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-4">
+      <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[95vh] overflow-hidden shadow-xl mx-4 flex flex-col border border-gray-700">
+        {/* Header */}
+        <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 relative flex justify-between items-center">
           <div className="flex items-center gap-3 min-w-0 overflow-hidden">
-            <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg transform transition-all duration-300 hover:scale-110 flex-shrink-0">
-              <Dumbbell className="w-8 h-8 text-white" />
+            <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center shadow-lg">
+              <Dumbbell className="w-7 h-7 text-white" />
             </div>
             <div className="min-w-0 overflow-hidden">
-              <h2 className="text-2xl font-bold text-white tracking-tight truncate">{workout.name || "Workout"}</h2>
+              <h2 className="text-2xl font-bold text-white tracking-tight truncate">{workout.name}</h2>
               <div className="flex items-center mt-1 text-sm text-white/80">
-                <span className="truncate capitalize">
-                  {splitMethodLabels[workout.split_method] || workout.split_method?.replace(/_/g, ' ') || 'General Workout'}
-                </span>
-                {workout.creator_username && (
-                  <div className="flex items-center ml-3 flex-shrink-0">
-                    <User className="w-4 h-4 mr-1" />
-                    <span className="truncate">{workout.creator_username}</span>
-                  </div>
+                {workout.preferred_weekday !== undefined && (
+                  <span className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    {getWeekdayName(workout.preferred_weekday)}
+                  </span>
+                )}
+                {workout.split_method && (
+                  <span className="flex items-center ml-3">
+                    <Target className="w-4 h-4 mr-1" />
+                    {workout.split_method.replace(/_/g, ' ')}
+                  </span>
                 )}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-            {onDuplicate && (
-              <button
-                onClick={handleDuplicateWorkout}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-1 text-white whitespace-nowrap"
-              >
-                <Copy className="w-5 h-5" />
-                <span>Duplicate</span>
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0"
-              aria-label="Close"
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/20 rounded-full transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
         </div>
 
-        {/* Two-column Content Layout */}
+        {/* Content Layout */}
         <div className="flex-1 overflow-y-auto bg-gray-900 p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left Column - Workout Details */}
-            <div className="md:col-span-1">
-              {/* Workout Details Card */}
-              <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
-                  <ClipboardList className="w-5 h-5 mr-2 text-blue-400" />
-                  Workout Details
-                </h3>
+            {/* Left Column - Workout Metadata */}
+            <div className="md:col-span-1 space-y-6">
+              {/* Workout Stats */}
+              <div className="bg-gray-800/80 rounded-xl p-5 border border-gray-700">
+                <h3 className="text-lg font-medium text-white mb-4">Workout Details</h3>
                 
-                <div className="space-y-4">
-                  {/* Split Method */}
-                  <div className="flex items-center">
-                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3 flex-shrink-0">
-                      <Activity className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div className="min-w-0 overflow-hidden">
-                      <span className="text-sm text-gray-400">Split Method</span>
-                      <p className="text-white font-medium capitalize truncate">
-                        {splitMethodLabels[workout.split_method] || workout.split_method?.replace(/_/g, ' ') || 'General Workout'}
-                      </p>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-750 rounded-lg border border-gray-700 text-center">
+                    <div className="text-sm text-gray-400">Exercises</div>
+                    <div className="text-xl font-bold text-white">{workout.exercises?.length || 0}</div>
                   </div>
                   
-                  {/* Duration */}
-                  <div className="flex items-center">
-                    <div className="p-2 rounded-lg bg-green-500/20 mr-3 flex-shrink-0">
-                      <Clock className="w-5 h-5 text-green-400" />
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-400">Duration</span>
-                      <p className="text-white font-medium">{workout.estimated_duration || '–'} min</p>
+                  <div className="p-3 bg-gray-750 rounded-lg border border-gray-700 text-center">
+                    <div className="text-sm text-gray-400">Duration</div>
+                    <div className="text-xl font-bold text-white">
+                      {workout.estimated_duration || workout.duration || '45'} <span className="text-sm font-normal">min</span>
                     </div>
                   </div>
-                  
-                  {/* Difficulty */}
-                  <div className="flex items-center">
-                    <div className="p-2 rounded-lg bg-amber-500/20 mr-3 flex-shrink-0">
-                      <Award className="w-5 h-5 text-amber-400" />
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-400">Difficulty</span>
-                      <p className="text-white font-medium capitalize">{workout.difficulty_level || '–'}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Equipment Required */}
-                  {workout.equipment_required && workout.equipment_required.length > 0 && (
+                </div>
+                
+                {/* Additional metadata */}
+                <div className="mt-4 space-y-3">
+                  {workout.difficulty_level && (
                     <div className="flex items-center">
-                      <div className="p-2 rounded-lg bg-purple-500/20 mr-3 flex-shrink-0">
-                        <Dumbbell className="w-5 h-5 text-purple-400" />
+                      <div className="p-2 rounded-lg bg-blue-500/10 mr-3">
+                        <Award className="w-5 h-5 text-blue-400" />
                       </div>
-                      <div className="min-w-0 overflow-hidden">
-                        <span className="text-sm text-gray-400">Equipment Required</span>
-                        <p className="text-white font-medium truncate">
-                          {workout.equipment_required.join(', ')}
-                        </p>
+                      <div>
+                        <span className="text-sm text-gray-400">Difficulty</span>
+                        <p className="text-white font-medium capitalize">{workout.difficulty_level}</p>
                       </div>
                     </div>
                   )}
                   
-                  {/* Visibility */}
-                  {workout.hasOwnProperty('is_public') && (
+                  {workout.creator_username && (
                     <div className="flex items-center">
-                      <div className="p-2 rounded-lg bg-indigo-500/20 mr-3 flex-shrink-0">
-                        <Eye className="w-5 h-5 text-indigo-400" />
+                      <div className="p-2 rounded-lg bg-indigo-500/10 mr-3">
+                        <User className="w-5 h-5 text-indigo-400" />
                       </div>
                       <div>
-                        <span className="text-sm text-gray-400">Visibility</span>
-                        <p className="text-white font-medium">
-                          {workout.is_public ? 'Public' : 'Private'}
-                        </p>
+                        <span className="text-sm text-gray-400">Created by</span>
+                        <p className="text-white font-medium">{workout.creator_username}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {workout.is_template && (
+                    <div className="flex items-center">
+                      <div className="p-2 rounded-lg bg-purple-500/10 mr-3">
+                        <Book className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-400">Type</span>
+                        <p className="text-white font-medium">Template</p>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
               
-              {/* Description Section */}
+              {/* Description */}
               {workout.description && (
-                <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
-                  <div className="flex items-start mb-4">
-                    <div className="p-2 rounded-lg bg-blue-500/20 mr-3 flex-shrink-0">
-                      <Book className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-medium text-white">Description</h4>
-                    </div>
-                  </div>
-                  <div className="p-4 bg-gray-700/30 rounded-lg border border-gray-700/30">
-                    <p className="text-gray-300 whitespace-pre-line leading-relaxed">{workout.description}</p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Tags Section */}
-              {workout.tags && workout.tags.length > 0 && (
-                <div className="bg-gray-800/50 p-5 rounded-xl border border-gray-700 mb-6">
-                  <div className="flex items-start mb-4">
-                    <div className="p-2 rounded-lg bg-indigo-500/20 mr-3 flex-shrink-0">
-                      <Tag className="w-5 h-5 text-indigo-400" />
-                    </div>
-                    <h4 className="text-lg font-medium text-white">Tags</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {workout.tags.map((tag, index) => (
-                      <span 
-                        key={index} 
-                        className="px-3 py-1.5 bg-gray-700/40 text-gray-300 rounded-full text-sm"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                <div className="bg-gray-800/80 rounded-xl p-5 border border-gray-700">
+                  <h3 className="text-lg font-medium text-white mb-3">Description</h3>
+                  <p className="text-gray-300 whitespace-pre-line">{workout.description}</p>
                 </div>
               )}
             </div>
             
             {/* Right Column - Exercises */}
             <div className="md:col-span-2">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white flex items-center">
-                  <Dumbbell className="w-6 h-6 mr-2 text-blue-400" />
-                  Exercises
-                </h3>
-                <span className="px-3 py-1 bg-gray-800 text-gray-300 rounded-lg text-sm border border-gray-700">
-                  {workout.exercises?.length || 0} total
-                </span>
-              </div>
+              <h3 className="text-xl font-medium text-white mb-4">Exercises</h3>
               
               {workout.exercises && workout.exercises.length > 0 ? (
                 <div className="space-y-4">
                   {workout.exercises.map((exercise, index) => (
                     <div 
-                      key={index} 
-                      className="bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700 hover:border-gray-600 transition-all hover:shadow-md"
+                      key={exercise.id || index} 
+                      className="bg-gray-800/80 rounded-xl overflow-hidden border border-gray-700"
                     >
                       <div 
-                        className={`p-4 cursor-pointer transition-all ${expandedExercises[exercise.id || index] ? 'bg-gray-800/80' : ''}`}
+                        className="p-4 cursor-pointer hover:bg-gray-750 transition-colors"
                         onClick={() => toggleExerciseExpand(exercise.id || index)}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4 min-w-0 overflow-hidden flex-1">
-                            <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 hover:scale-110 transition-transform flex-shrink-0">
-                              <Dumbbell className="w-5 h-5 text-white" />
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400 font-bold">
+                              {index + 1}
                             </div>
-                            <div className="min-w-0 overflow-hidden">
-                              <h4 className="font-semibold text-white text-lg truncate">{exercise.name}</h4>
-                              <div className="flex items-center space-x-3 text-sm text-gray-400 mt-1">
-                                {exercise.equipment && (
-                                  <span className="truncate">{exercise.equipment}</span>
-                                )}
-                                {exercise.sets && (
-                                  <>
-                                    {exercise.equipment && <span>•</span>}
-                                    <span className="flex-shrink-0">{exercise.sets.length} sets</span>
-                                  </>
+                            <div>
+                              <h4 className="font-medium text-white">{exercise.name}</h4>
+                              <div className="text-sm text-gray-400 mt-0.5">
+                                {exercise.equipment && <span>{exercise.equipment}</span>}
+                                {exercise.sets?.length > 0 && (
+                                  <span className="ml-2">{exercise.sets.length} sets</span>
                                 )}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center flex-shrink-0 ml-2">
-                            <div className="text-right mr-4 hidden sm:block">
-                              <div className="text-gray-400 text-sm">Total Volume</div>
-                              <div className="text-white font-medium">
-                                {exercise.sets ? 
-                                  exercise.sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0) : 0} kg
-                              </div>
-                            </div>
-                            <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-700/50 hover:bg-gray-700 transition-colors">
-                              {expandedExercises[exercise.id || index] ? 
-                                <ChevronUp className="w-5 h-5 text-gray-300" /> : 
-                                <ChevronDown className="w-5 h-5 text-gray-300" />
-                              }
-                            </div>
+                          <div>
+                            {expandedExercises[exercise.id || index] ? 
+                              <ChevronUp className="w-5 h-5 text-gray-400" /> : 
+                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            }
                           </div>
                         </div>
                       </div>
-
+                      
                       {expandedExercises[exercise.id || index] && exercise.sets && (
-                        <div className="border-t border-gray-700 p-5 bg-gray-800/80">
-                          {/* Sets Table */}
-                          <div className="overflow-x-auto rounded-lg border border-gray-600/30 mb-4">
-                            <table className="w-full text-left bg-gray-800/50">
+                        <div className="border-t border-gray-700 p-4 bg-gray-750">
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
                               <thead>
-                                <tr className="border-b border-gray-700/50 bg-gray-700/30">
-                                  <th className="py-2 px-4 font-medium text-gray-300">
-                                    <span>Set</span>
-                                  </th>
-                                  <th className="py-2 px-4 font-medium text-gray-300">
+                                <tr className="text-left">
+                                  <th className="px-3 py-2 text-sm font-medium text-gray-400">Set</th>
+                                  <th className="px-3 py-2 text-sm font-medium text-gray-400">
                                     <div className="flex items-center">
-                                      <Scale className="w-4 h-4 mr-1 text-blue-400" />
-                                      <span>Weight (kg)</span>
+                                      <Scale className="w-3.5 h-3.5 mr-1 text-blue-400" />
+                                      Weight
                                     </div>
                                   </th>
-                                  <th className="py-2 px-4 font-medium text-gray-300">
+                                  <th className="px-3 py-2 text-sm font-medium text-gray-400">
                                     <div className="flex items-center">
-                                      <CircleDot className="w-4 h-4 mr-1 text-purple-400" />
-                                      <span>Reps</span>
+                                      <CircleDot className="w-3.5 h-3.5 mr-1 text-indigo-400" />
+                                      Reps
                                     </div>
                                   </th>
-                                  <th className="py-2 px-4 font-medium text-gray-300">
-                                    <div className="flex items-center">
-                                      <Clock className="w-4 h-4 mr-1 text-indigo-400" />
-                                      <span>Rest (sec)</span>
-                                    </div>
-                                  </th>
+                                  {exercise.sets.some(s => s.rest_time) && (
+                                    <th className="px-3 py-2 text-sm font-medium text-gray-400">
+                                      <div className="flex items-center">
+                                        <Clock className="w-3.5 h-3.5 mr-1 text-purple-400" />
+                                        Rest
+                                      </div>
+                                    </th>
+                                  )}
                                 </tr>
                               </thead>
                               <tbody>
                                 {exercise.sets.map((set, setIdx) => (
-                                  <tr 
-                                    key={setIdx} 
-                                    className="border-b border-gray-700/20 last:border-0 hover:bg-gray-700/40 transition-colors"
-                                  >
-                                    <td className="py-2 px-4 text-gray-300 font-medium">{setIdx + 1}</td>
-                                    <td className="py-2 px-4 text-gray-300 font-semibold">{set.weight}</td>
-                                    <td className="py-2 px-4 text-gray-300">{set.reps}</td>
-                                    <td className="py-2 px-4 text-gray-300">{set.rest_time}</td>
+                                  <tr key={setIdx} className="border-t border-gray-700/40">
+                                    <td className="px-3 py-2 text-gray-300">{setIdx + 1}</td>
+                                    <td className="px-3 py-2 text-gray-300">{set.weight || '-'} {set.weight ? 'kg' : ''}</td>
+                                    <td className="px-3 py-2 text-gray-300">{set.reps || '-'}</td>
+                                    {exercise.sets.some(s => s.rest_time) && (
+                                      <td className="px-3 py-2 text-gray-300">{set.rest_time || '-'} {set.rest_time ? 'sec' : ''}</td>
+                                    )}
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
                           
-                          {/* Exercise Stats & Notes */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                            <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30 text-center">
-                              <div className="text-sm text-gray-400">Total Volume</div>
-                              <div className="text-xl font-bold text-white">
-                                {exercise.sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0)} kg
-                              </div>
-                            </div>
-                            <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30 text-center">
-                              <div className="text-sm text-gray-400">Max Weight</div>
-                              <div className="text-xl font-bold text-white">
-                                {Math.max(...exercise.sets.map(s => s.weight || 0))} kg
-                              </div>
-                            </div>
-                            <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-700/30 text-center">
-                              <div className="text-sm text-gray-400">Total Reps</div>
-                              <div className="text-xl font-bold text-white">
-                                {exercise.sets.reduce((sum, s) => sum + (s.reps || 0), 0)}
-                              </div>
-                            </div>
-                          </div>
-                          
                           {exercise.notes && (
-                            <div className="p-3 bg-gray-700/30 rounded-lg border border-gray-700/30">
+                            <div className="mt-3 p-3 bg-gray-800/50 rounded-lg">
                               <p className="text-sm text-gray-300">
-                                <span className="font-medium text-white mr-2">Notes:</span>
+                                <span className="font-medium text-white">Notes: </span>
                                 {exercise.notes}
                               </p>
                             </div>
@@ -445,31 +341,14 @@ const ExpandableWorkoutModal = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700">
-                  <p className="text-gray-400">No exercises added to this workout yet.</p>
+                <div className="bg-gray-800/80 rounded-xl p-8 border border-gray-700 text-center">
+                  <Dumbbell className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                  <p className="text-gray-400">No exercises found in this workout.</p>
                 </div>
               )}
             </div>
           </div>
         </div>
-
-        {/* Toast Notification */}
-        {showToast && (
-          <div className="fixed bottom-6 right-6 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg border border-gray-700 animate-fadeIn">
-            {toastMessage}
-          </div>
-        )}
-
-        {/* Add custom CSS for animations */}
-        <style jsx>{`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out forwards;
-          }
-        `}</style>
       </div>
     </div>
   );

@@ -11,14 +11,17 @@ import { ProgramCard } from '../Workouts/components/ProgramCard';
 import EditProfileModal from './components/EditProfileModal';
 import ExpandableProgramModal from '../Workouts/components/ExpandableProgramModal';
 import ExpandableWorkoutModal from '../Workouts/components/ExpandableWorkoutModal';
+import ExpandableWorkoutLogModal from '../Workouts/components/ExpandableWorkoutLogModal';
 import EditPostModal from '../MainFeed/components/EditPostModal';
 import FriendsModal from './components/FriendsModal';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import ProfileHeader from './components/ProfileHeader';
-import WorkoutTimeline from '../Workouts/components/WorkoutTimeline'; // Import the unified component
+import WorkoutTimeline from '../Workouts/components/WorkoutTimeline';
 import StatsCard from './components/StatsCard';
 import FriendsPreview from './components/FriendsPreview';
 import RecentPosts from './components/RecentPosts';
+// Import service for program data
+import { programService } from '../../api/services';
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -29,14 +32,38 @@ const ProfilePage = () => {
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('stats');
+  const [fullProgramData, setFullProgramData] = useState(null);
+  const [nextWorkout, setNextWorkout] = useState(null);
   
-  // Program/Workout modals
+  // Program modal
   const [selectedProgram, setSelectedProgram] = useState(null);
+  
+  // Separate state for workout and log modals
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [showWorkoutLogModal, setShowWorkoutLogModal] = useState(false);
   
   // Post edit modal
   const [isEditPostModalOpen, setIsEditPostModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState(null);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString;
+    }
+  };
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -75,6 +102,20 @@ const ProfilePage = () => {
           }
         }
         
+        // If user has a current program, fetch the full program data
+        if (userData.current_program && userData.current_program.id) {
+          try {
+            const programData = await programService.getProgramById(userData.current_program.id);
+            setFullProgramData(programData);
+            
+            // Calculate next workout based on the fetched program data
+            const nextWorkoutData = getNextWorkout(programData);
+            setNextWorkout(nextWorkoutData);
+          } catch (error) {
+            console.error('Error fetching full program data:', error);
+          }
+        }
+        
         setUser(userData);
         setFriends(friendsResponse.data || []);
         setWorkoutLogs(logsResponse.data.results || []);
@@ -94,8 +135,18 @@ const ProfilePage = () => {
     setSelectedProgram(program);
   };
 
-  const handleWorkoutSelect = (workout) => {
-    setSelectedWorkout(workout);
+  // Handler for next workout
+  const handleViewNextWorkout = () => {
+    if (nextWorkout) {
+      setSelectedWorkout(nextWorkout);
+      setShowWorkoutModal(true);
+    }
+  };
+
+  // Handler for past workout logs
+  const handleViewWorkoutLog = (log) => {
+    setSelectedLog(log);
+    setShowWorkoutLogModal(true);
   };
 
   const handleEditPost = (post) => {
@@ -126,10 +177,11 @@ const ProfilePage = () => {
       console.error('Error deleting post:', error);
     }
   };
+  
 
   // Get next workout from user's current program if available
-  const getNextWorkout = () => {
-    if (!user?.current_program?.workouts) {
+  const getNextWorkout = (programData) => {
+    if (!programData || !programData.workouts || programData.workouts.length === 0) {
       return null;
     }
     
@@ -138,7 +190,7 @@ const ProfilePage = () => {
     
     // Find next workout based on preferred weekday
     // First try to find a workout scheduled for today or upcoming days
-    const upcomingWorkouts = user.current_program.workouts
+    const upcomingWorkouts = programData.workouts
       .filter(w => w.preferred_weekday !== undefined)
       .sort((a, b) => {
         // Calculate days until workout (0-6 for same day to 6 days away)
@@ -154,7 +206,7 @@ const ProfilePage = () => {
     }
     
     // If no scheduled workouts found, return the first workout from the program
-    return user.current_program.workouts[0] || null;
+    return programData.workouts[0] || null;
   };
 
   if (loading) {
@@ -184,24 +236,19 @@ const ProfilePage = () => {
           setActiveSection={setActiveSection}
           activeSection={activeSection}
         />
-        
-        {/* Workout Timeline Section - Using the unified component */}
+        {/* Workout Timeline Section - Using the unified component with full program data */}
         <div className="mt-8">
           <WorkoutTimeline 
             logs={workoutLogs.slice(0, 3)}
-            nextWorkout={getNextWorkout()}
+            nextWorkout={nextWorkout}
             logsLoading={loading}
             plansLoading={loading}
-            activeProgram={user?.current_program}
-            setSelectedWorkout={handleWorkoutSelect}
-            setShowWorkoutModal={() => {}}
-            setSelectedLog={() => {}}
+            activeProgram={fullProgramData || user?.current_program}
+            setSelectedWorkout={handleViewWorkoutLog} // For past logs - use ExpandableWorkoutLogModal
+            setShowWorkoutModal={setShowWorkoutLogModal} // For past logs - show log modal
+            setSelectedLog={setSelectedLog}
             setShowLogForm={() => {}}
-            handleViewNextWorkout={() => {
-              if(getNextWorkout()) {
-                handleWorkoutSelect(getNextWorkout());
-              }
-            }}
+            handleViewNextWorkout={handleViewNextWorkout} // For next workout - use ExpandableWorkoutModal
           />
         </div>
         
@@ -218,9 +265,9 @@ const ProfilePage = () => {
                 </h2>
                 
                 <div className="mt-4">
-                  {user?.current_program ? (
+                  {(fullProgramData || user?.current_program) ? (
                     <ProgramCard
-                      program={user.current_program}
+                      program={fullProgramData || user.current_program}
                       singleColumn={true}
                       currentUser={user?.username}
                       onProgramSelect={handleProgramSelect}
@@ -256,7 +303,7 @@ const ProfilePage = () => {
               username={user.username}
               onEditPost={handleEditPost}
               onDeletePost={handleDeletePost}
-              onWorkoutLogSelect={handleWorkoutSelect}
+              onWorkoutLogSelect={handleViewWorkoutLog}
               onProgramSelect={handleProgramSelect}
             />
           </div>
@@ -294,13 +341,34 @@ const ProfilePage = () => {
         />
       )}
       
-      {selectedWorkout && (
+      {/* Use ExpandableWorkoutModal for upcoming workouts */}
+      {showWorkoutModal && selectedWorkout && (
         <ExpandableWorkoutModal
           workoutId={selectedWorkout.id}
           initialWorkoutData={selectedWorkout}
-          isOpen={!!selectedWorkout}
-          onClose={() => setSelectedWorkout(null)}
+          isOpen={showWorkoutModal}
+          onClose={() => {
+            setShowWorkoutModal(false);
+            setSelectedWorkout(null);
+          }}
           isTemplate={false}
+        />
+      )}
+      
+      {/* Use ExpandableWorkoutLogModal for past workout logs */}
+      {showWorkoutLogModal && selectedLog && (
+        <ExpandableWorkoutLogModal
+          logId={selectedLog.id}
+          initialLogData={selectedLog}
+          isOpen={showWorkoutLogModal}
+          onClose={() => {
+            setShowWorkoutLogModal(false);
+            setSelectedLog(null);
+          }}
+          onEdit={() => {
+            // Handle edit workflow if needed
+            setShowWorkoutLogModal(false);
+          }}
         />
       )}
       

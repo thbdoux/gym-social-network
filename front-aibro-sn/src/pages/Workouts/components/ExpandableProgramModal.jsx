@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../../../api';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+import { programService } from '../../../api/services';
 
 const FOCUS_OPTIONS = [
   { value: 'strength', label: 'Strength', description: 'Focus on building maximal strength', icon: <Award className="w-5 h-5" /> },
@@ -19,9 +20,9 @@ const FOCUS_OPTIONS = [
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose, onProgramSelect, currentUser = null }) => {
-  const [program, setProgram] = useState();
-  const [loading, setLoading] = useState(!initialProgramData);
+const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, onClose, onProgramSelect, currentUser = null }) => {
+  const [program, setProgram] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeDay, setActiveDay] = useState(null);
   const [expandedWorkout, setExpandedWorkout] = useState(null);
@@ -33,37 +34,55 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
 
   useEffect(() => {
     const fetchProgramDetails = async () => {
-      if (programId && !program) {
-        try {
-          setLoading(true);
-          const response = await api.get(`/workouts/programs/${programId}/`);
-          setProgram(response.data);
-        } catch (err) {
-          console.error('Error fetching program details:', err);
-          setError('Failed to load program details');
-        } finally {
-          setLoading(false);
+      if (!programId) return;
+      
+      try {
+        setLoading(true);
+        
+        // Always fetch complete data from the API to ensure we have all details
+        const programData = await programService.getProgramById(programId);
+        setProgram(programData);
+        
+        // Set the first day with workouts as active by default
+        if (programData?.workouts) {
+          const firstDayWithWorkouts = WEEKDAYS.findIndex((_, index) => 
+            programData.workouts.some(w => w.preferred_weekday === index)
+          );
+          
+          if (firstDayWithWorkouts !== -1) {
+            setActiveDay(firstDayWithWorkouts);
+          }
         }
+      } catch (err) {
+        console.error('Error fetching program details:', err);
+        setError('Failed to load program details');
+      } finally {
+        setLoading(false);
       }
     };
 
+    // If we're open and either don't have initialProgramData or it's incomplete, fetch the data
     if (isOpen) {
-      fetchProgramDetails();
-    }
-  }, [programId, program, isOpen]);
-
-  useEffect(() => {
-    if (program?.workouts) {
-      // Set the first day with workouts as active by default
-      const firstDayWithWorkouts = WEEKDAYS.findIndex((_, index) => 
-        program.workouts.some(w => w.preferred_weekday === index)
-      );
-      
-      if (firstDayWithWorkouts !== -1) {
-        setActiveDay(firstDayWithWorkouts);
+      if (!initialProgramData || !initialProgramData.workouts) {
+        fetchProgramDetails();
+      } else {
+        // Use the provided initialProgramData if it seems complete
+        setProgram(initialProgramData);
+        setLoading(false);
+        
+        // Set the first day with workouts as active by default
+        if (initialProgramData.workouts) {
+          const firstDayWithWorkouts = WEEKDAYS.findIndex((_, index) => 
+            initialProgramData.workouts.some(w => w.preferred_weekday === index)
+          );
+          
+          if (firstDayWithWorkouts !== -1) {
+            setActiveDay(firstDayWithWorkouts);
+          }
+        }
       }
     }
-  }, [program]);
+  }, [programId, isOpen, initialProgramData]);
 
   const handleForkProgram = async () => {
     if (isForkingProgram) return;
@@ -104,11 +123,13 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
   };
 
   // Group workouts by preferred weekday
-  const workoutsByDay = WEEKDAYS.map((day, index) => ({
-    day,
-    dayIndex: index,
-    workouts: program?.workouts?.filter(w => w.preferred_weekday === index) || []
-  }));
+  const getWorkoutsByDay = () => {
+    return WEEKDAYS.map((day, index) => ({
+      day,
+      dayIndex: index,
+      workouts: program?.workouts?.filter(w => w.preferred_weekday === index) || []
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -146,6 +167,7 @@ const ExpandableProgramModal = ({ programId, initialProgramData, isOpen, onClose
   }
 
   const focusDetails = getFocusDetails();
+  const workoutsByDay = getWorkoutsByDay();
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
