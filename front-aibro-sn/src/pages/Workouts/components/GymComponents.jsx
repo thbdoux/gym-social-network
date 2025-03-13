@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, X, Loader2 } from 'lucide-react';
-import api from '../../../api';
+import { gymService } from '../../../api/services';
 
 const EQUIPMENT_TYPES = [
   { value: 'cardio', label: 'Cardio Equipment' },
@@ -59,8 +59,9 @@ export const AddGymModal = ({ onClose, onSuccess }) => {
         }
       }
   
-      const response = await api.post('/gyms/', apiData);
-      onSuccess(response.data);
+      // Use gymService instead of direct API call
+      const createdGym = await gymService.createGym(apiData);
+      onSuccess(createdGym);
       onClose();
     } catch (error) {
       console.error('Error creating gym:', error.response?.data || error);
