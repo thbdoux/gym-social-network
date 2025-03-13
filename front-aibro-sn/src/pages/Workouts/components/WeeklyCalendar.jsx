@@ -1,44 +1,79 @@
 import React from 'react';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Clock, CheckCircle } from 'lucide-react';
 
-const WeeklyCalendar = ({ workouts }) => {
+const WeeklyCalendar = ({ workouts, onWorkoutClick }) => {
   const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const SHORT_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
   
   // Group workouts by day
   const workoutsByDay = WEEKDAYS.map((day, index) => ({
     day,
+    shortDay: SHORT_DAYS[index],
     workouts: workouts.filter(w => w.preferred_weekday === index)
   }));
 
+  // Determine if a day has workouts
+  const hasWorkout = (day) => workoutsByDay[day].workouts.length > 0;
+
   return (
-    <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl overflow-hidden">
-      <div className="grid grid-cols-7 gap-px bg-gray-700">
-        {WEEKDAYS.map((day, index) => (
-          <div key={`header-${index}`} className="bg-gray-800/80 px-4 py-3">
-            <p className="text-sm font-medium text-gray-400">{day.slice(0, 3)}</p>
+    <div className="flex flex-col space-y-2">
+      <div className="flex space-x-2">
+        {workoutsByDay.map((dayData, index) => (
+          <div 
+            key={`day-${index}`} 
+            className={`flex-1 rounded-lg transition-all ${
+              hasWorkout(index) 
+                ? 'bg-gradient-to-b from-blue-900/40 to-blue-800/20 border border-blue-500/30' 
+                : 'bg-gray-800/40 border border-gray-700/30'
+            }`}
+          >
+            <div className={`text-center py-2 border-b ${
+              hasWorkout(index) 
+                ? 'border-blue-500/30 text-blue-300' 
+                : 'border-gray-700/30 text-gray-400'
+            } font-medium text-sm`}>
+              {dayData.shortDay}
+            </div>
+            
+            <div className="p-2 h-20 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
+              {dayData.workouts.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <span className="text-xs text-gray-500">Rest</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {dayData.workouts.map((workout, idx) => (
+                    <div
+                      key={`workout-${idx}`}
+                      onClick={() => onWorkoutClick(workout)}
+                      className="px-2 py-1.5 bg-blue-500/10 rounded hover:bg-blue-500/20 
+                               cursor-pointer transition-colors group"
+                    >
+                      <p className="text-xs font-medium text-blue-400 group-hover:text-blue-300 truncate">
+                        {workout.name}
+                      </p>
+                      <div className="flex items-center mt-1 text-xs text-gray-400">
+                        <Clock className="w-3 h-3 mr-1" />
+                        <span>{workout.exercises?.length || 0}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
       
-      <div className="grid grid-cols-7 gap-px bg-gray-700 h-48">
-        {workoutsByDay.map(({ day, workouts }, dayIndex) => (
-          <div key={`day-${dayIndex}`} className="bg-gray-800 p-2 overflow-y-auto">
-            {workouts.map((workout, workoutIndex) => (
-              <div
-                key={`${dayIndex}-${workout.id || workout.instance_id || workoutIndex}`}
-                className="mb-2 p-2 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors cursor-pointer group"
-              >
-                <p className="text-sm font-medium text-blue-400 group-hover:text-blue-300 truncate">
-                  {workout.name}
-                </p>
-                <div className="flex items-center mt-1 text-xs text-gray-400">
-                  <Clock className="w-3 h-3 mr-1" />
-                  <span>{workout.exercises?.length || 0} exercises</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ))}
+      <div className="flex items-center justify-end text-xs text-gray-400 mt-1 px-2">
+        <div className="flex items-center">
+          <span className="w-2 h-2 rounded-full bg-blue-500 mr-1"></span>
+          <span>Workout day</span>
+        </div>
+        <div className="flex items-center ml-4">
+          <span className="w-2 h-2 rounded-full bg-gray-600 mr-1"></span>
+          <span>Rest day</span>
+        </div>
       </div>
     </div>
   );

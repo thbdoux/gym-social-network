@@ -21,7 +21,7 @@ import ExpandableWorkoutModal from './components/ExpandableWorkoutModal';
 import ExpandableWorkoutLogModal from './components/ExpandableWorkoutLogModal';
 import AllWorkoutLogsView from './views/AllWorkoutLogsView';
 import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
-import EnhancedPlanDetailView from './views/EnhancedPlanDetailView';
+import PlanDetailView from './views/PlanDetailView';
 import EnhancedAllWorkoutsView from './views/EnhancedAllWorkoutsView';
 import PlansListView from './views/PlansListView';
 // Import centralized API services
@@ -298,7 +298,7 @@ const WorkoutSpace = () => {
     if (!selectedPlan) return null;
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <EnhancedPlanDetailView
+        <PlanDetailView
           plan={workoutPlans.find(p => p.id === selectedPlan.id) || selectedPlan}
           templates={templates.results || templates}
           onBack={() => {
