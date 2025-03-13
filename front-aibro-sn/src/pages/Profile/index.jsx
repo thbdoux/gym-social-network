@@ -24,6 +24,7 @@ import EditPostModal from '../MainFeed/components/EditPostModal';
 import FriendsModal from './components/FriendsModal';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import ProfileHeader from './components/ProfileHeader';
+import UserProfilePreviewModal from './components/UserProfilePreviewModal';
 import WorkoutTimeline from '../Workouts/components/WorkoutTimeline';
 import StatsCard from './components/StatsCard';
 import FriendsPreview from './components/FriendsPreview';
@@ -40,6 +41,7 @@ const ProfilePage = () => {
   const [activeSection, setActiveSection] = useState('stats');
   const [fullProgramData, setFullProgramData] = useState(null);
   const [nextWorkout, setNextWorkout] = useState(null);
+  const [selectedFriendPreview, setSelectedFriendPreview] = useState(null);
   
   // Program modal
   const [selectedProgram, setSelectedProgram] = useState(null);
@@ -79,7 +81,6 @@ const ProfilePage = () => {
         
         try {
           userData = await userService.getCurrentUser();
-          console.log('User data:', userData);
         } catch (error) {
           console.error('Error fetching user data:', error);
           userData = null;
@@ -87,7 +88,6 @@ const ProfilePage = () => {
         
         try {
           friendsData = await userService.getFriends();
-          console.log('Friends data:', friendsData);
           // Ensure friendsData is an array
           friendsData = Array.isArray(friendsData) ? friendsData : [];
         } catch (error) {
@@ -97,7 +97,6 @@ const ProfilePage = () => {
         
         try {
           logsData = await logService.getLogs();
-          console.log('Logs data:', logsData);
           // Ensure logsData is an array
           logsData = Array.isArray(logsData) ? logsData : [];
         } catch (error) {
@@ -107,8 +106,6 @@ const ProfilePage = () => {
         
         try {
           postsData = await postService.getPosts();
-          console.log('Posts data:', postsData);
-          // Ensure postsData is an array
           postsData = Array.isArray(postsData) ? postsData : 
                      (postsData && postsData.results ? postsData.results : []);
         } catch (error) {
@@ -220,8 +217,9 @@ const ProfilePage = () => {
     }
   };
 
-  // We're now using the !user check at the top of the return statement instead
-  // This loading state is redundant now
+  const handleViewFriendProfile = (friend) => {
+    setSelectedFriendPreview(friend);
+  };
 
   if (!user) {
     return (
@@ -306,6 +304,7 @@ const ProfilePage = () => {
             <FriendsPreview 
               friends={friends} 
               onViewAllClick={() => setIsFriendsModalOpen(true)} 
+              onFriendClick={handleViewFriendProfile}
             />
           </div>
           
@@ -319,6 +318,7 @@ const ProfilePage = () => {
               onDeletePost={handleDeletePost}
               onWorkoutLogSelect={handleViewWorkoutLog}
               onProgramSelect={handleProgramSelect}
+              onUserClick={handleViewFriendProfile}
             />
           </div>
         </div>
@@ -339,6 +339,7 @@ const ProfilePage = () => {
           isOpen={isFriendsModalOpen}
           onClose={() => setIsFriendsModalOpen(false)}
           currentUser={user}
+          onFriendClick={handleViewFriendProfile}
         />
       )}
       
@@ -395,6 +396,15 @@ const ProfilePage = () => {
             setPostToEdit(null);
           }}
           onSave={handleSaveEditedPost}
+        />
+      )}
+      {/* Add User Profile Preview Modal */}
+      {selectedFriendPreview && (
+        <UserProfilePreviewModal 
+          isOpen={!!selectedFriendPreview}
+          onClose={() => setSelectedFriendPreview(null)}
+          userId={selectedFriendPreview.id}
+          username={selectedFriendPreview.username}
         />
       )}
     </div>

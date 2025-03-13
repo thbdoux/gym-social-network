@@ -143,7 +143,7 @@ const EnhancedWorkoutCard = ({
               ) : (
                 <button
                   onClick={() => setIsChangingDay(true)}
-                  className="flex items-center space-x-1 px-2 py-1 rounded-md text-sm text-gray-400 hover:bg-gray-700/50 hover:text-blue-400 transition-colors"
+                  className="flex items-center space-x-1 px-2 py-1 rounded-md text-sm text-gray-400 bg-transparent hover:bg-gray-700/50 hover:text-blue-400 transition-colors"
                 >
                   <Calendar className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{WEEKDAYS[workout.preferred_weekday]}</span>
@@ -161,7 +161,7 @@ const EnhancedWorkoutCard = ({
                   e.stopPropagation();
                   onDuplicate(workout.id || workout.instance_id);
                 }}
-                className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-900/20 rounded-md transition-colors"
+                className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
                 aria-label="Duplicate workout"
               >
                 <Copy className="w-4 h-4" />
@@ -173,7 +173,7 @@ const EnhancedWorkoutCard = ({
                   e.stopPropagation();
                   onEdit(workout);
                 }}
-                className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-900/20 rounded-md transition-colors"
+                className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
                 aria-label="Edit workout"
               >
                 <Edit2 className="w-4 h-4" />
@@ -182,7 +182,7 @@ const EnhancedWorkoutCard = ({
             {onDelete && (
               <button 
                 onClick={handleDelete}
-                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-md transition-colors"
+                className="p-1.5 text-gray-400 hover:text-red-400 bg-transparent hover:bg-red-900/20 rounded-md transition-colors"
                 aria-label="Delete workout"
               >
                 <Trash2 className="w-4 h-4" />
@@ -193,7 +193,7 @@ const EnhancedWorkoutCard = ({
                 e.stopPropagation();
                 setIsExpanded(!isExpanded);
               }}
-              className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-900/20 rounded-md transition-colors"
+              className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
               aria-label={isExpanded ? "Show less" : "Show more"}
             >
               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

@@ -5,32 +5,28 @@ import {
   Award, Layers, BarChart, Eye, Trash2, Edit, Share2,
   CheckCircle, ToggleLeft, ToggleRight, Loader2
 } from 'lucide-react';
+import api from '../../../api';
 import { programService } from '../../../api/services';
 import ExpandableProgramModal from './ExpandableProgramModal';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 
 const ProgramCard = ({ 
-  // Core props
   programId,
   program: initialProgramData,
   singleColumn = false,
   currentUser,
-  
-  // Feed mode props
   inFeedMode = false,
-
-  // Collection/Management mode props
   canManage = false,
-  
-  // Callbacks
   onProgramSelect,
   onDelete,
   onToggleActive,
   onShare,
   onFork,
   onEdit,
-  onCreatePlan
+  onCreatePlan,
+  userPrograms = []
 }) => {
+  // State management
   const [program, setProgram] = useState(initialProgramData);
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(!initialProgramData);
@@ -38,36 +34,62 @@ const ProgramCard = ({
   const [showModal, setShowModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+  const [originalProgram, setOriginalProgram] = useState(null);
+  const [loadingOriginal, setLoadingOriginal] = useState(false);
 
-  // Empty state check - moved inside the component
+  // Empty state check
   if (!program && !programId && onCreatePlan) {
     return <EmptyState onCreatePlan={onCreatePlan} />;
   }
 
+  // Update program when initialProgramData changes
   useEffect(() => {
     setProgram(initialProgramData);
   }, [initialProgramData]);
 
+  // Fetch program details and original program if forked
   useEffect(() => {
     const fetchProgramDetails = async () => {
       if (programId && !program) {
         try {
           setLoading(true);
-          // Use programService instead of direct API call
-          const fetchedProgram = await programService.getProgramById(programId);
-          setProgram(fetchedProgram);
+          const response = await api.get(`/workouts/programs/${programId}/`);
+          setProgram(response.data);
+          
+          // If program is forked, fetch original program
+          if (response.data.forked_from) {
+            fetchOriginalProgram(response.data.forked_from);
+          }
         } catch (err) {
           console.error('Error fetching program details:', err);
           setError('Failed to load program details');
         } finally {
           setLoading(false);
         }
+      } else if (program?.forked_from && !originalProgram && !loadingOriginal) {
+        // If we have a program with forked_from but no originalProgram
+        fetchOriginalProgram(program.forked_from);
+      }
+    };
+
+    const fetchOriginalProgram = async (originalProgramId) => {
+      if (!originalProgramId) return;
+      
+      try {
+        setLoadingOriginal(true);
+        const originalProgramData = await programService.getProgramById(originalProgramId);
+        setOriginalProgram(originalProgramData);
+      } catch (err) {
+        console.error('Error fetching original program details:', err);
+      } finally {
+        setLoadingOriginal(false);
       }
     };
 
     fetchProgramDetails();
-  }, [programId, program]);
+  }, [programId, program, originalProgram, loadingOriginal]);
 
+  // Loading state
   if (loading) {
     return (
       <div className="mt-4 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 p-6 animate-pulse">
@@ -83,6 +105,7 @@ const ProgramCard = ({
     );
   }
 
+  // Error state
   if (error || !program) {
     return (
       <div className="mt-4 bg-red-900/20 border border-red-500/30 text-red-400 p-4 rounded-xl">
@@ -91,10 +114,8 @@ const ProgramCard = ({
     );
   }
   
-  // Check if the program was forked
+  // Helper functions and derived state
   const isForked = !!program.forked_from;
-
-  // Check if current user is the creator of the plan
   const isCreator = program.creator_username === currentUser;
   
   // Permission checks
@@ -102,8 +123,6 @@ const ProgramCard = ({
   const canShareProgram = canManage && isCreator;
   const canForkProgram = canManage && !isCreator;
   const canDeleteProgram = canManage && isCreator;
-  
-  // Now canToggleActive is always true if canManage is true (regardless of current active state)
   const canToggleActive = canManage;
 
   const getFocusIcon = (focus) => {
@@ -117,7 +136,6 @@ const ProgramCard = ({
     }
   };
 
-  // Get difficulty label
   const getDifficultyLabel = (level) => {
     switch(level?.toLowerCase()) {
       case 'beginner': return { text: 'Beginner', icon: '🔰' };
@@ -128,6 +146,7 @@ const ProgramCard = ({
     }
   };
 
+  // Event handlers
   const handleCardClick = (e) => {
     e.stopPropagation();
     setShowModal(true);
@@ -160,12 +179,12 @@ const ProgramCard = ({
   return (
     <>
       <div 
-        className={`mt-4 bg-gradient-to-br ${program.is_active ? 'from-purple-900/30 via-gray-800/95 to-gray-900/95 border-purple-500/50' : 'from-gray-800/95 via-gray-800/90 to-gray-900/95 border-gray-700/50'} border rounded-xl overflow-hidden transition-all duration-300 cursor-pointer transform ${isHovered ? 'shadow-md scale-[1.01]' : ''}`}
+        className={`mt-4 bg-gradient-to-br ${program.is_active ? 'from-purple-900/30 via-gray-800/95 to-gray-900/95 border-purple-500/50' : 'from-gray-800/95 via-gray-800/90 to-gray-900/95 border-gray-700/50'} border rounded-xl overflow-hidden transition-all duration-300 cursor-pointer transform ${isHovered ? 'shadow-md scale-[1.01]' : ''} relative`}
         onClick={handleCardClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Status Indicator Line - Purple gradient for active, gray for inactive */}
+        {/* Status Indicator Line */}
         <div className={`h-1 w-full ${program.is_active ? 'bg-gradient-to-r from-violet-400 to-purple-500' : 'bg-gradient-to-r from-gray-600 to-gray-700'}`} />
         
         <div className="p-4">
@@ -202,6 +221,17 @@ const ProgramCard = ({
                 <div className="flex items-center mt-1 text-sm text-gray-400 truncate">
                   <User className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
                   <span className="truncate">{program.creator_username}</span>
+                  
+                  {/* Show forked information */}
+                  {isForked && (
+                    <span className="ml-2 flex items-center flex-shrink-0">
+                      <GitFork className="w-3 h-3 mx-1 text-purple-400" />
+                      <span className="text-purple-400">from</span>
+                      <span className="ml-1 text-purple-300 font-medium truncate">
+                        {loadingOriginal ? "..." : originalProgram?.creator_username || "another user"}
+                      </span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -211,7 +241,7 @@ const ProgramCard = ({
               <button
                 onClick={handleToggleActive}
                 disabled={isToggling}
-                className={`p-1.5 mr-2 rounded-md transition-colors flex items-center ${
+                className={`p-1.5 mr-2 rounded-md transition-colors flex items-center bg-transparent ${
                   isToggling ? 'opacity-50 cursor-not-allowed' : ''
                 } ${
                   program.is_active 
@@ -231,15 +261,15 @@ const ProgramCard = ({
               </button>
             )}
             
-            {/* Action buttons - expand/collapse */}
+            {/* Action buttons */}
             <div className="flex items-center flex-shrink-0">
-              {/* Show management actions only if in management mode */}
+              {/* Management actions */}
               {canManage && (
                 <div className={`flex items-center space-x-1 ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 mr-2`}>
                   {canEditProgram && (
                     <button
                       onClick={(e) => handleButtonClick(e, () => onEdit?.(program))}
-                      className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-md transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-white bg-transparent hover:bg-gray-700/50 rounded-md transition-colors"
                       aria-label="Edit program"
                     >
                       <Edit className="w-4 h-4" />
@@ -249,7 +279,7 @@ const ProgramCard = ({
                   {canShareProgram && (
                     <button
                       onClick={(e) => handleButtonClick(e, () => onShare?.(program))}
-                      className="p-1.5 text-gray-400 hover:text-purple-400 hover:bg-purple-900/20 rounded-md transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-purple-400 bg-transparent hover:bg-purple-900/20 rounded-md transition-colors"
                       aria-label="Share program"
                     >
                       <Share2 className="w-4 h-4" />
@@ -259,7 +289,7 @@ const ProgramCard = ({
                   {canForkProgram && (
                     <button
                       onClick={(e) => handleButtonClick(e, () => onFork?.(program))}
-                      className="p-1.5 text-gray-400 hover:text-purple-400 hover:bg-purple-900/20 rounded-md transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-purple-400 bg-transparent hover:bg-purple-900/20 rounded-md transition-colors"
                       aria-label="Fork program"
                     >
                       <GitFork className="w-4 h-4" />
@@ -273,7 +303,7 @@ const ProgramCard = ({
                           onDelete?.(program.id);
                         }
                       })}
-                      className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-md transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-red-400 bg-transparent hover:bg-red-900/20 rounded-md transition-colors"
                       aria-label="Delete program"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -284,14 +314,14 @@ const ProgramCard = ({
               
               <button
                 onClick={handleExpandClick}
-                className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-md transition-colors"
+                className="p-1.5 text-gray-400 hover:text-white bg-transparent hover:bg-gray-700/50 rounded-md transition-colors"
               >
                 {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
             </div>
           </div>
           
-          {/* Description - Show only if it exists and keep it brief */}
+          {/* Description - Show only if it exists */}
           {program.description && (
             <p className="mt-2 text-sm text-gray-300 line-clamp-2 hidden sm:block">{program.description}</p>
           )}
@@ -359,6 +389,21 @@ const ProgramCard = ({
                     <span className="text-gray-400">Created:</span>
                     <span className="ml-2 text-white">{new Date(program.created_at).toLocaleDateString()}</span>
                   </div>
+                  
+                  {/* Original program info for forked programs */}
+                  {isForked && originalProgram && (
+                    <div className="col-span-2 mt-1 bg-purple-900/20 p-2 rounded-lg border border-purple-700/30">
+                      <div className="flex items-center">
+                        <GitFork className="w-3.5 h-3.5 mr-1.5 text-purple-400" />
+                        <span className="text-purple-300">
+                          Forked from{" "}
+                          <span className="font-medium">{originalProgram.name}</span>
+                          {" "}by{" "}
+                          <span className="font-medium">{originalProgram.creator_username}</span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Tags - Only show if they exist */}
@@ -436,6 +481,9 @@ const ProgramCard = ({
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onProgramSelect={onProgramSelect}
+        currentUser={currentUser}
+        onEdit={onEdit}
+        userPrograms={userPrograms || []}
       />
     </>
   );
@@ -458,7 +506,7 @@ const EmptyState = ({ onCreatePlan }) => (
   </div>
 );
 
-// ProgramGrid Component - for rendering multiple cards
+// ProgramGrid Component
 export const ProgramGrid = ({ 
   programs, 
   onSelect, 
@@ -475,7 +523,6 @@ export const ProgramGrid = ({
     return <EmptyState onCreatePlan={onCreatePlan} />;
   }
   
-  // Use conditional class for grid columns
   const gridClass = singleColumn 
     ? "grid grid-cols-1 gap-4" 
     : "grid grid-cols-1 md:grid-cols-2 gap-4";

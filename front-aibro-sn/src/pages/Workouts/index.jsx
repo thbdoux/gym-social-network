@@ -410,7 +410,10 @@ const WorkoutSpace = () => {
                 onShare={handleShareProgram}
                 onFork={handleForkProgram}
                 singleColumn={true}
-                canEdit
+                onEdit={(plan) => {
+                  setSelectedPlan(plan);
+                  setView('plan-detail');
+                }}
                 compact={true}
               />
             ) : (
@@ -536,6 +539,12 @@ const WorkoutSpace = () => {
           onClose={() => {
             setShowWorkoutModal(false);
             setSelectedWorkout(null);
+          }}
+          onEdit={(workout) => {
+            setShowWorkoutModal(false);
+            setSelectedWorkout(workout);
+            // Handle edit functionality for workout templates
+            // This might require additional logic depending on your app structure
           }}
           isTemplate={false}
         />

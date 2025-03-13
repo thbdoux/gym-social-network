@@ -3,7 +3,7 @@ import {
   X, Target, Calendar, Dumbbell, Users, Clock, 
   ChevronDown, ChevronUp, GitFork, User,
   Award, Star, Layers, Copy, CheckCircle,
-  Info, Book, Trophy, ArrowLeft
+  Info, Book, Trophy, ArrowLeft, Edit
 } from 'lucide-react';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 import { programService } from '../../../api/services';
@@ -19,7 +19,7 @@ const FOCUS_OPTIONS = [
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, onClose, onProgramSelect, currentUser = null }) => {
+const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, onClose, onEdit, onProgramSelect, currentUser = null, userPrograms = [] }) => {
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,6 +27,9 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
   const [expandedWorkout, setExpandedWorkout] = useState(null);
   const [isForkingProgram, setIsForkingProgram] = useState(false);
   const [forkSuccess, setForkSuccess] = useState(false);
+  const [originalProgram, setOriginalProgram] = useState(null);
+  const [loadingOriginal, setLoadingOriginal] = useState(false);
+  const [userHasForked, setUserHasForked] = useState(false);
 
   // Get program-specific colors
   const programColors = getPostTypeDetails('program').colors;
@@ -52,6 +55,37 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
             setActiveDay(firstDayWithWorkouts);
           }
         }
+
+        // If userPrograms is empty, fetch the user's programs to check for duplicates
+        let userProgramsToCheck = userPrograms;
+        if ((!userProgramsToCheck || userProgramsToCheck.length === 0) && currentUser) {
+          try {
+            // Use the proper method from programService to get user's programs
+            const response = await programService.getPrograms();
+            // Only need to check programs that the user has access to
+            userProgramsToCheck = response.filter(program => 
+              program.is_owner || program.forked_from !== null
+            );
+          } catch (err) {
+            console.error('Error fetching user programs:', err);
+          }
+        }
+        
+        // Check if the current user has already forked this program
+        if (userProgramsToCheck && userProgramsToCheck.length > 0 && currentUser) {
+          // Check if any program the user has access to has been forked from the same original source
+          
+          const hasForked = userProgramsToCheck.some(
+            userProgram => userProgram.forked_from === programData.id
+          );
+          setUserHasForked(hasForked);
+          
+        }
+
+        // If this program is forked, fetch the original program details
+        if (programData?.forked_from) {
+          fetchOriginalProgram(programData.forked_from);
+        }
       } catch (err) {
         console.error('Error fetching program details:', err);
         setError('Failed to load program details');
@@ -60,30 +94,27 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
       }
     };
 
-    // If we're open and either don't have initialProgramData or it's incomplete, fetch the data
-    if (isOpen) {
-      if (!initialProgramData || !initialProgramData.workouts) {
-        fetchProgramDetails();
-      } else {
-        // Use the provided initialProgramData if it seems complete
-        setProgram(initialProgramData);
-        setLoading(false);
-        
-        // Set the first day with workouts as active by default
-        if (initialProgramData.workouts) {
-          const firstDayWithWorkouts = WEEKDAYS.findIndex((_, index) => 
-            initialProgramData.workouts.some(w => w.preferred_weekday === index)
-          );
-          
-          if (firstDayWithWorkouts !== -1) {
-            setActiveDay(firstDayWithWorkouts);
-          }
-        }
+    const fetchOriginalProgram = async (originalProgramId) => {
+      try {
+        setLoadingOriginal(true);
+        const originalProgramData = await programService.getProgramById(originalProgramId);
+        setOriginalProgram(originalProgramData);
+      } catch (err) {
+        console.error('Error fetching original program details:', err);
+        // Don't set error state here as it's not critical
+      } finally {
+        setLoadingOriginal(false);
       }
-    }
-  }, [programId, isOpen, initialProgramData]);
+    };
 
-  const handleForkProgram = async () => {
+    // If we're open, always fetch the data
+    if (isOpen) {
+      fetchProgramDetails();
+    }
+  }, [programId, isOpen, initialProgramData, userPrograms, currentUser]);
+
+  const handleForkProgram = async (e) => {
+    if (e) e.preventDefault();
     if (isForkingProgram) return;
     
     try {
@@ -186,12 +217,24 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
                 {program.forked_from && (
                   <span className="flex items-center ml-2 flex-shrink-0">
                     <GitFork className="w-3 h-3 mx-1" />
-                    <span>forked</span>
+                    <span>forked from </span>
+                    <span className="ml-1 font-medium">
+                      {loadingOriginal ? "..." : originalProgram?.creator_username || "another user"}
+                    </span>
                   </span>
                 )}
               </div>
             </div>
           </div>
+            {onEdit && (
+            <button
+              onClick={() => onEdit(program)}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0"
+              aria-label="Edit"
+            >
+              <Edit className="w-6 h-6 text-white" />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0 ml-2"
@@ -371,6 +414,25 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
                 <p className="text-gray-300 leading-relaxed whitespace-pre-line">{program.description}</p>
               </div>
             )}
+            
+            {/* Original Program Reference Section */}
+            {program.forked_from && originalProgram && (
+              <div className="mt-8 bg-gradient-to-r from-purple-900/20 to-indigo-900/20 p-5 rounded-xl border border-purple-700/30">
+                <h3 className="text-lg font-medium text-white mb-3 flex items-center">
+                  <GitFork className="w-5 h-5 mr-2 text-purple-400" />
+                  Forked From
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-purple-900/40 flex items-center justify-center border border-purple-700/30 flex-shrink-0">
+                    <Book className="w-5 h-5 text-purple-300" />
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">{originalProgram.name}</p>
+                    <p className="text-sm text-gray-300">by {originalProgram.creator_username}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -382,13 +444,23 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
           </div>
           
           <div className="flex gap-2 flex-shrink-0 ml-2">
-            {currentUser && program.creator_username !== currentUser.username && (
+            {currentUser && program.creator_username !== currentUser && (
               <button
-                onClick={handleForkProgram}
+                onClick={(e) => {
+                  if (userHasForked) {
+                    if (window.confirm("You've already forked this program. Forking again will create a duplicate. Do you want to continue?")) {
+                      handleForkProgram(e);
+                    }
+                  } else {
+                    handleForkProgram(e);
+                  }
+                }}
                 disabled={isForkingProgram || forkSuccess}
                 className={`px-4 py-2 text-white rounded-lg transition-all flex items-center ${
                   forkSuccess ? 
                   'bg-green-600' : 
+                  userHasForked ?
+                  'bg-amber-600 hover:bg-amber-700' :
                   programColors.button + ' hover:bg-opacity-90 active:scale-95'
                 } disabled:opacity-50 whitespace-nowrap`}
               >
@@ -401,6 +473,11 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
                   <>
                     <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-1.5"></div>
                     <span>Forking...</span>
+                  </>
+                ) : userHasForked ? (
+                  <>
+                    <Copy className="w-4 h-4 mr-1.5" />
+                    <span>Fork Again</span>
                   </>
                 ) : (
                   <>

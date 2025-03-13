@@ -176,7 +176,7 @@ const WorkoutLogCard = ({
                       e.stopPropagation();
                       onEdit?.(log);
                     }}
-                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-md transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-white bg-transparent hover:bg-gray-700/50 rounded-md transition-colors"
                     aria-label="Edit workout"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -186,7 +186,7 @@ const WorkoutLogCard = ({
                       e.stopPropagation();
                       onDelete?.(log);
                     }}
-                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-md transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-red-400 bg-transparent hover:bg-red-900/20 rounded-md transition-colors"
                     aria-label="Delete workout"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -200,7 +200,7 @@ const WorkoutLogCard = ({
                     e.stopPropagation();
                     setExpanded(!expanded);
                   }}
-                  className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-md transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-white bg-transparent hover:bg-gray-700/50 rounded-md transition-colors"
                 >
                   {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>

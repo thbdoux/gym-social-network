@@ -2,25 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Dumbbell, Calendar, Clock, Target, MapPin, 
   User, ChevronDown, ChevronUp, 
-  Scale, CircleDot, Book, Award 
+  Scale, CircleDot, Book, Award, Edit
 } from 'lucide-react';
 import { logService, workoutService } from '../../../api/services';
 
-/**
- * Modal component for displaying detailed workout information
- * 
- * @param {Object} props Component props
- * @param {string|number} props.workoutId ID of the workout to display
- * @param {boolean} props.isOpen Whether the modal is open
- * @param {Function} props.onClose Callback when modal is closed
- * @param {boolean} props.isTemplate Whether this is a template workout (vs. an instance)
- * @param {Object} props.initialWorkoutData Initial workout data (optional)
- * @returns {JSX.Element} Expandable workout modal component
- */
 const ExpandableWorkoutModal = ({ 
   workoutId, 
   isOpen, 
   onClose, 
+  onEdit,
   isTemplate = false,
   initialWorkoutData = null
 }) => {
@@ -162,6 +152,15 @@ const ExpandableWorkoutModal = ({
               </div>
             </div>
           </div>
+          {onEdit && (
+            <button
+              onClick={() => onEdit(workout)}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors"
+              aria-label="Edit"
+            >
+              <Edit className="w-6 h-6 text-white" />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-2 hover:bg-white/20 rounded-full transition-colors"

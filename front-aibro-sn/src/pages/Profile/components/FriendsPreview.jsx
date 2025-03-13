@@ -2,7 +2,7 @@ import React from 'react';
 import { Users, ArrowRight } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
-const FriendsPreview = ({ friends, onViewAllClick }) => {
+const FriendsPreview = ({ friends, onViewAllClick, onFriendClick }) => {
   // Format text utilities
   const formatText = (text) => {
     if (!text) return '';
@@ -37,6 +37,7 @@ const FriendsPreview = ({ friends, onViewAllClick }) => {
                   <div 
                     key={friend.id} 
                     className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/40 hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-[1.02] cursor-pointer"
+                    onClick={() => onFriendClick(friend)}
                   >
                     <img
                       src={getAvatarUrl(friend.avatar)}
