@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, UserMinus, Check, X, UserCheck } from 'lucide-react';
-import api from '../../../api';
+import { userService } from '../../../api/services';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
 // Friend Request Component
@@ -41,22 +41,20 @@ const EnhancedFriendsList = ({ currentUser }) => {
 
   const fetchFriendData = async () => {
     try {
-      const [friendsRes, requestsRes, usersRes] = await Promise.all([
-        api.get('/users/friends/'),
-        api.get('/users/friend_requests/'),
-        api.get('/users/')
+      const [friendsList, requestsList, usersList] = await Promise.all([
+        userService.getFriends(),
+        userService.getFriendRequests(), // This would need to be added to userService
+        userService.getAllUsers()
       ]);
 
-      const friendsList = Array.isArray(friendsRes.data) ? friendsRes.data : 
-                    Array.isArray(friendsRes.data.results) ? friendsRes.data.results : [];
-      const requestsList = Array.isArray(requestsRes.data) ? requestsRes.data.filter(req => req.status === 'pending') :
-                          Array.isArray(requestsRes.data.results) ? requestsRes.data.results.filter(req => req.status === 'pending') : [];
-      const usersList = Array.isArray(usersRes.data) ? usersRes.data :
-                       Array.isArray(usersRes.data.results) ? usersRes.data.results : [];
-
-      setFriends(friendsList);
-      setRequests(requestsList);
-      setAllUsers(usersList);
+      setFriends(Array.isArray(friendsList) ? friendsList : []);
+      console.log("Friends : ", friendsList)
+      // Filter pending requests
+      const pendingRequests = Array.isArray(requestsList) ? 
+        requestsList.filter(req => req.status === 'pending') : [];
+      setRequests(pendingRequests);
+      
+      setAllUsers(Array.isArray(usersList) ? usersList : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching friend data:', error);
@@ -72,7 +70,7 @@ const EnhancedFriendsList = ({ currentUser }) => {
 
   const handleSendRequest = async (userId) => {
     try {
-      await api.post(`/users/${userId}/send_friend_request/`);
+      await userService.sendFriendRequest(userId); // This would need to be added to userService
       fetchFriendData();
     } catch (error) {
       console.error('Error sending friend request:', error);
@@ -81,7 +79,7 @@ const EnhancedFriendsList = ({ currentUser }) => {
 
   const handleRespondToRequest = async (userId, response) => {
     try {
-      await api.post(`/users/${userId}/respond_to_request/`, { response });
+      await userService.respondToFriendRequest(userId, response); // This would need to be added to userService
       fetchFriendData();
     } catch (error) {
       console.error('Error responding to friend request:', error);
@@ -90,8 +88,6 @@ const EnhancedFriendsList = ({ currentUser }) => {
 
   // Get sets of user IDs for each category
   const getUserSets = () => {
-    // Debug log to check the friends data structure
-    
     const friendIds = new Set(friends.map(friendData => {
       return friendData.friend.id;
     }));
@@ -196,7 +192,6 @@ const EnhancedFriendsList = ({ currentUser }) => {
         <h2 className="text-xl font-bold mb-4 text-white">Friends ({friends.length})</h2>
         <div className="space-y-3">
           {friends.map((friendData) => {
-    
             // The friend object contains the actual user data
             const friendUser = friendData.friend;
             

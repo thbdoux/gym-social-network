@@ -4,7 +4,15 @@ import {
   Activity, Users, TrendingUp, ChevronDown, ChevronUp,
   ArrowRight, Loader2, MessageCircle
 } from 'lucide-react';
-import api from '../../api';
+
+// Import services directly
+import { 
+  userService, 
+  logService, 
+  postService, 
+  programService,
+  gymService 
+} from '../../api/services';
 
 // Import components
 import { ProgramCard } from '../Workouts/components/ProgramCard';
@@ -20,8 +28,6 @@ import WorkoutTimeline from '../Workouts/components/WorkoutTimeline';
 import StatsCard from './components/StatsCard';
 import FriendsPreview from './components/FriendsPreview';
 import RecentPosts from './components/RecentPosts';
-// Import service for program data
-import { programService } from '../../api/services';
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -68,57 +74,93 @@ const ProfilePage = () => {
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        // Parallel requests for better performance
-        const [userResponse, friendsResponse, logsResponse, postsResponse] = await Promise.all([
-          api.get('/users/me/'),
-          api.get('/users/friends/'),
-          api.get('/workouts/logs/'),
-          api.get('/posts/')
-        ]);
+        // Sequential requests to better debug and handle errors
+        let userData, friendsData, logsData, postsData;
         
-        let userData = userResponse.data;
+        try {
+          userData = await userService.getCurrentUser();
+          console.log('User data:', userData);
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          userData = null;
+        }
+        
+        try {
+          friendsData = await userService.getFriends();
+          console.log('Friends data:', friendsData);
+          // Ensure friendsData is an array
+          friendsData = Array.isArray(friendsData) ? friendsData : [];
+        } catch (error) {
+          console.error('Error fetching friends data:', error);
+          friendsData = [];
+        }
+        
+        try {
+          logsData = await logService.getLogs();
+          console.log('Logs data:', logsData);
+          // Ensure logsData is an array
+          logsData = Array.isArray(logsData) ? logsData : [];
+        } catch (error) {
+          console.error('Error fetching logs data:', error);
+          logsData = [];
+        }
+        
+        try {
+          postsData = await postService.getPosts();
+          console.log('Posts data:', postsData);
+          // Ensure postsData is an array
+          postsData = Array.isArray(postsData) ? postsData : 
+                     (postsData && postsData.results ? postsData.results : []);
+        } catch (error) {
+          console.error('Error fetching posts data:', error);
+          postsData = [];
+        }
         
         // Filter posts by the current user's username
-        const userPosts = postsResponse.data.results.filter(
-          post => post.user_username === userData.username
-        );
+        const userPosts = userData && userData.username && Array.isArray(postsData) 
+          ? postsData.filter(post => post.user_username === userData.username)
+          : [];
         
         // Add posts to user data for accurate post count
-        userData = {
+        let enhancedUserData = userData ? {
           ...userData,
           posts: userPosts
-        };
+        } : null;
         
         // Fetch gym details if necessary
-        if (userData.preferred_gym && !userData.preferred_gym_details) {
+        if (enhancedUserData && enhancedUserData.preferred_gym && !enhancedUserData.preferred_gym_details) {
           try {
-            const gymResponse = await api.get(`/gyms/${userData.preferred_gym}/`);
-            userData = {
-              ...userData,
-              preferred_gym_details: gymResponse.data
-            };
+            const gymData = await gymService.getGymById(enhancedUserData.preferred_gym);
+            if (gymData) {
+              enhancedUserData = {
+                ...enhancedUserData,
+                preferred_gym_details: gymData
+              };
+            }
           } catch (error) {
             console.error('Error fetching gym details:', error);
           }
         }
         
         // If user has a current program, fetch the full program data
-        if (userData.current_program && userData.current_program.id) {
+        if (enhancedUserData && enhancedUserData.current_program && enhancedUserData.current_program.id) {
           try {
-            const programData = await programService.getProgramById(userData.current_program.id);
+            const programData = await programService.getProgramById(enhancedUserData.current_program.id);
             setFullProgramData(programData);
             
-            // Calculate next workout based on the fetched program data
-            const nextWorkoutData = getNextWorkout(programData);
-            setNextWorkout(nextWorkoutData);
+            if (programData) {
+              // Get next workout using programService
+              const nextWorkoutData = programService.getNextWorkout(programData);
+              setNextWorkout(nextWorkoutData);
+            }
           } catch (error) {
             console.error('Error fetching full program data:', error);
           }
         }
         
-        setUser(userData);
-        setFriends(friendsResponse.data || []);
-        setWorkoutLogs(logsResponse.data.results || []);
+        setUser(enhancedUserData);
+        setFriends(friendsData);
+        setWorkoutLogs(logsData);
         setPosts(userPosts);
         setLoading(false);
       } catch (error) {
@@ -156,10 +198,10 @@ const ProfilePage = () => {
 
   const handleSaveEditedPost = async (editedPost) => {
     try {
-      const response = await api.put(`/posts/${editedPost.id}/`, editedPost);
+      const updatedPost = await postService.updatePost(editedPost.id, editedPost);
       setPosts(prevPosts => 
         prevPosts.map(post => 
-          post.id === editedPost.id ? response.data : post
+          post.id === editedPost.id ? updatedPost : post
         )
       );
       setIsEditPostModalOpen(false);
@@ -171,45 +213,17 @@ const ProfilePage = () => {
 
   const handleDeletePost = async (postId) => {
     try {
-      await api.delete(`/posts/${postId}/`);
+      await postService.deletePost(postId);
       setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
     } catch (error) {
       console.error('Error deleting post:', error);
     }
   };
-  
 
-  // Get next workout from user's current program if available
-  const getNextWorkout = (programData) => {
-    if (!programData || !programData.workouts || programData.workouts.length === 0) {
-      return null;
-    }
-    
-    // Get current day index (0 = Sunday, 1 = Monday, etc.)
-    const today = new Date().getDay();
-    
-    // Find next workout based on preferred weekday
-    // First try to find a workout scheduled for today or upcoming days
-    const upcomingWorkouts = programData.workouts
-      .filter(w => w.preferred_weekday !== undefined)
-      .sort((a, b) => {
-        // Calculate days until workout (0-6 for same day to 6 days away)
-        const daysUntilA = (a.preferred_weekday - today + 7) % 7;
-        const daysUntilB = (b.preferred_weekday - today + 7) % 7;
-        // Prioritize today (0) and upcoming days (1-6)
-        return daysUntilA - daysUntilB;
-      });
-      
-    // Return the next upcoming workout if found
-    if (upcomingWorkouts.length > 0) {
-      return upcomingWorkouts[0];
-    }
-    
-    // If no scheduled workouts found, return the first workout from the program
-    return programData.workouts[0] || null;
-  };
+  // We're now using the !user check at the top of the return statement instead
+  // This loading state is redundant now
 
-  if (loading) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
         <div className="animate-pulse flex flex-col items-center gap-4">

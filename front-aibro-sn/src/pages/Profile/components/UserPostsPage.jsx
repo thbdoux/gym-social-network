@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Heart, MessageCircle, ArrowLeft } from 'lucide-react';
-import api from '../../../api';
+import { postService, userService } from '../../../api/services';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
 const UserPostsPage = () => {
@@ -13,16 +13,18 @@ const UserPostsPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [postsResponse, userResponse] = await Promise.all([
-          api.get('/posts/'),
-          api.get(`/users/me/`)
+        // Use service methods to fetch data
+        const [postsData, currentUser] = await Promise.all([
+          postService.getPosts(),
+          userService.getCurrentUser()
         ]);
         
-        const userPosts = postsResponse.data.results.filter(
-          post => post.user_username === username
-        );
+        // Filter posts by the requested username
+        const userPosts = Array.isArray(postsData) ? 
+          postsData.filter(post => post.user_username === username) : [];
+          
         setPosts(userPosts);
-        setUserData(userResponse.data);
+        setUserData(currentUser);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -31,26 +33,6 @@ const UserPostsPage = () => {
     };
 
     fetchData();
-  }, [username]);
-  
-  useEffect(() => {
-    const fetchUserPosts = async () => {
-      try {
-        const response = await api.get('/posts/');
-        // Filter posts by username from the full posts list
-        const userPosts = response.data.results.filter(
-          post => post.user_username === username
-        );
-        // console.log("UserPostsPage - API response:", response.data.results[0]);
-        setPosts(userPosts);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching user posts:', error);
-        setLoading(false);
-      }
-    };
-
-    fetchUserPosts();
   }, [username]);
 
   if (loading) {
@@ -78,7 +60,7 @@ const UserPostsPage = () => {
           <div key={post.id} className="bg-gray-800/40 rounded-xl p-6">
             <div className="flex items-start gap-3">
             <img
-              src={getAvatarUrl(userData?.avatar, 40)} // Changed from post.user_profile_picture
+              src={getAvatarUrl(userData?.avatar, 40)}
               alt={`${post.user_username}'s avatar`}
               className="w-10 h-10 rounded-full object-cover"
             />

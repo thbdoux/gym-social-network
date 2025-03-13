@@ -43,6 +43,23 @@ import { extractData } from '../utils/responseParser';
   unfollowUser: async (userId) => {
     const response = await apiClient.post(`/users/${userId}/unfollow/`);
     return response.data;
+  },
+  
+  getFriendRequests: async () => {
+    const response = await apiClient.get('/users/friend_requests/');
+    return Array.isArray(response.data) ? response.data :
+           Array.isArray(response.data.results) ? response.data.results : [];
+  },
+
+  sendFriendRequest: async (userId) => {
+    const response = await apiClient.post(`/users/${userId}/send_friend_request/`);
+    return response.data;
+  },
+
+  respondToFriendRequest: async (userId, response) => {
+    const apiResponse = await apiClient.post(`/users/${userId}/respond_to_request/`, { response });
+    return apiResponse.data;
   }
+
 };
 export default userService;

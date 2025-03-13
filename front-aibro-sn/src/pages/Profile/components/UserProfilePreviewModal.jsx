@@ -14,7 +14,7 @@ import {
   GitFork,
   MessageSquare
 } from 'lucide-react';
-import api from '../../../api';
+import { userService, postService, gymService } from '../../../api/services';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import ExpandableProgramModal from '../../Workouts/components/ExpandableProgramModal';
 
@@ -38,37 +38,49 @@ const UserProfilePreviewModal = ({ isOpen, onClose, userId, username }) => {
       setLoading(true);
       setError(null);
 
-      // Use the appropriate API endpoint based on available data
-      const userEndpoint = userId 
-        ? `/users/${userId}/`
-        : username 
-          ? `/users/by-username/${username}/`
-          : null;
-
-      if (!userEndpoint) {
-        throw new Error('No user identifier provided');
+      // Determine how to fetch the user
+      let userData;
+      try {
+        if (userId) {
+          userData = await userService.getUserById(userId);
+        } else if (username) {
+          // Since there's no direct method for fetching by username in the service,
+          // we'll need to get all users and filter by username
+          const allUsers = await userService.getAllUsers();
+          userData = allUsers.find(user => user.username === username);
+          
+          if (!userData) {
+            throw new Error('User not found');
+          }
+        } else {
+          throw new Error('No user identifier provided');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        throw error;
+      }
+      
+      // Fetch posts
+      let postsData;
+      try {
+        postsData = await postService.getPosts();
+      } catch (error) {
+        console.error('Error fetching posts:', error);
+        postsData = [];
       }
 
-      // Fetch user data, posts and workout logs
-      const [userResponse, postsResponse] = await Promise.all([
-        api.get(userEndpoint),
-        api.get('/posts/')
-      ]);
-
-      let userData = userResponse.data;
-      
       // Filter posts by the viewed user's username
-      const userPosts = postsResponse.data.results.filter(
+      const userPosts = Array.isArray(postsData) ? postsData.filter(
         post => post.user_username === userData.username
-      );
+      ) : [];
       
       // Fetch gym details if necessary
       if (userData.preferred_gym && !userData.preferred_gym_details) {
         try {
-          const gymResponse = await api.get(`/gyms/${userData.preferred_gym}/`);
+          const gymData = await gymService.getGymById(userData.preferred_gym);
           userData = {
             ...userData,
-            preferred_gym_details: gymResponse.data
+            preferred_gym_details: gymData
           };
         } catch (error) {
           console.error('Error fetching gym details:', error);

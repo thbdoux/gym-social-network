@@ -11,7 +11,7 @@ import {
   MoreHorizontal
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
-import api from '../../../api';
+import { userService } from '../../../api/services';
 import { ProgramCard } from '../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
 
@@ -58,8 +58,8 @@ const RecentPosts = ({
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await api.get(`/users/me/`);
-        setUserData(response.data);
+        const userData = await userService.getCurrentUser();
+        setUserData(userData);
       } catch (error) {
         console.error('Error fetching user data:', error);
       }

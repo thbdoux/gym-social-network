@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Save, MapPin } from 'lucide-react';
-import api from '../../../api';
+import { gymService } from '../../../api/services';
 
 const GymCreationCard = ({ onClose, onGymCreated }) => {
   const [formData, setFormData] = useState({
@@ -27,15 +27,9 @@ const GymCreationCard = ({ onClose, onGymCreated }) => {
     setError(null);
 
     try {
-      const response = await api.post('/gyms/', formData);
-      if (response.data) {
+      const newGym = await gymService.createGym(formData);
+      if (newGym) {
         // Make sure we pass the new gym data in the correct format
-        const newGym = {
-          id: response.data.id,
-          name: response.data.name,
-          location: response.data.location,
-          // Include other necessary fields
-        };
         await onGymCreated(newGym);
       }
     } catch (error) {

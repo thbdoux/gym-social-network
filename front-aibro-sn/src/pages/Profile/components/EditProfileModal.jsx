@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Upload, Dumbbell, User, Award, Heart, MapPin, Plus } from 'lucide-react';
-import api from '../../../api';
+import { userService, gymService } from '../../../api/services';
 import GymCreationModal from './GymCreationModal';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
@@ -38,8 +38,8 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
   useEffect(() => {
     const fetchGyms = async () => {
       try {
-        const response = await api.get('/gyms/');
-        setGyms(response.data.results || []);
+        const gymsData = await gymService.getGyms();
+        setGyms(Array.isArray(gymsData) ? gymsData : []);
       } catch (error) {
         console.error('Error fetching gyms:', error);
       }
@@ -73,13 +73,8 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
         profileData.append('avatar', avatarFile);
       }
 
-      const response = await api.patch('/users/me/', profileData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      setUser(response.data);
+      const updatedUser = await userService.updateUser(profileData);
+      setUser(updatedUser);
       setError(null);
       onClose();
       

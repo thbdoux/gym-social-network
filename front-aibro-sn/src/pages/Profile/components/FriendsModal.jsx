@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, UserPlus, UserMinus, Check, UserCheck, Search, User, Eye } from 'lucide-react';
-import api from '../../../api';
+import { userService } from '../../../api/services';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import UserProfilePreviewModal from './UserProfilePreviewModal';
 
@@ -15,22 +15,20 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
 
   const fetchFriendData = async () => {
     try {
-      const [friendsRes, requestsRes, usersRes] = await Promise.all([
-        api.get('/users/friends/'),
-        api.get('/users/friend_requests/'),
-        api.get('/users/')
+      const [friendsList, requestsList, usersList] = await Promise.all([
+        userService.getFriends(),
+        userService.getFriendRequests(), // This would need to be added to userService
+        userService.getAllUsers()
       ]);
 
-      const friendsList = Array.isArray(friendsRes.data) ? friendsRes.data : 
-                    Array.isArray(friendsRes.data.results) ? friendsRes.data.results : [];
-      const requestsList = Array.isArray(requestsRes.data) ? requestsRes.data.filter(req => req.status === 'pending') :
-                          Array.isArray(requestsRes.data.results) ? requestsRes.data.results.filter(req => req.status === 'pending') : [];
-      const usersList = Array.isArray(usersRes.data) ? usersRes.data :
-                       Array.isArray(usersRes.data.results) ? usersRes.data.results : [];
-
-      setFriends(friendsList);
-      setRequests(requestsList);
-      setAllUsers(usersList);
+      setFriends(Array.isArray(friendsList) ? friendsList : []);
+      console.log("Friends : ", friendsList)
+      // Filter pending requests
+      const pendingRequests = Array.isArray(requestsList) ? 
+        requestsList.filter(req => req.status === 'pending') : [];
+      setRequests(pendingRequests);
+      
+      setAllUsers(Array.isArray(usersList) ? usersList : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching friend data:', error);
@@ -46,7 +44,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
 
   const handleSendRequest = async (userId) => {
     try {
-      await api.post(`/users/${userId}/send_friend_request/`);
+      await userService.sendFriendRequest(userId); // This would need to be added to userService
       fetchFriendData();
     } catch (error) {
       console.error('Error sending friend request:', error);
@@ -55,7 +53,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
 
   const handleRespondToRequest = async (userId, response) => {
     try {
-      await api.post(`/users/${userId}/respond_to_request/`, { response });
+      await userService.respondToFriendRequest(userId, response); // This would need to be added to userService
       fetchFriendData();
     } catch (error) {
       console.error('Error responding to friend request:', error);

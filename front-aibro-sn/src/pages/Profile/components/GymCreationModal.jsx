@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Save, MapPin, Clock, AlignLeft, Building, Check } from 'lucide-react';
-import api from '../../../api';
+import { gymService } from '../../../api/services';
 
 const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
   const [formData, setFormData] = useState({
@@ -37,9 +37,9 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
     }
 
     try {
-      const response = await api.post('/gyms/', formData);
-      if (response.data) {
-        onGymCreated(response.data);
+      const newGym = await gymService.createGym(formData);
+      if (newGym) {
+        onGymCreated(newGym);
         onClose();
       }
     } catch (error) {
