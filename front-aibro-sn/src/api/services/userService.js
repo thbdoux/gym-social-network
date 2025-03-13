@@ -59,6 +59,24 @@ import { extractData } from '../utils/responseParser';
   respondToFriendRequest: async (userId, response) => {
     const apiResponse = await apiClient.post(`/users/${userId}/respond_to_request/`, { response });
     return apiResponse.data;
+  },
+
+  registerUser: async (userData) => {
+    const response = await apiClient.post('/users/', userData);
+    return response.data;
+  },
+
+  login: async (username, password) => {
+    const response = await apiClient.post('/users/token/', {
+      username,
+      password,
+    });
+    return response.data;
+  },
+
+  getNotifications: async () => {
+    // This would be implemented when API endpoint is available
+    return [];
   }
 
 };

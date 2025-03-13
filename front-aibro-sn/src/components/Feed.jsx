@@ -1,7 +1,7 @@
 // src/components/Feed.jsx
 import React, { useState } from 'react';
 import { User, Heart, MessageCircle, Send } from 'lucide-react';
-import api from '../api';
+import { postService } from '../api/services';
 
 const CommentSection = ({ comments, postId, onNewComment }) => {
   const [newComment, setNewComment] = useState('');
@@ -13,10 +13,8 @@ const CommentSection = ({ comments, postId, onNewComment }) => {
 
     setSubmitting(true);
     try {
-      const response = await api.post(`/posts/${postId}/comment/`, {
-        content: newComment
-      });
-      onNewComment(response.data);
+      const response = await postService.commentOnPost(postId, newComment);
+      onNewComment(response);
       setNewComment('');
     } catch (err) {
       console.error('Failed to post comment:', err);
@@ -71,11 +69,9 @@ const Post = ({ post, onUpdatePost }) => {
 
   const handleLike = async () => {
     try {
-      if (post.is_liked) {
-        await api.delete(`/posts/${post.id}/like/`);
-      } else {
-        await api.post(`/posts/${post.id}/like/`);
-      }
+      // Toggle like state using postService
+      await postService.likePost(post.id);
+      // The API appears to handle toggling on its own
       onUpdatePost({
         ...post,
         is_liked: !post.is_liked,

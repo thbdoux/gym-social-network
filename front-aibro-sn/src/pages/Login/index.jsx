@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import api from '../../api';
+import { userService } from '../../api/services';
 import { Dumbbell, User, Mail, Lock, ArrowRight } from 'lucide-react';
 
 const LoginPage = () => {
@@ -52,7 +52,8 @@ const LoginPage = () => {
         }
       } else {
         try {
-          await api.post('/users/', {
+          // Use the service instead of direct API call
+          await userService.registerUser({
             username: formData.username,
             password: formData.password,
             email: formData.email,

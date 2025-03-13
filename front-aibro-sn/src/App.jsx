@@ -4,7 +4,7 @@ import { AuthProvider, AuthContext } from './context/AuthContext';
 import { PostsProvider } from './pages/MainFeed/contexts/PostsContext';
 import { WorkoutProvider } from './pages/Workouts/contexts/WorkoutContext';
 import { useContext } from 'react';
-import api from './api';
+import { postService } from './api/services';
 
 // Pages
 import LoginPage from './pages/Login';
@@ -46,8 +46,8 @@ const FeedPage = () => {
 
   const fetchPosts = async () => {
     try {
-      const response = await api.get('/posts/feed/');
-      setPosts(Array.isArray(response.data) ? response.data : []);
+      const fetchedPosts = await postService.getFeed();
+      setPosts(Array.isArray(fetchedPosts) ? fetchedPosts : []);
     } catch (err) {
       setError('Failed to load posts');
       console.error('Error fetching posts:', err);

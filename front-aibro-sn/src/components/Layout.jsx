@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import api from '../../src/api';
-import { getAvatarUrl } from '../../src/utils/imageUtils';
+import { userService } from '../api/services';
+import { getAvatarUrl } from '../utils/imageUtils';
 import { Bell, Search, ChevronRight } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -32,12 +32,12 @@ const Layout = ({ children }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // Fetch current user data
+  // Fetch current user data using userService
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const response = await api.get('/users/me/');
-        setCurrentUser(response.data);
+        const userData = await userService.getCurrentUser();
+        setCurrentUser(userData);
       } catch (err) {
         console.error('Error fetching current user:', err);
       }
