@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Share2 } from 'lucide-react';
-import api from '../../../api';
+import { postService } from '../../../api/services';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
 const SharePostModal = ({ isOpen, onClose, post, onShareSuccess }) => {
@@ -39,14 +39,12 @@ const SharePostModal = ({ isOpen, onClose, post, onShareSuccess }) => {
     try {
       setIsSubmitting(true);
       
-      // Call the API directly
-      const response = await api.post(`/posts/${post.id}/share/`, {
-        content: shareText
-      });
+      // Use postService instead of direct API call
+      const sharedPost = await postService.sharePost(post.id, shareText);
       
       // Call the success callback with the new post data
       if (onShareSuccess) {
-        onShareSuccess(response.data);
+        onShareSuccess(sharedPost);
       }
       
       // Reset and close modal

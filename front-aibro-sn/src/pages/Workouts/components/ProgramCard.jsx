@@ -3,9 +3,9 @@ import {
   Dumbbell, ChevronDown, ChevronUp, Calendar, Target, 
   Activity, GitFork, User, Clock, Users, Star, Trophy,
   Award, Layers, BarChart, Eye, Trash2, Edit, Share2,
-  CheckCircle
+  CheckCircle, ToggleLeft, ToggleRight, Loader2
 } from 'lucide-react';
-import api from '../../../api';
+import { programService } from '../../../api/services';
 import ExpandableProgramModal from './ExpandableProgramModal';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 
@@ -37,6 +37,7 @@ const ProgramCard = ({
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
 
   // Empty state check - moved inside the component
   if (!program && !programId && onCreatePlan) {
@@ -44,12 +45,17 @@ const ProgramCard = ({
   }
 
   useEffect(() => {
+    setProgram(initialProgramData);
+  }, [initialProgramData]);
+
+  useEffect(() => {
     const fetchProgramDetails = async () => {
       if (programId && !program) {
         try {
           setLoading(true);
-          const response = await api.get(`/workouts/programs/${programId}/`);
-          setProgram(response.data);
+          // Use programService instead of direct API call
+          const fetchedProgram = await programService.getProgramById(programId);
+          setProgram(fetchedProgram);
         } catch (err) {
           console.error('Error fetching program details:', err);
           setError('Failed to load program details');
@@ -96,7 +102,9 @@ const ProgramCard = ({
   const canShareProgram = canManage && isCreator;
   const canForkProgram = canManage && !isCreator;
   const canDeleteProgram = canManage && isCreator;
-  const canSetActive = canManage && !program.is_active;
+  
+  // Now canToggleActive is always true if canManage is true (regardless of current active state)
+  const canToggleActive = canManage;
 
   const getFocusIcon = (focus) => {
     switch(focus) {
@@ -135,27 +143,41 @@ const ProgramCard = ({
     action();
   };
 
+  const handleToggleActive = async (e) => {
+    e.stopPropagation();
+    if (isToggling) return;
+    
+    try {
+      setIsToggling(true);
+      await onToggleActive?.(program.id);
+    } catch (err) {
+      console.error('Failed to toggle active state:', err);
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   return (
     <>
       <div 
-        className={`mt-4 bg-gradient-to-br from-gray-800/95 via-gray-800/90 to-gray-900/95 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 cursor-pointer transform ${isHovered ? 'shadow-md scale-[1.01]' : ''}`}
+        className={`mt-4 bg-gradient-to-br ${program.is_active ? 'from-purple-900/30 via-gray-800/95 to-gray-900/95 border-purple-500/50' : 'from-gray-800/95 via-gray-800/90 to-gray-900/95 border-gray-700/50'} border rounded-xl overflow-hidden transition-all duration-300 cursor-pointer transform ${isHovered ? 'shadow-md scale-[1.01]' : ''}`}
         onClick={handleCardClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Status Indicator Line - Purple gradient */}
-        <div className="h-1 w-full bg-gradient-to-r from-violet-400 to-purple-500" />
+        {/* Status Indicator Line - Purple gradient for active, gray for inactive */}
+        <div className={`h-1 w-full ${program.is_active ? 'bg-gradient-to-r from-violet-400 to-purple-500' : 'bg-gradient-to-r from-gray-600 to-gray-700'}`} />
         
         <div className="p-4">
           {/* Card Header */}
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 flex items-start">
               {/* Program Icon */}
-              <div className="p-2 bg-purple-500/20 rounded-lg mr-3 flex-shrink-0">
-                <Dumbbell className="w-5 h-5 text-purple-400" />
+              <div className={`p-2 ${program.is_active ? 'bg-purple-500/30' : 'bg-gray-700/30'} rounded-lg mr-3 flex-shrink-0`}>
+                <Dumbbell className={`w-5 h-5 ${program.is_active ? 'text-purple-400' : 'text-gray-400'}`} />
               </div>
               
-              <div className="min-w-0 overflow-hidden">
+              <div className="min-w-0 overflow-hidden flex-grow">
                 <div className="flex items-center">
                   <h4 className={`text-lg font-medium text-white transition-colors ${isHovered ? 'text-purple-300' : ''} truncate`}>
                     {program.name}
@@ -168,6 +190,7 @@ const ProgramCard = ({
                     </span>
                   )}
                   
+                  {/* Active status badge */}
                   {program.is_active && (
                     <span className="ml-2 flex items-center text-xs text-green-400 flex-shrink-0">
                       <CheckCircle className="w-3 h-3 mr-1" />
@@ -183,8 +206,33 @@ const ProgramCard = ({
               </div>
             </div>
             
+            {/* Toggle Active button */}
+            {canToggleActive && (
+              <button
+                onClick={handleToggleActive}
+                disabled={isToggling}
+                className={`p-1.5 mr-2 rounded-md transition-colors flex items-center ${
+                  isToggling ? 'opacity-50 cursor-not-allowed' : ''
+                } ${
+                  program.is_active 
+                    ? 'text-green-400 hover:text-green-300 hover:bg-green-900/20' 
+                    : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+                }`}
+                aria-label={program.is_active ? "Deactivate program" : "Set as active program"}
+                title={program.is_active ? "Deactivate program" : "Set as active program"}
+              >
+                {isToggling ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : program.is_active ? (
+                  <ToggleRight className="w-5 h-5" />
+                ) : (
+                  <ToggleLeft className="w-5 h-5" />
+                )}
+              </button>
+            )}
+            
             {/* Action buttons - expand/collapse */}
-            <div className="flex items-center flex-shrink-0 ml-2">
+            <div className="flex items-center flex-shrink-0">
               {/* Show management actions only if in management mode */}
               {canManage && (
                 <div className={`flex items-center space-x-1 ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 mr-2`}>
@@ -292,17 +340,6 @@ const ProgramCard = ({
               </div>
             </div>
           </div>
-          
-          {/* Set as active button - Only for management mode */}
-          {canSetActive && (
-            <button
-              onClick={(e) => handleButtonClick(e, () => onToggleActive?.(program.id))}
-              className="w-full text-center mt-4 text-sm text-purple-400 hover:text-purple-300 transition-colors py-1 border-t border-gray-700/30"
-            >
-              <CheckCircle className="w-3.5 h-3.5 inline-block mr-1.5" />
-              Set as Active Program
-            </button>
-          )}
 
           {/* Expanded View */}
           {isExpanded && (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, Activity, Calendar, Clock, Loader2 } from 'lucide-react';
 import { useWorkoutLogs } from './../../Workouts/hooks/useWorkoutLogs';
-import api from '../../../api';
+import { gymService } from '../../../api/services';
 
 const WorkoutLogSelector = ({ onSelect, onCancel }) => {
   const { logs, loading } = useWorkoutLogs();
@@ -24,11 +24,11 @@ const WorkoutLogSelector = ({ onSelect, onCancel }) => {
         // Create a map of gym IDs to gym names
         const gymMap = {};
         
-        // Fetch each gym individually
+        // Fetch each gym individually using gymService
         await Promise.all(gymIds.map(async (gymId) => {
           try {
-            const response = await api.get(`/gyms/${gymId}/`);
-            gymMap[gymId] = response.data.name || 'Unknown Gym';
+            const gymData = await gymService.getGymById(gymId);
+            gymMap[gymId] = gymData.name || 'Unknown Gym';
           } catch (error) {
             console.error(`Error fetching gym ${gymId}:`, error);
             gymMap[gymId] = 'Unknown Gym';

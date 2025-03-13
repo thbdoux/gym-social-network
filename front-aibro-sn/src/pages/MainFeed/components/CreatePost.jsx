@@ -11,9 +11,10 @@ import {
   Clock,
   Calendar
 } from 'lucide-react';
-import api from '../../../api';
 import ProgramSelector from './ProgramSelector';
 import WorkoutLogSelector from './WorkoutLogSelector';
+// Import services
+import { postService, gymService } from '../../../api/services';
 
 const CreatePost = ({ onPostCreated }) => {
   const [content, setContent] = useState('');
@@ -106,9 +107,10 @@ const CreatePost = ({ onPostCreated }) => {
         workout_log_id: selectedWorkoutLog?.id || null
       });
 
-      const response = await api.post('/posts/', formData);
-      console.log('Post created response:', response.data);
-      onPostCreated(response.data);
+      // Use postService instead of direct API call
+      const createdPost = await postService.createPost(formData);
+      console.log('Post created response:', createdPost);
+      onPostCreated(createdPost);
       resetForm();
     } catch (err) {
       console.error('Failed to create post:', err);
@@ -143,8 +145,9 @@ const CreatePost = ({ onPostCreated }) => {
     // Fetch gym name if workoutLog has a gym ID
     if (workoutLog.gym) {
       try {
-        const response = await api.get(`/gyms/${workoutLog.gym}/`);
-        setGymName(response.data.name);
+        // Use gymService instead of direct API call
+        const gymData = await gymService.getGymById(workoutLog.gym);
+        setGymName(gymData.name);
       } catch (error) {
         console.error('Error fetching gym details:', error);
         setGymName('Unknown Gym');

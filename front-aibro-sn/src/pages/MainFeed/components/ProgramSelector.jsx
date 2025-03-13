@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, Dumbbell, Calendar, Target, Loader2, GitFork, Users, Clock } from 'lucide-react';
-import api from '../../../api';
+import { programService, userService } from '../../../api/services';
 
 const ProgramSelector = ({ onSelect, onCancel }) => {
   const [programs, setPrograms] = useState([]);
@@ -12,16 +12,16 @@ const ProgramSelector = ({ onSelect, onCancel }) => {
     const fetchPrograms = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/workouts/programs/');
+        // Use programService instead of direct API call
+        const allPrograms = await programService.getPrograms();
         
-        // Get all programs from the response
-        const allPrograms = response.data.results || response.data;
+        // Use userService to get current user
+        const userData = await userService.getCurrentUser();
+        console.log("ME : ", userData.username);
         
-        const me = await api.get('/users/me');
-        console.log("ME : ", me.data.username);
         // Only allow sharing programs that you created (not forked)
         const createdPrograms = allPrograms.filter(program => 
-          program.creator_username === me.data.username
+          program.creator_username === userData.username
         );
         
         console.log('All programs:', allPrograms);

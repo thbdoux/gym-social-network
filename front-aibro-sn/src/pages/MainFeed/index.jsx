@@ -3,7 +3,12 @@ import WelcomeHeader from './components/WelcomeHeader';
 import CreatePost from './components/CreatePost';
 import FeedContainer from './components/FeedContainer';
 import EditPostModal from './components/EditPostModal';
-import api from '../../api';
+// Import services instead of direct API
+import { programService } from '../../api/services';
+// We'll need to create a postService for handling posts
+import postService from '../../api/services/postService';
+// Import userService for user data
+import userService from '../../api/services/userService';
 
 const MainFeed = () => {
   const [posts, setPosts] = useState([]);
@@ -13,7 +18,8 @@ const MainFeed = () => {
   
   const handleProgramSelect = async (program) => {
     try {
-      const response = await api.get(`/workouts/programs/${program.id}/`);
+      // Use programService instead of direct API call
+      await programService.getProgramById(program.id);
       // Change view to program detail
       window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
     } catch (err) {
@@ -24,14 +30,14 @@ const MainFeed = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch only necessary data in parallel
-        const [userResponse, postsResponse] = await Promise.all([
-          api.get('/users/me/'),
-          api.get('/posts/feed/')
+        // Fetch only necessary data in parallel using services
+        const [userData, postsData] = await Promise.all([
+          userService.getCurrentUser(),
+          postService.getFeed()
         ]);
         
-        setUser(userResponse.data);
-        setPosts(postsResponse.data);
+        setUser(userData);
+        setPosts(postsData);
       } catch (err) {
         console.error('Error fetching data:', err);
       }
@@ -46,7 +52,7 @@ const MainFeed = () => {
 
   const handlePostLike = async (postId) => {
     try {
-      await api.post(`/posts/${postId}/like/`);
+      await postService.likePost(postId);
       setPosts(posts.map(post => 
         post.id === postId 
           ? { ...post, is_liked: !post.is_liked, likes_count: post.is_liked ? post.likes_count - 1 : post.likes_count + 1 }
@@ -59,13 +65,13 @@ const MainFeed = () => {
 
   const handlePostComment = async (postId, content) => {
     try {
-      const response = await api.post(`/posts/${postId}/comment/`, { content });
+      const newComment = await postService.commentOnPost(postId, content);
       
       setPosts(posts.map(post => {
         if (post.id === postId) {
           return {
             ...post,
-            comments: [...(post.comments || []), response.data]
+            comments: [...(post.comments || []), newComment]
           };
         }
         return post;
@@ -77,26 +83,24 @@ const MainFeed = () => {
 
   const handleSharePost = async (postId, newSharedPostOrContent) => {
     try {
-      let response;
+      let sharedPost;
       
       if (typeof newSharedPostOrContent === 'object' && newSharedPostOrContent !== null) {
         // If we already have the full shared post data, use it directly
-        setPosts(prevPosts => [newSharedPostOrContent, ...prevPosts]);
-        return newSharedPostOrContent;
+        sharedPost = newSharedPostOrContent;
+        setPosts(prevPosts => [sharedPost, ...prevPosts]);
       } else {
-        // If we just have the content text, make the API call
+        // If we just have the content text, make the API call via service
         const content = typeof newSharedPostOrContent === 'string' 
           ? newSharedPostOrContent 
           : '';
           
-        response = await api.post(`/posts/${postId}/share/`, {
-          content: content
-        });
+        sharedPost = await postService.sharePost(postId, content);
         
         // Update the posts state with the new shared post
-        setPosts(prevPosts => [response.data, ...prevPosts]);
-        return response.data;
+        setPosts(prevPosts => [sharedPost, ...prevPosts]);
       }
+      return sharedPost;
     } catch (err) {
       console.error('Error sharing post:', err);
       alert('Failed to share post. Please try again.');
@@ -116,8 +120,8 @@ const MainFeed = () => {
         image: updatedPost.image
       };
 
-      const response = await api.put(`/posts/${updatedPost.id}/`, editableData);
-      setPosts(posts.map(p => p.id === updatedPost.id ? response.data : p));
+      const updated = await postService.updatePost(updatedPost.id, editableData);
+      setPosts(posts.map(p => p.id === updatedPost.id ? updated : p));
       setIsEditModalOpen(false);
       setEditingPost(null);
     } catch (error) {
@@ -127,7 +131,7 @@ const MainFeed = () => {
 
   const handleDeletePost = async (postId) => {
     try {
-      await api.delete(`/posts/${postId}/`);
+      await postService.deletePost(postId);
       setPosts(posts.filter(p => p.id !== postId));
     } catch (error) {
       console.error('Error deleting post:', error);

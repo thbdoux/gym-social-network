@@ -97,59 +97,45 @@ const EnhancedAllWorkoutsView = ({
 
   return (
     <div className="space-y-6">
-      {/* Header with title */}
-      <div className="space-y-1">
-        <div className="flex items-center">
-          <button
-            onClick={() => setView('logs')}
-            className="p-2 mr-2 hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6 text-gray-400" />
-          </button>
-          <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
-            Workout Templates
-          </h1>
-        </div>
-        <p className="text-gray-400 ml-10 text-sm">Build your fitness programs from these reusable workout building blocks.</p>
-      </div>
-
-      {error && (
-        <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg flex justify-between items-center">
+      {/* Header with title, search and action buttons */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
           <div className="flex items-center">
-            <span className="mr-2">⚠️</span>
-            {error}
-          </div>
-          <button 
-            onClick={() => setError(null)}
-            className="text-red-400 hover:text-red-300"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-
-      {/* Minimalist search and action bar */}
-      <div className="flex justify-between items-center">
-        <div className="relative w-60">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search templates..."
-            className="pl-9 w-full bg-gray-800 rounded-lg py-2 text-white placeholder-gray-500 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm h-10"
-          />
-          {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+              onClick={() => setView('logs')}
+              className="p-2 mr-2 hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <X className="w-4 h-4" />
+              <ArrowLeft className="w-6 h-6 text-gray-400" />
             </button>
-          )}
+            <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
+              Workout Templates
+            </h1>
+          </div>
+          <p className="text-gray-400 ml-10 text-sm">Build reusable workout blueprints for maximum efficiency and progress.</p>
         </div>
         
-        <div className="flex space-x-2">
+        <div className="flex items-center space-x-3">
+          {/* Search bar */}
+          <div className="relative w-60">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search templates..."
+              className="pl-9 w-full bg-gray-800 rounded-lg py-2 text-white placeholder-gray-500 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm h-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          
+          {/* Filter button */}
           <button
             onClick={() => setShowFilterPanel(!showFilterPanel)}
             className={`p-2 rounded-lg transition-colors relative ${
@@ -167,6 +153,7 @@ const EnhancedAllWorkoutsView = ({
             )}
           </button>
           
+          {/* Create template button */}
           <button
             onClick={() => setShowCreateModal(true)}
             className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 
@@ -177,6 +164,21 @@ const EnhancedAllWorkoutsView = ({
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg flex justify-between items-center">
+          <div className="flex items-center">
+            <span className="mr-2">⚠️</span>
+            {error}
+          </div>
+          <button 
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
       
       {/* Filter panel */}
       {showFilterPanel && (

@@ -5,7 +5,6 @@ import {
   Award, Star, Layers, Copy, CheckCircle,
   Info, Book, Trophy, ArrowLeft
 } from 'lucide-react';
-import api from '../../../api';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 import { programService } from '../../../api/services';
 
@@ -89,13 +88,14 @@ const ExpandableProgramModal = ({ programId, initialProgramData = null, isOpen, 
     
     try {
       setIsForkingProgram(true);
-      const response = await api.post(`/workouts/programs/${program.id}/fork/`);
+      // Use programService instead of direct API call
+      const forkedProgram = await programService.forkProgram(program.id);
       setForkSuccess(true);
       
       // Navigate to the newly forked program after a brief delay
       setTimeout(() => {
         if (onProgramSelect) {
-          onProgramSelect(response.data);
+          onProgramSelect(forkedProgram);
         }
         onClose();
       }, 1500);

@@ -5,7 +5,7 @@ import {
   ComposedChart
 } from 'recharts';
 import {
-  TrendingUp, Award, Heart, Activity, Calendar, Clock, PieChart as PieChartIcon,
+  TrendingUp, TrendingDown, Award, Heart, Activity, Calendar, Clock, PieChart as PieChartIcon,
   Dumbbell, BarChart2
 } from 'lucide-react';
 import { parseDate } from './ActivityComponents';

@@ -1,11 +1,10 @@
 // src/components/Feed/contexts/PostsContext.jsx
-import React, { createContext, useContext, useState } from 'react';  // Add useState import
+import React, { createContext, useContext, useState } from 'react';
 import { useLocalStorage } from '../../../hooks/useLocalStorage';
-import api from '../../../api';
+import { postService } from '../../../api/services';
 
 const PostsContext = createContext(null);
 
-// src/components/Feed/contexts/PostsContext.jsx
 export const PostsProvider = ({ children }) => {
     const [posts, setPosts] = useLocalStorage('feed-posts', []);
     const [loading, setLoading] = useState(false);
@@ -16,11 +15,12 @@ export const PostsProvider = ({ children }) => {
       
       setLoading(true);
       try {
-        const response = await api.get('/posts/');
-        console.log('Posts response:', response.data);
-        // Extract the results array from the paginated response
-        const postsData = response.data.results || [];
-        setPosts(postsData);
+        // Use postService instead of direct API call
+        const postsData = await postService.getPosts();
+        console.log('Posts response:', postsData);
+        // Extract the results array from the paginated response if needed
+        const postsArray = postsData.results || postsData || [];
+        setPosts(postsArray);
         setError(null);
       } catch (err) {
         console.warn('Error fetching posts:', err);

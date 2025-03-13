@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 import { useWorkoutLogs } from '../hooks/useWorkoutLogs';
 import WorkoutLogCard from '../components/WorkoutLogCard';
-import api from '../../../api';
+import { programService } from '../../../api/services';
 import { parseDate } from './ActivityComponents';
 import FilterPanel from './FilterPanel';
-import WorkoutLogForm from '../components/WorkoutLogForm';
+import WorkoutWizard from './../components/workout-wizard/WorkoutWizard';
 import WorkoutStatisticsView from './WorkoutStatisticsView';
 
 const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
@@ -34,7 +34,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
     endDate: null,
     completed: null
   });
-  const [showLogForm, setShowLogForm] = useState(false);
+  const [showWorkoutWizard, setShowWorkoutWizard] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [programs, setPrograms] = useState([]);
   
@@ -42,8 +42,9 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const response = await api.get('/workouts/programs/');
-        setPrograms(response.data.results || []);
+        // Use programService instead of direct API call
+        const fetchedPrograms = await programService.getPrograms();
+        setPrograms(fetchedPrograms || []);
       } catch (err) {
         console.error('Error fetching programs:', err);
       }
@@ -142,7 +143,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
 
   const handleEditLog = (log) => {
     setSelectedLog(log);
-    setShowLogForm(true);
+    setShowWorkoutWizard(true);
   };
 
   const handleDeleteLog = async (log) => {
@@ -156,7 +157,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
     }
   };
 
-  const handleLogFormSubmit = async (formData) => {
+  const handleWorkoutWizardSubmit = async (formData) => {
     try {
       const preparedData = {
         ...formData,
@@ -187,7 +188,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
         await createLog(preparedData);
       }
       
-      setShowLogForm(false);
+      setShowWorkoutWizard(false);
       setSelectedLog(null);
       await refreshLogs();
     } catch (err) {
@@ -446,14 +447,14 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
         onClose={() => setShowFilterPanel(false)}
       />
 
-      {/* Workout Log Form Modal */}
-      {showLogForm && (
-        <WorkoutLogForm
+      {/* Use WorkoutWizard instead of WorkoutLogForm */}
+      {showWorkoutWizard && (
+        <WorkoutWizard
           log={selectedLog}
           programs={programs}
-          onSubmit={handleLogFormSubmit}
+          onSubmit={handleWorkoutWizardSubmit}
           onClose={() => {
-            setShowLogForm(false);
+            setShowWorkoutWizard(false);
             setSelectedLog(null);
           }}
         />

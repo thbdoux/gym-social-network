@@ -39,6 +39,7 @@ const WorkoutSpace = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [isTogglingActive, setIsTogglingActive] = useState(false);
   
   // Modal state for workout templates and next workouts
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
@@ -140,11 +141,16 @@ const WorkoutSpace = () => {
   };
 
   const handleTogglePlanActive = async (planId) => {
+    if (isTogglingActive) return;
+    
     try {
+      setIsTogglingActive(true);
       await programService.toggleProgramActive(planId);
       await refreshPlans();
     } catch (err) {
       console.error('Error toggling plan active status:', err);
+    } finally {
+      setIsTogglingActive(false);
     }
   };
 
@@ -179,6 +185,46 @@ const WorkoutSpace = () => {
     setShowWorkoutLogModal(true);
   };
 
+  const handleLogWorkout = async (formData) => {
+    try {
+      const preparedData = {
+        ...formData,
+        based_on_instance: formData.based_on_instance ? 
+          (typeof formData.based_on_instance === 'string' ? 
+            parseInt(formData.based_on_instance, 10) : formData.based_on_instance) : 
+          null,
+        program: formData.program ? 
+          (typeof formData.program === 'string' ? 
+            parseInt(formData.program, 10) : formData.program) : 
+          null
+      };
+      
+      if (selectedLog?.id) {
+        const updateData = {
+          ...preparedData,
+          exercises: preparedData.exercises.map(exercise => ({
+            ...exercise,
+            id: exercise.id,
+            sets: exercise.sets.map(set => ({
+              ...set,
+              id: set.id,
+            }))
+          }))
+        };
+        await updateLog(selectedLog.id, updateData);
+      } else {
+        await createLog(preparedData);
+      }
+      
+      setShowLogForm(false);
+      setSelectedLog(null);
+      await refreshLogs();
+    } catch (err) {
+      console.error('Error saving log:', err);
+      alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
   if (plansError || templatesError) {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
@@ -211,7 +257,6 @@ const WorkoutSpace = () => {
           setView={setView}
           user={currentUser}
           deletePlan={deletePlan}
-          onCreatePlan={handleCreatePlan}
           togglePlanActive={handleTogglePlanActive}
           onShareProgram={handleShareProgram}
           onForkProgram={handleForkProgram}
@@ -317,7 +362,10 @@ const WorkoutSpace = () => {
               Your Fitness Journey
             </h1>
             
-            {/* Navigation buttons - Updated order and colors */}
+            <p className="mt-4 text-lg text-gray-300 max-w-3xl">
+              Track your progress, create custom workout templates, manage training programs, and log your fitness journey all in one place.
+            </p>
+            
             <div className="flex flex-wrap items-center gap-3 mt-6">
               <button 
                 onClick={() => setView('all-workouts')}
@@ -341,17 +389,6 @@ const WorkoutSpace = () => {
               >
                 <Calendar className="w-5 h-5 text-white" />
                 <span className="text-white">Workout History</span>
-              </button>
-              
-              <button 
-                onClick={() => {
-                  setSelectedLog(null);
-                  setShowLogModal(true);
-                }}
-                className={`px-4 py-2 ${workoutColors.bg} hover:${workoutColors.hoverBg} rounded-lg transition-colors flex items-center space-x-2 shadow-md`}
-              >
-                <Plus className="w-5 h-5" />
-                <span className={workoutColors.text}>Log</span>
               </button>
             </div>
           </div>
@@ -407,6 +444,25 @@ const WorkoutSpace = () => {
           setShowLogForm={setShowLogForm}
           handleViewNextWorkout={handleViewNextWorkout} // For upcoming workouts
         />
+        
+        {/* Large centered Log Workout button */}
+        <div className="flex justify-center mt-8">
+          <button
+            onClick={() => {
+              setSelectedLog(null);
+              setShowLogModal(true);
+            }}
+            className="group relative px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl 
+                     hover:from-blue-500 hover:to-purple-500 transition-all duration-300 
+                     shadow-lg hover:shadow-blue-600/30 flex items-center gap-3 transform hover:scale-105"
+          >
+            <div className="absolute inset-0 bg-white/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="bg-white/20 rounded-full p-1 flex items-center justify-center">
+              <Plus className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-white font-bold text-lg relative z-10">Log Workout</span>
+          </button>
+        </div>
       </div>
       
       {/* Modals */}
@@ -414,45 +470,7 @@ const WorkoutSpace = () => {
         <WorkoutWizard
           log={selectedLog}
           programs={workoutPlans}
-          onSubmit={async (formData) => {
-            try {
-              const preparedData = {
-                ...formData,
-                based_on_instance: formData.based_on_instance ? 
-                  (typeof formData.based_on_instance === 'string' ? 
-                    parseInt(formData.based_on_instance, 10) : formData.based_on_instance) : 
-                  null,
-                program: formData.program ? 
-                  (typeof formData.program === 'string' ? 
-                    parseInt(formData.program, 10) : formData.program) : 
-                  null
-              };
-              
-              if (selectedLog?.id) {
-                const updateData = {
-                  ...preparedData,
-                  exercises: preparedData.exercises.map(exercise => ({
-                    ...exercise,
-                    id: exercise.id,
-                    sets: exercise.sets.map(set => ({
-                      ...set,
-                      id: set.id,
-                    }))
-                  }))
-                };
-                await updateLog(selectedLog.id, updateData);
-              } else {
-                await createLog(preparedData);
-              }
-              
-              setShowLogForm(false);
-              setSelectedLog(null);
-              await refreshLogs();
-            } catch (err) {
-              console.error('Error saving log:', err);
-              alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
-            }
-          }}
+          onSubmit={handleLogWorkout}
           onClose={() => {
             setShowLogForm(false);
             setSelectedLog(null);

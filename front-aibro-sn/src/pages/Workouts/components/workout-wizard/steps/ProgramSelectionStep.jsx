@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dumbbell, CheckCircle, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
-import api from '../../../../../api';
+import { programService } from '../../../../../api/services';
 
 const ProgramSelectionStep = ({ formData, updateFormData, colors }) => {
   const [programs, setPrograms] = useState([]);
@@ -14,8 +14,11 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors }) => {
     const fetchPrograms = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/workouts/programs/?is_active=true');
-        setPrograms(response.data.results);
+        // Use programService instead of direct API call
+        const fetchedPrograms = await programService.getPrograms();
+        // Filter for active programs
+        const activePrograms = fetchedPrograms.filter(program => program.is_active);
+        setPrograms(activePrograms);
       } catch (err) {
         console.error('Error fetching programs:', err);
         setError('Failed to load programs');

@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, MoreVertical, Heart, MessageCircle, Share2, Send, 
   Trash2, X, Edit, Activity, Users, Dumbbell } from 'lucide-react';
-import api from '../../../api';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import { ProgramCard } from '../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
 import SharePostModal from './SharePostModal';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+// Import services
+import { programService, postService, userService, logService } from '../../../api/services';
 
 const Post = ({ 
   post, 
@@ -47,8 +48,9 @@ const Post = ({
       
       if (post.post_type === 'program' && post.program_id && !programData) {
         try {
-          const response = await api.get(`/workouts/programs/${post.program_id}/`);
-          setProgramData(response.data);
+          // Use programService instead of direct API call
+          const programDetails = await programService.getProgramById(post.program_id);
+          setProgramData(programDetails);
         } catch (err) {
           console.error('Error fetching program data:', err);
         }
@@ -130,8 +132,9 @@ const Post = ({
           if (originalPost.post_type === 'workout_log' && originalPost.workout_log_details) {
             const workoutLogId = originalPost.workout_log_details.id;
             if (workoutLogId) {
-              const response = await api.get(`/workouts/logs/${workoutLogId}/shared/`);
-              setWorkoutLog(response.data);
+              // Use logService instead of direct API call
+              const logData = await logService.getLogById(workoutLogId);
+              setWorkoutLog(logData);
             } else if (typeof originalPost.workout_log_details === 'object') {
               setWorkoutLog(originalPost.workout_log_details);
             }
@@ -146,8 +149,9 @@ const Post = ({
             const programId = programDetails?.id;
             
             if (programId) {
-              const response = await api.get(`/workouts/programs/${programId}/`);
-              setProgramData(response.data);
+              // Use programService instead of direct API call
+              const program = await programService.getProgramById(programId);
+              setProgramData(program);
             } else {
               setProgramData(programDetails);
             }
@@ -155,8 +159,8 @@ const Post = ({
 
           // Fetch user data to get the avatar
           try {
-            const usersResponse = await api.get('/users/');
-            const allUsers = usersResponse.data.results || usersResponse.data;
+            // Use userService instead of direct API call
+            const allUsers = await userService.getAllUsers();
             const user = allUsers.find(u => u.username === originalPost.user_username);
             if (user) {
               setUserData(user);
@@ -541,9 +545,8 @@ const FeedContainer = ({
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const friendsResponse = await api.get('/users/friends/');
-        const friendsList = Array.isArray(friendsResponse.data) ? friendsResponse.data :
-                          Array.isArray(friendsResponse.data.results) ? friendsResponse.data.results : [];
+        // Use userService instead of direct API call
+        const friendsList = await userService.getFriends();
         
         // Get list of friend usernames
         const friendsSet = new Set(friendsList.map(f => f.friend.username));
@@ -575,8 +578,8 @@ const FeedContainer = ({
     
     const fetchUsersData = async () => {
       try {
-        const usersResponse = await api.get('/users/');
-        const allUsers = usersResponse.data.results || usersResponse.data;
+        // Use userService instead of direct API call
+        const allUsers = await userService.getAllUsers();
         
         const newUsersData = {};
         usernames.forEach(username => {

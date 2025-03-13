@@ -7,7 +7,7 @@ import {
 import { useGyms } from '../hooks/useGyms';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 import ExpandableWorkoutLogModal from './ExpandableWorkoutLogModal';
-import api from '../../../api';
+import { logService } from '../../../api/services';
 
 const WorkoutLogCard = ({ 
   user,
@@ -28,14 +28,16 @@ const WorkoutLogCard = ({
   
   const { gyms, loading: gymsLoading } = useGyms();
   const canEdit = log.username == user;
+  
   useEffect(() => {
     const fetchWorkoutLog = async () => {
       if (!logId || initialLog) return;
       
       try {
         setLoading(true);
-        const response = await api.get(`/workouts/logs/${logId}/`);
-        setLog(response.data);
+        // Use logService instead of direct API call
+        const fetchedLog = await logService.getLogById(logId);
+        setLog(fetchedLog);
       } catch (err) {
         console.error('Error fetching workout log:', err);
       } finally {
@@ -98,8 +100,6 @@ const WorkoutLogCard = ({
     if (rating >= 4) return { label: '🔥', color: 'text-yellow-400 bg-yellow-900/30' };
     return { label: '✓', color: 'text-green-400 bg-green-900/30' };
   };
-
-  // Social stats removed as no longer needed
 
   // Get colors from postTypeUtils
   const colors = getPostTypeDetails('workout_log').colors;
@@ -318,8 +318,6 @@ const WorkoutLogCard = ({
               </button>
             </div>
           )}
-
-          {/* Social interaction section removed as requested */}
           
           {/* Bottom highlight line - animated on hover */}
           <div className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 w-0 ${isHovered ? 'w-full' : ''} transition-all duration-700`}></div>

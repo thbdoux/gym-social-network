@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, TrendingUp } from 'lucide-react';
+import { Loader2, TrendingUp, Clock } from 'lucide-react';
 import EmptyState from './EmptyState';
 
 /**
@@ -157,11 +157,26 @@ const WorkoutTimeline = ({
               )}
             </div>
             
-            {/* Today marker - Center point of timeline */}
+            {/* Today marker - Center point of timeline - STYLED WITH FADING BACKGROUND */}
             <div className={`${nextWorkout ? 'lg:w-1/12' : 'lg:w-1/6'} hidden lg:block relative`}>
-              <div className="absolute left-1/2 transform -translate-x-1/2 top-0 lg:-top-10 flex flex-col items-center z-20">
-                <div className="w-4 h-4 rounded-full bg-gray-500 shadow-md"></div>
-                <div className="mt-2 text-gray-400 text-sm font-medium">Today</div>
+              {/* Vertical fading arrow highlight */}
+              <div className="absolute left-1/2 transform -translate-x-1/2 top-0 -mt-10 w-14 h-28 
+                           bg-gradient-to-b from-amber-500/5 via-amber-500/15 to-transparent 
+                           rounded-t-full z-10"></div>
+              
+              <div className="absolute left-1/2 transform -translate-x-1/2 top-0 lg:-top-10 flex flex-col items-center z-30">
+                {/* Pulsing circle effect */}
+                <div className="relative">
+                  {/* Outer glow */}
+                  <div className="absolute w-10 h-10 rounded-full bg-amber-500/10 blur-sm"></div>
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 shadow-md flex items-center justify-center z-20 relative">
+                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                  </div>
+                </div>
+                
+                <div className="mt-2 text-amber-400 text-sm font-medium flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> Now
+                </div>
               </div>
             </div>
             

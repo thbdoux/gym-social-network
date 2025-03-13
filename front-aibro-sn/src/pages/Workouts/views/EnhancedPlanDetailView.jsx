@@ -6,7 +6,7 @@ import ExpandableWorkoutModal from './../components/ExpandableWorkoutModal';
 import TemplateSelector from '../components/TemplateSelector';
 import EnhancedProgramForm from '../components/EnhancedProgramForm';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
-import api from './../../../api';
+import { programService, workoutService } from '../../../api/services';
 
 const EnhancedPlanDetailView = ({
   plan,
@@ -42,9 +42,10 @@ const EnhancedPlanDetailView = ({
 
   const refreshPlans = async () => {
     try {
-      const updatedPlan = await api.get(`/workouts/programs/${plan.id}/`);
-      if (updatedPlan.data) {
-        onUpdate(plan.id, updatedPlan.data);
+      // Use programService instead of direct API call
+      const updatedPlan = await programService.getProgramById(plan.id);
+      if (updatedPlan) {
+        onUpdate(plan.id, updatedPlan);
       }
     } catch (error) {
       console.error('Error refreshing plan data:', error);
@@ -53,28 +54,12 @@ const EnhancedPlanDetailView = ({
 
   const handleDayChange = async (workoutId, newDay) => {
     try {
-      // 1. First, get the current workout data
-      const currentWorkoutResponse = await api.get(`/workouts/programs/${plan.id}/workouts/${workoutId}/`);
-      const currentWorkout = currentWorkoutResponse.data;
-      
-      // 2. Create a copy of the workout data with the new weekday
-      const updatedWorkout = {
-        ...currentWorkout,
+      // Use programService with simplified updateProgramWorkout function
+      await programService.updateProgramWorkout(plan.id, workoutId, {
         preferred_weekday: newDay
-      };
+      });
       
-      // 3. Send the entire workout data back with just the weekday changed
-      await api.put(
-        `/workouts/programs/${plan.id}/workouts/${workoutId}/`,
-        updatedWorkout,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-      
-      // 4. Refresh the plan data to update UI
+      // Refresh the plan data to update UI
       await refreshPlans();
     } catch (err) {
       console.error('Error updating workout day:', err);
@@ -84,7 +69,7 @@ const EnhancedPlanDetailView = ({
 
   const handleCreateNewWorkout = async (workoutData) => {
     try {
-      // First create the template
+      // First create the template using workoutService
       const templateData = {
         name: workoutData.name,
         description: workoutData.description,
@@ -93,29 +78,11 @@ const EnhancedPlanDetailView = ({
         estimated_duration: workoutData.estimated_duration,
         equipment_required: workoutData.equipment_required || [],
         tags: workoutData.tags || [],
-        is_public: workoutData.is_public !== false
+        is_public: workoutData.is_public !== false,
+        exercises: workoutData.exercises || []
       };
 
-      const response = await api.post('/workouts/templates/', templateData);
-      const newTemplate = response.data;
-
-      // Add exercises to the template if they exist
-      if (workoutData.exercises?.length > 0) {
-        for (const exercise of workoutData.exercises) {
-          await api.post(`/workouts/templates/${newTemplate.id}/add_exercise/`, {
-            name: exercise.name,
-            equipment: exercise.equipment || '',
-            notes: exercise.notes || '',
-            order: exercise.order,
-            sets: exercise.sets.map((set, idx) => ({
-              reps: parseInt(set.reps),
-              weight: parseFloat(set.weight),
-              rest_time: parseInt(set.rest_time),
-              order: idx
-            }))
-          });
-        }
-      }
+      const newTemplate = await workoutService.createTemplate(templateData);
 
       // Then add it to the program with the preferred weekday
       await onAddWorkout(plan.id, newTemplate.id, workoutData.preferred_weekday || 0);

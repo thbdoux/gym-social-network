@@ -4,7 +4,6 @@ import {
   User, ChevronDown, ChevronUp, 
   Scale, CircleDot, Book, Award 
 } from 'lucide-react';
-import api from '../../../api';
 import { logService, workoutService } from '../../../api/services';
 
 /**
