@@ -3,14 +3,10 @@ import WelcomeHeader from './components/WelcomeHeader';
 import CreatePost from './components/CreatePost';
 import FeedContainer from './components/FeedContainer';
 import EditPostModal from './components/EditPostModal';
-import FriendsPreview from './components/FriendsPreview';
-// Import services instead of direct API
+import FriendsPreview from '../Profile/components/FriendsPreview';
 import { programService } from '../../api/services';
-// We'll need to create a postService for handling posts
 import postService from '../../api/services/postService';
-// Import userService for user data
 import userService from '../../api/services/userService';
-// Import FriendsModal from ProfilePage
 import FriendsModal from '../Profile/components/FriendsModal';
 
 const MainFeed = () => {
@@ -23,10 +19,7 @@ const MainFeed = () => {
   
   const handleProgramSelect = async (program) => {
     try {
-      // Use programService instead of direct API call
       await programService.getProgramById(program.id);
-      // Change view to program detail
-      window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
     } catch (err) {
       console.error('Error navigating to program:', err);
     }
@@ -35,7 +28,6 @@ const MainFeed = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch only necessary data in parallel using services
         const [userData, postsData, friendsData] = await Promise.all([
           userService.getCurrentUser(),
           postService.getFeed(),
@@ -167,10 +159,11 @@ const MainFeed = () => {
         
         {/* Friends Sidebar - 1/4 width on desktop */}
         <div className="lg:col-span-1 space-y-4">
-          <FriendsPreview 
-            friends={friends} 
-            onViewAllClick={() => setIsFriendsModalOpen(true)} 
-          />
+        <FriendsPreview 
+          friends={friends} 
+          onViewAllClick={() => setIsFriendsModalOpen(true)}
+          maxDisplay={3}
+        />
           
           {/* You can add more sidebar components here */}
         </div>

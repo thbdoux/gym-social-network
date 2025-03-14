@@ -7,7 +7,6 @@ const WorkoutLogSelector = ({ onSelect, onCancel }) => {
   const { logs, loading } = useWorkoutLogs();
   const [searchQuery, setSearchQuery] = useState('');
   const [gyms, setGyms] = useState({});
-  const [loadingGyms, setLoadingGyms] = useState(false);
   const [selectedLogId, setSelectedLogId] = useState(null);
 
   // Fetch gym data for all logs that have a gym ID

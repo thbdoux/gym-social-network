@@ -218,11 +218,12 @@ const ProfilePage = () => {
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 space-y-6">
 
-            <FriendsPreview 
-              friends={friends} 
-              onViewAllClick={() => setIsFriendsModalOpen(true)} 
-              onFriendClick={handleViewFriendProfile}
-            />
+          <FriendsPreview 
+            friends={friends} 
+            onViewAllClick={() => setIsFriendsModalOpen(true)}
+            maxDisplay={5}
+            showPersonalityType={true}
+          />
             
             <StatsCard user={user} workoutLogs={workoutLogs} friends={friends} posts={posts} />
           </div>

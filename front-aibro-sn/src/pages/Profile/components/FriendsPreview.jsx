@@ -1,82 +1,116 @@
-import React from 'react';
-import { Users, Plus, ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, ArrowRight, UserPlus } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import ProfilePreviewModal from './ProfilePreviewModal';
 
-const FriendsPreview = ({ friends, onViewAllClick, onFriendClick }) => {
+const FriendsPreview = ({ 
+  friends = [], 
+  onViewAllClick,
+  maxDisplay = 5, 
+  showPersonalityType = false
+}) => {
+  // State for profile preview modal
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
   // Format text utilities
   const formatText = (text) => {
     if (!text) return '';
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  // Handler for opening a friend's profile
+  const handleFriendClick = (friend) => {
+    setSelectedUser(friend);
+    setIsProfileModalOpen(true);
+  };
+
+  // Handler for closing profile modal
+  const handleCloseProfile = () => {
+    setIsProfileModalOpen(false);
+    // Wait for animation to complete before clearing the user data
+    setTimeout(() => setSelectedUser(null), 300); 
+  };
+
   return (
-    <div className="border border-white/5 rounded-xl">
-      <div className="p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium flex items-center gap-1.5">
-            <Users className="w-4 h-4 text-green-400" />
-            <span>Friends</span>
-          </h2>
-          <button 
-            onClick={onViewAllClick}
-            className="text-xs text-blue-400 hover:text-blue-300"
-          >
-            View All
-          </button>
-        </div>
-        
-        {friends.length > 0 ? (
-          <div className="space-y-2.5">
-            {friends.slice(0, 3).map((friendData) => {
-              const friend = friendData.friend ? friendData.friend : friendData;
-              
-              return (
-                <div 
-                  key={friend.id} 
-                  onClick={() => onFriendClick(friend)}
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
-                >
-                  <img
-                    src={getAvatarUrl(friend.avatar)}
-                    alt={friend.username}
-                    className="w-8 h-8 rounded-full object-cover border border-gray-800"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{friend.username}</div>
-                    <div className="text-xs text-gray-400 truncate">
-                      {formatText(friend.training_level || 'beginner')}
-                      {friend.personality_type && ` • ${formatText(friend.personality_type)}`}
+    <>
+      <div className="bg-transparent rounded-xl border border-white/5 shadow-sm overflow-hidden">
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-base font-semibold flex items-center gap-1.5 text-gray-900 dark:text-white">
+              <Users className="w-4 h-4 text-blue-500" />
+              <span>Friends</span>
+            </h2>
+            <button 
+              onClick={onViewAllClick}
+              className="text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              <UserPlus className="w-4 h-4" />
+            </button>
+          </div>
+          
+          {/* Friend List */}
+          <div className="space-y-2 mt-2">
+            {friends.length > 0 ? (
+              friends.slice(0, maxDisplay).map((friendData) => {
+                // Extract the friend from the data structure
+                const friend = friendData.friend ? friendData.friend : friendData;
+                
+                return (
+                  <div 
+                    key={friend.id} 
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200 cursor-pointer"
+                    onClick={() => handleFriendClick(friend)}
+                  >
+                    <img
+                      src={getAvatarUrl(friend.avatar)}
+                      alt={friend.username}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm text-gray-900 dark:text-white truncate">{friend.username}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {formatText(friend.training_level || 'beginner')}
+                        {showPersonalityType && friend.personality_type && ` • ${formatText(friend.personality_type)}`}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="text-center py-4">
+                <Users className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No friends yet</p>
+                <button 
+                  onClick={onViewAllClick}
+                  className="mt-3 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs transition-colors"
+                >
+                  Find Friends
+                </button>
+              </div>
+            )}
             
-            {friends.length > 3 && (
+            {friends.length > maxDisplay && (
               <button 
                 onClick={onViewAllClick}
-                className="w-full text-center py-2 text-sm border border-white/5 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-center gap-1"
+                className="w-full text-center py-1.5 mt-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200 text-xs flex items-center justify-center gap-1 text-gray-600 dark:text-gray-300"
               >
-                <span>{friends.length - 3} more</span>
+                <span>See all {friends.length} friends</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             )}
           </div>
-        ) : (
-          <div className="py-5 text-center border border-white/5 rounded-lg">
-            <Users className="w-8 h-8 mx-auto mb-2 text-gray-600" />
-            <p className="text-sm text-gray-400 mb-3">Connect with friends</p>
-            <button 
-              onClick={onViewAllClick}
-              className="inline-flex items-center px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 rounded-md"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Find Friends
-            </button>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+
+      {/* Profile Preview Modal */}
+      <ProfilePreviewModal
+        isOpen={isProfileModalOpen}
+        onClose={handleCloseProfile}
+        userId={selectedUser?.id}
+        initialUserData={selectedUser}
+      />
+    </>
   );
 };
 
