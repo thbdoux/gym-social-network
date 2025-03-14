@@ -3,18 +3,23 @@ import WelcomeHeader from './components/WelcomeHeader';
 import CreatePost from './components/CreatePost';
 import FeedContainer from './components/FeedContainer';
 import EditPostModal from './components/EditPostModal';
+import FriendsPreview from './components/FriendsPreview';
 // Import services instead of direct API
 import { programService } from '../../api/services';
 // We'll need to create a postService for handling posts
 import postService from '../../api/services/postService';
 // Import userService for user data
 import userService from '../../api/services/userService';
+// Import FriendsModal from ProfilePage
+import FriendsModal from '../Profile/components/FriendsModal';
 
 const MainFeed = () => {
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
+  const [friends, setFriends] = useState([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
+  const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   
   const handleProgramSelect = async (program) => {
     try {
@@ -31,13 +36,15 @@ const MainFeed = () => {
     const fetchData = async () => {
       try {
         // Fetch only necessary data in parallel using services
-        const [userData, postsData] = await Promise.all([
+        const [userData, postsData, friendsData] = await Promise.all([
           userService.getCurrentUser(),
-          postService.getFeed()
+          postService.getFeed(),
+          userService.getFriends()
         ]);
         
         setUser(userData);
         setPosts(postsData);
+        setFriends(friendsData || []);
       } catch (err) {
         console.error('Error fetching data:', err);
       }
@@ -139,23 +146,37 @@ const MainFeed = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <WelcomeHeader username={user?.username} />
-        <CreatePost onPostCreated={handlePostCreated} />
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Main Feed Section - 3/4 width on desktop */}
+        <div className="lg:col-span-3 space-y-4">
+          <WelcomeHeader username={user?.username} />
+          <CreatePost onPostCreated={handlePostCreated} />
+          
+          <FeedContainer
+            posts={posts}
+            currentUser={user?.username}
+            onLike={handlePostLike}
+            onComment={handlePostComment}
+            onShare={handleSharePost} 
+            onEdit={handleEditClick}
+            onDelete={handleDeletePost}
+            onProgramSelect={handleProgramSelect}
+          />
+        </div>
+        
+        {/* Friends Sidebar - 1/4 width on desktop */}
+        <div className="lg:col-span-1 space-y-4">
+          <FriendsPreview 
+            friends={friends} 
+            onViewAllClick={() => setIsFriendsModalOpen(true)} 
+          />
+          
+          {/* You can add more sidebar components here */}
+        </div>
       </div>
       
-      <FeedContainer
-        posts={posts}
-        currentUser={user?.username}
-        onLike={handlePostLike}
-        onComment={handlePostComment}
-        onShare={handleSharePost} 
-        onEdit={handleEditClick}
-        onDelete={handleDeletePost}
-        onProgramSelect={handleProgramSelect}
-      />
-      
+      {/* Modals */}
       {editingPost && (
         <EditPostModal
           post={editingPost}
@@ -165,6 +186,14 @@ const MainFeed = () => {
             setEditingPost(null);
           }}
           onSave={handleEditPost}
+        />
+      )}
+      
+      {isFriendsModalOpen && (
+        <FriendsModal
+          isOpen={isFriendsModalOpen}
+          onClose={() => setIsFriendsModalOpen(false)}
+          currentUser={user}
         />
       )}
     </div>

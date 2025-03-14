@@ -4,6 +4,7 @@ import EnhancedWorkoutCard from '../components/EnhancedWorkoutCard';
 import TemplateSelector from '../components/TemplateSelector';
 import EnhancedProgramForm from '../components/EnhancedProgramForm';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
+import WeeklyCalendar from '../components/WeeklyCalendar';
 import { programService, workoutService } from '../../../api/services';
 
 const PlanDetailView = ({
@@ -192,26 +193,6 @@ const PlanDetailView = ({
     return plan.workouts;
   };
 
-  const getTotalSets = () => {
-    let total = 0;
-    plan.workouts.forEach(workout => {
-      if (workout.exercises) {
-        workout.exercises.forEach(exercise => {
-          total += exercise.sets?.length || 0;
-        });
-      }
-    });
-    return total;
-  };
-
-  const getTotalExercises = () => {
-    let total = 0;
-    plan.workouts.forEach(workout => {
-      total += workout.exercises?.length || 0;
-    });
-    return total;
-  };
-
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Minimalist header with nav, title and actions in one line */}
@@ -224,7 +205,7 @@ const PlanDetailView = ({
           >
             <ArrowLeft className="w-5 h-5 text-gray-400" />
           </button>
-          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">{plan.name}</h1>
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">{plan.name}</h1>
         </div>
         
         {canEdit && (
@@ -304,8 +285,6 @@ const PlanDetailView = ({
                   </div>
                 </div>
               </div>
-              
-
             </div>
           </div>
           
@@ -317,54 +296,11 @@ const PlanDetailView = ({
                 Weekly Schedule
               </h2>
               
-              <div className="grid grid-cols-7 gap-2">
-                {workoutsByDay.map((dayData, index) => (
-                  <div 
-                    key={`day-${index}`} 
-                    className={`flex-1 rounded-lg transition-all duration-200 cursor-pointer
-                      ${dayData.workouts.length > 0 
-                        ? 'bg-blue-900/20 border border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-900/30' 
-                        : 'bg-gray-800/40 border border-gray-700/30 hover:border-gray-600/50'
-                      }`}
-                    onClick={() => setSelectedDay(index === selectedDay ? null : index)}
-                  >
-                    <div className={`text-center py-2 border-b ${
-                      dayData.workouts.length > 0 
-                        ? 'border-blue-500/30 text-blue-300' 
-                        : 'border-gray-700/30 text-gray-400'
-                      } font-medium text-sm`}
-                    >
-                      {dayData.day}
-                    </div>
-                    
-                    <div className="p-2 h-20 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
-                      {dayData.workouts.length === 0 ? (
-                        <div className="h-full flex items-center justify-center">
-                          <span className="text-xs text-gray-500">Rest</span>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {dayData.workouts.map((workout, idx) => (
-                            <div
-                              key={`workout-${idx}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditWorkout(workout);
-                              }}
-                              className="px-2 py-1.5 bg-blue-500/10 rounded hover:bg-blue-500/20 
-                                       cursor-pointer transition-colors text-xs text-blue-300 truncate
-                                       flex items-center"
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mr-1.5 flex-shrink-0"></div>
-                              <span className="truncate">{workout.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {/* Use the WeeklyCalendar component with drag-and-drop functionality */}
+              <WeeklyCalendar 
+                workouts={plan.workouts} 
+                onDayChange={canEdit ? handleDayChange : undefined}
+              />
             </div>
             
             {/* Mobile day selector (visible only on small screens) */}

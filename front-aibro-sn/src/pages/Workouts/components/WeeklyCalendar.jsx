@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, CheckCircle } from 'lucide-react';
 
-const WeeklyCalendar = ({ workouts, onWorkoutClick }) => {
+const WeeklyCalendar = ({ workouts, onWorkoutClick, onDayChange }) => {
   const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const SHORT_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
   
@@ -15,12 +15,33 @@ const WeeklyCalendar = ({ workouts, onWorkoutClick }) => {
   // Determine if a day has workouts
   const hasWorkout = (day) => workoutsByDay[day].workouts.length > 0;
 
+  // Handle drag start
+  const handleDragStart = (e, workout) => {
+    e.dataTransfer.setData('workoutId', workout.id);
+  };
+
+  // Handle drag over
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  // Handle drop
+  const handleDrop = (e, dayIndex) => {
+    e.preventDefault();
+    const workoutId = e.dataTransfer.getData('workoutId');
+    if (workoutId && onDayChange) {
+      onDayChange(workoutId, dayIndex);
+    }
+  };
+
   return (
     <div className="flex flex-col space-y-2">
       <div className="flex space-x-2">
         {workoutsByDay.map((dayData, index) => (
           <div 
-            key={`day-${index}`} 
+            key={`day-${index}`}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, index)}
             className={`flex-1 rounded-lg transition-all ${
               hasWorkout(index) 
                 ? 'bg-gradient-to-b from-blue-900/40 to-blue-800/20 border border-blue-500/30' 
@@ -45,9 +66,10 @@ const WeeklyCalendar = ({ workouts, onWorkoutClick }) => {
                   {dayData.workouts.map((workout, idx) => (
                     <div
                       key={`workout-${idx}`}
-                      onClick={() => onWorkoutClick(workout)}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, workout)}
                       className="px-2 py-1.5 bg-blue-500/10 rounded hover:bg-blue-500/20 
-                               cursor-pointer transition-colors group"
+                               cursor-move transition-colors group"
                     >
                       <p className="text-xs font-medium text-blue-400 group-hover:text-blue-300 truncate">
                         {workout.name}

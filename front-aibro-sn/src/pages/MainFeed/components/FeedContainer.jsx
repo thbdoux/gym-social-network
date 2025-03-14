@@ -18,7 +18,8 @@ const Post = ({
   onEdit, 
   onDelete,
   userData,
-  onProgramClick 
+  onProgramClick,
+  onForkProgram 
 }) => {
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -70,6 +71,17 @@ const Post = ({
   const handleProgramClick = (program) => {
     if (onProgramClick) {
       onProgramClick(program);
+    }
+  };
+
+  const handleForkProgram = async (programId) => {
+    try {
+      const forkedProgram = await programService.forkProgram(programId);
+      // You could refresh programs list or show notification here
+      return forkedProgram;
+    } catch (error) {
+      console.error("Error forking program:", error);
+      throw error;
     }
   };
 
@@ -254,6 +266,8 @@ const Post = ({
             programId={originalPost.program_id || originalPost.program}
             program={programData}
             inFeedMode={true}
+            currentUser={currentUser}
+            onFork={handleForkProgram}
           />
         )}
         
@@ -439,6 +453,9 @@ const Post = ({
               }
               onProgramSelect={handleProgramClick}
               currentUser={currentUser}
+              inFeedMode={true}
+              canManage={false}
+              onFork={handleForkProgram}
             />
           </div>
           )}
@@ -532,7 +549,8 @@ const FeedContainer = ({
   onShare, 
   onEdit, 
   onDelete,
-  onProgramSelect
+  onProgramSelect,
+  onForkProgram
 }) => {
   const [usersData, setUsersData] = useState({});
   const [friendUsernames, setFriendUsernames] = useState(null);
@@ -641,6 +659,7 @@ const FeedContainer = ({
               onDelete={onDelete}
               userData={usersData[post.user_username]}
               onProgramClick={onProgramSelect}
+              onForkProgram={onForkProgram}
             />
           ))}
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Dumbbell, 
   Trophy, 
@@ -6,13 +6,30 @@ import {
   Activity, 
   Users,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  GitFork
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../../utils/imageUtils';
 import { ProgramCard } from '../../../Workouts/components/ProgramCard';
+import { userService } from '../../../../api/services';
 
 const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }) => {
   const [expandedStatsSection, setExpandedStatsSection] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Fetch current logged-in user for fork permissions
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const currentUserData = await userService.getCurrentUser();
+        setCurrentUser(currentUserData);
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
 
   // Format text utility
   const formatText = (text) => {
@@ -20,14 +37,36 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  // Check if current logged-in user can fork the viewed profile's program
+  const canForkProgram = () => {
+    if (!currentUser || !userData || !fullProgramData) return false;
+    
+    // Don't show fork button if viewing your own profile
+    if (currentUser.username === userData.username) return false;
+    
+    // Check if the program is public or if current user is admin
+    return fullProgramData.is_public || currentUser.is_staff;
+  };
+
   return (
     <div className="animate-fadeIn space-y-6">
       {/* Current Program */}
       <div className="bg-gray-800/40 rounded-xl p-5">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Dumbbell className="w-5 h-5 text-purple-400" />
-          Current Program
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Dumbbell className="w-5 h-5 text-purple-400" />
+            Current Program
+          </h3>
+          {canForkProgram() && (
+            <button 
+              className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-sm flex items-center gap-1 transition-colors"
+              onClick={() => handleProgramSelect(fullProgramData)}
+            >
+              <GitFork className="w-3.5 h-3.5" />
+              Fork
+            </button>
+          )}
+        </div>
         
         {(fullProgramData || userData?.current_program) ? (
           <div 
@@ -37,7 +76,7 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
             <ProgramCard
               program={fullProgramData || userData.current_program}
               singleColumn={true}
-              currentUser={userData?.username}
+              currentUser={currentUser?.username}
               onProgramSelect={handleProgramSelect}
             />
           </div>

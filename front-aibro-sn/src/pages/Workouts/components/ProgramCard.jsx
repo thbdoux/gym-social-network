@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Dumbbell, ChevronDown, ChevronUp, Calendar, Target, 
-  Activity, GitFork, User, Users, Star, Trophy,
-  Award, Layers, BarChart, Trash2, Edit, Share2,
-  CheckCircle, ToggleLeft, ToggleRight, Loader2,
-  Book, Info
+  Activity, User, Users, Star, Trophy,
+  Award, GitFork, Layers, BarChart, Trash2, Edit, Share2,
+  CheckCircle, ToggleLeft, ToggleRight, Loader2, Check,
+  Info
 } from 'lucide-react';
 import { programService } from '../../../api/services';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
@@ -12,18 +12,15 @@ import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 const ProgramCard = ({ 
   programId,
   program: initialProgramData,
-  singleColumn = false,
   currentUser,
   inFeedMode = false,
   canManage = false,
-  onProgramSelect,
   onDelete,
   onToggleActive,
   onShare,
-  onFork,
   onEdit,
+  onFork,
   onCreatePlan,
-  userPrograms = []
 }) => {
   // State management
   const [program, setProgram] = useState(initialProgramData);
@@ -37,7 +34,13 @@ const ProgramCard = ({
   const [activeDay, setActiveDay] = useState(null);
   const [expandedWorkout, setExpandedWorkout] = useState(null);
 
+  const [isForking, setIsForking] = useState(false);
+  const [forkSuccess, setForkSuccess] = useState(false);
+
+  const [hasForked, setHasForked] = useState(false);
+  const [showForkWarning, setShowForkWarning] = useState(false);
   // Get program-specific colors
+
   const programColors = getPostTypeDetails('program').colors || {};
 
   // Empty state check
@@ -92,6 +95,7 @@ const ProgramCard = ({
     fetchProgramDetails();
   }, [programId, program, originalProgram, loadingOriginal]);
 
+  
   // Loading state
   if (loading) {
     return (
@@ -120,11 +124,10 @@ const ProgramCard = ({
   // Helper functions and derived state
   const isForked = !!program.forked_from;
   const isCreator = program.creator_username === currentUser;
-  
+  const canForkProgram = !isCreator;
   // Permission checks
   const canEditProgram = canManage && isCreator;
   const canShareProgram = canManage && isCreator;
-  const canForkProgram = canManage && !isCreator;
   const canDeleteProgram = canManage && isCreator;
   const canToggleActive = canManage;
 
@@ -188,6 +191,24 @@ const ProgramCard = ({
     }
   };
 
+  useEffect(() => {
+    const checkUserForks = async () => {
+      if (!currentUser || isCreator) return;
+      
+      try {
+        const userPrograms = await programService.getPrograms(currentUser);
+        const alreadyForked = userPrograms.some(userProgram => 
+          userProgram.forked_from === program.id
+        );
+        setHasForked(alreadyForked);
+      } catch (err) {
+        console.error('Error checking if user has forked program:', err);
+      }
+    };
+    
+    checkUserForks();
+  }, [currentUser, program, isCreator]);
+
   const handleExpandClick = (e) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
@@ -210,6 +231,35 @@ const ProgramCard = ({
     } finally {
       setIsToggling(false);
     }
+  };
+
+  const handleFork = async (e) => {
+    e.stopPropagation();
+    if (isForking) return;
+    
+    // If already forked, show warning first
+    if (hasForked && !showForkWarning) {
+      setShowForkWarning(true);
+      return;
+    }
+    
+    try {
+      setIsForking(true);
+      await onFork?.(program.id);
+      setForkSuccess(true);
+      setShowForkWarning(false);
+      setHasForked(true);
+      setTimeout(() => setForkSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to fork program:', err);
+    } finally {
+      setIsForking(false);
+    }
+  };
+  
+  const cancelFork = (e) => {
+    e.stopPropagation();
+    setShowForkWarning(false);
   };
 
   const handleDaySelect = (index) => {
@@ -247,13 +297,6 @@ const ProgramCard = ({
                 <h4 className={`text-lg font-medium text-white transition-colors ${isHovered ? 'text-purple-300' : ''} truncate`}>
                   {program.name}
                 </h4>
-                
-                {isForked && (
-                  <span className="ml-2 text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0">
-                    <GitFork className="w-3 h-3" />
-                    <span className="hidden sm:inline">Forked</span>
-                  </span>
-                )}
                 
                 {/* Active status badge */}
                 {program.is_active && (
@@ -331,16 +374,6 @@ const ProgramCard = ({
                   </button>
                 )}
                 
-                {canForkProgram && (
-                  <button
-                    onClick={(e) => handleButtonClick(e, () => onFork?.(program))}
-                    className="p-1.5 text-gray-400 hover:text-purple-400 bg-transparent hover:bg-purple-900/20 rounded-md transition-colors"
-                    aria-label="Fork program"
-                  >
-                    <GitFork className="w-4 h-4" />
-                  </button>
-                )}
-                
                 {canDeleteProgram && (
                   <button
                     onClick={(e) => handleButtonClick(e, () => {
@@ -357,6 +390,60 @@ const ProgramCard = ({
               </div>
             )}
             
+            {canForkProgram && (
+              <button
+                onClick={handleFork}
+                disabled={isForking}
+                className={`p-1.5 mr-2 rounded-md transition-colors flex items-center 
+                  ${isHovered ? 'opacity-100' : 'opacity-0'} 
+                  ${isForking ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${hasForked 
+                    ? 'text-orange-400 bg-transparent hover:text-orange-300 hover:bg-orange-900/20' 
+                    : 'text-purple-400 bg-transparent hover:text-purple-300 hover:bg-purple-900/20'}`}
+                aria-label={hasForked ? "Fork this program again" : "Fork this program"}
+                title={hasForked ? "You've already forked this program" : "Fork this program"}
+              >
+                {isForking ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <GitFork className="w-4 h-4" />
+                )}
+              </button>
+            )}
+
+            {forkSuccess && (
+              <div className="absolute bottom-4 right-4 bg-green-900/80 text-green-300 p-2 rounded-lg flex items-center animate-fadeIn shadow-lg border border-green-700/50">
+                <Check className="w-4 h-4 mr-2" />
+                <span className="text-sm">Program forked successfully!</span>
+              </div>
+            )}
+
+            {showForkWarning && (
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 rounded-lg shadow-lg border border-orange-500/50 z-10 w-80 animate-fadeIn">
+                <div className="flex items-start">
+                  <Info className="w-5 h-5 text-orange-400 mt-0.5 mr-3 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-medium text-white mb-2">Fork again?</h3>
+                    <p className="text-gray-300 text-sm mb-4">You already have a fork of this program. Do you want to create another copy?</p>
+                    <div className="flex justify-end space-x-2">
+                      <button 
+                        onClick={cancelFork} 
+                        className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-md text-sm text-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={handleFork}
+                        className="px-3 py-1.5 bg-orange-600/70 hover:bg-orange-600 rounded-md text-sm text-white transition-colors"
+                      >
+                        Fork Again
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={handleExpandClick}
               className={`p-1.5 bg-transparent rounded-md transition-colors 
@@ -651,8 +738,8 @@ export const ProgramGrid = ({
   onToggleActive, 
   onCreatePlan, 
   onShare, 
-  onFork, 
   onEdit,
+  onFork,
   currentUser,
   singleColumn = false 
 }) => {
@@ -676,8 +763,8 @@ export const ProgramGrid = ({
           onDelete={onDelete}
           onToggleActive={onToggleActive}
           onShare={onShare}
-          onFork={onFork}
           onEdit={onEdit}
+          onFork={onFork}
         />
       ))}
     </div>
