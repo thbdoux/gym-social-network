@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { userService, profilePreviewService } from '../../../api/services';
 import { X, MessageCircle } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
-import ExpandableProgramModal from '../../Workouts/components/ExpandableProgramModal';
-import ExpandableWorkoutLogModal from '../../Workouts/components/ExpandableWorkoutLogModal';
 import OverviewTab from './tabs/OverviewTab';
 import StatsTab from './tabs/StatsTab';
 import ActivityTab from './tabs/ActivityTab';
@@ -368,27 +366,6 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
           </>
         )}
       </div>
-      
-      {/* Program Modal */}
-      {selectedProgram && (
-        <ExpandableProgramModal 
-          programId={selectedProgram.id}
-          initialProgramData={selectedProgram}
-          isOpen={!!selectedProgram}
-          onClose={handleCloseProgram}
-          currentUser={userData?.username}
-        />
-      )}
-      
-      {/* Workout Log Modal */}
-      {selectedWorkoutLog && (
-        <ExpandableWorkoutLogModal
-          logId={selectedWorkoutLog.id}
-          initialLogData={selectedWorkoutLog}
-          isOpen={!!selectedWorkoutLog}
-          onClose={handleCloseWorkoutLog}
-        />
-      )}
     </div>
   );
 };

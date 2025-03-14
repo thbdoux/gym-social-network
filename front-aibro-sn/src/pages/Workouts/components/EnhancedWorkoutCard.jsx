@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { 
   Edit2, Trash2, ChevronDown, ChevronUp, 
   Dumbbell, Calendar, GripVertical, Copy,
-  Clock, Activity, Award, User, Flame, Eye
+  Clock, Activity, Award, User, Flame, Eye,
+  BarChart, Info, Target
 } from 'lucide-react';
+import { getPostTypeDetails } from '../../../utils/postTypeUtils';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -21,6 +23,10 @@ const EnhancedWorkoutCard = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isChangingDay, setIsChangingDay] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [expandedExercise, setExpandedExercise] = useState(null);
+  
+  // Get colors from postTypeUtils
+  const workoutColors = getPostTypeDetails('workout').colors || {};
 
   const handleDayChange = (e) => {
     const newDay = parseInt(e.target.value);
@@ -38,12 +44,27 @@ const EnhancedWorkoutCard = ({
     onDelete(workout.id); 
   };
 
-  const handleCardClick = () => {
+  const handleCardClick = (e) => {
+    e.stopPropagation();
     if (onClick) {
       onClick(workout);
-    } else {
-      setIsExpanded(!isExpanded);
+    } else if (!isExpanded) {
+      setIsExpanded(true);
     }
+  };
+  
+  const handleExpandClick = (e) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+  
+  const handleExerciseExpand = (exerciseId) => {
+    setExpandedExercise(expandedExercise === exerciseId ? null : exerciseId);
+  };
+
+  const handleButtonClick = (e, action) => {
+    e.stopPropagation();
+    action();
   };
 
   // For a cleaner UI, dynamically determine which metadata to show
@@ -73,21 +94,38 @@ const EnhancedWorkoutCard = ({
         return { label: '🔥', color: 'text-blue-400 bg-blue-900/30' };
     }
   };
+  
+  const getFocusDetails = () => {
+    const focusMap = {
+      'strength': { label: 'Strength', description: 'Focus on building maximal strength', icon: <Award className="w-5 h-5" /> },
+      'hypertrophy': { label: 'Hypertrophy', description: 'Optimize muscle growth', icon: <Activity className="w-5 h-5" /> },
+      'endurance': { label: 'Endurance', description: 'Improve stamina', icon: <Activity className="w-5 h-5" /> },
+      'general': { label: 'General Fitness', description: 'Well-rounded workout', icon: <Target className="w-5 h-5" /> }
+    };
+
+    return focusMap[workout.focus] || { 
+      label: workout.focus ? workout.focus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'General', 
+      description: 'Custom workout focus',
+      icon: <Target className="w-5 h-5" />
+    };
+  };
 
   return (
     <div 
-      className={`w-full bg-gradient-to-br from-gray-800/95 via-gray-800/90 to-gray-900/95 border border-gray-700/50 rounded-xl overflow-hidden shadow-sm transition-all duration-300 cursor-pointer ${
-        isDragging ? 'opacity-60' : ''
-      } ${isHovered ? 'shadow-md scale-[1.01]' : ''}`}
+      className={`mt-4 bg-gradient-to-br from-blue-900/30 via-gray-800/95 to-gray-900/95 border border-blue-500/50 rounded-xl overflow-hidden transition-all duration-300 
+        ${isExpanded ? 'shadow-lg' : ''} 
+        ${isHovered && !isExpanded ? 'shadow-md scale-[1.01]' : ''} 
+        ${isDragging ? 'opacity-60' : ''}
+        cursor-pointer relative`}
       onClick={handleCardClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Status Indicator Line - Blue gradient for workout templates */}
+      {/* Status Indicator Line - Blue gradient */}
       <div className="h-1 w-full bg-gradient-to-r from-blue-400 to-indigo-500" />
       
       <div className="p-4">
-        {/* Header with name and split type */}
+        {/* Card Header */}
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0 flex items-start">
             {/* Drag handle for reordering within programs */}
@@ -102,23 +140,26 @@ const EnhancedWorkoutCard = ({
             )}
             
             {/* Workout Icon */}
-            <div className="p-2 bg-blue-500/20 rounded-lg mr-3 flex-shrink-0">
+            <div className="p-2 bg-blue-500/30 rounded-lg mr-3 flex-shrink-0">
               <Dumbbell className="w-5 h-5 text-blue-400" />
             </div>
             
-            <div className="min-w-0 overflow-hidden">
-              {/* Workout Name */}
-              <h3 className={`text-lg font-medium text-white transition-colors ${isHovered ? 'text-blue-300' : ''} truncate`}>
-                {workout.name}
-              </h3>
+            <div className="min-w-0 overflow-hidden flex-grow">
+              <div className="flex items-center">
+                <h4 className={`text-lg font-medium text-white transition-colors ${isHovered ? 'text-blue-300' : ''} truncate`}>
+                  {workout.name}
+                </h4>
+              </div>
               
-              {/* Split Method & Exercise Count - Essential metadata */}
-              <div className="flex items-center mt-1 text-sm text-gray-400 space-x-3 truncate">
+              <div className="flex items-center mt-1 text-sm text-gray-400 truncate">
                 <span className="truncate">{formatSplitMethod(workout.split_method)}</span>
                 {hasExercises && (
-                  <span className="flex items-center flex-shrink-0">
-                    <Dumbbell className="w-3.5 h-3.5 mr-1" />
-                    {workout.exercises.length} exercises
+                  <span className="ml-2 flex items-center flex-shrink-0">
+                    <Dumbbell className="w-3.5 h-3.5 mx-1 text-blue-400" />
+                    <span className="text-blue-400">with</span>
+                    <span className="ml-1 text-blue-300 font-medium truncate">
+                      {workout.exercises.length} exercises
+                    </span>
                   </span>
                 )}
               </div>
@@ -153,55 +194,58 @@ const EnhancedWorkoutCard = ({
             </div>
           )}
           
-          {/* Action Buttons - Show on hover for cleaner UI */}
-          <div className={`flex items-center space-x-1 flex-shrink-0 ml-2 ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`} onClick={e => e.stopPropagation()}>
-            {onDuplicate && (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDuplicate(workout.id || workout.instance_id);
-                }}
-                className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
-                aria-label="Duplicate workout"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-            )}
-            {onEdit && (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(workout);
-                }}
-                className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
-                aria-label="Edit workout"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-            )}
-            {onDelete && (
-              <button 
-                onClick={handleDelete}
-                className="p-1.5 text-gray-400 hover:text-red-400 bg-transparent hover:bg-red-900/20 rounded-md transition-colors"
-                aria-label="Delete workout"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
-              aria-label={isExpanded ? "Show less" : "Show more"}
+          {/* Action buttons - Only visible on hover */}
+          <div className="flex items-center flex-shrink-0">
+            {/* Management actions */}
+            <div className={`flex items-center space-x-1 ${isHovered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 mr-2`}>
+              {onDuplicate && (
+                <button
+                  onClick={(e) => handleButtonClick(e, () => onDuplicate(workout.id || workout.instance_id))}
+                  className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
+                  aria-label="Duplicate workout"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+              )}
+              
+              {onEdit && (
+                <button
+                  onClick={(e) => handleButtonClick(e, () => onEdit(workout))}
+                  className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
+                  aria-label="Edit workout"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+              
+              {onDelete && (
+                <button
+                  onClick={handleDelete}
+                  className="p-1.5 text-gray-400 hover:text-red-400 bg-transparent hover:bg-red-900/20 rounded-md transition-colors"
+                  aria-label="Delete workout"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            <button
+              onClick={handleExpandClick}
+              className={`p-1.5 bg-transparent rounded-md transition-colors 
+                ${isHovered || isExpanded ? 'opacity-100' : 'opacity-0'} 
+                ${isExpanded ? 'text-blue-400 bg-blue-900/20' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
             >
               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           </div>
         </div>
+        
+        {/* Description - Show only if it exists */}
+        {workout.description && (
+          <p className="mt-2 text-sm text-gray-300 line-clamp-2 hidden sm:block">{workout.description}</p>
+        )}
 
-        {/* Stats Grid - Enhanced with gradients and hover effects */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-2 mt-4">
           <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 hover:from-blue-900/30 hover:to-blue-800/30 p-3 rounded-lg border border-blue-700/30 transition-all duration-300 transform hover:scale-[1.02]">
             <div className="flex items-center text-xs text-gray-400 mb-1">
@@ -237,90 +281,160 @@ const EnhancedWorkoutCard = ({
           </div>
         </div>
 
-        {/* Expanded View - With better styling for exercise list */}
+        {/* Expanded View - Workout Details */}
         {isExpanded && (
-          <div className="mt-5 space-y-3 border-t border-gray-700/50 pt-4 animate-fadeIn">
-            {/* Description & Creator */}
-            {(workout.description || hasCreator) && (
-              <div className="mb-4 p-3 bg-gradient-to-br from-gray-800/50 to-gray-700/50 rounded-lg border border-gray-700/30">
-                {workout.description && (
-                  <p className="text-sm text-gray-300 mb-2">{workout.description}</p>
-                )}
-                {hasCreator && (
-                  <p className="text-xs text-gray-400 flex items-center">
-                    <User className="w-3.5 h-3.5 mr-1" />
-                    Created by {workout.creator_username}
-                  </p>
-                )}
+          <div className="mt-6 space-y-6 animate-fadeIn">
+            {/* Focus Highlight */}
+            {workout.focus && (
+              <div className={`p-4 rounded-xl ${workoutColors.lightBg || 'bg-blue-900/20'} shadow-md border ${workoutColors.border || 'border-blue-700/30'} flex items-center gap-4`}>
+                <div className={`h-12 w-12 rounded-full ${workoutColors.bg || 'bg-blue-900/40'} flex items-center justify-center flex-shrink-0`}>
+                  {getFocusDetails().icon}
+                </div>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <h3 className="text-lg font-bold text-white truncate">{getFocusDetails().label}</h3>
+                  <p className="text-gray-300 text-sm mt-0.5 truncate">{getFocusDetails().description}</p>
+                </div>
               </div>
             )}
-
-            {/* Exercises List - Enhanced with better visual hierarchy */}
-            {hasExercises && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-white text-sm flex items-center">
-                    <Dumbbell className="w-4 h-4 mr-2 text-blue-400" />
-                    Exercise Plan
-                  </h4>
-                  <span className="px-1.5 py-0.5 bg-gray-800/80 text-gray-400 rounded text-xs">
-                    {workout.exercises.length} total
-                  </span>
+            
+            {/* Workout Details */}
+            <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
+              <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
+                <BarChart className="w-4 h-4 mr-2 text-blue-400" />
+                Workout Details
+              </h5>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
+                  <span className="text-xs text-gray-400 block mb-1">Duration</span>
+                  <span className="text-white font-medium">{workout.estimated_duration || 45} min</span>
+                </div>
+                <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
+                  <span className="text-xs text-gray-400 block mb-1">Type</span>
+                  <span className="text-white font-medium capitalize">{formatSplitMethod(workout.split_method)}</span>
+                </div>
+                <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
+                  <span className="text-xs text-gray-400 block mb-1">Difficulty</span>
+                  <span className="text-white font-medium capitalize">{workout.difficulty_level || 'Intermediate'}</span>
+                </div>
+                <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
+                  <span className="text-xs text-gray-400 block mb-1">Created</span>
+                  <span className="text-white font-medium">{new Date(workout.created_at).toLocaleDateString() || 'N/A'}</span>
                 </div>
                 
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {workout.exercises.map((exercise, idx) => (
+                {/* Creator info if available */}
+                {hasCreator && (
+                  <div className="col-span-2 bg-blue-900/20 p-3 rounded-lg border border-blue-700/30">
+                    <div className="flex items-center">
+                      <User className="w-4 h-4 mr-1.5 text-blue-400" />
+                      <span className="text-blue-300">
+                        Created by{" "}
+                        <span className="font-medium">{workout.creator_username}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Exercise List */}
+            {hasExercises && (
+              <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
+                <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
+                  <Dumbbell className="w-4 h-4 mr-2 text-blue-400" />
+                  Exercises
+                </h5>
+                
+                <div className="space-y-3">
+                  {workout.exercises.map((exercise, index) => (
                     <div 
-                      key={idx} 
-                      className="bg-gray-800/70 rounded-lg p-2.5 border border-gray-700/50 hover:border-blue-700/30 transition-colors"
+                      key={exercise.id || index} 
+                      className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-blue-700/40 transition-all duration-300"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-900/30 text-blue-400 text-xs mr-2">
-                            {idx + 1}
+                      <div 
+                        className="p-3 cursor-pointer hover:bg-gray-750 transition-colors"
+                        onClick={() => handleExerciseExpand(exercise.id || index)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0 overflow-hidden flex-1">
+                            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600/20 to-indigo-600/20 flex items-center justify-center border border-blue-700/30 flex-shrink-0">
+                              <Dumbbell className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <div className="min-w-0 overflow-hidden">
+                              <h4 className="font-medium text-white text-sm truncate">{exercise.name}</h4>
+                              <div className="flex items-center text-xs text-gray-400 mt-0.5">
+                                <span className="flex-shrink-0">{exercise.sets?.length || 0} sets</span>
+                                {exercise.equipment && (
+                                  <>
+                                    <span className="mx-1.5 flex-shrink-0">•</span>
+                                    <span className="flex-shrink-0">{exercise.equipment}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <h6 className="font-medium text-white text-sm">{exercise.name}</h6>
-                            {exercise.equipment && (
-                              <span className="text-xs text-gray-400">{exercise.equipment}</span>
-                            )}
+                          <div className="flex-shrink-0 ml-2">
+                            {expandedExercise === (exercise.id || index) ? 
+                              <ChevronUp className="w-4 h-4 text-blue-400" /> : 
+                              <ChevronDown className="w-4 h-4 text-gray-400" />
+                            }
                           </div>
-                        </div>
-                        <div className="text-xs text-gray-400 flex items-center">
-                          <span className="bg-gray-700/50 px-1.5 py-0.5 rounded">
-                            {exercise.sets?.length || 0} sets
-                          </span>
                         </div>
                       </div>
                       
-                      {/* Sets mini-view - with improved styling */}
-                      {exercise.sets && exercise.sets.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2 ml-8">
-                          {exercise.sets.map((set, setIdx) => (
-                            <div key={setIdx} className="bg-blue-900/20 border border-blue-800/30 px-2 py-1 rounded text-xs text-blue-300">
-                              <span className="font-medium">{set.reps} reps</span>
-                              {set.weight && <span className="text-blue-400 opacity-80"> × {set.weight}</span>}
+                      {/* Expanded Exercise Sets Detail */}
+                      {expandedExercise === (exercise.id || index) && exercise.sets && (
+                        <div className="border-t border-gray-700 p-4 bg-gray-800/80">
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            <div className="grid grid-cols-5 gap-1 text-xs text-gray-400 mb-2">
+                              <div className="col-span-1">Set</div>
+                              <div className="col-span-1">Weight</div>
+                              <div className="col-span-1">Reps</div>
+                              <div className="col-span-2">Notes</div>
                             </div>
-                          ))}
+                            
+                            {exercise.sets.map((set, setIdx) => (
+                              <div key={setIdx} className="grid grid-cols-5 gap-1 p-2 bg-gray-700/40 rounded-lg text-sm">
+                                <div className="col-span-1 text-white font-medium">{setIdx + 1}</div>
+                                <div className="col-span-1 text-white">{set.weight || 0} kg</div>
+                                <div className="col-span-1 text-white">{set.reps || 0}</div>
+                                <div className="col-span-2 text-gray-300 text-xs">{set.notes || '—'}</div>
+                              </div>
+                            ))}
+                            
+                            {/* Set Template Info */}
+                            <div className="mt-3 pt-2 border-t border-gray-700 text-xs text-gray-400">
+                              <span>Recommended rest: <span className="text-blue-400 font-medium">
+                                {exercise.rest_time || 60} sec
+                              </span></span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
                 
-                {/* View Full Details Button - Only in expanded mode */}
+                {/* View Full Details Button */}
                 {onClick && (
                   <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClick(workout);
-                    }}
+                    onClick={(e) => handleButtonClick(e, () => onClick(workout))}
                     className="w-full flex items-center justify-center gap-2 py-2 mt-4 bg-gradient-to-r from-blue-600/80 to-indigo-600/80 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-300 text-sm font-medium border border-blue-500/30"
                   >
                     <Eye className="w-4 h-4" />
                     View Full Workout Details
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Workout Notes/Description */}
+            {workout.description && (
+              <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
+                <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
+                  <Info className="w-4 h-4 mr-2 text-blue-400" />
+                  About this Workout
+                </h5>
+                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">{workout.description}</p>
               </div>
             )}
           </div>

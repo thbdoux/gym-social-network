@@ -70,8 +70,6 @@ const Post = ({
   const handleProgramClick = (program) => {
     if (onProgramClick) {
       onProgramClick(program);
-    } else {
-      window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
     }
   };
 

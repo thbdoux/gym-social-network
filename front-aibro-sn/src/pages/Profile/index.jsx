@@ -17,9 +17,6 @@ import {
 // Import components
 import { ProgramCard } from '../Workouts/components/ProgramCard';
 import EditProfileModal from './components/EditProfileModal';
-import ExpandableProgramModal from '../Workouts/components/ExpandableProgramModal';
-import ExpandableWorkoutModal from '../Workouts/components/ExpandableWorkoutModal';
-import ExpandableWorkoutLogModal from '../Workouts/components/ExpandableWorkoutLogModal';
 import EditPostModal from '../MainFeed/components/EditPostModal';
 import FriendsModal from './components/FriendsModal';
 import { getAvatarUrl } from '../../utils/imageUtils';
@@ -290,7 +287,7 @@ const ProfilePage = () => {
                       program={fullProgramData || user.current_program}
                       singleColumn={true}
                       currentUser={user?.username}
-                      onProgramSelect={handleProgramSelect}
+                      // onProgramSelect={handleProgramSelect}
                     />
                   ) : (
                     <div className="text-center py-8 bg-gray-800/30 rounded-xl">
@@ -348,50 +345,6 @@ const ProfilePage = () => {
           onClose={() => setIsFriendsModalOpen(false)}
           currentUser={user}
           onFriendClick={handleViewFriendProfile}
-        />
-      )}
-      
-      {selectedProgram && (
-        <ExpandableProgramModal 
-          programId={selectedProgram.id}
-          initialProgramData={selectedProgram}
-          isOpen={!!selectedProgram}
-          onClose={() => setSelectedProgram(null)}
-          currentUser={user}
-          onProgramSelect={(program) => {
-            window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
-          }}
-        />
-      )}
-      
-      {/* Use ExpandableWorkoutModal for upcoming workouts */}
-      {showWorkoutModal && selectedWorkout && (
-        <ExpandableWorkoutModal
-          workoutId={selectedWorkout.id}
-          initialWorkoutData={selectedWorkout}
-          isOpen={showWorkoutModal}
-          onClose={() => {
-            setShowWorkoutModal(false);
-            setSelectedWorkout(null);
-          }}
-          isTemplate={false}
-        />
-      )}
-      
-      {/* Use ExpandableWorkoutLogModal for past workout logs */}
-      {showWorkoutLogModal && selectedLog && (
-        <ExpandableWorkoutLogModal
-          logId={selectedLog.id}
-          initialLogData={selectedLog}
-          isOpen={showWorkoutLogModal}
-          onClose={() => {
-            setShowWorkoutLogModal(false);
-            setSelectedLog(null);
-          }}
-          onEdit={() => {
-            // Handle edit workflow if needed
-            setShowWorkoutLogModal(false);
-          }}
         />
       )}
       

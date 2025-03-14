@@ -17,8 +17,6 @@ import WorkoutWizard from './components/workout-wizard/WorkoutWizard';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
 import ShareProgramModal from './components/ShareProgramModal';
-import ExpandableWorkoutModal from './components/ExpandableWorkoutModal';
-import ExpandableWorkoutLogModal from './components/ExpandableWorkoutLogModal';
 import AllWorkoutLogsView from './views/AllWorkoutLogsView';
 import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
 import PlanDetailView from './views/PlanDetailView';
@@ -526,44 +524,6 @@ const WorkoutSpace = () => {
           onClose={() => {
             setShowShareModal(false);
             setProgramToShare(null);
-          }}
-        />
-      )}
-
-      {/* ExpandableWorkoutModal for next/upcoming workouts */}
-      {showWorkoutModal && selectedWorkout && (
-        <ExpandableWorkoutModal
-          workoutId={selectedWorkout.id}
-          initialWorkoutData={selectedWorkout}
-          isOpen={showWorkoutModal}
-          onClose={() => {
-            setShowWorkoutModal(false);
-            setSelectedWorkout(null);
-          }}
-          onEdit={(workout) => {
-            setShowWorkoutModal(false);
-            setSelectedWorkout(workout);
-            // Handle edit functionality for workout templates
-            // This might require additional logic depending on your app structure
-          }}
-          isTemplate={false}
-        />
-      )}
-      
-      {/* ExpandableWorkoutLogModal for past workout logs */}
-      {showWorkoutLogModal && selectedLog && (
-        <ExpandableWorkoutLogModal
-          logId={selectedLog.id}
-          initialLogData={selectedLog}
-          isOpen={showWorkoutLogModal}
-          onClose={() => {
-            setShowWorkoutLogModal(false);
-            setSelectedLog(null);
-          }}
-          onEdit={(log) => {
-            setShowWorkoutLogModal(false);
-            setSelectedLog(log);
-            setShowLogForm(true);
           }}
         />
       )}

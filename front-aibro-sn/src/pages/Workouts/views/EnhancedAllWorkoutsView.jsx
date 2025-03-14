@@ -4,7 +4,6 @@ import {
   Dumbbell, Loader2 
 } from 'lucide-react';
 import EnhancedWorkoutCard from '../components/EnhancedWorkoutCard';
-import ExpandableWorkoutModal from '../components/ExpandableWorkoutModal';
 import EmptyState from '../components/EmptyState';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 
@@ -301,18 +300,6 @@ const EnhancedAllWorkoutsView = ({
         <div className="flex justify-between mt-8 text-sm text-gray-500">
           <span>Showing {filteredWorkouts.length} of {workoutTemplates.length} templates</span>
         </div>
-      )}
-
-      {/* Modals */}
-      {showWorkoutModal && (
-        <ExpandableWorkoutModal
-          workoutId={selectedWorkout?.id}
-          initialWorkoutData={selectedWorkout}
-          isOpen={showWorkoutModal}
-          onClose={() => setShowWorkoutModal(false)}
-          onEdit={() => handleEditWorkout(selectedWorkout)}
-          isTemplate={true}
-        />
       )}
 
       {/* Workout Edit Form */}
