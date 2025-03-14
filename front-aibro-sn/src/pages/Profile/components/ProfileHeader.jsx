@@ -30,17 +30,24 @@ const ProfileHeader = ({
   };
 
   return (
-    <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-2xl overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl">
+    <div className="bg-transparent border border-white/5 rounded-2xl overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg">
       <div className="px-8 py-6 relative">
         <div className="flex flex-col md:flex-row md:items-end gap-6">
-          {/* Avatar */}
-          <div className="mx-auto md:mx-0">
-            <div className="p-1.5 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full shadow-xl group">
+          {/* Avatar with edit button overlay */}
+          <div className="mx-auto md:mx-0 relative group">
+            <div className="p-1.5 bg-transparent rounded-full shadow-sm group">
               <img
                 src={getAvatarUrl(user?.avatar)}
                 alt="Profile"
-                className="w-32 h-32 rounded-full object-cover border-4 border-gray-800 transition-all duration-300 group-hover:border-blue-600/40"
+                className="w-32 h-32 rounded-full object-cover border-2 border-gray-800 transition-all duration-300 group-hover:border-blue-600/40"
               />
+              <button 
+                onClick={onEditClick}
+                className="absolute bottom-1 right-1 p-2 bg-gray-800/80 hover:bg-gray-700 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 transform hover:scale-110"
+                title="Edit Profile"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
             </div>
           </div>
           
@@ -73,22 +80,11 @@ const ProfileHeader = ({
             </div>
           </div>
           
-          {/* Edit button */}
-          <div className="absolute top-4 right-4 md:static md:self-start">
-            <button 
-              onClick={onEditClick}
-              className="p-2 bg-gray-800/70 hover:bg-gray-700 rounded-full transition-all duration-300 transform hover:scale-110 hover:rotate-12"
-              title="Edit Profile"
-            >
-              <Edit className="w-5 h-5" />
-            </button>
-          </div>
-          
           {/* Stats Summary */}
           <div className="flex gap-4 justify-center md:justify-end">
             <button 
               onClick={() => setActiveSection('workouts')}
-              className={`flex flex-col items-center transition-all duration-300 px-3 py-2 rounded-lg ${activeSection === 'workouts' ? 'bg-blue-900/30' : 'hover:bg-gray-800'}`}
+              className={`flex flex-col items-center transition-all duration-300 px-3 py-2 rounded-lg ${activeSection === 'workouts' ? 'bg-blue-900/30' : 'bg-transparent hover:bg-gray-800/30'}`}
             >
               <div className="flex items-center">
                 <Dumbbell className="w-4 h-4 text-blue-400 mr-1" />
@@ -99,7 +95,7 @@ const ProfileHeader = ({
             
             <button 
               onClick={() => setActiveSection('posts')}
-              className={`flex flex-col items-center transition-all duration-300 px-3 py-2 rounded-lg ${activeSection === 'posts' ? 'bg-purple-900/30' : 'hover:bg-gray-800'}`}
+              className={`flex flex-col items-center transition-all duration-300 px-3 py-2 rounded-lg ${activeSection === 'posts' ? 'bg-purple-900/30' : 'bg-transparent hover:bg-gray-800/30'}`}
             >
               <div className="flex items-center">
                 <Activity className="w-4 h-4 text-purple-400 mr-1" />
@@ -110,7 +106,7 @@ const ProfileHeader = ({
             
             <button 
               onClick={onFriendsClick}
-              className={`flex flex-col items-center transition-all duration-300 px-3 py-2 rounded-lg ${activeSection === 'friends' ? 'bg-green-900/30' : 'hover:bg-gray-800'}`}
+              className={`flex flex-col items-center transition-all duration-300 px-3 py-2 rounded-lg ${activeSection === 'friends' ? 'bg-green-900/30' : 'bg-transparent hover:bg-gray-800/30'}`}
             >
               <div className="flex items-center">
                 <Users className="w-4 h-4 text-green-400 mr-1" />

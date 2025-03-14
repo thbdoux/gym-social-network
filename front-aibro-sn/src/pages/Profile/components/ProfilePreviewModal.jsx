@@ -7,11 +7,6 @@ import StatsTab from './tabs/StatsTab';
 import ActivityTab from './tabs/ActivityTab';
 import WorkoutsTab from './tabs/WorkoutsTab';
 
-/**
- * Universal Profile Preview Modal - works for any user profile
- * Uses dedicated service methods for accessing other users' data
- * Updated for minimalist, responsive design
- */
 const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }) => {
   // Core state
   const [userData, setUserData] = useState(initialUserData);
@@ -136,18 +131,14 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
     }
   };
 
-  // Fetch data specific to the active tab
   const fetchTabData = async (tab) => {
     if (!isMounted.current || !userId) return;
     
     try {
-      // Only fetch data that's needed for the current tab
       switch(tab) {
         case 'overview':
-          // Fetch friends data if not already loaded
           if (friends.length === 0) {
             try {
-              // Use our service method to get friends
               const friendsData = await profilePreviewService.getUserFriends(userId);
               if (isMounted.current) {
                 setFriends(Array.isArray(friendsData) ? friendsData : []);
@@ -159,10 +150,8 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
           break;
           
         case 'activity':
-          // Fetch posts if not already loaded
           if (posts.length === 0) {
             try {
-              // Use our service method to get posts
               const postsData = await profilePreviewService.getUserPosts(userId);
               if (isMounted.current) {
                 setPosts(Array.isArray(postsData) ? postsData : []);
@@ -173,9 +162,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
           }
           break;
           
-        case 'stats':
         case 'workouts':
-          // Fetch workout logs if not already loaded
           if (workoutLogs.length === 0) {
             try {
               // Use the profile preview endpoint as it has filtering built in
@@ -209,24 +196,16 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
   };
 
   const handleCloseProgram = () => {
-    // Set the flag to prevent refetching when closing the modal
+
     isClosingChildModal.current = true;
     setSelectedProgram(null);
   };
 
-  const handleCloseWorkoutLog = () => {
-    // Set the flag to prevent refetching when closing the modal
-    isClosingChildModal.current = true;
-    setSelectedWorkoutLog(null);
-  };
-
-  // Format text utilities
   const formatText = (text) => {
     if (!text) return '';
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  // Get gym display text
   const getGymDisplay = (user) => {
     if (!user?.preferred_gym_details || !user?.preferred_gym_details?.name) {
       return 'No gym set';
@@ -258,10 +237,8 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
           </div>
         ) : (
           <>
-            {/* Profile Header - Fixed */}
             <div className="px-6 pt-6 pb-4 flex-shrink-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-                {/* Avatar */}
                 <div className="mx-auto sm:mx-0">
                   <div className="p-1 bg-gradient-to-br from-blue-700/20 to-purple-700/20 rounded-full shadow-lg">
                     <img
@@ -271,8 +248,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
                     />
                   </div>
                 </div>
-                
-                {/* User Info */}
+
                 <div className="text-center sm:text-left sm:flex-1">
                   <h1 className="text-2xl font-bold text-white">{userData?.username}</h1>
                   
@@ -301,14 +277,12 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
                 </div>
               </div>
               
-              {/* Bio (if available) */}
               {userData?.bio && (
                 <div className="mt-5 text-gray-300 text-sm max-w-3xl">
                   {userData.bio}
                 </div>
               )}
               
-              {/* Tab Navigation */}
               <div className="border-b border-gray-800/40 mt-6">
                 <div className="flex overflow-x-auto hide-scrollbar">
                   <TabButton 
@@ -335,7 +309,6 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
               </div>
             </div>
             
-            {/* Tab Content - Scrollable */}
             <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">
               {activeTab === 'overview' && (
                 <OverviewTab 
@@ -379,7 +352,6 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
   );
 };
 
-// Tab button component
 const TabButton = ({ label, active, onClick }) => (
   <button
     onClick={onClick}

@@ -1,19 +1,4 @@
-import React, { useState } from 'react';
-import { 
-  Trophy, 
-  Dumbbell, 
-  Activity, 
-  Users, 
-  Heart, 
-  Target, 
-  Calendar, 
-  TrendingUp, 
-  ChevronUp, 
-  ChevronDown 
-} from 'lucide-react';
-import { getAvatarUrl } from '../../../utils/imageUtils';
-import { ProgramCard } from '../../Workouts/components/ProgramCard';
-import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
+import React from 'react';
 import OverviewTab from './tabs/OverviewTab';
 import StatsTab from './tabs/StatsTab';
 import ActivityTab from './tabs/ActivityTab';

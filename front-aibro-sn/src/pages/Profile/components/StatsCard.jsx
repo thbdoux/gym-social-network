@@ -8,8 +8,8 @@ const StatsCard = ({ user, workoutLogs, friends, posts }) => {
   const [showStats, setShowStats] = useState(true);
 
   // StatCard Component
-  const StatCard = ({ count, label, icon, bgColor, hoverColor }) => (
-    <div className={`rounded-lg p-3 text-center transition-all duration-300 transform hover:scale-105 ${bgColor} ${hoverColor}`}>
+  const StatCard = ({ count, label, icon, textColor }) => (
+    <div className="rounded-lg p-3 text-center transition-all duration-300 bg-transparent border border-white/5 transform hover:scale-105">
       <div className="flex flex-col items-center">
         {icon && <div className="mb-1 transition-all duration-300 hover:scale-110">{icon}</div>}
         <div className="text-xl font-bold">{count}</div>
@@ -19,7 +19,7 @@ const StatsCard = ({ user, workoutLogs, friends, posts }) => {
   );
 
   return (
-    <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-xl overflow-hidden shadow-lg">
+    <div className="bg-transparent border border-white/5 rounded-xl overflow-hidden shadow-md">
       <div className="p-5">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center gap-2 group">
@@ -28,7 +28,7 @@ const StatsCard = ({ user, workoutLogs, friends, posts }) => {
           </h2>
           <button 
             onClick={() => setShowStats(!showStats)}
-            className="p-2 text-gray-400 hover:text-white transition-colors hover:bg-gray-800/70 rounded-full"
+            className="p-2 text-gray-400 hover:text-white transition-colors hover:bg-gray-800/30 rounded-full"
           >
             {showStats ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </button>
@@ -39,40 +39,36 @@ const StatsCard = ({ user, workoutLogs, friends, posts }) => {
           <StatCard 
             count={user?.total_workouts || workoutLogs.length} 
             label="Workouts" 
-            icon={<Dumbbell className="w-4 h-4 text-blue-400" />} 
-            bgColor="bg-blue-900/20"
-            hoverColor="hover:bg-blue-900/30"
+            icon={<Dumbbell className="w-4 h-4 text-blue-400" />}
+            textColor="text-blue-400"
           />
           
           <StatCard 
             count={posts.length} 
             label="Posts" 
-            icon={<Activity className="w-4 h-4 text-purple-400" />} 
-            bgColor="bg-purple-900/20"
-            hoverColor="hover:bg-purple-900/30"
+            icon={<Activity className="w-4 h-4 text-purple-400" />}
+            textColor="text-purple-400"
           />
           
           <StatCard 
             count={friends.length} 
             label="Friends" 
             icon={<Users className="w-4 h-4 text-green-400" />}
-            bgColor="bg-green-900/20"
-            hoverColor="hover:bg-green-900/30"
+            textColor="text-green-400"
           />
           
           <StatCard 
             count={user?.total_likes || 0} 
             label="Likes" 
             icon={<Heart className="w-4 h-4 text-pink-400" />}
-            bgColor="bg-pink-900/20"
-            hoverColor="hover:bg-pink-900/30"
+            textColor="text-pink-400"
           />
         </div>
         
         {/* Extended Stats - Conditionally Shown */}
         {showStats && (
-          <div className="mt-5 pt-4 border-t border-gray-700/30 space-y-3 animate-fadeIn">
-            <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-800/40 transition-colors duration-200">
+          <div className="mt-5 pt-4 border-t border-white/5 space-y-3 animate-fadeIn">
+            <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-800/10 transition-colors duration-200">
               <div className="text-gray-400">Current Streak</div>
               <div className="flex items-center gap-1 text-blue-400">
                 <Dumbbell className="w-4 h-4" />
@@ -80,7 +76,7 @@ const StatsCard = ({ user, workoutLogs, friends, posts }) => {
               </div>
             </div>
             
-            <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-800/40 transition-colors duration-200">
+            <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-800/10 transition-colors duration-200">
               <div className="text-gray-400">Longest Streak</div>
               <div className="flex items-center gap-1 text-green-400">
                 <Trophy className="w-4 h-4" />
@@ -88,7 +84,7 @@ const StatsCard = ({ user, workoutLogs, friends, posts }) => {
               </div>
             </div>
             
-            <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-800/40 transition-colors duration-200">
+            <div className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-800/10 transition-colors duration-200">
               <div className="text-gray-400">Avg. Workouts/Week</div>
               <div className="flex items-center gap-1 text-purple-400">
                 <TrendingUp className="w-4 h-4" />
@@ -100,7 +96,7 @@ const StatsCard = ({ user, workoutLogs, friends, posts }) => {
         
         {/* Fitness Goals */}
         {user?.fitness_goals && (
-          <div className="mt-5 pt-4 border-t border-gray-700/30 animate-fadeIn">
+          <div className="mt-5 pt-4 border-t border-white/5 animate-fadeIn">
             <h3 className="font-medium text-white mb-2 flex items-center gap-1">
               <Target className="w-4 h-4 text-yellow-400" />
               Fitness Goals

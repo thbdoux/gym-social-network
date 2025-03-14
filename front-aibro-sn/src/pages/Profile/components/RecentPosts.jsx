@@ -22,7 +22,8 @@ const RecentPosts = ({
   onProgramSelect, 
   onWorkoutLogSelect,
   onEditPost,
-  onDeletePost
+  onDeletePost,
+  onUserClick
 }) => {
   const [userData, setUserData] = useState(null);
   const [expandedPost, setExpandedPost] = useState(null);
@@ -148,7 +149,7 @@ const RecentPosts = ({
   }, [initialPosts]);
 
   return (
-    <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/60 rounded-xl p-6 shadow-xl transition-all duration-300 hover:shadow-2xl hover:from-gray-800/60 hover:to-gray-900/80 transform hover:scale-[1.005]">
+    <div className="bg-transparent border border-white/5 rounded-xl p-6 shadow-md">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold flex items-center gap-2 group">
           <Sparkles className="w-5 h-5 text-amber-400 group-hover:rotate-12 transition-transform duration-300" />
@@ -161,8 +162,8 @@ const RecentPosts = ({
           {displayPosts.map((post) => (
             <div 
               key={post.id} 
-              className={`bg-gray-900/50 rounded-lg p-4 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg ${
-                hoveredPost === post.id ? 'bg-gray-900/70 shadow-md scale-[1.01]' : ''
+              className={`bg-transparent border border-white/5 rounded-lg p-4 transition-all duration-300 transform hover:-translate-y-1 ${
+                hoveredPost === post.id ? 'bg-gray-900/20 shadow-sm scale-[1.01]' : ''
               }`}
               onMouseEnter={() => setHoveredPost(post.id)}
               onMouseLeave={() => setHoveredPost(null)}
@@ -203,7 +204,7 @@ const RecentPosts = ({
                         <div className="relative">
                           <button 
                             onClick={(e) => toggleMenu(post.id, e)} 
-                            className="p-1 hover:bg-gray-800 rounded-full transition-all duration-300"
+                            className="p-1 hover:bg-gray-800/30 rounded-full transition-all duration-300"
                           >
                             <MoreHorizontal className="w-4 h-4 text-gray-400 hover:text-white" />
                           </button>
@@ -286,8 +287,6 @@ const RecentPosts = ({
                       </div>
                     </div>
                   )}
-                  
-                  {/* Like/Comment/Share buttons are removed */}
                 </div>
               </div>
             </div>
@@ -297,7 +296,7 @@ const RecentPosts = ({
             <div className="text-center mt-6">
               <button 
                 onClick={() => setExpandedView(!expandedView)}
-                className="flex items-center justify-center gap-1 mx-auto px-4 py-2 bg-gray-800/70 hover:bg-gray-700 rounded-lg transition-all duration-300 hover:shadow-md group"
+                className="flex items-center justify-center gap-1 mx-auto px-4 py-2 bg-transparent border border-white/5 hover:bg-gray-800/20 rounded-lg transition-all duration-300 group"
               >
                 <span className="group-hover:text-white transition-colors duration-300">
                   {expandedView ? 'Show Less' : `Show More (${userPosts.length - 3} more)`}
@@ -308,7 +307,7 @@ const RecentPosts = ({
           )}
         </div>
       ) : (
-        <div className="text-center py-12 text-gray-400 transition-all duration-300 hover:bg-gray-800/20 hover:shadow-inner rounded-xl group">
+        <div className="text-center py-12 text-gray-400 transition-all duration-300 hover:bg-gray-800/10 rounded-xl group border border-white/5">
           <Dumbbell className="w-12 h-12 mx-auto mb-4 text-gray-600 opacity-50 transition-all duration-500 group-hover:rotate-12 group-hover:text-blue-400 group-hover:opacity-70" />
           <p className="text-lg group-hover:text-white transition-colors duration-300">No posts yet</p>
           <p className="text-sm mt-2 group-hover:text-gray-300 transition-colors duration-300">Share your fitness journey by creating your first post</p>
@@ -317,8 +316,6 @@ const RecentPosts = ({
           </button>
         </div>
       )}
-      
-      {/* No Edit Post Modal here - it's now in the parent component */}
     </div>
   );
 };

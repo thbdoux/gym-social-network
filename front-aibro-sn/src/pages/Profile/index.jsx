@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  User, Edit, Calendar, MapPin, Dumbbell, Heart, Trophy, 
-  Activity, Users, TrendingUp, ChevronDown, ChevronUp,
-  ArrowRight, Loader2, MessageCircle
-} from 'lucide-react';
 
-// Import services directly
 import { 
   userService, 
   logService, 
@@ -14,15 +8,11 @@ import {
   gymService 
 } from '../../api/services';
 
-// Import components
-import { ProgramCard } from '../Workouts/components/ProgramCard';
 import EditProfileModal from './components/EditProfileModal';
 import EditPostModal from '../MainFeed/components/EditPostModal';
 import FriendsModal from './components/FriendsModal';
-import { getAvatarUrl } from '../../utils/imageUtils';
 import ProfileHeader from './components/ProfileHeader';
 import ProfilePreviewModal from './components/ProfilePreviewModal';
-import WorkoutTimeline from '../Workouts/components/WorkoutTimeline';
 import StatsCard from './components/StatsCard';
 import FriendsPreview from './components/FriendsPreview';
 import RecentPosts from './components/RecentPosts';
@@ -34,42 +24,14 @@ const ProfilePage = () => {
   const [friends, setFriends] = useState([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('stats');
-  const [fullProgramData, setFullProgramData] = useState(null);
   const [nextWorkout, setNextWorkout] = useState(null);
   const [selectedFriendPreview, setSelectedFriendPreview] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  
-  // Program modal
-  const [selectedProgram, setSelectedProgram] = useState(null);
-  
-  // Separate state for workout and log modals
-  const [selectedWorkout, setSelectedWorkout] = useState(null);
-  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
-  const [selectedLog, setSelectedLog] = useState(null);
-  const [showWorkoutLogModal, setShowWorkoutLogModal] = useState(false);
-  
+
   // Post edit modal
   const [isEditPostModalOpen, setIsEditPostModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState(null);
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return dateString;
-    }
-  };
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -242,7 +204,6 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section with Profile Overview */}
         <ProfileHeader 
           user={user}
           workoutCount={workoutLogs.length}
@@ -253,69 +214,20 @@ const ProfilePage = () => {
           setActiveSection={setActiveSection}
           activeSection={activeSection}
         />
-        {/* Workout Timeline Section - Using the unified component with full program data */}
-        <div className="mt-8">
-          <WorkoutTimeline 
-            logs={workoutLogs.slice(0, 3)}
-            nextWorkout={nextWorkout}
-            logsLoading={loading}
-            plansLoading={loading}
-            activeProgram={fullProgramData || user?.current_program}
-            setSelectedWorkout={handleViewWorkoutLog} // For past logs - use ExpandableWorkoutLogModal
-            setShowWorkoutModal={setShowWorkoutLogModal} // For past logs - show log modal
-            setSelectedLog={setSelectedLog}
-            setShowLogForm={() => {}}
-            handleViewNextWorkout={handleViewNextWorkout} // For next workout - use ExpandableWorkoutModal
-          />
-        </div>
         
-        {/* Main Content Grid */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sidebar - Current Program & Quick Stats */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Current Program Card */}
-            <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-xl overflow-hidden shadow-lg">
-              <div className="p-5">
-                <h2 className="text-xl font-bold flex items-center gap-2 group">
-                  <Dumbbell className="w-5 h-5 text-purple-400 transition-transform duration-300 group-hover:rotate-12" />
-                  <span className="group-hover:text-purple-300 transition-colors duration-300">Current Program</span>
-                </h2>
-                
-                <div className="mt-4">
-                  {(fullProgramData || user?.current_program) ? (
-                    <ProgramCard
-                      program={fullProgramData || user.current_program}
-                      singleColumn={true}
-                      currentUser={user?.username}
-                      // onProgramSelect={handleProgramSelect}
-                    />
-                  ) : (
-                    <div className="text-center py-8 bg-gray-800/30 rounded-xl">
-                      <Dumbbell className="w-12 h-12 mx-auto mb-3 text-gray-600 opacity-70" />
-                      <p className="text-gray-400">No active program</p>
-                      <button className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm transition-all duration-300 transform hover:scale-105">
-                        Choose a Program
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            {/* Friends Preview - Now placed above stats */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-5 space-y-6">
+
             <FriendsPreview 
               friends={friends} 
               onViewAllClick={() => setIsFriendsModalOpen(true)} 
               onFriendClick={handleViewFriendProfile}
             />
             
-            {/* Stats Card - Now below friends */}
             <StatsCard user={user} workoutLogs={workoutLogs} friends={friends} posts={posts} />
           </div>
-          
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {/* Recent Posts (replacing Activity Timeline) */}
+
+          <div className="lg:col-span-7">
             <RecentPosts 
               posts={posts}
               username={user.username}
