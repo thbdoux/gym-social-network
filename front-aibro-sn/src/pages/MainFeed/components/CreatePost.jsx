@@ -158,8 +158,21 @@ const CreatePost = ({ onPostCreated }) => {
     
     setSelectedWorkoutLog(workoutLog);
     setShowWorkoutLogSelector(false);
-    // Auto-populate content with workout name
+    // Auto-populate content
     setContent(`Just completed: ${workoutLog.workout_name || workoutLog.name || "a workout"}`);
+  };
+
+  // Handle removing program or workout log
+  const handleRemoveProgram = () => {
+    setSelectedProgram(null);
+    setPostType('regular');
+    setContent('');
+  };
+
+  const handleRemoveWorkoutLog = () => {
+    setSelectedWorkoutLog(null);
+    setPostType('regular');
+    setContent('');
   };
 
   const currentType = postTypes[postType];
@@ -297,106 +310,134 @@ const CreatePost = ({ onPostCreated }) => {
 
             {/* Program Preview if selected */}
             {postType === 'program' && selectedProgram && (
-              <div className="mt-3 bg-gray-800 rounded-lg p-4 border border-purple-500/20 hover:border-purple-500/50 transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-purple-500/20 p-2 rounded-lg">
-                      <Dumbbell className="w-5 h-5 text-purple-400" />
+              <div className="mt-3 p-4 rounded-xl border overflow-hidden relative transition-all duration-300 border-purple-500/50 bg-gradient-to-br from-purple-900/20 to-violet-800/20">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center mb-2">
+                    <div className="p-2.5 rounded-lg mr-3 bg-gradient-to-r from-purple-600 to-violet-600 shadow-lg">
+                      <Dumbbell className="w-5 h-5 text-white" />
                     </div>
-                    <div>
-                      <h4 className="font-medium text-white">{selectedProgram.name}</h4>
-                      <span className="text-xs bg-gray-700 text-purple-400 px-2 py-0.5 rounded-full mt-1 inline-block">
-                        {selectedProgram.focus.replace(/_/g, ' ')}
-                      </span>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-white flex items-center text-base">
+                        <span className="truncate">{selectedProgram.name}</span>
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs bg-gray-700/50 text-purple-400 px-2 py-0.5 rounded-full">
+                          {selectedProgram.focus.replace(/_/g, ' ')}
+                        </span>
+                        {selectedProgram.is_active && (
+                          <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                            Active
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  
                   <button 
                     type="button"
-                    onClick={() => setSelectedProgram(null)}
+                    onClick={handleRemoveProgram}
                     className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
                   >
                     <X className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>
                 
-                <p className="text-gray-400 text-sm bg-gray-900/50 p-3 rounded-lg mb-3">{selectedProgram.description}</p>
+                {/* Description (limited to 2 lines) */}
+                <div className="mt-2 text-sm text-gray-400 line-clamp-2 bg-gray-800/50 p-2 rounded-lg">
+                  {selectedProgram.description || "No description available"}
+                </div>
                 
-                <div className="grid grid-cols-2 gap-3 bg-gray-900/50 p-3 rounded-lg">
-                  <div className="flex flex-col items-center p-2 border-r border-gray-700">
-                    <span className="text-xs text-gray-400">Frequency</span>
-                    <span className="text-sm font-medium text-white mt-1">
-                      {selectedProgram.sessions_per_week}x weekly
-                    </span>
+                {/* Program stats */}
+                <div className="grid grid-cols-2 gap-2 mt-3 bg-gray-800/70 p-2 rounded-lg">
+                  <div className="flex items-center gap-2 p-1">
+                    <Calendar className="w-4 h-4 text-purple-400" />
+                    <div>
+                      <span className="text-xs text-gray-500">Frequency</span>
+                      <p className="text-sm font-medium text-white">
+                        {selectedProgram.sessions_per_week}x weekly
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center p-2">
-                    <span className="text-xs text-gray-400">Workouts</span>
-                    <span className="text-sm font-medium text-white mt-1">
-                      {selectedProgram.workouts?.length || 0}
-                    </span>
+                  <div className="flex items-center gap-2 p-1">
+                    <Users className="w-4 h-4 text-purple-400" />
+                    <div>
+                      <span className="text-xs text-gray-500">Workouts</span>
+                      <p className="text-sm font-medium text-white">
+                        {selectedProgram.workouts?.length || 0}
+                      </p>
+                    </div>
                   </div>
                 </div>
+                
+                {/* Bottom gradient bar */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500"></div>
               </div>
             )}
             
             {/* Workout Log Preview if selected */}
             {postType === 'workout_log' && selectedWorkoutLog && (
-              <div className="mt-3 bg-gray-800 rounded-lg p-4 border border-green-500/20 hover:border-green-500/50 transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-green-500/20 p-2 rounded-lg">
-                      <Activity className="w-5 h-5 text-green-400" />
+              <div className="mt-3 p-4 rounded-xl border overflow-hidden relative transition-all duration-300 border-green-500/50 bg-gradient-to-br from-green-900/20 to-emerald-800/20">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center mb-2">
+                    <div className="p-2.5 rounded-lg mr-3 bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg">
+                      <Activity className="w-5 h-5 text-white" />
                     </div>
-                    <div>
-                      <h4 className="font-medium text-white">
-                        {selectedWorkoutLog.workout_name || selectedWorkoutLog.name || "Workout"}
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-white flex items-center text-base">
+                        <span className="truncate">{selectedWorkoutLog.workout_name || selectedWorkoutLog.name || "Unnamed Workout"}</span>
                       </h4>
                       {selectedWorkoutLog.program_name && (
-                        <span className="text-xs bg-gray-700 text-green-400 px-2 py-0.5 rounded-full mt-1 inline-block">
+                        <span className="text-xs bg-gray-700/50 text-green-400 px-2 py-0.5 rounded-full mt-1 inline-block">
                           {selectedWorkoutLog.program_name}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-white">
-                        {selectedWorkoutLog.date || "No date"}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {selectedWorkoutLog.location || gymName || "No location"}
-                      </div>
-                    </div>
-                    <button 
-                      type="button"
-                      onClick={() => setSelectedWorkoutLog(null)}
-                      className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
-                    >
-                      <X className="w-4 h-4 text-gray-400" />
-                    </button>
+
+                  <button 
+                    type="button"
+                    onClick={handleRemoveWorkoutLog}
+                    className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                  >
+                    <X className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
+                
+                <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-green-400" />
+                  <span>{selectedWorkoutLog.date || "No date"}</span>
+                </div>
+                
+                <div className="text-sm text-gray-400 mt-1 flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-green-400" />
+                  <span>{selectedWorkoutLog.duration_mins || 0} mins</span>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2 mt-3 bg-gray-800/70 p-2 rounded-lg text-center">
+                  <div>
+                    <span className="text-xs text-gray-500">Exercises</span>
+                    <p className="text-sm font-medium text-white">
+                      {selectedWorkoutLog.exercise_count || selectedWorkoutLog.exercises?.length || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500">Volume</span>
+                    <p className="text-sm font-medium text-white">
+                      {selectedWorkoutLog.total_volume || 0} kg
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500">Location</span>
+                    <p className="text-sm font-medium text-white truncate">
+                      {selectedWorkoutLog.location || gymName || "—"}
+                    </p>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-3 bg-gray-900/50 p-3 rounded-lg">
-                  <div className="flex flex-col items-center p-2 border-r border-gray-700">
-                    <span className="text-xs text-gray-400">Duration</span>
-                    <span className="text-sm font-medium text-white mt-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-green-400" />
-                      {selectedWorkoutLog.duration_mins || 0} mins
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center p-2 border-r border-gray-700">
-                    <span className="text-xs text-gray-400">Volume</span>
-                    <span className="text-sm font-medium text-white mt-1">
-                      {selectedWorkoutLog.total_volume || 0} kg
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center p-2">
-                    <span className="text-xs text-gray-400">Exercises</span>
-                    <span className="text-sm font-medium text-white mt-1">
-                      {selectedWorkoutLog.exercise_count || selectedWorkoutLog.exercises?.length || 0}
-                    </span>
-                  </div>
-                </div>
+                {/* Bottom gradient bar */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500"></div>
               </div>
             )}
 
