@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { userService, profilePreviewService } from '../../../api/services';
-import { X, MessageCircle } from 'lucide-react';
+import { X } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import OverviewTab from './tabs/OverviewTab';
 import StatsTab from './tabs/StatsTab';
 import ActivityTab from './tabs/ActivityTab';
+import WorkoutsTab from './tabs/WorkoutsTab';
 
 /**
  * Universal Profile Preview Modal - works for any user profile
  * Uses dedicated service methods for accessing other users' data
+ * Updated for minimalist, responsive design
  */
 const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }) => {
   // Core state
@@ -172,6 +174,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
           break;
           
         case 'stats':
+        case 'workouts':
           // Fetch workout logs if not already loaded
           if (workoutLogs.length === 0) {
             try {
@@ -237,71 +240,64 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
       <div 
-        className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl w-full max-w-3xl shadow-2xl border border-gray-700/50 relative my-4 max-h-[90vh] flex flex-col"
+        className="bg-gradient-to-br from-gray-900 to-gray-950 rounded-xl w-full max-w-3xl shadow-2xl border border-gray-800/40 relative my-4 max-h-[90vh] flex flex-col"
       >
         {/* Close button in top right */}
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700 transition-all z-10"
+          aria-label="Close"
         >
           <X className="h-5 w-5" />
         </button>
         
         {loading ? (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="h-12 w-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
             <p className="mt-4 text-gray-400">Loading profile...</p>
           </div>
         ) : (
           <>
             {/* Profile Header - Fixed */}
-            <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 px-6 py-5 flex-shrink-0">
-              <div className="flex flex-col sm:flex-row sm:items-end gap-5">
+            <div className="px-6 pt-6 pb-4 flex-shrink-0">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-5">
                 {/* Avatar */}
                 <div className="mx-auto sm:mx-0">
-                  <div className="p-1.5 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full shadow-xl">
+                  <div className="p-1 bg-gradient-to-br from-blue-700/20 to-purple-700/20 rounded-full shadow-lg">
                     <img
                       src={getAvatarUrl(userData?.avatar)}
                       alt="Profile"
-                      className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-4 border-gray-800"
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover"
                     />
                   </div>
                 </div>
                 
                 {/* User Info */}
                 <div className="text-center sm:text-left sm:flex-1">
-                  <h1 className="text-2xl font-bold">{userData?.username}</h1>
+                  <h1 className="text-2xl font-bold text-white">{userData?.username}</h1>
                   
                   <div className="flex flex-col sm:flex-row sm:items-center mt-2 gap-2">
-                    <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400 hover:text-gray-300">
+                    <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400">
                       <span className="truncate">{getGymDisplay(userData)}</span>
                     </div>
                     
                     <div className="hidden sm:block text-gray-500">•</div>
                     
-                    <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400 hover:text-gray-300">
+                    <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400">
                       <span>Joined {new Date(userData?.date_joined).toLocaleDateString('en-US', {year: 'numeric', month: 'long'})}</span>
                     </div>
                   </div>
                   
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
-                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 hover:scale-105">
+                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-blue-500/10 text-blue-400">
                       {formatText(userData?.training_level) || 'Beginner'}
                     </span>
                     {userData?.personality_type && (
-                      <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-pink-500/20 text-pink-400 hover:bg-pink-500/30 hover:scale-105">
+                      <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-purple-500/10 text-purple-400">
                         {formatText(userData?.personality_type)}
                       </span>
                     )}
                   </div>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex justify-center sm:justify-end gap-2 mt-3 sm:mt-0">
-                  <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm flex items-center gap-1">
-                    <MessageCircle className="w-4 h-4" />
-                    Message
-                  </button>
                 </div>
               </div>
               
@@ -313,12 +309,17 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
               )}
               
               {/* Tab Navigation */}
-              <div className="border-b border-gray-700/50 mt-6">
-                <div className="flex">
+              <div className="border-b border-gray-800/40 mt-6">
+                <div className="flex overflow-x-auto hide-scrollbar">
                   <TabButton 
                     label="Overview" 
                     active={activeTab === 'overview'} 
                     onClick={() => handleTabChange('overview')} 
+                  />
+                  <TabButton 
+                    label="Workouts" 
+                    active={activeTab === 'workouts'} 
+                    onClick={() => handleTabChange('workouts')} 
                   />
                   <TabButton 
                     label="Stats" 
@@ -342,6 +343,14 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
                   friends={friends}
                   fullProgramData={fullProgramData}
                   handleProgramSelect={handleProgramSelect}
+                />
+              )}
+              
+              {activeTab === 'workouts' && (
+                <WorkoutsTab
+                  userData={userData}
+                  workoutLogs={workoutLogs}
+                  handleWorkoutLogSelect={handleWorkoutLogSelect}
                 />
               )}
               
@@ -374,7 +383,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
 const TabButton = ({ label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-2 relative ${
+    className={`px-4 py-2 relative whitespace-nowrap ${
       active ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'
     }`}
   >

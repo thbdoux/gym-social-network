@@ -360,7 +360,6 @@ const ProfilePage = () => {
         />
       )}
       
-      {/* Universal Profile Preview Modal - replaces the previous UserProfilePreviewModal */}
       <ProfilePreviewModal
         isOpen={isProfileModalOpen}
         onClose={handleCloseProfileModal}

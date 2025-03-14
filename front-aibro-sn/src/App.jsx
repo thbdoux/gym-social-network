@@ -11,7 +11,6 @@ import WorkoutsSpace from './pages/Workouts';
 import CoachPage from './pages/Coach';
 import ProfilePage from './pages/Profile';
 import MainFeed from './pages/MainFeed';
-import UserPostsPage from './pages/Profile/components/UserPostsPage';
 
 // Updated Components
 import Sidebar from './components/Sidebar';
@@ -126,14 +125,6 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <FeedPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/users/:username/posts"
-                element={
-                  <ProtectedRoute>
-                    <UserPostsPage />
                   </ProtectedRoute>
                 }
               />

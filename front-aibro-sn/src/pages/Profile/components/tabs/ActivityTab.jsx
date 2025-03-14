@@ -94,19 +94,6 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
           <p className="text-gray-400">No posts yet</p>
         </div>
       )}
-      
-      {/* Recent Workouts Section */}
-      <h3 className="text-lg font-semibold mt-8 mb-4">Recent Workouts</h3>
-      
-      {userData?.workout_count > 0 ? (
-        <div className="bg-gray-800/40 p-4 rounded-xl text-center">
-          <p className="text-gray-300">Recent workouts visualization would appear here</p>
-        </div>
-      ) : (
-        <div className="text-center py-8 bg-gray-800/30 rounded-xl">
-          <p className="text-gray-400">No workouts logged yet</p>
-        </div>
-      )}
     </div>
   );
 };
