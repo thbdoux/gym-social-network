@@ -1,295 +1,180 @@
-import React, { useState, useEffect } from 'react';
-import { X, User } from 'lucide-react';
-import { userService, postService, gymService, logService, programService } from '../../../api/services';
-import ProfileHeader from './ProfilePreviewHeader';
-import ProfileTabs from './ProfilePreviewTabs';
+// Update for UserProfilePreviewModal.jsx to fix the infinite loop
+// Add a check to prevent re-fetching when closing the modal
+
+import React, { useState, useEffect, useRef } from 'react';
+import { userService, programService } from '../../../api/services';
+import ProfilePreviewHeader from './ProfilePreviewHeader';
+import ProfilePreviewTabs from './ProfilePreviewTabs';
 import ExpandableProgramModal from '../../Workouts/components/ExpandableProgramModal';
-import ExpandableWorkoutModal from '../../Workouts/components/ExpandableWorkoutModal';
 import ExpandableWorkoutLogModal from '../../Workouts/components/ExpandableWorkoutLogModal';
-import WorkoutTimeline from '../../Workouts/components/WorkoutTimeline';
 
 const UserProfilePreviewModal = ({ isOpen, onClose, userId, username }) => {
   const [userData, setUserData] = useState(null);
   const [workoutLogs, setWorkoutLogs] = useState([]);
   const [posts, setPosts] = useState([]);
   const [friends, setFriends] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
   const [fullProgramData, setFullProgramData] = useState(null);
-  const [nextWorkout, setNextWorkout] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
   
-  // Modals state
+  // Program and workout log modals
   const [selectedProgram, setSelectedProgram] = useState(null);
-  const [selectedWorkout, setSelectedWorkout] = useState(null);
-  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
-  const [selectedLog, setSelectedLog] = useState(null);
-  const [showWorkoutLogModal, setShowWorkoutLogModal] = useState(false);
+  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
+  
+  // Add a ref to track if the component is mounted
+  const isMounted = useRef(true);
+  
+  // Add a ref to prevent refetching when closing modals
+  const isClosingModal = useRef(false);
 
   useEffect(() => {
-    if (isOpen && (userId || username)) {
-      fetchUserProfile();
+    // Set the mounted ref to true
+    isMounted.current = true;
+    
+    // Only fetch data if the modal is open
+    if (isOpen && userId) {
+      fetchUserData();
     }
-  }, [isOpen, userId, username]);
+    
+    // Cleanup function
+    return () => {
+      isMounted.current = false;
+    };
+  }, [isOpen, userId]);
 
-  const fetchUserProfile = async () => {
+  const fetchUserData = async () => {
+    // Don't fetch if we're in the process of closing a modal
+    if (isClosingModal.current) {
+      isClosingModal.current = false;
+      return;
+    }
+    
     try {
       setLoading(true);
-      setError(null);
-
-      // Determine how to fetch the user
-      let userData;
+      
+      // Fetch user data
+      const user = await userService.getUserById(userId);
+      
+      if (!isMounted.current) return;
+      
+      // Fetch additional data if needed
+      let userFriends = [];
+      let userPosts = [];
+      let userWorkoutLogs = [];
+      
       try {
-        if (userId) {
-          userData = await userService.getUserById(userId);
-        } else if (username) {
-          const allUsers = await userService.getAllUsers();
-          userData = allUsers.find(user => user.username === username);
-          
-          if (!userData) {
-            throw new Error('User not found');
-          }
-        } else {
-          throw new Error('No user identifier provided');
-        }
+        // These could be implemented later to fetch user-specific data
+        // For now, we'll just use empty arrays or mock data
       } catch (error) {
-        console.error('Error fetching user data:', error);
-        throw error;
+        console.error('Error fetching additional user data:', error);
       }
       
-      // Fetch posts, logs, and friends in parallel
-      const [postsData, friendsData, logsData] = await Promise.all([
-        postService.getPosts(),
-        userService.getFriends(),
-        logService.getLogs()
-      ]);
-
-      // Filter data for this user
-      const userPosts = Array.isArray(postsData) 
-        ? postsData.filter(post => post.user_username === userData.username)
-        : [];
-      
-      const userLogs = Array.isArray(logsData)
-        ? logsData.filter(log => log.user_username === userData.username)
-        : [];
-      
-      const userFriends = Array.isArray(friendsData)
-        ? friendsData.filter(friend => friend.user_username === userData.username || true)
-        : [];
-      
-      // Fetch gym details if necessary
-      if (userData.preferred_gym && !userData.preferred_gym_details) {
+      // If user has a current program, fetch the full program data
+      if (user && user.current_program && user.current_program.id) {
         try {
-          const gymData = await gymService.getGymById(userData.preferred_gym);
-          userData = {
-            ...userData,
-            preferred_gym_details: gymData
-          };
-        } catch (error) {
-          console.error('Error fetching gym details:', error);
-        }
-      }
-
-      // Fetch program details if the user has a current program
-      if (userData.current_program && userData.current_program.id) {
-        try {
-          const programData = await programService.getProgramById(userData.current_program.id);
-          setFullProgramData(programData);
-          
-          if (programData) {
-            const nextWorkoutData = programService.getNextWorkout(programData);
-            setNextWorkout(nextWorkoutData);
+          const programData = await programService.getProgramById(user.current_program.id);
+          if (isMounted.current) {
+            setFullProgramData(programData);
           }
         } catch (error) {
-          console.error('Error fetching program details:', error);
+          console.error('Error fetching program data:', error);
         }
       }
-
-      // Add metadata to user data
-      userData = {
-        ...userData,
-        posts: userPosts,
-        workout_count: userLogs.length,
-        friend_count: userFriends.length
-      };
       
-      setUserData(userData);
-      setPosts(userPosts);
-      setWorkoutLogs(userLogs);
-      setFriends(userFriends);
-      setLoading(false);
+      if (isMounted.current) {
+        setUserData(user);
+        setFriends(userFriends);
+        setPosts(userPosts);
+        setWorkoutLogs(userWorkoutLogs);
+        setLoading(false);
+      }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
-      setError('Failed to load user profile');
-      setLoading(false);
+      console.error('Error fetching user preview data:', error);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
-  // Handler functions
   const handleProgramSelect = (program) => {
     setSelectedProgram(program);
   };
 
-  const handleViewNextWorkout = () => {
-    if (nextWorkout) {
-      setSelectedWorkout(nextWorkout);
-      setShowWorkoutModal(true);
-    }
+  const handleWorkoutLogSelect = (log) => {
+    setSelectedWorkoutLog(log);
   };
 
-  const handleWorkoutLogSelect = (log) => {
-    setSelectedLog(log);
-    setShowWorkoutLogModal(true);
+  const handleCloseProgram = () => {
+    // Set the flag to prevent refetching when closing the modal
+    isClosingModal.current = true;
+    setSelectedProgram(null);
+  };
+
+  const handleCloseWorkoutLog = () => {
+    // Set the flag to prevent refetching when closing the modal
+    isClosingModal.current = true;
+    setSelectedWorkoutLog(null);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto backdrop-blur-sm p-4">
-      <div 
-        className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-xl border border-gray-700 flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-gray-800/70 border-b border-gray-700 flex items-center justify-between sticky top-0 z-10">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <User className="w-5 h-5 text-blue-400" />
-            {loading ? 'Loading Profile...' : `${userData?.username}'s Profile`}
-          </h2>
-          <button 
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full transition-all"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="animate-pulse flex flex-col items-center gap-4">
-              <div className="h-28 w-28 bg-gray-700 rounded-full"></div>
-              <div className="h-6 w-48 bg-gray-700 rounded-lg"></div>
-              <div className="h-4 w-64 bg-gray-700 rounded-lg"></div>
-              <div className="h-32 w-full max-w-md bg-gray-700 rounded-xl"></div>
-            </div>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden border border-gray-700/50 relative">
+        {/* Close button in top right */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 rounded-full bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700 transition-all z-10"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+        
+        {loading ? (
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <p className="mt-4 text-gray-400">Loading profile...</p>
           </div>
-        )}
-
-        {/* Error State */}
-        {error && !loading && (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center text-red-400">
-              <div className="text-lg font-medium mb-2">{error}</div>
-              <button 
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors mt-4"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* User Profile Content */}
-        {!loading && !error && userData && (
+        ) : (
           <>
-            <div className="flex-1 overflow-y-auto">
-              {/* Profile Header */}
-              <ProfileHeader userData={userData} />
-              
-              {/* Workout Timeline Section */}
-              <div className="mt-5 mx-4">
-                <WorkoutTimeline 
-                  logs={workoutLogs.slice(0, 3)}
-                  nextWorkout={nextWorkout}
-                  logsLoading={false}
-                  plansLoading={false}
-                  activeProgram={fullProgramData || userData?.current_program}
-                  setSelectedWorkout={handleWorkoutLogSelect}
-                  setShowWorkoutModal={setShowWorkoutLogModal}
-                  setSelectedLog={setSelectedLog}
-                  setShowLogForm={() => {}}
-                  handleViewNextWorkout={handleViewNextWorkout}
-                />
-              </div>
-              
-              {/* Tabs Content */}
-              <ProfileTabs 
-                userData={userData}
-                workoutLogs={workoutLogs}
-                posts={posts}
-                friends={friends}
-                fullProgramData={fullProgramData}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                handleProgramSelect={handleProgramSelect}
-                handleWorkoutLogSelect={handleWorkoutLogSelect}
-              />
-            </div>
+            {/* Profile Header */}
+            <ProfilePreviewHeader userData={userData} />
             
-            {/* Footer Actions */}
-            <div className="bg-gray-800/70 border-t border-gray-700 p-4 flex justify-between items-center">
-              <div className="text-sm text-gray-400">
-                Member since {
-                  userData.date_joined 
-                    ? new Date(userData.date_joined).toLocaleDateString('en-US', {
-                        year: 'numeric', 
-                        month: 'long',
-                      })
-                    : 'N/A'
-                }
-              </div>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
-              >
-                Close
-              </button>
-            </div>
+            {/* Tabs and Content */}
+            <ProfilePreviewTabs 
+              userData={userData}
+              workoutLogs={workoutLogs}
+              posts={posts}
+              friends={friends}
+              fullProgramData={fullProgramData}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              handleProgramSelect={handleProgramSelect}
+              handleWorkoutLogSelect={handleWorkoutLogSelect}
+            />
           </>
         )}
       </div>
       
-      {/* Modals */}
+      {/* Program Modal */}
       {selectedProgram && (
         <ExpandableProgramModal 
           programId={selectedProgram.id}
           initialProgramData={selectedProgram}
           isOpen={!!selectedProgram}
-          onClose={() => setSelectedProgram(null)}
+          onClose={handleCloseProgram}
           currentUser={userData}
-          onProgramSelect={(program) => {
-            window.location.href = `/workouts?view=plan-detail&program=${program.id}`;
-          }}
         />
       )}
       
-      {showWorkoutModal && selectedWorkout && (
-        <ExpandableWorkoutModal
-          workoutId={selectedWorkout.id}
-          initialWorkoutData={selectedWorkout}
-          isOpen={showWorkoutModal}
-          onClose={() => {
-            setShowWorkoutModal(false);
-            setSelectedWorkout(null);
-          }}
-          isTemplate={false}
-        />
-      )}
-      
-      {showWorkoutLogModal && selectedLog && (
+      {/* Workout Log Modal */}
+      {selectedWorkoutLog && (
         <ExpandableWorkoutLogModal
-          logId={selectedLog.id}
-          initialLogData={selectedLog}
-          isOpen={showWorkoutLogModal}
-          onClose={() => {
-            setShowWorkoutLogModal(false);
-            setSelectedLog(null);
-          }}
-          onEdit={() => {
-            setShowWorkoutLogModal(false);
-          }}
+          logId={selectedWorkoutLog.id}
+          initialLogData={selectedWorkoutLog}
+          isOpen={!!selectedWorkoutLog}
+          onClose={handleCloseWorkoutLog}
         />
       )}
     </div>

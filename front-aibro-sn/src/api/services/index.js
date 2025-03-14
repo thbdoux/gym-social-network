@@ -5,6 +5,7 @@ import logService from './logService';
 import gymService from './gymService';
 import postService from './postService';
 import userService from './userService';
+import profilePreviewService from './profilePreviewService';
 
 // Re-export services
 export { default as workoutService } from './workoutService';
@@ -13,6 +14,7 @@ export { default as logService } from './logService';
 export { default as gymService } from './gymService';
 export { default as postService } from './postService';
 export { default as userService } from './userService';
+export { default as profilePreviewService } from './profilePreviewService';
 
 // Also export as a combined object for legacy support
 export default {
@@ -21,5 +23,6 @@ export default {
   logService,
   gymService,
   postService,
-  userService
+  userService,
+  profilePreviewService
 };

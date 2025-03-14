@@ -61,6 +61,11 @@ import { extractData } from '../utils/responseParser';
     return apiResponse.data;
   },
 
+  removeFriend: async (userId) => {
+    const response = await apiClient.post(`/users/${userId}/remove_friend/`);
+    return response.data;
+  },
+
   registerUser: async (userData) => {
     const response = await apiClient.post('/users/', userData);
     return response.data;

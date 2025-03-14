@@ -24,7 +24,7 @@ import EditPostModal from '../MainFeed/components/EditPostModal';
 import FriendsModal from './components/FriendsModal';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import ProfileHeader from './components/ProfileHeader';
-import UserProfilePreviewModal from './components/UserProfilePreviewModal';
+import ProfilePreviewModal from './components/ProfilePreviewModal';
 import WorkoutTimeline from '../Workouts/components/WorkoutTimeline';
 import StatsCard from './components/StatsCard';
 import FriendsPreview from './components/FriendsPreview';
@@ -42,6 +42,7 @@ const ProfilePage = () => {
   const [fullProgramData, setFullProgramData] = useState(null);
   const [nextWorkout, setNextWorkout] = useState(null);
   const [selectedFriendPreview, setSelectedFriendPreview] = useState(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   
   // Program modal
   const [selectedProgram, setSelectedProgram] = useState(null);
@@ -219,6 +220,13 @@ const ProfilePage = () => {
 
   const handleViewFriendProfile = (friend) => {
     setSelectedFriendPreview(friend);
+    setIsProfileModalOpen(true);
+  };
+
+  const handleCloseProfileModal = () => {
+    setIsProfileModalOpen(false);
+    // Wait for animation to complete before clearing the user data
+    setTimeout(() => setSelectedFriendPreview(null), 300);
   };
 
   if (!user) {
@@ -297,15 +305,15 @@ const ProfilePage = () => {
               </div>
             </div>
             
-            {/* Stats Card */}
-            <StatsCard user={user} workoutLogs={workoutLogs} friends={friends} posts={posts} />
-            
-            {/* Friends Preview */}
+            {/* Friends Preview - Now placed above stats */}
             <FriendsPreview 
               friends={friends} 
               onViewAllClick={() => setIsFriendsModalOpen(true)} 
               onFriendClick={handleViewFriendProfile}
             />
+            
+            {/* Stats Card - Now below friends */}
+            <StatsCard user={user} workoutLogs={workoutLogs} friends={friends} posts={posts} />
           </div>
           
           {/* Main Content */}
@@ -398,15 +406,14 @@ const ProfilePage = () => {
           onSave={handleSaveEditedPost}
         />
       )}
-      {/* Add User Profile Preview Modal */}
-      {selectedFriendPreview && (
-        <UserProfilePreviewModal 
-          isOpen={!!selectedFriendPreview}
-          onClose={() => setSelectedFriendPreview(null)}
-          userId={selectedFriendPreview.id}
-          username={selectedFriendPreview.username}
-        />
-      )}
+      
+      {/* Universal Profile Preview Modal - replaces the previous UserProfilePreviewModal */}
+      <ProfilePreviewModal
+        isOpen={isProfileModalOpen}
+        onClose={handleCloseProfileModal}
+        userId={selectedFriendPreview?.id}
+        initialUserData={selectedFriendPreview}
+      />
     </div>
   );
 };
