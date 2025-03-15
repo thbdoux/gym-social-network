@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Calendar, X, Edit2, Clipboard, BookOpen } from 'lucide-react';
-import WorkoutLogForm from './WorkoutLogForm';
+import React from 'react';
+import { Plus, Calendar, X } from 'lucide-react';
 import { POST_TYPE_COLORS } from '../../../utils/postTypeUtils';
 
 const LogWorkoutModal = ({ onClose, onNewLog, onLogFromInstance, activeProgram }) => {
