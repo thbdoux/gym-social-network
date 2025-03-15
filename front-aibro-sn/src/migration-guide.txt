@@ -1,0 +1,141 @@
+# Migration Guide: Moving from Custom Hooks to React Query
+
+This guide helps you migrate from our custom state management hooks to React Query.
+
+## Why React Query?
+
+React Query provides several advantages:
+
+- **Caching**: Automatic caching of API responses for better performance
+- **Deduplication**: Prevents duplicate API calls for the same data
+- **Background Updates**: Can update data in the background
+- **Stale-While-Revalidate**: Shows stale data while fetching fresh data
+- **Prefetching**: Can prefetch data before it's needed
+- **Optimistic Updates**: Can update UI optimistically before API calls complete
+- **Devtools**: Great debugging tools for understanding data fetching
+
+## Migration Steps
+
+### Step 1: Import from React Query Hooks
+
+Change imports from the old hooks to the new React Query hooks:
+
+```diff
+- import { useWorkoutTemplates } from '../../hooks/useWorkoutTemplates';
++ import { useWorkoutTemplates } from '../../hooks/query/useWorkoutTemplatesQuery';
+```
+
+### Step 2: Update Component Code
+
+The React Query hooks expose different properties than the old hooks.
+
+```diff
+- const { templates, loading, error } = useWorkoutTemplates();
++ const { data: templates = [], isLoading, error } = useWorkoutTemplates();
+```
+
+### Step 3: Update Event Handlers
+
+React Query uses mutations for state changes:
+
+```diff
+- const { deleteTemplate } = useWorkoutTemplates();
+- const handleDelete = (id) => deleteTemplate(id);
++ const deleteTemplateMutation = useDeleteWorkoutTemplate();
++ const handleDelete = (id) => deleteTemplateMutation.mutate(id);
+```
+
+## Legacy Compatibility
+
+For components that are difficult to migrate immediately, we provide compatibility hooks:
+
+```javascript
+import { useWorkoutTemplates } from '../../hooks/legacy';
+```
+
+These legacy hooks use React Query internally but maintain the same API as the old hooks.
+
+## Data Structure Changes
+
+React Query mutations return the API response directly instead of the updated list:
+
+```diff
+- const result = await createTemplate(templateData); // Returns [newTemplate, ...oldTemplates]
++ const newTemplate = await createTemplateMutation.mutateAsync(templateData); // Returns just newTemplate
+```
+
+## Common Migration Patterns
+
+### Loading States
+
+```diff
+- {loading && <LoadingSpinner />}
++ {isLoading && <LoadingSpinner />}
+```
+
+### Error Handling
+
+```diff
+- {error && <ErrorAlert message={error} />}
++ {error && <ErrorAlert message={error.message} />}
+```
+
+### Data Access
+
+```diff
+- {templates.map(template => (
++ {(templates || []).map(template => (
+```
+
+### Mutation States
+
+```diff
+- const [isSubmitting, setIsSubmitting] = useState(false);
+- const handleSubmit = async () => {
+-   setIsSubmitting(true);
+-   try {
+-     await createTemplate(data);
+-   } finally {
+-     setIsSubmitting(false);
+-   }
+- }
++ const createTemplateMutation = useCreateWorkoutTemplate();
++ const handleSubmit = () => {
++   createTemplateMutation.mutate(data);
++ }
++ // Access mutation state with createTemplateMutation.isPending
+```
+
+## Optimistic Updates
+
+React Query makes optimistic updates easier:
+
+```javascript
+const deleteTemplateMutation = useMutation({
+  mutationFn: (id) => workoutService.deleteTemplate(id),
+  // Optimistically update the UI before the API call completes
+  onMutate: async (id) => {
+    // Cancel any outgoing refetches
+    await queryClient.cancelQueries({ queryKey: ['templates'] })
+    
+    // Get the current templates
+    const previousTemplates = queryClient.getQueryData(['templates'])
+    
+    // Optimistically remove the template
+    queryClient.setQueryData(['templates'], old => 
+      old.filter(template => template.id !== id)
+    )
+    
+    // Return the previous templates to roll back if needed
+    return { previousTemplates }
+  },
+  // If the mutation fails, roll back to the previous state
+  onError: (err, id, context) => {
+    queryClient.setQueryData(['templates'], context.previousTemplates)
+  },
+  // Always refetch after error or success to ensure cache is correct
+  onSettled: () => {
+    queryClient.invalidateQueries({ queryKey: ['templates'] })
+  },
+})
+```

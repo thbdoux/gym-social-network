@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Calendar, Dumbbell, Edit2, Trash2, 
   CheckCircle, MapPin, Heart, Flame, Target,
   Activity, ChevronDown, ChevronUp, Eye,
   Info, BarChart, Users, Clock, Award
 } from 'lucide-react';
-import { useGyms } from '../hooks/useGyms';
+import { useGyms } from '../../../hooks/query/useGymQuery';
+import { useLog } from '../../../hooks/query/useLogQuery';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
-import { logService } from '../../../api/services';
 
 const WorkoutLogCard = ({ 
   user,
@@ -22,36 +22,24 @@ const WorkoutLogCard = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [log, setLog] = useState(initialLog);
-  const [loading, setLoading] = useState(!initialLog);
   const [expandedExercise, setExpandedExercise] = useState(null);
   
-  const { gyms, loading: gymsLoading } = useGyms();
+  // Use React Query hooks
+  const { data: gyms, isLoading: gymsLoading } = useGyms();
+  
+  // Only fetch the log if logId is provided and no initialLog
+  const { data: fetchedLog, isLoading } = useLog(logId && !initialLog ? logId : null);
+  
+  // Use either the fetched log or the initial log passed as prop
+  const log = initialLog || fetchedLog;
+  
   const canEdit = log?.username === user;
   
   // Get colors from postTypeUtils
   const logColors = getPostTypeDetails('workout_log').colors || {};
   
-  useEffect(() => {
-    const fetchWorkoutLog = async () => {
-      if (!logId || initialLog) return;
-      
-      try {
-        setLoading(true);
-        const fetchedLog = await logService.getLogById(logId);
-        setLog(fetchedLog);
-      } catch (err) {
-        console.error('Error fetching workout log:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWorkoutLog();
-  }, [logId, initialLog]);
-  
   // Loading state
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="mt-4 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 p-6 animate-pulse">
         <div className="h-6 bg-gray-700 rounded-lg w-1/3 mb-4"></div>
@@ -192,7 +180,7 @@ const WorkoutLogCard = ({
                 )}
               </div>
               
-                              <div className="flex items-center mt-1 text-sm text-gray-400 truncate">
+              <div className="flex items-center mt-1 text-sm text-gray-400 truncate">
                 <Calendar className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
                 <span className="truncate">{formattedDate}</span>
                 

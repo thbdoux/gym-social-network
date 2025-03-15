@@ -1,48 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, X, Dumbbell, Calendar, Target, Loader2, GitFork, Users, Clock, CheckCircle } from 'lucide-react';
-import { programService, userService } from '../../../api/services';
+import { usePrograms, useCurrentUser } from '../../../hooks/query';
 
 const ProgramSelector = ({ onSelect, onCancel }) => {
-  const [programs, setPrograms] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [error, setError] = useState(null);
   const [selectedProgramId, setSelectedProgramId] = useState(null);
-
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        setLoading(true);
-        // Use programService instead of direct API call
-        const allPrograms = await programService.getPrograms();
-        
-        // Use userService to get current user
-        const userData = await userService.getCurrentUser();
-        
-        // Only allow sharing programs that you created (not forked)
-        const createdPrograms = allPrograms.filter(program => 
-          program.creator_username === userData.username
-        );
-        
-        setPrograms(createdPrograms);
-      } catch (err) {
-        console.error('Error fetching programs:', err);
-        setError('Failed to load programs');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPrograms();
-  }, []);
-
+  
+  // Use React Query hooks
+  const { 
+    data: allPrograms = [], 
+    isLoading: programsLoading, 
+    error: programsError 
+  } = usePrograms();
+  
+  const { 
+    data: currentUser, 
+    isLoading: userLoading 
+  } = useCurrentUser();
+  
+  // Filter programs to show only those created by the current user (not forked)
+  const programs = allPrograms.filter(program => 
+    program.creator_username === currentUser?.username
+  );
+  
+  // Further filter based on search query
   const filteredPrograms = programs.filter(program => 
     program.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
+  
   const handleProgramSelect = (programId) => {
     setSelectedProgramId(programId);
-    // Don't call onSelect here, wait for confirm button
   };
 
   const handleConfirm = () => {
@@ -51,6 +38,9 @@ const ProgramSelector = ({ onSelect, onCancel }) => {
       onSelect(selectedProgram);
     }
   };
+  
+  const loading = programsLoading || userLoading;
+  const error = programsError ? programsError.message : null;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fadeIn">

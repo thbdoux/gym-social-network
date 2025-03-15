@@ -13,8 +13,7 @@ import {
 } from 'lucide-react';
 import ProgramSelector from './ProgramSelector';
 import WorkoutLogSelector from './WorkoutLogSelector';
-// Import services
-import { postService, gymService } from '../../../api/services';
+import { useCreatePost, useGym } from '../../../hooks/query';
 
 const CreatePost = ({ onPostCreated }) => {
   const [content, setContent] = useState('');
@@ -28,8 +27,19 @@ const CreatePost = ({ onPostCreated }) => {
   const [showProgramSelector, setShowProgramSelector] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
-  const [gymName, setGymName] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Use React Query hooks
+  const createPostMutation = useCreatePost();
+  
+  // Fetch gym data if there's a selected workout log with a gym
+  const { data: gymData } = useGym(
+    selectedWorkoutLog?.gym, 
+    { enabled: !!selectedWorkoutLog?.gym }
+  );
+  
+  // Get gym name for UI display
+  const gymName = gymData?.name || null;
 
   const postTypes = {
     regular: {
@@ -73,50 +83,42 @@ const CreatePost = ({ onPostCreated }) => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     
     // Validation: Either content or an attachment (program/workout) is required
     if (!content.trim() && !selectedProgram && !selectedWorkoutLog) return;
 
-    try {
-      const formData = new FormData();
-      formData.append('content', content);
-      formData.append('post_type', postType);
-      
-      if (image) {
-        formData.append('image', image);
-      }
-      
-      // If sharing a program, add the program ID
-      if (postType === 'program' && selectedProgram) {
-        formData.append('program_id', selectedProgram.id);
-        console.log('Sharing program with ID:', selectedProgram.id);
-      }
-      
-      // If sharing a workout log, add the workout log ID
-      if (postType === 'workout_log' && selectedWorkoutLog) {
-        formData.append('workout_log_id', selectedWorkoutLog.id);
-        console.log('Sharing workout log with ID:', selectedWorkoutLog.id);
-      }
-
-      console.log('Sending post data:', {
-        content,
-        post_type: postType,
-        program_id: selectedProgram?.id || null,
-        workout_log_id: selectedWorkoutLog?.id || null
-      });
-
-      // Use postService instead of direct API call
-      const createdPost = await postService.createPost(formData);
-      console.log('Post created response:', createdPost);
-      onPostCreated(createdPost);
-      resetForm();
-    } catch (err) {
-      console.error('Failed to create post:', err);
-      console.error('Error details:', err.response?.data);
-      alert(`Failed to create post: ${err.response?.data?.detail || err.message}`);
+    // Create FormData object
+    const formData = new FormData();
+    formData.append('content', content);
+    formData.append('post_type', postType);
+    
+    if (image) {
+      formData.append('image', image);
     }
+    
+    // If sharing a program, add the program ID
+    if (postType === 'program' && selectedProgram) {
+      formData.append('program_id', selectedProgram.id);
+    }
+    
+    // If sharing a workout log, add the workout log ID
+    if (postType === 'workout_log' && selectedWorkoutLog) {
+      formData.append('workout_log_id', selectedWorkoutLog.id);
+    }
+
+    // Use React Query mutation
+    createPostMutation.mutate(formData, {
+      onSuccess: (createdPost) => {
+        // Reset the form
+        resetForm();
+      },
+      onError: (error) => {
+        console.error('Failed to create post:', error);
+        alert(`Failed to create post: ${error.message || 'Unknown error'}`);
+      }
+    });
   };
 
   const resetForm = () => {
@@ -132,30 +134,13 @@ const CreatePost = ({ onPostCreated }) => {
   };
 
   const handleProgramSelect = (program) => {
-    console.log('Selected program:', program);
     setSelectedProgram(program);
     setShowProgramSelector(false);
     // Auto-populate content with program name
     setContent(`Check out my workout program: ${program.name}`);
   };
   
-  const handleWorkoutLogSelect = async (workoutLog) => {
-    console.log('Selected workout log:', workoutLog);
-    
-    // Fetch gym name if workoutLog has a gym ID
-    if (workoutLog.gym) {
-      try {
-        // Use gymService instead of direct API call
-        const gymData = await gymService.getGymById(workoutLog.gym);
-        setGymName(gymData.name);
-      } catch (error) {
-        console.error('Error fetching gym details:', error);
-        setGymName('Unknown Gym');
-      }
-    } else {
-      setGymName(null);
-    }
-    
+  const handleWorkoutLogSelect = (workoutLog) => {
     setSelectedWorkoutLog(workoutLog);
     setShowWorkoutLogSelector(false);
     // Auto-populate content
@@ -179,13 +164,11 @@ const CreatePost = ({ onPostCreated }) => {
   const TypeIcon = currentType.icon;
 
   const handleTypeSelect = (key, type) => {
-    console.log(`Selecting post type: ${key}`);
     setPostType(key);
     setShowTypeMenu(false);
     
-    // Important: Call the action function if it exists
+    // Call the action function if it exists
     if (type.action) {
-      console.log(`Executing action for post type: ${key}`);
       type.action();
     }
   };
@@ -294,7 +277,8 @@ const CreatePost = ({ onPostCreated }) => {
                   disabled={
                     (postType === 'program' && !selectedProgram && !content.trim()) || 
                     (postType === 'workout_log' && !selectedWorkoutLog && !content.trim()) || 
-                    (postType !== 'program' && postType !== 'workout_log' && !content.trim())
+                    (postType !== 'program' && postType !== 'workout_log' && !content.trim()) ||
+                    createPostMutation.isPending
                   }
                   className={`h-10 px-4 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50
                   ${postType === 'workout_log' ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400' :
@@ -302,8 +286,20 @@ const CreatePost = ({ onPostCreated }) => {
                     postType === 'program' ? 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-400' :
                     'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'}`}
                 >
-                  <Send className="w-4 h-4" />
-                  <span>Post</span>
+                  {createPostMutation.isPending ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Posting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Post</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

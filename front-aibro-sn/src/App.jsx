@@ -4,6 +4,8 @@ import { AuthProvider, AuthContext } from './context/AuthContext';
 import { PostsProvider } from './pages/MainFeed/contexts/PostsContext';
 import { useContext } from 'react';
 import { postService } from './api/services';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // Pages
 import LoginPage from './pages/Login';
@@ -15,6 +17,18 @@ import MainFeed from './pages/MainFeed';
 // Updated Components
 import Sidebar from './components/Sidebar';
 import Layout from './components/Layout';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      cacheTime: 1000 * 60 * 30, // 30 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 // ProtectedRoute component that includes both Sidebar and Layout
 const ProtectedRoute = ({ children }) => {
@@ -72,8 +86,9 @@ const FeedPage = () => {
 // Main App component
 function App() {
   return (
-    <AuthProvider>
-      <PostsProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <PostsProvider>
           <Router>
             <Routes>
               {/* Public route */}
@@ -130,8 +145,10 @@ function App() {
               />
             </Routes>
           </Router>
-      </PostsProvider>
-    </AuthProvider>
+        </PostsProvider>
+      </AuthProvider>
+      {/* <ReactQueryDevtools initialIsOpen={false} position="bottom-right" /> */}
+    </QueryClientProvider>
   );
 }
 

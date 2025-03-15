@@ -8,9 +8,6 @@ import {
 } from 'lucide-react';
 import { ProgramCard } from './components/ProgramCard';
 import EmptyState from './components/EmptyState';
-import { useWorkoutPlans } from './hooks/useWorkoutPlans';
-import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
-import { useWorkoutLogs } from './hooks/useWorkoutLogs';
 import WorkoutLogCard from './components/WorkoutLogCard';
 import WorkoutTimeline from './components/WorkoutTimeline';
 import WorkoutWizard from './components/workout-wizard/WorkoutWizard';
@@ -22,16 +19,26 @@ import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
 import PlanDetailView from './views/PlanDetailView';
 import EnhancedAllWorkoutsView from './views/EnhancedAllWorkoutsView';
 import PlansListView from './views/PlansListView';
+
+// Import React Query hooks
+import { usePrograms, useProgram, useCreateProgram, useUpdateProgram, useDeleteProgram, 
+  useToggleProgramActive, useAddWorkoutToProgram, useUpdateProgramWorkout, 
+  useRemoveWorkoutFromProgram, useForkProgram } from '../../hooks/query/useProgramQuery';
+import { useWorkoutTemplates } from '../../hooks/query/useWorkoutQuery';
+import { useLogs, useCreateLog, useUpdateLog, useDeleteLog } from '../../hooks/query/useLogQuery';
+import { useCurrentUser } from '../../hooks/query/useUserQuery';
+import { useQueryClient } from '@tanstack/react-query';
+
 // Import centralized API services
 import { programService, logService } from '../../api/services';
 
 const workoutColors = POST_TYPE_COLORS.workout_log;
 
 const WorkoutSpace = () => {
+  const queryClient = useQueryClient();
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [view, setView] = useState('main');
-  const [currentUser, setCurrentUser] = useState(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -46,54 +53,32 @@ const WorkoutSpace = () => {
   // State for workout log modal (past workouts)
   const [showWorkoutLogModal, setShowWorkoutLogModal] = useState(false);
   
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await programService.getCurrentUser();
-        setCurrentUser(response);
-      } catch (err) {
-        console.error('Error fetching current user:', err);
-      }
-    };
-
-    fetchCurrentUser();
-  }, []);
-
-  const {
-    workoutPlans,
-    loading: plansLoading,
-    error: plansError,
-    createPlan,
-    updatePlan,
-    deletePlan,
-    refreshPlans,
-    addWorkoutToPlan,
-    updateWorkoutInstance,
-    removeWorkoutFromPlan
-  } = useWorkoutPlans();
-
-  const {
-    templates,
-    loading: templatesLoading,
-    error: templatesError,
-    createTemplate,
-    updateTemplate,
-    deleteTemplate
-  } = useWorkoutTemplates();
-
+  // Use React Query hooks
+  const { data: currentUser } = useCurrentUser();
+  const { data: workoutPlans = [], isLoading: plansLoading, error: plansError, refetch: refreshPlans } = usePrograms();
+  const { data: templates = [], isLoading: templatesLoading, error: templatesError } = useWorkoutTemplates();
+  const { data: logs = [], isLoading: logsLoading, error: logsError, refetch: refreshLogs } = useLogs();
+  
   // Get the active program
   const activeProgram = workoutPlans.find(plan => plan.is_active);
-
-  const {
-    logs,
-    loading: logsLoading,
-    error: logsError,
-    createLog,
-    updateLog,
-    deleteLog,
-    refreshLogs,
-    nextWorkout
-  } = useWorkoutLogs(activeProgram);
+  
+  // Calculate next workout based on active program
+  const nextWorkout = activeProgram?.workouts?.length
+    ? programService.getNextWorkout(activeProgram)
+    : null;
+  
+  // Mutations
+  const createPlanMutation = useCreateProgram();
+  const updatePlanMutation = useUpdateProgram();
+  const deletePlanMutation = useDeleteProgram();
+  const toggleActiveMutation = useToggleProgramActive();
+  const addWorkoutMutation = useAddWorkoutToProgram();
+  const updateWorkoutMutation = useUpdateProgramWorkout(); 
+  const removeWorkoutMutation = useRemoveWorkoutFromProgram();
+  const createLogMutation = useCreateLog();
+  const updateLogMutation = useUpdateLog();
+  const deleteLogMutation = useDeleteLog();
+  const forkProgramMutation = useForkProgram();
 
   const handlePlanSelect = async (plan) => {
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
@@ -114,8 +99,7 @@ const WorkoutSpace = () => {
   
   const handleCreatePlan = async (planData) => {
     try {
-      const newPlan = await createPlan(planData);
-      await refreshPlans();
+      const newPlan = await createPlanMutation.mutateAsync(planData);
       setView('main');
       return newPlan;
     } catch (err) {
@@ -126,9 +110,9 @@ const WorkoutSpace = () => {
   
   const handleAddWorkout = async (planId, templateId, weekday) => {
     try {
-      await addWorkoutToPlan(planId, templateId, weekday);
-      const updatedPlans = await refreshPlans();
-      const updatedPlan = updatedPlans.find(p => p.id === planId);
+      await addWorkoutMutation.mutateAsync({ programId: planId, templateId, weekday });
+      // Fetch updated plan
+      const updatedPlan = await programService.getProgramById(planId);
       if (updatedPlan) {
         setSelectedPlan(updatedPlan);
       }
@@ -143,8 +127,7 @@ const WorkoutSpace = () => {
     
     try {
       setIsTogglingActive(true);
-      await programService.toggleProgramActive(planId);
-      await refreshPlans();
+      await toggleActiveMutation.mutateAsync(planId);
     } catch (err) {
       console.error('Error toggling plan active status:', err);
     } finally {
@@ -160,8 +143,7 @@ const WorkoutSpace = () => {
   const handleForkProgram = async (program) => {
     try {
       if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
-        await programService.forkProgram(program.id);
-        await refreshPlans();
+        await forkProgramMutation.mutateAsync(program.id);
       }
     } catch (err) {
       console.error('Error forking program:', err);
@@ -209,14 +191,13 @@ const WorkoutSpace = () => {
             }))
           }))
         };
-        await updateLog(selectedLog.id, updateData);
+        await updateLogMutation.mutateAsync({ id: selectedLog.id, logData: updateData });
       } else {
-        await createLog(preparedData);
+        await createLogMutation.mutateAsync(preparedData);
       }
       
       setShowLogForm(false);
       setSelectedLog(null);
-      await refreshLogs();
     } catch (err) {
       console.error('Error saving log:', err);
       alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
@@ -254,7 +235,7 @@ const WorkoutSpace = () => {
           onPlanSelect={handlePlanSelect}
           setView={setView}
           user={currentUser}
-          deletePlan={deletePlan}
+          deletePlan={(planId) => deletePlanMutation.mutate(planId)}
           togglePlanActive={handleTogglePlanActive}
           onShareProgram={handleShareProgram}
           onForkProgram={handleForkProgram}
@@ -283,9 +264,9 @@ const WorkoutSpace = () => {
         <EnhancedAllWorkoutsView
           workoutTemplates={templates}
           isLoading={templatesLoading}
-          onCreateTemplate={createTemplate}
-          onUpdateTemplate={updateTemplate}
-          onDeleteTemplate={deleteTemplate}
+          onCreateTemplate={(template) => createTemplateMutation.mutate(template)}
+          onUpdateTemplate={(id, updates) => updateTemplateMutation.mutate({ id, updates })}
+          onDeleteTemplate={(id) => deleteTemplateMutation.mutate(id)}
           setView={setView}
         />
       </div>
@@ -304,27 +285,24 @@ const WorkoutSpace = () => {
             setView('main');
           }}
           onUpdate={async (planId, updates) => {
-            await updatePlan(planId, updates);
-            const updatedPlans = await refreshPlans();
-            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            await updatePlanMutation.mutateAsync({ id: planId, updates });
+            const updatedPlan = await programService.getProgramById(planId);
             if (updatedPlan) {
               setSelectedPlan(updatedPlan);
             }
           }}
-          onDelete={deletePlan}
+          onDelete={(planId) => deletePlanMutation.mutate(planId)}
           onAddWorkout={handleAddWorkout}
           onUpdateWorkout={async (planId, workoutId, updates) => {
-            await updateWorkoutInstance(planId, workoutId, updates);
-            const updatedPlans = await refreshPlans();
-            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            await updateWorkoutMutation.mutateAsync({ programId: planId, workoutId, updates });
+            const updatedPlan = await programService.getProgramById(planId);
             if (updatedPlan) {
               setSelectedPlan(updatedPlan);
             }
           }}
           onRemoveWorkout={async (planId, workoutId) => {
-            await removeWorkoutFromPlan(planId, workoutId);
-            const updatedPlans = await refreshPlans();
-            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            await removeWorkoutMutation.mutateAsync({ programId: planId, workoutId });
+            const updatedPlan = await programService.getProgramById(planId);
             if (updatedPlan) {
               setSelectedPlan(updatedPlan);
             }
@@ -403,7 +381,7 @@ const WorkoutSpace = () => {
                 currentUser={currentUser?.username}
                 canManage={true}
                 onProgramSelect={handlePlanSelect}
-                onDelete={deletePlan}
+                onDelete={(planId) => deletePlanMutation.mutate(planId)}
                 onToggleActive={handleTogglePlanActive}
                 onShare={handleShareProgram}
                 onFork={handleForkProgram}

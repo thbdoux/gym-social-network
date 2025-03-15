@@ -6,8 +6,8 @@ import {
   CheckCircle, ToggleLeft, ToggleRight, Loader2, Check,
   Info
 } from 'lucide-react';
-import { programService } from '../../../api/services';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+import { useProgram, usePrograms } from '../../../hooks/query/useProgramQuery';
 
 const ProgramCard = ({ 
   programId,
@@ -21,16 +21,14 @@ const ProgramCard = ({
   onEdit,
   onFork,
   onCreatePlan,
+  onProgramSelect,
+  singleColumn = false,
+  compact = false
 }) => {
   // State management
-  const [program, setProgram] = useState(initialProgramData);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [loading, setLoading] = useState(!initialProgramData);
-  const [error, setError] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
-  const [originalProgram, setOriginalProgram] = useState(null);
-  const [loadingOriginal, setLoadingOriginal] = useState(false);
   const [activeDay, setActiveDay] = useState(null);
   const [expandedWorkout, setExpandedWorkout] = useState(null);
 
@@ -39,65 +37,29 @@ const ProgramCard = ({
 
   const [hasForked, setHasForked] = useState(false);
   const [showForkWarning, setShowForkWarning] = useState(false);
-  // Get program-specific colors
+  
+  // Use React Query hooks
+  const { data: fetchedProgram, isLoading, error } = useProgram(programId && !initialProgramData ? programId : null);
+  const { data: userPrograms = [] } = usePrograms();
+  
+  // Use either the fetched program or the initial program passed as prop
+  const program = initialProgramData || fetchedProgram;
+  
+  // For forked programs, fetch the original program
+  const { data: originalProgram, isLoading: loadingOriginal } = useProgram(
+    program?.forked_from || null
+  );
 
+  // Get program-specific colors
   const programColors = getPostTypeDetails('program').colors || {};
 
   // Empty state check
   if (!program && !programId && onCreatePlan) {
     return <EmptyState onCreatePlan={onCreatePlan} />;
   }
-
-  // Update program when initialProgramData changes
-  useEffect(() => {
-    setProgram(initialProgramData);
-  }, [initialProgramData]);
-
-  // Fetch program details and original program if forked
-  useEffect(() => {
-    const fetchProgramDetails = async () => {
-      if (programId && !program) {
-        try {
-          setLoading(true);
-          const programData = await programService.getProgramById(programId);
-          setProgram(programData);
-          
-          // If program is forked, fetch original program
-          if (programData.forked_from) {
-            fetchOriginalProgram(programData.forked_from);
-          }
-        } catch (err) {
-          console.error('Error fetching program details:', err);
-          setError('Failed to load program details');
-        } finally {
-          setLoading(false);
-        }
-      } else if (program?.forked_from && !originalProgram && !loadingOriginal) {
-        // If we have a program with forked_from but no originalProgram
-        fetchOriginalProgram(program.forked_from);
-      }
-    };
-
-    const fetchOriginalProgram = async (originalProgramId) => {
-      if (!originalProgramId) return;
-      
-      try {
-        setLoadingOriginal(true);
-        const originalProgramData = await programService.getProgramById(originalProgramId);
-        setOriginalProgram(originalProgramData);
-      } catch (err) {
-        console.error('Error fetching original program details:', err);
-      } finally {
-        setLoadingOriginal(false);
-      }
-    };
-
-    fetchProgramDetails();
-  }, [programId, program, originalProgram, loadingOriginal]);
-
   
   // Loading state
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="mt-4 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 p-6 animate-pulse">
         <div className="h-6 bg-gray-700 rounded-lg w-1/3 mb-4"></div>
@@ -116,7 +78,7 @@ const ProgramCard = ({
   if (error || !program) {
     return (
       <div className="mt-4 bg-red-900/20 border border-red-500/30 text-red-400 p-4 rounded-xl">
-        {error || "Unable to load program"}
+        {error?.message || "Unable to load program"}
       </div>
     );
   }
@@ -130,6 +92,16 @@ const ProgramCard = ({
   const canShareProgram = canManage && isCreator;
   const canDeleteProgram = canManage && isCreator;
   const canToggleActive = canManage;
+
+  // Check if user has already forked this program
+  useEffect(() => {
+    if (!currentUser || isCreator) return;
+    
+    const alreadyForked = userPrograms.some(userProgram => 
+      userProgram.forked_from === program.id
+    );
+    setHasForked(alreadyForked);
+  }, [currentUser, program, isCreator, userPrograms]);
 
   const getFocusIcon = (focus) => {
     switch(focus) {
@@ -189,25 +161,11 @@ const ProgramCard = ({
     if (!inFeedMode && !isExpanded) {
       setIsExpanded(true);
     }
-  };
-
-  useEffect(() => {
-    const checkUserForks = async () => {
-      if (!currentUser || isCreator) return;
-      
-      try {
-        const userPrograms = await programService.getPrograms(currentUser);
-        const alreadyForked = userPrograms.some(userProgram => 
-          userProgram.forked_from === program.id
-        );
-        setHasForked(alreadyForked);
-      } catch (err) {
-        console.error('Error checking if user has forked program:', err);
-      }
-    };
     
-    checkUserForks();
-  }, [currentUser, program, isCreator]);
+    if (onProgramSelect) {
+      onProgramSelect(program);
+    }
+  };
 
   const handleExpandClick = (e) => {
     e.stopPropagation();
@@ -245,7 +203,7 @@ const ProgramCard = ({
     
     try {
       setIsForking(true);
-      await onFork?.(program.id);
+      await onFork?.(program);
       setForkSuccess(true);
       setShowForkWarning(false);
       setHasForked(true);

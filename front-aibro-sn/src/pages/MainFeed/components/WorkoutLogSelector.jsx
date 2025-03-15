@@ -1,51 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, X, Activity, Calendar, Clock, Loader2, CheckCircle } from 'lucide-react';
-import { useWorkoutLogs } from './../../Workouts/hooks/useWorkoutLogs';
-import { gymService } from '../../../api/services';
+import { useLogs, useGyms } from '../../../hooks/query';
 
 const WorkoutLogSelector = ({ onSelect, onCancel }) => {
-  const { logs, loading } = useWorkoutLogs();
   const [searchQuery, setSearchQuery] = useState('');
-  const [gyms, setGyms] = useState({});
   const [selectedLogId, setSelectedLogId] = useState(null);
 
-  // Fetch gym data for all logs that have a gym ID
-  useEffect(() => {
-    const fetchGyms = async () => {
-      if (!logs.length) return;
-      
-      // Collect unique gym IDs
-      const gymIds = [...new Set(logs.filter(log => log.gym).map(log => log.gym))];
-      if (!gymIds.length) return;
-      
-      setLoadingGyms(true);
-      
-      try {
-        // Create a map of gym IDs to gym names
-        const gymMap = {};
-        
-        // Fetch each gym individually using gymService
-        await Promise.all(gymIds.map(async (gymId) => {
-          try {
-            const gymData = await gymService.getGymById(gymId);
-            gymMap[gymId] = gymData.name || 'Unknown Gym';
-          } catch (error) {
-            console.error(`Error fetching gym ${gymId}:`, error);
-            gymMap[gymId] = 'Unknown Gym';
-          }
-        }));
-        
-        setGyms(gymMap);
-      } catch (error) {
-        console.error('Error fetching gyms:', error);
-      } finally {
-        setLoadingGyms(false);
-      }
-    };
-    
-    fetchGyms();
-  }, [logs]);
+  // Use React Query hooks
+  const { 
+    data: logs = [], 
+    isLoading: logsLoading, 
+    error: logsError 
+  } = useLogs();
+  
+  const { 
+    data: gyms = [], 
+    isLoading: gymsLoading 
+  } = useGyms();
 
+  // Create a map of gym IDs to gym names for easier lookup
+  const gymMap = {};
+  if (gyms && gyms.length > 0) {
+    gyms.forEach(gym => {
+      if (gym.id) {
+        gymMap[gym.id] = gym.name || 'Unknown Gym';
+      }
+    });
+  }
+  
   // Filter logs based on search query
   const filteredLogs = logs.filter(log =>
     log.workout_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,7 +37,6 @@ const WorkoutLogSelector = ({ onSelect, onCancel }) => {
 
   const handleLogSelect = (log) => {
     setSelectedLogId(log.id);
-    // Don't call onSelect here, wait for confirm button
   };
 
   const handleConfirm = () => {
@@ -64,6 +45,9 @@ const WorkoutLogSelector = ({ onSelect, onCancel }) => {
       onSelect(selectedLog);
     }
   };
+
+  const loading = logsLoading || gymsLoading;
+  const error = logsError ? logsError.message : null;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fadeIn">
@@ -100,6 +84,14 @@ const WorkoutLogSelector = ({ onSelect, onCancel }) => {
                 <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
               </div>
               <p className="text-gray-400">Loading your workouts...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-16 bg-gray-800/30 rounded-xl border border-dashed border-red-700/50">
+              <div className="bg-red-900/30 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <X className="w-8 h-8 text-red-400" />
+              </div>
+              <h4 className="text-lg font-medium text-white mb-2">Something went wrong</h4>
+              <p className="text-red-400 max-w-md mx-auto">{error}</p>
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="text-center py-16 bg-gray-800/30 rounded-xl border border-dashed border-gray-700">
@@ -188,7 +180,7 @@ const WorkoutLogSelector = ({ onSelect, onCancel }) => {
                       <div>
                         <span className="text-xs text-gray-500">Location</span>
                         <p className="text-sm font-medium text-white truncate">
-                          {log.location || (log.gym && gyms[log.gym]) || "—"}
+                          {log.location || (log.gym && gymMap[log.gym]) || "—"}
                         </p>
                       </div>
                     </div>

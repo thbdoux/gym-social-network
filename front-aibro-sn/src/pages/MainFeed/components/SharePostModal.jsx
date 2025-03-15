@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Share2 } from 'lucide-react';
-import { postService } from '../../../api/services';
+import { useSharePost } from '../../../hooks/query';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
 const SharePostModal = ({ isOpen, onClose, post, onShareSuccess }) => {
   const [shareText, setShareText] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const modalRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Use React Query mutation
+  const sharePostMutation = useSharePost();
 
   useEffect(() => {
     // Focus the text area when modal opens
@@ -33,29 +34,29 @@ const SharePostModal = ({ isOpen, onClose, post, onShareSuccess }) => {
   }, [isOpen, onClose]);
 
   // Handle share post submission
-  const handleSharePost = async () => {
+  const handleSharePost = () => {
     if (!shareText.trim()) return;
 
-    try {
-      setIsSubmitting(true);
-      
-      // Use postService instead of direct API call
-      const sharedPost = await postService.sharePost(post.id, shareText);
-      
-      // Call the success callback with the new post data
-      if (onShareSuccess) {
-        onShareSuccess(sharedPost);
+    // Use React Query mutation
+    sharePostMutation.mutate(
+      { postId: post.id, content: shareText },
+      {
+        onSuccess: (sharedPost) => {
+          // Call the success callback with the new post data
+          if (onShareSuccess) {
+            onShareSuccess(sharedPost);
+          }
+          
+          // Reset and close modal
+          setShareText('');
+          onClose();
+        },
+        onError: (error) => {
+          console.error('Error sharing post:', error);
+          alert('Failed to share post. Please try again.');
+        }
       }
-      
-      // Reset and close modal
-      setShareText('');
-      onClose();
-    } catch (error) {
-      console.error('Error sharing post:', error.response?.data || error);
-      alert('Failed to share post. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   if (!isOpen) return null;
@@ -137,11 +138,23 @@ const SharePostModal = ({ isOpen, onClose, post, onShareSuccess }) => {
           <button
             type="button"
             onClick={handleSharePost}
-            disabled={!shareText.trim() || isSubmitting}
+            disabled={!shareText.trim() || sharePostMutation.isPending}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            <Share2 className="w-4 h-4" />
-            {isSubmitting ? 'Sharing...' : 'Share'}
+            {sharePostMutation.isPending ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Sharing...</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>Share</span>
+              </>
+            )}
           </button>
         </div>
       </div>
