@@ -447,7 +447,6 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
         onClose={() => setShowFilterPanel(false)}
       />
 
-      {/* Use WorkoutWizard instead of WorkoutLogForm */}
       {showWorkoutWizard && (
         <WorkoutWizard
           log={selectedLog}
