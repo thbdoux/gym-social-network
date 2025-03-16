@@ -10,7 +10,9 @@ import WeeklyCalendar from '../components/WeeklyCalendar';
 import { 
   useProgram, 
   useUpdateProgramWorkout, 
-  useRemoveWorkoutFromProgram 
+  useRemoveWorkoutFromProgram,
+  useAddWorkoutToProgram,
+  useToggleProgramActive 
 } from '../../../hooks/query/useProgramQuery';
 import { 
   useCreateWorkoutTemplate 
@@ -36,12 +38,19 @@ const ProgramDetailView = ({
   const [loadingState, setLoadingState] = useState(false);
 
   // React Query hooks
-  const { refetch: refetchProgram } = useProgram(plan?.id, {
-    enabled: false // Only fetch when explicitly called
-  });
+  const { data: currentProgramData, refetch: refetchProgram } = useProgram(plan?.id);
   const updateWorkoutMutation = useUpdateProgramWorkout();
   const removeWorkoutMutation = useRemoveWorkoutFromProgram();
   const createTemplateMutation = useCreateWorkoutTemplate();
+  const addWorkoutMutation = useAddWorkoutToProgram();
+  const toggleProgramActiveMutation = useToggleProgramActive();
+
+  // Use the latest program data from React Query whenever it updates
+  useEffect(() => {
+    if (currentProgramData && plan) {
+      onUpdate(plan.id, currentProgramData);
+    }
+  }, [currentProgramData, plan?.id]);
 
   // Check if user has edit permissions
   const canEdit = user && plan && (user.username === plan.creator_username || user.is_staff);
@@ -66,10 +75,7 @@ const ProgramDetailView = ({
   const refreshPlans = async () => {
     try {
       setLoadingState(true);
-      const { data: updatedPlan } = await refetchProgram();
-      if (updatedPlan) {
-        onUpdate(plan.id, updatedPlan);
-      }
+      await refetchProgram();
     } catch (error) {
       console.error('Error refreshing plan data:', error);
     } finally {
@@ -87,7 +93,7 @@ const ProgramDetailView = ({
           preferred_weekday: newDay
         }
       });
-      await refreshPlans();
+      // Refetch happens automatically through queryClient invalidation
     } catch (err) {
       console.error('Error updating workout day:', err);
       setError('Failed to update workout day');
@@ -112,7 +118,14 @@ const ProgramDetailView = ({
       };
 
       const newTemplate = await createTemplateMutation.mutateAsync(templateData);
-      await onAddWorkout(plan.id, newTemplate.id, workoutData.preferred_weekday || 0);
+      
+      // Use React Query mutation to add workout
+      await addWorkoutMutation.mutateAsync({
+        programId: plan.id,
+        templateId: newTemplate.id,
+        weekday: workoutData.preferred_weekday || 0
+      });
+      
       setShowCreateWorkout(false);
     } catch (err) {
       console.error('Error creating workout:', err);
@@ -132,6 +145,7 @@ const ProgramDetailView = ({
       setLoadingState(true);
       await onUpdateWorkout(plan.id, updatedWorkout.id, updatedWorkout);
       setWorkoutBeingEdited(null);
+      await refreshPlans();
     } catch (err) {
       setError('Failed to update workout');
     } finally {
@@ -149,7 +163,7 @@ const ProgramDetailView = ({
         programId: plan.id,
         workoutId
       });
-      await refreshPlans();
+      // Refetch happens automatically through queryClient invalidation
     } catch (err) {
       setError('Failed to remove workout from program');
     } finally {
@@ -175,7 +189,14 @@ const ProgramDetailView = ({
   const handleTemplateSelect = async (templateId, weekday) => {
     try {
       setLoadingState(true);
-      await onAddWorkout(plan.id, templateId, weekday);
+      
+      // Use React Query mutation to add workout
+      await addWorkoutMutation.mutateAsync({
+        programId: plan.id,
+        templateId,
+        weekday
+      });
+      
       setShowTemplateSelector(false);
     } catch (err) {
       setError('Failed to add workout to program');
@@ -189,6 +210,7 @@ const ProgramDetailView = ({
       setLoadingState(true);
       await onUpdate(plan.id, updatedData);
       setShowProgramWizard(false);
+      await refreshPlans();
     } catch (err) {
       setError('Failed to update program');
     } finally {
