@@ -5,15 +5,34 @@ import {
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../../utils/imageUtils';
 import { ProgramCard } from '../../../Workouts/components/ProgramCard';
+import { useCurrentUser } from '../../../../hooks/query/useUserQuery';
+import { useForkProgram } from '../../../../hooks/query/useProgramQuery';
 
 /**
  * Overview Tab - Simplified version showing only current program and friends
  */
 const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }) => {
+  // Get the current logged-in user
+  const { data: currentUser } = useCurrentUser();
+  
+  // Get fork program mutation
+  const { mutateAsync: forkProgram } = useForkProgram();
+  
   // Format text utility
   const formatText = (text) => {
     if (!text) return '';
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+  
+  // Handle program fork
+  const handleFork = async (program) => {
+    try {
+      const forkedProgram = await forkProgram(program.id);
+      return forkedProgram;
+    } catch (error) {
+      console.error('Error forking program:', error);
+      throw error;
+    }
   };
 
   return (
@@ -33,8 +52,10 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
             <ProgramCard
               program={fullProgramData || userData.current_program}
               singleColumn={true}
-              currentUser={userData?.username}
+              currentUser={currentUser?.username}
               onProgramSelect={handleProgramSelect}
+              onFork={handleFork}
+              canManage={userData?.username === currentUser?.username}
             />
           </div>
         ) : (

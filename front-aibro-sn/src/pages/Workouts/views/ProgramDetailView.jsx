@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Trash2, Edit, ChevronDown, Users, Share2, Calendar, ArrowUpRight, Clock, AlertCircle, Dumbbell } from 'lucide-react';
 import EnhancedWorkoutCard from '../components/EnhancedWorkoutCard';
 import TemplateSelector from '../components/TemplateSelector';
-import EnhancedProgramForm from '../components/EnhancedProgramForm';
+import ProgramWizard from '../components/program-wizard/ProgramWizard';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 import WeeklyCalendar from '../components/WeeklyCalendar';
 
@@ -29,7 +29,7 @@ const ProgramDetailView = ({
 }) => {
   const [error, setError] = useState('');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [showEditProgram, setShowEditProgram] = useState(false);
+  const [showProgramWizard, setShowProgramWizard] = useState(false);
   const [workoutBeingEdited, setWorkoutBeingEdited] = useState(null);
   const [showCreateWorkout, setShowCreateWorkout] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null); // For mobile view filtering
@@ -188,7 +188,7 @@ const ProgramDetailView = ({
     try {
       setLoadingState(true);
       await onUpdate(plan.id, updatedData);
-      setShowEditProgram(false);
+      setShowProgramWizard(false);
     } catch (err) {
       setError('Failed to update program');
     } finally {
@@ -236,7 +236,7 @@ const ProgramDetailView = ({
         {canEdit && (
           <div className="flex space-x-2">
             <button
-              onClick={() => setShowEditProgram(true)}
+              onClick={() => setShowProgramWizard(true)}
               className="p-2 hover:bg-gray-800 rounded-full transition-colors text-blue-400"
               disabled={loadingState}
             >
@@ -467,26 +467,13 @@ const ProgramDetailView = ({
         />
       )}
 
-      {/* Program Edit Modal */}
-      {showEditProgram && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-gray-900 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-700/50">
-            <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
-              <h2 className="text-2xl font-bold text-white">Edit Program</h2>
-              <button
-                onClick={() => setShowEditProgram(false)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                ×
-              </button>
-            </div>
-            <EnhancedProgramForm
-              initialData={plan}
-              onSubmit={handleUpdateProgram}
-              onCancel={() => setShowEditProgram(false)}
-            />
-          </div>
-        </div>
+      {/* Program Edit Wizard */}
+      {showProgramWizard && (
+        <ProgramWizard
+          program={plan}
+          onSubmit={handleUpdateProgram}
+          onClose={() => setShowProgramWizard(false)}
+        />
       )}
 
       {/* Edit Workout Modal - Full page */}

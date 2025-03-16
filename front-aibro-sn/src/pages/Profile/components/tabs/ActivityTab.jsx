@@ -3,8 +3,23 @@ import { Heart } from 'lucide-react';
 import { getAvatarUrl } from '../../../../utils/imageUtils';
 import { ProgramCard } from '../../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../../Workouts/components/WorkoutLogCard';
+import { useCurrentUser } from '../../../../hooks/query/useUserQuery';
+import { useForkProgram } from '../../../../hooks/query/useProgramQuery';
 
 const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSelect }) => {
+  const { data: currentUser } = useCurrentUser();
+  
+  // Get fork program mutation
+  const { mutateAsync: forkProgram } = useForkProgram();
+  const handleFork = async (program) => {
+    try {
+      const forkedProgram = await forkProgram(program.id);
+      return forkedProgram;
+    } catch (error) {
+      console.error('Error forking program:', error);
+      throw error;
+    }
+  };
   return (
     <div className="animate-fadeIn">
       <h3 className="text-lg font-semibold mb-4">Recent Posts</h3>
@@ -58,6 +73,8 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
                         programId={post.program_details.id}
                         program={post.program_details}
                         inFeedMode={true}
+                        onFork={handleFork}
+                        currentUser={currentUser?.username}
                       />
                     </div>
                   )}

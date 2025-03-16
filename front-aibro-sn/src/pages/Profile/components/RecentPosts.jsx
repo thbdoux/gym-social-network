@@ -15,7 +15,7 @@ import { ProgramCard } from '../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
 
 // Import React Query hooks instead of direct service calls
-import { useCurrentUser, useLikePost } from '../../../hooks/query';
+import { useCurrentUser, useLikePost, useForkProgram } from '../../../hooks/query';
 
 const RecentPosts = ({ 
   posts, 
@@ -75,6 +75,18 @@ const RecentPosts = ({
         month: 'short', 
         day: 'numeric'
       });
+    }
+  };
+
+  // Get fork program mutation
+  const { mutateAsync: forkProgram } = useForkProgram();
+  const handleFork = async (program) => {
+    try {
+      const forkedProgram = await forkProgram(program.id);
+      return forkedProgram;
+    } catch (error) {
+      console.error('Error forking program:', error);
+      throw error;
     }
   };
 
@@ -265,9 +277,9 @@ const RecentPosts = ({
                             e.stopPropagation(); // Prevent double firing
                             handleProgramSelect(post.program_details);
                           }}
+                          currentUser ={userData?.username}
+                          onFork={handleFork}
                         />
-                        {/* Overlay to catch all clicks */}
-                        <div className="absolute inset-0 bg-transparent"></div>
                       </div>
                     </div>
                   )}

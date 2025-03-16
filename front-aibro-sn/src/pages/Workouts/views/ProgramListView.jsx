@@ -17,7 +17,8 @@ const ProgramListView = ({
   togglePlanActive,
   onShareProgram,
   onForkProgram,
-  onEditProgram
+  onEditProgram,
+  onCreateProgram
 }) => {
 
   const [showShareModal, setShowShareModal] = useState(false);
@@ -96,7 +97,19 @@ const ProgramListView = ({
   };
 
   const handleEditProgram = (plan) => {
-    onPlanSelect(plan);
+    if (onEditProgram) {
+      onEditProgram(plan);
+    } else {
+      onPlanSelect(plan);
+    }
+  };
+
+  const handleCreateProgram = () => {
+    if (onCreateProgram) {
+      onCreateProgram();
+    } else {
+      setView('create-plan');
+    }
   };
 
   if (isLoading) {
@@ -163,7 +176,7 @@ const ProgramListView = ({
           </div>
           
           <button
-            onClick={() => setView('create-plan')}
+            onClick={handleCreateProgram}
             className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 
                      transition-all shadow-lg shadow-blue-700/20"
             title="Create New Program"
@@ -180,10 +193,10 @@ const ProgramListView = ({
           onSelect={handlePlanSelection}
           onDelete={handleDeletePlan}
           onToggleActive={handleToggleActive}
-          onCreatePlan={() => setView('create-plan')}
+          onCreatePlan={handleCreateProgram}
           onShare={handleShareProgram}
           onFork={handleForkProgram}
-          onEdit={onEditProgram}
+          onEdit={handleEditProgram}
           currentUser={user?.username}
         />
       ) : (
@@ -192,7 +205,7 @@ const ProgramListView = ({
           description="Create your first workout plan to start tracking your fitness journey"
           action={{
             label: 'Create Workout Plan',
-            onClick: () => setView('create-plan')
+            onClick: handleCreateProgram
           }}
         />
       )}

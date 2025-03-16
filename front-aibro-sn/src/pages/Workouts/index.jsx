@@ -11,11 +11,11 @@ import EmptyState from './components/EmptyState';
 import WorkoutLogCard from './components/WorkoutLogCard';
 import WorkoutTimeline from './components/WorkoutTimeline';
 import WorkoutWizard from './components/workout-wizard/WorkoutWizard';
+import ProgramWizard from './components/program-wizard/ProgramWizard';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
 import ShareProgramModal from './components/ShareProgramModal';
 import AllWorkoutLogsView from './views/AllWorkoutLogsView';
-import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
 import ProgramDetailView from './views/ProgramDetailView';
 import AllWorkoutsView from './views/AllWorkoutsView';
 import ProgramListView from './views/ProgramListView';
@@ -42,9 +42,11 @@ const WorkoutSpace = () => {
   const [showLogModal, setShowLogModal] = useState(false);
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showProgramWizard, setShowProgramWizard] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [programToEdit, setProgramToEdit] = useState(null);
   
   const { data: currentUser } = useCurrentUser();
   const { data: workoutPlans = [], isLoading: plansLoading, error: plansError, refetch: refreshPlans } = usePrograms();
@@ -89,10 +91,29 @@ const WorkoutSpace = () => {
   const handleCreatePlan = async (planData) => {
     try {
       const newPlan = await createPlanMutation.mutateAsync(planData);
-      setView('main');
+      setShowProgramWizard(false);
+      if (view === 'plans') {
+        await refreshPlans();
+      } else {
+        setView('plans');
+      }
       return newPlan;
     } catch (err) {
       console.error('Error creating plan:', err);
+      throw err;
+    }
+  };
+
+  const handleUpdatePlan = async (planData) => {
+    try {
+      await updatePlanMutation.mutateAsync({ 
+        id: programToEdit.id, 
+        updates: planData 
+      });
+      setProgramToEdit(null);
+      await refreshPlans();
+    } catch (err) {
+      console.error('Error updating plan:', err);
       throw err;
     }
   };
@@ -229,8 +250,12 @@ const WorkoutSpace = () => {
           onShareProgram={handleShareProgram}
           onForkProgram={handleForkProgram}
           onEditProgram={(plan) => {
-            setSelectedPlan(plan);
-            setView('plan-detail');
+            setProgramToEdit(plan);
+            setShowProgramWizard(true);
+          }}
+          onCreateProgram={() => {
+            setProgramToEdit(null);
+            setShowProgramWizard(true);
           }}
         />
         
@@ -240,6 +265,18 @@ const WorkoutSpace = () => {
             onClose={() => {
               setShowShareModal(false);
               setProgramToShare(null);
+            }}
+          />
+        )}
+        
+        {/* Program Creation/Edit Wizard */}
+        {showProgramWizard && (
+          <ProgramWizard
+            program={programToEdit}
+            onSubmit={programToEdit ? handleUpdatePlan : handleCreatePlan}
+            onClose={() => {
+              setShowProgramWizard(false);
+              setProgramToEdit(null);
             }}
           />
         )}
@@ -297,19 +334,6 @@ const WorkoutSpace = () => {
             }
           }}
           user={currentUser}
-        />
-      </div>
-    );
-  }
-  
-  if (view === 'create-plan') {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white p-8">
-        <EnhancedCreatePlanView
-          onCreatePlan={handleCreatePlan}
-          onCancel={() => setView('plans')}
-          onError={(error) => console.error('Create plan error:', error)}
-          workoutTemplates={templates}
         />
       </div>
     );
@@ -385,10 +409,13 @@ const WorkoutSpace = () => {
               <div className="p-4">
                 <EmptyState
                   title="No active program"
-                  description="Set up a program"
+                  description="Set up a program to structure your fitness journey"
                   action={{
-                    label: 'Browse Programs',
-                    onClick: () => setView('plans')
+                    label: 'Create Program',
+                    onClick: () => {
+                      setProgramToEdit(null);
+                      setShowProgramWizard(true);
+                    }
                   }}
                   compact={true}
                 />
@@ -413,7 +440,7 @@ const WorkoutSpace = () => {
         />
         
         {/* Large centered Log Workout button */}
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center gap-4 mt-8">
           <button
             onClick={() => {
               setSelectedLog(null);
@@ -429,6 +456,24 @@ const WorkoutSpace = () => {
             </div>
             <span className="text-white font-bold text-lg relative z-10">Log Workout</span>
           </button>
+          
+          {!activeProgram && (
+            <button
+              onClick={() => {
+                setProgramToEdit(null);
+                setShowProgramWizard(true);
+              }}
+              className="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl 
+                       hover:from-purple-500 hover:to-indigo-500 transition-all duration-300 
+                       shadow-lg hover:shadow-purple-600/30 flex items-center gap-3 transform hover:scale-105"
+            >
+              <div className="absolute inset-0 bg-white/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="bg-white/20 rounded-full p-1 flex items-center justify-center">
+                <Dumbbell className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-white font-bold text-lg relative z-10">Create Program</span>
+            </button>
+          )}
         </div>
       </div>
       
@@ -490,6 +535,18 @@ const WorkoutSpace = () => {
           onClose={() => {
             setShowShareModal(false);
             setProgramToShare(null);
+          }}
+        />
+      )}
+      
+      {/* Program Creation/Edit Wizard */}
+      {showProgramWizard && (
+        <ProgramWizard
+          program={programToEdit}
+          onSubmit={programToEdit ? handleUpdatePlan : handleCreatePlan}
+          onClose={() => {
+            setShowProgramWizard(false);
+            setProgramToEdit(null);
           }}
         />
       )}
