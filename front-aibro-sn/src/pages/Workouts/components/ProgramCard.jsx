@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Dumbbell, ChevronDown, ChevronUp, Calendar, Target, 
   Activity, User, Users, Star, Trophy,
-  Award, GitFork, Layers, BarChart, Trash2, Edit, Share2,
+  Award, Download, Layers, BarChart, Trash2, Edit, Share2,
   CheckCircle, ToggleLeft, ToggleRight, Loader2, Check,
   Info
 } from 'lucide-react';
@@ -272,7 +272,7 @@ const ProgramCard = ({
                 {/* Show forked information */}
                 {isForked && (
                   <span className="ml-2 flex items-center flex-shrink-0">
-                    <GitFork className="w-3 h-3 mx-1 text-purple-400" />
+                    <Download className="w-3 h-3 mx-1 text-purple-400" />
                     <span className="text-purple-400">from</span>
                     <span className="ml-1 text-purple-300 font-medium truncate">
                       {loadingOriginal ? "..." : originalProgram?.creator_username || "another user"}
@@ -364,7 +364,7 @@ const ProgramCard = ({
                 {isForking ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <GitFork className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
                 )}
               </button>
             )}
@@ -514,7 +514,7 @@ const ProgramCard = ({
                 {isForked && originalProgram && (
                   <div className="col-span-2 bg-purple-900/20 p-3 rounded-lg border border-purple-700/30">
                     <div className="flex items-center">
-                      <GitFork className="w-4 h-4 mr-1.5 text-purple-400" />
+                      <Download className="w-4 h-4 mr-1.5 text-purple-400" />
                       <span className="text-purple-300">
                         Forked from{" "}
                         <span className="font-medium">{originalProgram.name}</span>

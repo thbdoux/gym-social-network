@@ -1,13 +1,19 @@
+
+
+
 import React, { useState } from 'react';
 import { 
   Calendar, Dumbbell, Edit2, Trash2, 
   CheckCircle, MapPin, Heart, Flame, Target,
   Activity, ChevronDown, ChevronUp, Eye,
-  Info, BarChart, Users, Clock, Award
+  Info, BarChart, Users, Clock, Award,
+  GitFork, Loader2, Check, Download
 } from 'lucide-react';
 import { useGyms } from '../../../hooks/query/useGymQuery';
 import { useLog } from '../../../hooks/query/useLogQuery';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+import { useWorkoutTemplates } from '../../../hooks/query/useWorkoutQuery';
+import { useWorkoutFork } from '../../../hooks/query/useWorkoutFork';
 
 const WorkoutLogCard = ({ 
   user,
@@ -33,7 +39,21 @@ const WorkoutLogCard = ({
   // Use either the fetched log or the initial log passed as prop
   const log = initialLog || fetchedLog;
   
+  // Workout templates for forking check
+  const { data: workoutTemplates = [] } = useWorkoutTemplates();
+  
+  // Add workout forking logic
+  const {
+    isForking,
+    forkSuccess,
+    hasForked,
+    showForkWarning,
+    forkWorkout,
+    cancelFork
+  } = useWorkoutFork();
+  
   const canEdit = log?.username === user;
+  const canFork = log?.username !== user; // Can fork logs that aren't your own
   
   // Get colors from postTypeUtils
   const logColors = getPostTypeDetails('workout_log').colors || {};
@@ -139,6 +159,12 @@ const WorkoutLogCard = ({
     e.stopPropagation();
     action();
   };
+  
+  // Add fork handler
+  const handleFork = (e) => {
+    e.stopPropagation();
+    forkWorkout(log, workoutTemplates);
+  };
 
   // Determine if key stats should be shown based on their existence
   const showMood = !!log.mood_rating;
@@ -221,6 +247,28 @@ const WorkoutLogCard = ({
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
+            )}
+            
+            {/* Add Fork button */}
+            {canFork && (
+              <button
+                onClick={handleFork}
+                disabled={isForking}
+                className={`p-1.5 mr-2 rounded-md transition-colors flex items-center 
+                  ${isHovered ? 'opacity-100' : 'opacity-0'} 
+                  ${isForking ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${hasForked 
+                    ? 'text-orange-400 bg-transparent hover:text-orange-300 hover:bg-orange-900/20' 
+                    : 'text-blue-400 bg-transparent hover:text-blue-300 hover:bg-blue-900/20'}`}
+                aria-label={hasForked ? "Fork this workout again" : "Fork this workout"}
+                title={hasForked ? "You've already forked this workout" : "Fork this workout"}
+              >
+                {isForking ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+              </button>
             )}
             
             {expandable && (
@@ -438,6 +486,44 @@ const WorkoutLogCard = ({
                 <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">{log.notes}</p>
               </div>
             )}
+          </div>
+        )}
+        
+        {/* Success message for forking */}
+        {forkSuccess && (
+          <div className="absolute bottom-4 right-4 bg-green-900/80 text-green-300 p-2 rounded-lg flex items-center animate-fadeIn shadow-lg border border-green-700/50">
+            <Check className="w-4 h-4 mr-2" />
+            <span className="text-sm">Workout forked successfully!</span>
+          </div>
+        )}
+        
+        {/* Fork warning modal */}
+        {showForkWarning && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 rounded-lg shadow-lg border border-orange-500/50 z-10 w-80 animate-fadeIn">
+            <div className="flex items-start">
+              <Info className="w-5 h-5 text-orange-400 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-white mb-2">Fork again?</h3>
+                <p className="text-gray-300 text-sm mb-4">You already have a fork of this workout. Do you want to create another copy?</p>
+                <div className="flex justify-end space-x-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cancelFork();
+                    }} 
+                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-md text-sm text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleFork}
+                    className="px-3 py-1.5 bg-orange-600/70 hover:bg-orange-600 rounded-md text-sm text-white transition-colors"
+                  >
+                    Fork Again
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         
