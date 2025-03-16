@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
+import { useGymDisplay } from '../../../hooks/query/useGymQuery';
+
 const ProfileHeader = ({ 
   user, 
   workoutCount, 
@@ -21,13 +23,11 @@ const ProfileHeader = ({
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  const getGymDisplay = (user) => {
-    if (!user?.preferred_gym_details || !user?.preferred_gym_details?.name) {
-      return 'No gym set';
-    }
-    const gym = user.preferred_gym_details;
-    return `${gym.name} - ${gym.location}`;
-  };
+  // Use the new hook for gym display
+  const { displayText: gymDisplayText } = useGymDisplay(
+    user?.id,
+    user?.preferred_gym
+  );
 
   return (
     <div className="bg-transparent border border-white/5 rounded-2xl overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg">
@@ -58,14 +58,7 @@ const ProfileHeader = ({
             <div className="flex flex-col md:flex-row md:items-center mt-2 gap-2">
               <div className="flex items-center justify-center md:justify-start gap-1 text-gray-400 transition-all duration-200 hover:text-gray-300">
                 <MapPin className="w-4 h-4" />
-                <span className="truncate">{getGymDisplay(user)}</span>
-              </div>
-              
-              <div className="hidden md:block text-gray-500">•</div>
-              
-              <div className="flex items-center justify-center md:justify-start gap-1 text-gray-400 transition-all duration-200 hover:text-gray-300">
-                <Calendar className="w-4 h-4" />
-                <span>Joined {new Date(user?.date_joined).toLocaleDateString('en-US', {year: 'numeric', month: 'long'})}</span>
+                <span className="truncate">{gymDisplayText}</span>
               </div>
             </div>
             

@@ -9,6 +9,7 @@ import {
   MessageCircle 
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import { useGymDisplay } from '../../../hooks/query/useGymQuery';
 
 const ProfilePreviewHeader = ({ userData }) => {
   // Format text utilities
@@ -17,13 +18,11 @@ const ProfilePreviewHeader = ({ userData }) => {
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  const getGymDisplay = (user) => {
-    if (!user?.preferred_gym_details || !user?.preferred_gym_details?.name) {
-      return 'No gym set';
-    }
-    const gym = user.preferred_gym_details;
-    return `${gym.name} - ${gym.location}`;
-  };
+  // Use the new hook for gym display
+  const { displayText: gymDisplayText } = useGymDisplay(
+    userData?.id,
+    userData?.preferred_gym
+  );
 
   return (
     <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 px-6 py-5">
@@ -46,14 +45,7 @@ const ProfilePreviewHeader = ({ userData }) => {
           <div className="flex flex-col sm:flex-row sm:items-center mt-2 gap-2">
             <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400 hover:text-gray-300">
               <MapPin className="w-4 h-4" />
-              <span className="truncate">{getGymDisplay(userData)}</span>
-            </div>
-            
-            <div className="hidden sm:block text-gray-500">•</div>
-            
-            <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400 hover:text-gray-300">
-              <Calendar className="w-4 h-4" />
-              <span>Joined {new Date(userData?.date_joined).toLocaleDateString('en-US', {year: 'numeric', month: 'long'})}</span>
+              <span className="truncate">{gymDisplayText}</span>
             </div>
           </div>
           

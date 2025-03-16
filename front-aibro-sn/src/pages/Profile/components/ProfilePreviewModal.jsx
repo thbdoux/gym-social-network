@@ -12,7 +12,8 @@ import {
   useUserFriends,
   useUserPosts,
   useProgramPreviewDetails,
-  useUserProfilePreview
+  useUserProfilePreview,
+  useGymDisplay
 } from '../../../hooks/query';
 
 const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }) => {
@@ -58,6 +59,14 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
     enabled: isOpen && !!userData?.current_program?.id
   });
 
+  // Use the new hook for gym display
+  // Note: This component seems to already have gym details in userData.preferred_gym_details
+  // So we can add this as a fallback in case the data isn't preloaded
+  const { displayText: gymDisplayText } = useGymDisplay(
+    userData?.id,
+    userData?.preferred_gym
+  );
+
   const loading = 
     userLoading || 
     (activeTab === 'overview' && friendsLoading) ||
@@ -88,12 +97,16 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  // Modified to prefer pre-loaded gym details when available
   const getGymDisplay = (user) => {
-    if (!user?.preferred_gym_details || !user?.preferred_gym_details?.name) {
-      return 'No gym set';
+    // If preloaded gym details are available, use them
+    if (user?.preferred_gym_details && user?.preferred_gym_details?.name) {
+      const gym = user.preferred_gym_details;
+      return `${gym.name} - ${gym.location}`;
     }
-    const gym = user.preferred_gym_details;
-    return `${gym.name} - ${gym.location}`;
+    
+    // Otherwise fall back to our hook's result
+    return gymDisplayText;
   };
 
   if (!isOpen) return null;
@@ -137,12 +150,6 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
                   <div className="flex flex-col sm:flex-row sm:items-center mt-2 gap-2">
                     <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400">
                       <span className="truncate">{getGymDisplay(userData)}</span>
-                    </div>
-                    
-                    <div className="hidden sm:block text-gray-500">•</div>
-                    
-                    <div className="flex items-center justify-center sm:justify-start gap-1 text-gray-400">
-                      <span>Joined {new Date(userData?.date_joined).toLocaleDateString('en-US', {year: 'numeric', month: 'long'})}</span>
                     </div>
                   </div>
                   
