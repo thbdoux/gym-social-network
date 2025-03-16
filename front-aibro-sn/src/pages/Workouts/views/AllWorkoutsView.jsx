@@ -101,7 +101,7 @@ const AllWorkoutsView = ({
         <div className="flex flex-col">
           <div className="flex items-center">
             <button
-              onClick={() => setView('logs')}
+              onClick={() => setView('main')}
               className="p-2 mr-2 hover:bg-gray-700 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-6 h-6 text-gray-400" />
