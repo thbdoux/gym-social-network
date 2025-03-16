@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Save, MapPin, Clock, AlignLeft, Building, Check } from 'lucide-react';
-import { gymService } from '../../../api/services';
+import { useCreateGym } from '../../../hooks/query';
 
 const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
   const [formData, setFormData] = useState({
@@ -19,25 +19,25 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
   });
   const [selectedDay, setSelectedDay] = useState('monday');
   const [showHours, setShowHours] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [step, setStep] = useState(1);
+  
+  // Use React Query mutation hook for creating a gym
+  const createGymMutation = useCreateGym();
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
     if (step < 2) {
       setStep(step + 1);
-      setLoading(false);
       return;
     }
 
     try {
-      const newGym = await gymService.createGym(formData);
+      const newGym = await createGymMutation.mutateAsync(formData);
       if (newGym) {
         onGymCreated(newGym);
         onClose();
@@ -45,8 +45,6 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
     } catch (error) {
       console.error('Gym creation error:', error);
       setError(error.response?.data?.detail || 'Failed to create gym');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -245,7 +243,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
             
             <button
               type="submit"
-              disabled={loading}
+              disabled={createGymMutation.isLoading}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 text-sm flex items-center gap-2 disabled:opacity-50"
             >
               {step < 2 ? (
@@ -253,7 +251,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  {loading ? 'Creating...' : 'Create Gym'}
+                  {createGymMutation.isLoading ? 'Creating...' : 'Create Gym'}
                 </>
               )}
             </button>

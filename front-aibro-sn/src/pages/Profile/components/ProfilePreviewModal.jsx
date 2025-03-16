@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { userService, profilePreviewService } from '../../../api/services';
 import { X } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import OverviewTab from './tabs/OverviewTab';
@@ -7,184 +6,68 @@ import StatsTab from './tabs/StatsTab';
 import ActivityTab from './tabs/ActivityTab';
 import WorkoutsTab from './tabs/WorkoutsTab';
 
+// Import React Query hooks
+import {
+  useUser,
+  useUserFriends,
+  useUserPosts,
+  useProgramPreviewDetails,
+  useUserProfilePreview
+} from '../../../hooks/query';
+
 const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }) => {
-  // Core state
-  const [userData, setUserData] = useState(initialUserData);
-  const [loading, setLoading] = useState(true);
+
   const [activeTab, setActiveTab] = useState('overview');
-  
-  // Additional data
-  const [workoutLogs, setWorkoutLogs] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [friends, setFriends] = useState([]);
-  const [fullProgramData, setFullProgramData] = useState(null);
-  
-  // Expanded content modals
-  const [selectedProgram, setSelectedProgram] = useState(null);
-  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
-  
-  // Refs for controlling fetch behavior
-  const isMounted = useRef(true);
   const isClosingChildModal = useRef(false);
-  const fetchInProgress = useRef(false);
-  const initialFetchDone = useRef(false);
-  const programFetchAttempted = useRef(false);
+  
+  const { 
+    data: userData, 
+    isLoading: userLoading 
+  } = useUser(userId, {
+    enabled: isOpen && !!userId,
+    initialData: initialUserData?.id === userId ? initialUserData : undefined
+  });
 
-  // Reset state when modal opens or userId changes
-  useEffect(() => {
-    if (isOpen && userId) {
-      // Reset state for new modal instance
-      setFriends([]);
-      setPosts([]);
-      setWorkoutLogs([]);
-      setFullProgramData(null);
-      initialFetchDone.current = false;
-      programFetchAttempted.current = false;
-      
-      // Set initial user data if provided
-      if (initialUserData && initialUserData.id === userId) {
-        setUserData(initialUserData);
-      } else {
-        setUserData(null);
-      }
-    }
-  }, [isOpen, userId, initialUserData]);
+  const { 
+    data: friends = [], 
+    isLoading: friendsLoading 
+  } = useUserFriends(userId, {
+    enabled: isOpen && !!userId && activeTab === 'overview'
+  });
+  
+  const { 
+    data: posts = [], 
+    isLoading: postsLoading 
+  } = useUserPosts(userId, {
+    enabled: isOpen && !!userId && (activeTab === 'activity' || activeTab === 'stats')
+  });
+  
+  const {
+    data: profilePreview,
+    isLoading: profilePreviewLoading
+  } = useUserProfilePreview(userId, {
+    enabled: isOpen && !!userId && activeTab === 'workouts'
+  });
+  
+  const workoutLogs = profilePreview?.workout_logs || [];
+  
+  const {
+    data: fullProgramData,
+    isLoading: programLoading
+  } = useProgramPreviewDetails(userData?.current_program?.id, {
+    enabled: isOpen && !!userData?.current_program?.id
+  });
 
-  useEffect(() => {
-    // Set the mounted ref to true
-    isMounted.current = true;
-    
-    // Only fetch data if the modal is open and we have a userId
-    if (isOpen && userId) {
-      fetchUserData();
-    }
-    
-    // Cleanup function
-    return () => {
-      isMounted.current = false;
-    };
-  }, [isOpen, userId]);
+  const loading = 
+    userLoading || 
+    (activeTab === 'overview' && friendsLoading) ||
+    (activeTab === 'activity' && postsLoading) || 
+    (activeTab === 'workouts' && profilePreviewLoading) ||
+    (activeTab === 'stats' && postsLoading);
 
-  // Effect to fetch program data when userData is available
-  useEffect(() => {
-    // If we have userData with a current program and haven't already tried fetching
-    if (userData?.current_program?.id && !fullProgramData && !programFetchAttempted.current && isOpen) {
-      programFetchAttempted.current = true;
-      fetchProgramData(userData.current_program.id);
-    }
-  }, [userData, fullProgramData, isOpen]);
-
-  // Dedicated function for fetching program data
-  const fetchProgramData = async (programId) => {
-    try {
-      console.log(`Fetching program details for ID ${programId}`);
-      const programData = await profilePreviewService.getProgramDetails(programId);
-      
-      if (isMounted.current && programData) {
-        console.log('Program data fetched successfully:', programData.name);
-        setFullProgramData(programData);
-      }
-    } catch (error) {
-      console.error('Error fetching program details:', error);
-    }
-  };
-
-  // Main data fetching function
-  const fetchUserData = async () => {
-    // Don't fetch if we're in the process of closing a modal
-    // or if a fetch is already in progress
-    if (isClosingChildModal.current || fetchInProgress.current) {
-      isClosingChildModal.current = false;
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      fetchInProgress.current = true;
-      
-      // If we already have initialUserData and it matches userId, use it
-      if (userData && userData.id === userId) {
-        // We already have the user data
-      } else {
-        // Fetch user data
-        const user = await userService.getUserById(userId);
-        if (!isMounted.current) return;
-        setUserData(user);
-      }
-      
-      // Fetch additional data for the initial active tab
-      if (!initialFetchDone.current) {
-        await fetchTabData(activeTab);
-        initialFetchDone.current = true;
-      }
-      
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('Error fetching user preview data:', error);
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    } finally {
-      fetchInProgress.current = false;
-    }
-  };
-
-  const fetchTabData = async (tab) => {
-    if (!isMounted.current || !userId) return;
-    
-    try {
-      switch(tab) {
-        case 'overview':
-          if (friends.length === 0) {
-            try {
-              const friendsData = await profilePreviewService.getUserFriends(userId);
-              if (isMounted.current) {
-                setFriends(Array.isArray(friendsData) ? friendsData : []);
-              }
-            } catch (error) {
-              console.error('Error fetching friends data:', error);
-            }
-          }
-          break;
-          
-        case 'activity':
-          if (posts.length === 0) {
-            try {
-              const postsData = await profilePreviewService.getUserPosts(userId);
-              if (isMounted.current) {
-                setPosts(Array.isArray(postsData) ? postsData : []);
-              }
-            } catch (error) {
-              console.error('Error fetching posts data:', error);
-            }
-          }
-          break;
-          
-        case 'workouts':
-          if (workoutLogs.length === 0) {
-            try {
-              // Use the profile preview endpoint as it has filtering built in
-              const profileData = await profilePreviewService.getUserProfilePreview(userId);
-              if (isMounted.current && profileData && profileData.workout_logs) {
-                setWorkoutLogs(profileData.workout_logs);
-              }
-            } catch (error) {
-              console.error('Error fetching workout logs:', error);
-            }
-          }
-          break;
-      }
-    } catch (error) {
-      console.error('Error fetching tab data:', error);
-    }
-  };
-
-  // Handle tab change - load data for the new tab
+  // Handle tab change
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    fetchTabData(tab);
   };
 
   const handleProgramSelect = (program) => {
@@ -196,7 +79,6 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
   };
 
   const handleCloseProgram = () => {
-
     isClosingChildModal.current = true;
     setSelectedProgram(null);
   };

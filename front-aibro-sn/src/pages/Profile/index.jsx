@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-import { 
-  userService, 
-  logService, 
-  postService, 
-  programService,
-  gymService 
-} from '../../api/services';
+import {
+  useCurrentUser,
+  useFriends, 
+  useLogs,
+  useProgram,
+  useGym,
+  useUserPosts,
+  useUpdatePost,
+  useDeletePost
+} from '../../hooks/query';
 
 import EditProfileModal from './components/EditProfileModal';
 import EditPostModal from '../MainFeed/components/EditPostModal';
@@ -18,131 +21,31 @@ import FriendsPreview from './components/FriendsPreview';
 import RecentPosts from './components/RecentPosts';
 
 const ProfilePage = () => {
-  const [user, setUser] = useState(null);
-  const [workoutLogs, setWorkoutLogs] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [friends, setFriends] = useState([]);
+  // Get current user data
+  const { data: user, isLoading: isUserLoading } = useCurrentUser();
+  
+  // Query hooks that depend on user data
+  const { data: friends = [] } = useFriends();
+  const { data: workoutLogs = [] } = useLogs();
+  const { data: posts = [] } = useUserPosts(user?.id);
+  
+  // State for UI elements
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('stats');
-  const [nextWorkout, setNextWorkout] = useState(null);
   const [selectedFriendPreview, setSelectedFriendPreview] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-
-  // Post edit modal
+  
   const [isEditPostModalOpen, setIsEditPostModalOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState(null);
 
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        // Sequential requests to better debug and handle errors
-        let userData, friendsData, logsData, postsData;
-        
-        try {
-          userData = await userService.getCurrentUser();
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          userData = null;
-        }
-        
-        try {
-          friendsData = await userService.getFriends();
-          // Ensure friendsData is an array
-          friendsData = Array.isArray(friendsData) ? friendsData : [];
-        } catch (error) {
-          console.error('Error fetching friends data:', error);
-          friendsData = [];
-        }
-        
-        try {
-          logsData = await logService.getLogs();
-          // Ensure logsData is an array
-          logsData = Array.isArray(logsData) ? logsData : [];
-        } catch (error) {
-          console.error('Error fetching logs data:', error);
-          logsData = [];
-        }
-        
-        try {
-          postsData = await postService.getPosts();
-          postsData = Array.isArray(postsData) ? postsData : 
-                     (postsData && postsData.results ? postsData.results : []);
-        } catch (error) {
-          console.error('Error fetching posts data:', error);
-          postsData = [];
-        }
-        
-        // Filter posts by the current user's username
-        const userPosts = userData && userData.username && Array.isArray(postsData) 
-          ? postsData.filter(post => post.user_username === userData.username)
-          : [];
-        
-        // Add posts to user data for accurate post count
-        let enhancedUserData = userData ? {
-          ...userData,
-          posts: userPosts
-        } : null;
-        
-        // Fetch gym details if necessary
-        if (enhancedUserData && enhancedUserData.preferred_gym && !enhancedUserData.preferred_gym_details) {
-          try {
-            const gymData = await gymService.getGymById(enhancedUserData.preferred_gym);
-            if (gymData) {
-              enhancedUserData = {
-                ...enhancedUserData,
-                preferred_gym_details: gymData
-              };
-            }
-          } catch (error) {
-            console.error('Error fetching gym details:', error);
-          }
-        }
-        
-        // If user has a current program, fetch the full program data
-        if (enhancedUserData && enhancedUserData.current_program && enhancedUserData.current_program.id) {
-          try {
-            const programData = await programService.getProgramById(enhancedUserData.current_program.id);
-            setFullProgramData(programData);
-            
-            if (programData) {
-              // Get next workout using programService
-              const nextWorkoutData = programService.getNextWorkout(programData);
-              setNextWorkout(nextWorkoutData);
-            }
-          } catch (error) {
-            console.error('Error fetching full program data:', error);
-          }
-        }
-        
-        setUser(enhancedUserData);
-        setFriends(friendsData);
-        setWorkoutLogs(logsData);
-        setPosts(userPosts);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching profile data:', error);
-        setLoading(false);
-      }
-    };
+  const updatePostMutation = useUpdatePost();
+  const deletePostMutation = useDeletePost();
 
-    fetchProfileData();
-  }, []);
-
-  // Modal handlers
   const handleProgramSelect = (program) => {
     setSelectedProgram(program);
   };
 
-  // Handler for next workout
-  const handleViewNextWorkout = () => {
-    if (nextWorkout) {
-      setSelectedWorkout(nextWorkout);
-      setShowWorkoutModal(true);
-    }
-  };
-
-  // Handler for past workout logs
   const handleViewWorkoutLog = (log) => {
     setSelectedLog(log);
     setShowWorkoutLogModal(true);
@@ -155,12 +58,10 @@ const ProfilePage = () => {
 
   const handleSaveEditedPost = async (editedPost) => {
     try {
-      const updatedPost = await postService.updatePost(editedPost.id, editedPost);
-      setPosts(prevPosts => 
-        prevPosts.map(post => 
-          post.id === editedPost.id ? updatedPost : post
-        )
-      );
+      await updatePostMutation.mutateAsync({
+        id: editedPost.id,
+        updates: editedPost
+      });
       setIsEditPostModalOpen(false);
       setPostToEdit(null);
     } catch (error) {
@@ -170,8 +71,7 @@ const ProfilePage = () => {
 
   const handleDeletePost = async (postId) => {
     try {
-      await postService.deletePost(postId);
-      setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+      await deletePostMutation.mutateAsync(postId);
     } catch (error) {
       console.error('Error deleting post:', error);
     }
@@ -188,7 +88,10 @@ const ProfilePage = () => {
     setTimeout(() => setSelectedFriendPreview(null), 300);
   };
 
-  if (!user) {
+  // Loading state handling - combining all relevant loading states
+  const isLoading = isUserLoading;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
         <div className="animate-pulse flex flex-col items-center gap-4">
@@ -217,13 +120,12 @@ const ProfilePage = () => {
         
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 space-y-6">
-
-          <FriendsPreview 
-            friends={friends} 
-            onViewAllClick={() => setIsFriendsModalOpen(true)}
-            maxDisplay={5}
-            showPersonalityType={true}
-          />
+            <FriendsPreview 
+              friends={friends} 
+              onViewAllClick={() => setIsFriendsModalOpen(true)}
+              maxDisplay={5}
+              showPersonalityType={true}
+            />
             
             <StatsCard user={user} workoutLogs={workoutLogs} friends={friends} posts={posts} />
           </div>
@@ -248,7 +150,7 @@ const ProfilePage = () => {
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           user={user}
-          setUser={setUser}
+          // No need to pass setUser as React Query will handle updates
         />
       )}
       

@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Upload, Dumbbell, User, Award, Heart, MapPin, Plus } from 'lucide-react';
-import { userService, gymService } from '../../../api/services';
 import GymCreationModal from './GymCreationModal';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 
-const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
+// Import React Query hooks
+import { 
+  useUpdateUser, 
+  useGyms, 
+  useCurrentUser 
+} from '../../../hooks/query';
+
+const EditProfileModal = ({ isOpen, onClose, user }) => {
   const [error, setError] = useState(null);
   const [showGymCreation, setShowGymCreation] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
-  const [gyms, setGyms] = useState([]);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(getAvatarUrl(user?.avatar));
   const [formData, setFormData] = useState({
@@ -20,6 +24,10 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
     preferred_gym: ''
   });
 
+  // React Query hooks
+  const { data: gyms = [] } = useGyms();
+  const updateUserMutation = useUpdateUser();
+  
   // Initialize form data with user data when component mounts or user changes
   useEffect(() => {
     if (user) {
@@ -34,19 +42,6 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
     }
   }, [user]);
 
-  // Fetch gyms when component mounts
-  useEffect(() => {
-    const fetchGyms = async () => {
-      try {
-        const gymsData = await gymService.getGyms();
-        setGyms(Array.isArray(gymsData) ? gymsData : []);
-      } catch (error) {
-        console.error('Error fetching gyms:', error);
-      }
-    };
-    fetchGyms();
-  }, []);
-
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -58,7 +53,7 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setError(null);
     
     try {
       const profileData = new FormData();
@@ -73,9 +68,7 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
         profileData.append('avatar', avatarFile);
       }
 
-      const updatedUser = await userService.updateUser(profileData);
-      setUser(updatedUser);
-      setError(null);
+      await updateUserMutation.mutateAsync(profileData);
       onClose();
       
       if (typeof window.toast === 'function') {
@@ -96,13 +89,11 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
       if (typeof window.toast === 'function') {
         window.toast.error(errorMessage);
       }
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleGymCreated = (newGym) => {
-    setGyms(prevGyms => [...prevGyms, newGym]);
+    // No need to manually update gyms as React Query will handle it
     setFormData(prevData => ({
       ...prevData,
       preferred_gym: newGym.id.toString()
@@ -332,11 +323,11 @@ const EditProfileModal = ({ isOpen, onClose, user, setUser }) => {
                   </button>
                   <button 
                     type="submit"
-                    disabled={loading}
+                    disabled={updateUserMutation.isLoading}
                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 text-sm flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     <Save className="w-4 h-4" />
-                    {loading ? 'Saving...' : 'Save Changes'}
+                    {updateUserMutation.isLoading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>

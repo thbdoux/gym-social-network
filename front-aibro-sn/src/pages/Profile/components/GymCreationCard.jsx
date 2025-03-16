@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Save, MapPin } from 'lucide-react';
-import { gymService } from '../../../api/services';
+import { useCreateGym } from '../../../hooks/query';
 
 const GymCreationCard = ({ onClose, onGymCreated }) => {
   const [formData, setFormData] = useState({
@@ -17,17 +17,18 @@ const GymCreationCard = ({ onClose, onGymCreated }) => {
       sunday: { open: '08:00', close: '20:00' }
     }
   });
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Use React Query mutation hook for creating a gym
+  const createGymMutation = useCreateGym();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     e.stopPropagation(); // Stop event propagation
-    setLoading(true);
     setError(null);
 
     try {
-      const newGym = await gymService.createGym(formData);
+      const newGym = await createGymMutation.mutateAsync(formData);
       if (newGym) {
         // Make sure we pass the new gym data in the correct format
         await onGymCreated(newGym);
@@ -35,8 +36,6 @@ const GymCreationCard = ({ onClose, onGymCreated }) => {
     } catch (error) {
       console.error('Gym creation error:', error);
       setError(error.response?.data?.detail || 'Failed to create gym');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -95,11 +94,11 @@ const GymCreationCard = ({ onClose, onGymCreated }) => {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={createGymMutation.isLoading}
           className="w-full bg-blue-600 hover:bg-blue-700 rounded-lg py-2 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          {loading ? 'Creating...' : 'Create Gym'}
+          {createGymMutation.isLoading ? 'Creating...' : 'Create Gym'}
         </button>
       </form>
     </div>

@@ -1,28 +1,95 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, Users, UserPlus, Search, Eye, 
   Check, CheckCircle, Clock, UserX, AlertCircle,
   Filter, ArrowRight
 } from 'lucide-react';
-import { userService } from '../../../api/services';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import ProfilePreviewModal from './ProfilePreviewModal';
 
+// Import React Query hooks
+import {
+  useFriends,
+  useFriendRequests,
+  useUsers,
+  useSendFriendRequest,
+  useRespondToFriendRequest,
+  useRemoveFriend
+} from '../../../hooks/query';
+
 const FriendsModal = ({ isOpen, onClose, currentUser }) => {
-  // Core data states
-  const [friends, setFriends] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [recommendedUsers, setRecommendedUsers] = useState([]);
-  
   // UI states
   const [activeTab, setActiveTab] = useState('friends');
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionInProgress, setActionInProgress] = useState(null);
   
   // Profile preview modal state
   const [selectedUser, setSelectedUser] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // Data fetching with React Query
+  const { 
+    data: friends = [], 
+    isLoading: friendsLoading,
+    refetch: refetchFriends
+  } = useFriends({
+    enabled: isOpen,
+    // Ensure we're always getting fresh data when the modal opens
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
+  });
+  
+  const { 
+    data: requests = [], 
+    isLoading: requestsLoading,
+    refetch: refetchRequests
+  } = useFriendRequests({
+    enabled: isOpen,
+    // Ensure we're always getting fresh data when the modal opens
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
+  });
+  
+  const { 
+    data: allUsers = [], 
+    isLoading: usersLoading 
+  } = useUsers({
+    enabled: isOpen && activeTab === 'discover',
+    // Ensure we're always getting fresh data when the modal opens
+    refetchOnMount: true
+  });
+  
+  // Mutations for friend actions
+  const sendFriendRequestMutation = useSendFriendRequest();
+  const respondToFriendRequestMutation = useRespondToFriendRequest();
+  const removeFriendMutation = useRemoveFriend();
+  
+  // Effect to refresh data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      refetchFriends();
+      refetchRequests();
+    }
+  }, [isOpen, refetchFriends, refetchRequests]);
+  
+  // Combined loading state
+  const loading = 
+    friendsLoading || 
+    requestsLoading || 
+    (activeTab === 'discover' && usersLoading);
+  
+  // Determine if any action is in progress for specific user
+  const isActionInProgress = (userId) => {
+    return (
+      sendFriendRequestMutation.isLoading && 
+        sendFriendRequestMutation.variables === userId
+    ) || (
+      respondToFriendRequestMutation.isLoading && 
+        respondToFriendRequestMutation.variables?.userId === userId
+    ) || (
+      removeFriendMutation.isLoading && 
+        removeFriendMutation.variables === userId
+    );
+  };
 
   // Format text utility
   const formatText = (text) => {
@@ -30,102 +97,99 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  // Fetch friend data
-  const fetchFriendData = useCallback(async () => {
-    if (!isOpen || !currentUser) return;
-    
-    try {
-      setLoading(true);
-      
-      // Fetch data in parallel
-      const [friendsResponse, requestsResponse, usersResponse] = await Promise.all([
-        userService.getFriends(),
-        userService.getFriendRequests(),
-        userService.getAllUsers()
-      ]);
-
-      // Process friends
-      const friendsList = Array.isArray(friendsResponse) ? friendsResponse : [];
-      setFriends(friendsList);
-      
-      // Process requests
-      const requestsList = Array.isArray(requestsResponse) 
-        ? requestsResponse.filter(req => req.status === 'pending') 
-        : [];
-      setRequests(requestsList);
-      
-      // Process recommended users
-      const allUsers = Array.isArray(usersResponse) ? usersResponse : [];
-      const currentUserId = currentUser?.id;
-      
-      if (currentUserId) {
-        // Create sets for faster lookup
-        const friendIds = new Set(friendsList.map(f => f.friend?.id));
-        
-        const pendingSentIds = new Set(
-          requestsList
-            .filter(req => req.from_user.id === currentUserId)
-            .map(req => req.to_user.id)
-        );
-        
-        const pendingReceivedIds = new Set(
-          requestsList
-            .filter(req => req.to_user.id === currentUserId)
-            .map(req => req.from_user.id)
-        );
-        
-        // Filter recommended users
-        const recommended = allUsers.filter(user => 
-          user.id !== currentUserId && 
-          !friendIds.has(user.id) && 
-          !pendingSentIds.has(user.id) && 
-          !pendingReceivedIds.has(user.id)
-        );
-        
-        setRecommendedUsers(recommended);
+  // Process users for the discover tab
+// In the discover tab, we should see ALL users that are not already friends with the current user
+// and that don't have a pending request in either direction
+const getRecommendedUsers = () => {
+  if (!currentUser?.id || !Array.isArray(allUsers) || !Array.isArray(friends) || !Array.isArray(requests)) {
+    return [];
+  }
+  
+  const currentUserId = currentUser.id;
+  
+  // Create sets for faster lookup
+  // Friends are users that have an accepted friendship with the current user
+  const friendIds = new Set(friends.map(f => f.friend?.id));
+  
+  // Create a set of all user IDs that have pending requests in either direction
+  const pendingRequestUserIds = new Set();
+  
+  // Add all users involved in requests with the current user
+  requests.forEach(req => {
+    if (req.status === 'pending') {
+      if (req.from_user.id === currentUserId) {
+        pendingRequestUserIds.add(req.to_user.id);
+      } else if (req.to_user.id === currentUserId) {
+        pendingRequestUserIds.add(req.from_user.id);
       }
-    } catch (error) {
-      console.error('Error fetching friend data:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [isOpen, currentUser]);
+  });
+  
+  // Filter users:
+  // 1. Not the current user
+  // 2. Not already friends with the current user
+  // 3. No pending request in either direction
+  return allUsers.filter(user => 
+    user.id !== currentUserId && 
+    !friendIds.has(user.id) && 
+    !pendingRequestUserIds.has(user.id)
+  );
+};
+  
+  const recommendedUsers = getRecommendedUsers();
 
-  // Load data when modal opens
-  useEffect(() => {
-    fetchFriendData();
-  }, [fetchFriendData]);
-
-  // Friend request actions
+  // Friend request actions with optimistic updates
   const handleFriendAction = async (actionType, userId) => {
-    if (actionInProgress) return;
-    
     try {
-      setActionInProgress(userId);
-      
       switch (actionType) {
         case 'send':
-          await userService.sendFriendRequest(userId);
+          await sendFriendRequestMutation.mutateAsync(userId, {
+            onSuccess: () => {
+              // Force refetch both friends and requests to ensure UI consistency
+              refetchFriends();
+              refetchRequests();
+            }
+          });
           break;
         case 'accept':
         case 'reject':
         case 'cancel':
-          await userService.respondToFriendRequest(userId, actionType);
+          await respondToFriendRequestMutation.mutateAsync({ 
+            userId, 
+            response: actionType 
+          }, {
+            onSuccess: () => {
+              // Force refetch both friends and requests to ensure UI consistency
+              refetchFriends();
+              refetchRequests();
+            }
+          });
           break;
         case 'remove':
-          await userService.removeFriend(userId);
+          await removeFriendMutation.mutateAsync(userId, {
+            onSuccess: () => {
+              // Force refetch friends to ensure UI consistency
+              refetchFriends();
+            }
+          });
           break;
         default:
           console.warn(`Unknown action type: ${actionType}`);
           return;
       }
       
-      // Refresh data after action completes
-      await fetchFriendData();
+      // Switch to appropriate tab after action
+      if (actionType === 'accept') {
+        setActiveTab('friends');
+      } else if (actionType === 'send') {
+        setActiveTab('requests');
+      } else if (actionType === 'reject' || actionType === 'cancel') {
+        // Refresh the friends and requests data to ensure UI consistency
+        refetchFriends();
+        refetchRequests();
+      }
     } catch (error) {
       console.error(`Error with friend action ${actionType}:`, error);
-    } finally {
-      setActionInProgress(null);
     }
   };
   
@@ -151,17 +215,20 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
     );
     
     // Requests tab data
+    // Show all pending requests (both sent and received)
     const receivedRequests = requests.filter(req => 
       req.to_user.id === currentUser?.id &&
+      req.status === 'pending' &&
       req.from_user.username.toLowerCase().includes(query)
     );
     
     const sentRequests = requests.filter(req => 
       req.from_user.id === currentUser?.id &&
+      req.status === 'pending' &&
       req.to_user.username.toLowerCase().includes(query)
     );
     
-    // Discover tab data
+    // Discover tab data - All users who are not friends and don't have pending requests
     const filteredRecommendations = recommendedUsers.filter(user => 
       user.username.toLowerCase().includes(query)
     );
@@ -181,6 +248,13 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
   const changeTab = (tab) => {
     setActiveTab(tab);
     setSearchQuery(''); // Clear search when changing tabs
+    
+    // Refetch data when changing tabs to ensure fresh data
+    if (tab === 'friends') {
+      refetchFriends();
+    } else if (tab === 'requests') {
+      refetchRequests();
+    }
   };
 
   if (!isOpen) return null;
@@ -249,7 +323,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
               <TabButton 
                 icon={<Clock className="w-4 h-4" />}
                 label="Requests" 
-                count={filteredData.received.length}
+                count={filteredData.received.length + filteredData.sent.length}
                 active={activeTab === 'requests'} 
                 onClick={() => changeTab('requests')} 
               />
@@ -282,7 +356,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                             friend={friendData.friend}
                             onViewProfile={() => handleViewProfile(friendData.friend)}
                             onRemoveFriend={() => handleFriendAction('remove', friendData.friend.id)}
-                            isLoading={actionInProgress === friendData.friend.id}
+                            isLoading={isActionInProgress(friendData.friend.id)}
                           />
                         ))}
                       </div>
@@ -319,7 +393,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                               onViewProfile={() => handleViewProfile(request.from_user)}
                               onAccept={() => handleFriendAction('accept', request.from_user.id)}
                               onReject={() => handleFriendAction('reject', request.from_user.id)}
-                              isLoading={actionInProgress === request.from_user.id}
+                              isLoading={isActionInProgress(request.from_user.id)}
                             />
                           ))}
                         </div>
@@ -341,7 +415,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                               type="sent"
                               onViewProfile={() => handleViewProfile(request.to_user)}
                               onCancel={() => handleFriendAction('cancel', request.to_user.id)}
-                              isLoading={actionInProgress === request.to_user.id}
+                              isLoading={isActionInProgress(request.to_user.id)}
                             />
                           ))}
                         </div>
@@ -373,7 +447,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                             user={user}
                             onViewProfile={() => handleViewProfile(user)}
                             onAddFriend={() => handleFriendAction('send', user.id)}
-                            isLoading={actionInProgress === user.id}
+                            isLoading={isActionInProgress(user.id)}
                           />
                         ))}
                       </div>
@@ -404,12 +478,24 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                   <>{filteredData.recommended.length} suggestions</>
                 )}
               </div>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
-              >
-                Close
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    // Force data refresh
+                    refetchFriends();
+                    refetchRequests();
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-sm"
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
