@@ -1,7 +1,7 @@
 import { 
     useQuery, 
     useMutation, 
-    useQueryClient 
+    useQueryClient,
   } from '@tanstack/react-query';
   import { userService } from '../../api/services';
   
@@ -24,6 +24,9 @@ import {
       queryFn: userService.getCurrentUser,
       staleTime: 1000 * 60 * 10, // 10 minutes
       cacheTime: 1000 * 60 * 60, // 1 hour
+      retry: false, // Don't retry if the token is invalid
+      // Only attempt to fetch if there's a token
+      enabled: !!localStorage.getItem('token')
     });
   };
   
@@ -158,9 +161,12 @@ import {
     
     return useMutation({
       mutationFn: ({ username, password }) => userService.login(username, password),
-      onSuccess: () => {
-        // Clear all queries when logging in to start fresh
-        queryClient.clear();
+      onSuccess: (data) => {
+        // Store the token
+        localStorage.setItem('token', data.access);
+        
+        // Reset queries and fetch user data
+        queryClient.resetQueries({ queryKey: userKeys.current() });
       },
     });
   };

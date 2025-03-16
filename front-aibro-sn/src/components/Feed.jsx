@@ -1,25 +1,25 @@
 // src/components/Feed.jsx
 import React, { useState } from 'react';
 import { User, Heart, MessageCircle, Send } from 'lucide-react';
-import { postService } from '../api/services';
+import { useLikePost, useCommentOnPost } from '../hooks/query/usePostsQuery';
 
 const CommentSection = ({ comments, postId, onNewComment }) => {
   const [newComment, setNewComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const commentMutation = useCommentOnPost();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
 
-    setSubmitting(true);
     try {
-      const response = await postService.commentOnPost(postId, newComment);
+      const response = await commentMutation.mutateAsync({ 
+        postId, 
+        content: newComment 
+      });
       onNewComment(response);
       setNewComment('');
     } catch (err) {
       console.error('Failed to post comment:', err);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -54,7 +54,7 @@ const CommentSection = ({ comments, postId, onNewComment }) => {
         />
         <button
           type="submit"
-          disabled={submitting}
+          disabled={commentMutation.isLoading}
           className="p-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
           <Send className="w-4 h-4" />
@@ -66,12 +66,13 @@ const CommentSection = ({ comments, postId, onNewComment }) => {
 
 const Post = ({ post, onUpdatePost }) => {
   const [showComments, setShowComments] = useState(false);
+  const likeMutation = useLikePost();
 
   const handleLike = async () => {
     try {
-      // Toggle like state using postService
-      await postService.likePost(post.id);
-      // The API appears to handle toggling on its own
+      await likeMutation.mutateAsync(post.id);
+      // Note: With optimistic updates in your mutation hook,
+      // this manual update might not be necessary
       onUpdatePost({
         ...post,
         is_liked: !post.is_liked,

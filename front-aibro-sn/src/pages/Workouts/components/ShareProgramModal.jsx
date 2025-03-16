@@ -1,28 +1,47 @@
-import React, { useState } from 'react';
-import { X, Share2, Activity, Target, Calendar, Send } from 'lucide-react';
-import { programService } from '../../../api/services';
+import React, { useState, useEffect } from 'react';
+import { X, Share2, Activity, Target, Calendar, Send, CheckCircle } from 'lucide-react';
+
+// Import React Query hook
+import { useShareProgram } from '../../../hooks/query/useProgramQuery';
 
 const ShareProgramModal = ({ program, onClose }) => {
   const [content, setContent] = useState(`Check out my workout program: ${program.name}`);
-  const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Use React Query mutation hook for sharing a program
+  const shareProgramMutation = useShareProgram();
+
+  // Reset success state if there's an error
+  useEffect(() => {
+    if (error) {
+      setShowSuccess(false);
+    }
+  }, [error]);
 
   const handleShareToFeed = async () => {
     if (!content.trim()) return;
+    setError(null);
     
-    setIsSharing(true);
     try {
-      await programService.shareProgram(program.id, {
-        content: content,
-        programDetails: program
+      await shareProgramMutation.mutateAsync({ 
+        programId: program.id, 
+        shareData: {
+          content: content,
+          programDetails: program
+        }
       });
       
-      onClose();
+      // Show success effect before closing
+      setShowSuccess(true);
+      
+      // Close the modal after a short delay
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch (err) {
       console.error('Error sharing program:', err);
       setError(`Failed to share program: ${err.message}`);
-    } finally {
-      setIsSharing(false);
     }
   };
 
@@ -106,20 +125,37 @@ const ShareProgramModal = ({ program, onClose }) => {
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-end space-x-3">
+        {/* Success Message */}
+      {showSuccess && (
+        <div className="bg-green-500/20 border border-green-500/30 text-green-400 px-4 py-3 rounded-lg mb-6 animate-fadeIn flex items-center">
+          <CheckCircle className="w-5 h-5 mr-2" />
+          <span>Program shared successfully!</span>
+        </div>
+      )}
+
+      <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+            disabled={showSuccess}
+            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleShareToFeed}
-            disabled={isSharing || !content.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+            disabled={shareProgramMutation.isLoading || !content.trim() || showSuccess}
+            className={`px-6 py-2 rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50
+              ${showSuccess 
+                ? 'bg-green-600 text-white' 
+                : 'bg-blue-600 text-white hover:bg-blue-700'}`}
           >
-            {isSharing ? (
+            {shareProgramMutation.isLoading ? (
               <>Loading...</>
+            ) : showSuccess ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span>Shared!</span>
+              </>
             ) : (
               <>
                 <Send className="w-4 h-4" />

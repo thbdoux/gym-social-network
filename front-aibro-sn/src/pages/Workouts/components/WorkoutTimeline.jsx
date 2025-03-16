@@ -106,7 +106,7 @@ const WorkoutTimeline = ({
                             onClick={() => {
                               // Use setSelectedLog for workout logs (for ExpandableWorkoutLogModal)
                               setSelectedLog(log);
-                              setShowWorkoutModal(true);
+                              // setShowWorkoutModal(true);
                             }}
                           >
                             {/* Status Indicator Line - Green for completed workout */}

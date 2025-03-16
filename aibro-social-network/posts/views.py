@@ -28,12 +28,9 @@ class PostViewSet(viewsets.ModelViewSet):
         ).order_by('-created_at')
 
     def create(self, request, *args, **kwargs):
-        print("Creating post with data:", request.data)
-        
         # Handle program_id from form data 
         program_id = request.data.get('program_id')
         if program_id:
-            print(f"Found program_id in request: {program_id}")
             try:
                 # Convert to int if it's a string
                 program_id = int(program_id) if isinstance(program_id, str) else program_id
@@ -49,8 +46,7 @@ class PostViewSet(viewsets.ModelViewSet):
             if post_id:
                 post = Post.objects.get(id=post_id)
                 response.data = PostSerializer(post, context={'request': request}).data
-        
-        print("Create response data:", response.data)
+    
         return response
 
     def update(self, request, *args, **kwargs):

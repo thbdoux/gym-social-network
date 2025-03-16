@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Plus, ArrowLeft, Loader2, Search, X } from 'lucide-react';
-import { ProgramCard, ProgramGrid } from '../components/ProgramCard';
+import { ProgramGrid } from '../components/ProgramCard';
 import EmptyState from '../components/EmptyState';
 import ShareProgramModal from '../components/ShareProgramModal';
-import { programService } from '../../../api/services';
 
-const PlansListView = ({
+// Import React Query hooks
+import { useForkProgram } from '../../../hooks/query/useProgramQuery';
+
+const ProgramListView = ({
   workoutPlans,
   isLoading = false,
   onPlanSelect,
@@ -17,18 +19,15 @@ const PlansListView = ({
   onForkProgram,
   onEditProgram
 }) => {
-  // State management
+
   const [showShareModal, setShowShareModal] = useState(false);
-  const [programToShare, setProgramToShare] = useState(null);
-  const [toggleLoading, setToggleLoading] = useState(false);
+  const [programToShare, setProgramToShare] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Check if there are any workout plans
+
+  const forkProgramMutation = useForkProgram();
   const hasPlans = workoutPlans.length > 0;
 
-  // Add an access verification wrapper function
   const handlePlanSelection = (plan) => {
-    // Double-check access permission based on ownership
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
       console.error('Unauthorized access attempt to plan:', plan.id);
       alert('You do not have permission to view this program.');
@@ -37,17 +36,14 @@ const PlansListView = ({
     
     onPlanSelect(plan);
   };
-  
-  // Filter programs shown in the list to only those the user should see
+
   const getAccessiblePrograms = () => {
-    // First filter for access permissions
     const accessiblePlans = workoutPlans.filter(plan => 
       plan.is_owner || 
       plan.program_shares?.length > 0 || 
       plan.forked_from !== null
     );
     
-    // Then apply search filter if there's a query
     if (!searchQuery) return accessiblePlans;
     
     return accessiblePlans.filter(plan => 
@@ -67,13 +63,10 @@ const PlansListView = ({
 
   const handleToggleActive = async (planId) => {
     try {
-      setToggleLoading(true);
       await togglePlanActive(planId);
     } catch (err) {
       console.error('Error toggling plan active state:', err);
       alert('Failed to toggle active status. Please try again.');
-    } finally {
-      setToggleLoading(false);
     }
   };
 
@@ -92,9 +85,7 @@ const PlansListView = ({
     } else {
       try {
         if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
-          // Use programService instead of direct API call
-          const forkedProgram = await programService.forkProgram(program.id);
-          // Redirect to the newly forked program
+          const forkedProgram = await forkProgramMutation.mutateAsync(program.id);
           onPlanSelect(forkedProgram);
         }
       } catch (err) {
@@ -220,4 +211,4 @@ const PlansListView = ({
   );
 };
 
-export default PlansListView;
+export default ProgramListView;

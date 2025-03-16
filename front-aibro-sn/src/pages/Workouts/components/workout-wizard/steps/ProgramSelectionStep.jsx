@@ -1,34 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dumbbell, CheckCircle, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
-import { programService } from '../../../../../api/services';
 
-const ProgramSelectionStep = ({ formData, updateFormData, colors }) => {
-  const [programs, setPrograms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// Import React Query hook
+import { usePrograms } from '../../../../../hooks/query/useProgramQuery';
+
+const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: propPrograms = [], programsLoading, programsError }) => {
+  // Use React Query hook if not passed from props
+  const { 
+    data: queryPrograms = [], 
+    isLoading: queryLoading, 
+    error: queryError 
+  } = usePrograms({
+    // Only enable the query if programs weren't provided via props
+    enabled: !propPrograms || propPrograms.length === 0
+  });
+  
+  // Use prop programs if available, otherwise use query programs
+  const programs = propPrograms.length > 0 ? propPrograms : queryPrograms;
+  // Use prop loading state if available, otherwise use query loading state
+  const loading = propPrograms.length > 0 ? programsLoading : queryLoading;
+  // Use prop error if available, otherwise use query error
+  const error = propPrograms.length > 0 ? programsError : queryError;
+  
   const [selectedProgramId, setSelectedProgramId] = useState(formData.program || null);
   const [showMoreInfo, setShowMoreInfo] = useState(false);
 
-  // Fetch user's programs
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        setLoading(true);
-        // Use programService instead of direct API call
-        const fetchedPrograms = await programService.getPrograms();
-        // Filter for active programs
-        const activePrograms = fetchedPrograms.filter(program => program.is_active);
-        setPrograms(activePrograms);
-      } catch (err) {
-        console.error('Error fetching programs:', err);
-        setError('Failed to load programs');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPrograms();
-  }, []);
+  // Get active programs
+  const activePrograms = programs.filter(program => program.is_active);
 
   // Handle program selection
   const handleProgramSelect = (programId) => {
@@ -81,12 +79,12 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors }) => {
       {/* Error state */}
       {error && (
         <div className="bg-red-900/20 border border-red-500/30 text-red-400 p-4 rounded-lg">
-          {error}
+          {error?.message || 'Failed to load programs'}
         </div>
       )}
 
       {/* No programs state */}
-      {!loading && programs.length === 0 && (
+      {!loading && activePrograms.length === 0 && (
         <div className="bg-gray-800/50 rounded-xl p-8 text-center border border-dashed border-gray-700">
           <div className="bg-purple-900/30 rounded-full p-3 w-14 h-14 mx-auto mb-4 flex items-center justify-center">
             <Dumbbell className="w-7 h-7 text-purple-400" />
@@ -105,11 +103,11 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors }) => {
       )}
 
       {/* Programs grid - new grid layout */}
-      {!loading && programs.length > 0 && (
+      {!loading && activePrograms.length > 0 && (
         <div className="space-y-6">
           {/* Grid layout for program selections */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {programs.map(program => {
+            {activePrograms.map(program => {
               const isSelected = selectedProgramId === program.id;
               return (
                 <div

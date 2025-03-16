@@ -7,7 +7,7 @@ import EnhancedWorkoutCard from '../components/EnhancedWorkoutCard';
 import EmptyState from '../components/EmptyState';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 
-const EnhancedAllWorkoutsView = ({
+const AllWorkoutsView = ({
   workoutTemplates,
   isLoading,
   onCreateTemplate,
@@ -321,4 +321,4 @@ const EnhancedAllWorkoutsView = ({
   );
 };
 
-export default EnhancedAllWorkoutsView;
+export default AllWorkoutsView;

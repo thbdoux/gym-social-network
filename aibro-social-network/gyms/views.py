@@ -28,10 +28,8 @@ class GymViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         try:
-            print("Received data:", request.data)  # Debug print
             serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
-                print("Validation errors:", serializer.errors)  # Debug print
                 return Response(
                     {
                         "error": "Invalid data",
@@ -42,7 +40,6 @@ class GymViewSet(viewsets.ModelViewSet):
             self.perform_create(serializer)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
-            print("Exception:", str(e))  # Debug print
             return Response(
                 {
                     "error": "Server error",

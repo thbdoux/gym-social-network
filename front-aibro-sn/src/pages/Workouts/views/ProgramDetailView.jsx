@@ -5,9 +5,18 @@ import TemplateSelector from '../components/TemplateSelector';
 import EnhancedProgramForm from '../components/EnhancedProgramForm';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 import WeeklyCalendar from '../components/WeeklyCalendar';
-import { programService, workoutService } from '../../../api/services';
 
-const PlanDetailView = ({
+// Import React Query hooks
+import { 
+  useProgram, 
+  useUpdateProgramWorkout, 
+  useRemoveWorkoutFromProgram 
+} from '../../../hooks/query/useProgramQuery';
+import { 
+  useCreateWorkoutTemplate 
+} from '../../../hooks/query/useWorkoutQuery';
+
+const ProgramDetailView = ({
   plan,
   templates,
   onBack,
@@ -25,6 +34,14 @@ const PlanDetailView = ({
   const [showCreateWorkout, setShowCreateWorkout] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null); // For mobile view filtering
   const [loadingState, setLoadingState] = useState(false);
+
+  // React Query hooks
+  const { refetch: refetchProgram } = useProgram(plan?.id, {
+    enabled: false // Only fetch when explicitly called
+  });
+  const updateWorkoutMutation = useUpdateProgramWorkout();
+  const removeWorkoutMutation = useRemoveWorkoutFromProgram();
+  const createTemplateMutation = useCreateWorkoutTemplate();
 
   // Check if user has edit permissions
   const canEdit = user && plan && (user.username === plan.creator_username || user.is_staff);
@@ -49,7 +66,7 @@ const PlanDetailView = ({
   const refreshPlans = async () => {
     try {
       setLoadingState(true);
-      const updatedPlan = await programService.getProgramById(plan.id);
+      const { data: updatedPlan } = await refetchProgram();
       if (updatedPlan) {
         onUpdate(plan.id, updatedPlan);
       }
@@ -63,8 +80,12 @@ const PlanDetailView = ({
   const handleDayChange = async (workoutId, newDay) => {
     try {
       setLoadingState(true);
-      await programService.updateProgramWorkout(plan.id, workoutId, {
-        preferred_weekday: newDay
+      await updateWorkoutMutation.mutateAsync({
+        programId: plan.id,
+        workoutId,
+        updates: {
+          preferred_weekday: newDay
+        }
       });
       await refreshPlans();
     } catch (err) {
@@ -90,7 +111,7 @@ const PlanDetailView = ({
         exercises: workoutData.exercises || []
       };
 
-      const newTemplate = await workoutService.createTemplate(templateData);
+      const newTemplate = await createTemplateMutation.mutateAsync(templateData);
       await onAddWorkout(plan.id, newTemplate.id, workoutData.preferred_weekday || 0);
       setShowCreateWorkout(false);
     } catch (err) {
@@ -124,7 +145,11 @@ const PlanDetailView = ({
     }
     try {
       setLoadingState(true);
-      await onRemoveWorkout(plan.id, workoutId);
+      await removeWorkoutMutation.mutateAsync({
+        programId: plan.id,
+        workoutId
+      });
+      await refreshPlans();
     } catch (err) {
       setError('Failed to remove workout from program');
     } finally {
@@ -482,4 +507,4 @@ const PlanDetailView = ({
   );
 };
 
-export default PlanDetailView;
+export default ProgramDetailView;

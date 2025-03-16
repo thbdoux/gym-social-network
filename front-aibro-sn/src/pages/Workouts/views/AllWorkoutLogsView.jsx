@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft,
   Loader2,
@@ -14,13 +14,22 @@ import {
   ChevronRight,
   TrendingUp
 } from 'lucide-react';
-import { useWorkoutLogs } from '../hooks/useWorkoutLogs';
 import WorkoutLogCard from '../components/WorkoutLogCard';
-import { programService } from '../../../api/services';
 import { parseDate } from './ActivityComponents';
 import FilterPanel from './FilterPanel';
 import WorkoutWizard from './../components/workout-wizard/WorkoutWizard';
 import WorkoutStatisticsView from './WorkoutStatisticsView';
+
+// Import React Query hooks
+import { 
+  useLogs, 
+  useCreateLog, 
+  useUpdateLog, 
+  useDeleteLog 
+} from '../../../hooks/query/useLogQuery';
+import { 
+  usePrograms 
+} from '../../../hooks/query/useProgramQuery';
 
 const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
   // State management
@@ -36,33 +45,29 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
   });
   const [showWorkoutWizard, setShowWorkoutWizard] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
-  const [programs, setPrograms] = useState([]);
   
-  // Fetch programs for filter options
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        // Use programService instead of direct API call
-        const fetchedPrograms = await programService.getPrograms();
-        setPrograms(fetchedPrograms || []);
-      } catch (err) {
-        console.error('Error fetching programs:', err);
-      }
-    };
-    
-    fetchPrograms();
-  }, []);
-  
-  // Get workout logs data
+  // Fetch logs with React Query
   const { 
-    logs, 
-    loading, 
-    error, 
-    createLog,
-    updateLog,
-    deleteLog,
-    refreshLogs 
-  } = useWorkoutLogs(activeProgram);
+    data: logs = [], 
+    isLoading: logsLoading, 
+    error: logsError,
+    refetch: refreshLogs 
+  } = useLogs(filters);
+  
+  // Fetch programs for filter options with React Query
+  const { 
+    data: programs = [], 
+    isLoading: programsLoading 
+  } = usePrograms();
+  
+  // Create mutation hook
+  const createLogMutation = useCreateLog();
+  
+  // Update mutation hook
+  const updateLogMutation = useUpdateLog();
+  
+  // Delete mutation hook
+  const deleteLogMutation = useDeleteLog();
   
   // Apply filters and search to logs
   const filteredLogs = useMemo(() => {
@@ -149,7 +154,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
   const handleDeleteLog = async (log) => {
     if (window.confirm('Are you sure you want to delete this workout log?')) {
       try {
-        await deleteLog(log.id);
+        await deleteLogMutation.mutateAsync(log.id);
         await refreshLogs();
       } catch (err) {
         console.error('Error deleting log:', err);
@@ -183,9 +188,9 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
             }))
           }))
         };
-        await updateLog(selectedLog.id, updateData);
+        await updateLogMutation.mutateAsync({ id: selectedLog.id, logData: updateData });
       } else {
-        await createLog(preparedData);
+        await createLogMutation.mutateAsync(preparedData);
       }
       
       setShowWorkoutWizard(false);
@@ -348,7 +353,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
       )}
       
       {/* Loading state */}
-      {loading ? (
+      {logsLoading ? (
         <div className="flex items-center justify-center h-60">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
           <span className="ml-2 text-gray-400">Loading workout history...</span>

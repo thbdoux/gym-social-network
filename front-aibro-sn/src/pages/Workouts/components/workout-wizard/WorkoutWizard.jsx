@@ -9,7 +9,9 @@ import NotesStep from './steps/NotesStep';
 import ReviewStep from './steps/ReviewStep';
 import ProgramSelectionStep from './steps/ProgramSelectionStep';
 import { POST_TYPE_COLORS } from '../../../../utils/postTypeUtils';
-import { useWorkoutPlans } from '../../hooks/useWorkoutPlans';
+
+// Import React Query hooks
+import { usePrograms } from '../../../../hooks/query/useProgramQuery';
 
 // Initialize form data with defaults or existing data
 const initializeFormData = (log) => {
@@ -105,8 +107,12 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
   const colors = POST_TYPE_COLORS.workout_log;
   const contentRef = useRef(null);
   
-  // Use the workout plans hook to fetch programs
-  const { workoutPlans, loading: programsLoading, error: programsError } = useWorkoutPlans();
+  // Use React Query hook for programs
+  const { 
+    data: workoutPlans = [], 
+    isLoading: programsLoading, 
+    error: programsError 
+  } = usePrograms();
 
   // Define steps in the wizard
   const steps = [

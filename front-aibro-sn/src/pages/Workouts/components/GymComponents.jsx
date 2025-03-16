@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Plus, X, Loader2 } from 'lucide-react';
-import { gymService } from '../../../api/services';
+
+// Import React Query hooks
+import { useCreateGym } from '../../../hooks/query/useGymQuery';
 
 const EQUIPMENT_TYPES = [
   { value: 'cardio', label: 'Cardio Equipment' },
@@ -15,7 +17,6 @@ const COMMON_AMENITIES = ['24/7', 'Cardio Area', 'Free Weights', 'Showers', 'Loc
 
 export const AddGymModal = ({ onClose, onSuccess }) => {
   const [isAdvancedMode, setIsAdvancedMode] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -26,9 +27,11 @@ export const AddGymModal = ({ onClose, onSuccess }) => {
     photos: []
   });
 
+  // Use React Query mutation for creating gym
+  const createGymMutation = useCreateGym();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     
     try {
       // Only include advanced fields if in advanced mode
@@ -59,15 +62,13 @@ export const AddGymModal = ({ onClose, onSuccess }) => {
         }
       }
   
-      // Use gymService instead of direct API call
-      const createdGym = await gymService.createGym(apiData);
+      // Use React Query mutation instead of direct service call
+      const createdGym = await createGymMutation.mutateAsync(apiData);
       onSuccess(createdGym);
       onClose();
     } catch (error) {
       console.error('Error creating gym:', error.response?.data || error);
       // You might want to show an error message to the user here
-    } finally {
-      setLoading(false);  // Always reset loading state
     }
   };
 
@@ -203,10 +204,10 @@ export const AddGymModal = ({ onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={createGymMutation.isLoading}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center space-x-2 disabled:opacity-50"
             >
-              {loading ? (
+              {createGymMutation.isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Creating...</span>
@@ -251,7 +252,7 @@ export const GymSelect = ({
         </div>
       ) : error ? (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-red-400">
-          {error}
+          {error?.message || error}
         </div>
       ) : (
         <select

@@ -1,10 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Home, Check, Clock, Plus } from 'lucide-react';
-import { useGyms } from '../../../hooks/useGyms';
 import { AddGymModal } from '../../GymComponents';
 
+// Import React Query hooks
+import { useGyms } from '../../../../../hooks/query/useGymQuery';
+
 const GymLocationStep = ({ formData, updateFormData, colors }) => {
-  const { gyms, loading, error, refreshGyms } = useGyms();
+  // React Query hook for gyms
+  const { 
+    data: gyms = [], 
+    isLoading: loading, 
+    error, 
+    refetch: refreshGyms 
+  } = useGyms();
+  
   const [showAddGym, setShowAddGym] = useState(false);
   const [locationType, setLocationType] = useState(formData.gym ? 'gym' : 'gym'); // Default to gym
   const [isDragging, setIsDragging] = useState(false);

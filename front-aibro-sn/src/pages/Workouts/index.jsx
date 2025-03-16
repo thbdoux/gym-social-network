@@ -16,9 +16,9 @@ import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
 import ShareProgramModal from './components/ShareProgramModal';
 import AllWorkoutLogsView from './views/AllWorkoutLogsView';
 import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
-import PlanDetailView from './views/PlanDetailView';
-import EnhancedAllWorkoutsView from './views/EnhancedAllWorkoutsView';
-import PlansListView from './views/PlansListView';
+import ProgramDetailView from './views/ProgramDetailView';
+import AllWorkoutsView from './views/AllWorkoutsView';
+import ProgramListView from './views/ProgramListView';
 
 // Import React Query hooks
 import { usePrograms, useProgram, useCreateProgram, useUpdateProgram, useDeleteProgram, 
@@ -46,23 +46,13 @@ const WorkoutSpace = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   
-  // Modal state for workout templates and next workouts
-  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
-  const [selectedWorkout, setSelectedWorkout] = useState(null);
-  
-  // State for workout log modal (past workouts)
-  const [showWorkoutLogModal, setShowWorkoutLogModal] = useState(false);
-  
-  // Use React Query hooks
   const { data: currentUser } = useCurrentUser();
   const { data: workoutPlans = [], isLoading: plansLoading, error: plansError, refetch: refreshPlans } = usePrograms();
   const { data: templates = [], isLoading: templatesLoading, error: templatesError } = useWorkoutTemplates();
   const { data: logs = [], isLoading: logsLoading, error: logsError, refetch: refreshLogs } = useLogs();
   
-  // Get the active program
   const activeProgram = workoutPlans.find(plan => plan.is_active);
   
-  // Calculate next workout based on active program
   const nextWorkout = activeProgram?.workouts?.length
     ? programService.getNextWorkout(activeProgram)
     : null;
@@ -77,7 +67,6 @@ const WorkoutSpace = () => {
   const removeWorkoutMutation = useRemoveWorkoutFromProgram();
   const createLogMutation = useCreateLog();
   const updateLogMutation = useUpdateLog();
-  const deleteLogMutation = useDeleteLog();
   const forkProgramMutation = useForkProgram();
 
   const handlePlanSelect = async (plan) => {
@@ -229,7 +218,7 @@ const WorkoutSpace = () => {
   if (view === 'plans') {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <PlansListView
+        <ProgramListView
           workoutPlans={workoutPlans}
           isLoading={plansLoading}
           onPlanSelect={handlePlanSelect}
@@ -261,7 +250,7 @@ const WorkoutSpace = () => {
   if (view === 'all-workouts') {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <EnhancedAllWorkoutsView
+        <AllWorkoutsView
           workoutTemplates={templates}
           isLoading={templatesLoading}
           onCreateTemplate={(template) => createTemplateMutation.mutate(template)}
@@ -277,7 +266,7 @@ const WorkoutSpace = () => {
     if (!selectedPlan) return null;
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <PlanDetailView
+        <ProgramDetailView
           plan={workoutPlans.find(p => p.id === selectedPlan.id) || selectedPlan}
           templates={templates.results || templates}
           onBack={() => {
@@ -410,18 +399,17 @@ const WorkoutSpace = () => {
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Use the updated WorkoutTimeline component with separate handlers for logs and upcoming workouts */}
+
         <WorkoutTimeline
           logs={logs}
           nextWorkout={nextWorkout}
           logsLoading={logsLoading}
           plansLoading={plansLoading}
           activeProgram={activeProgram}
-          setSelectedWorkout={handleViewWorkoutLog} // For past logs - sets selectedLog and shows log modal
-          setShowWorkoutModal={setShowWorkoutLogModal} // For past logs - shows the log modal
+          setSelectedWorkout={handleViewWorkoutLog} 
           setSelectedLog={setSelectedLog}
           setShowLogForm={setShowLogForm}
-          handleViewNextWorkout={handleViewNextWorkout} // For upcoming workouts
+          handleViewNextWorkout={handleViewNextWorkout} 
         />
         
         {/* Large centered Log Workout button */}

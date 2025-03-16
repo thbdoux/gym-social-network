@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { userService } from '../api/services';
-import { getAvatarUrl } from '../utils/imageUtils';
 import { Bell, Search, ChevronRight, Sparkles } from 'lucide-react';
+import { useCurrentUser } from '../hooks/query/useUserQuery';
 import douLogo from '../assets/dou.svg';
 import douPlusLogo from '../assets/dou-plus.svg';
 
@@ -12,8 +11,10 @@ const Layout = ({ children }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [showUpgradeTooltip, setShowUpgradeTooltip] = useState(false);
+  
+  // Use React Query hook for current user
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   
   // Get the current page title based on path
   const getPageTitle = () => {
@@ -33,20 +34,6 @@ const Layout = ({ children }) => {
     
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  
-  // Fetch current user data using userService
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const userData = await userService.getCurrentUser();
-        setCurrentUser(userData);
-      } catch (err) {
-        console.error('Error fetching current user:', err);
-      }
-    };
-    
-    fetchCurrentUser();
   }, []);
   
   // Mock notifications data
@@ -187,7 +174,7 @@ const Layout = ({ children }) => {
               className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center hover:shadow-md hover:shadow-blue-500/20 transition-all duration-200 transform hover:scale-105"
             >
               <span className="text-sm font-bold text-white">
-                {currentUser ? currentUser.username.substring(0, 2).toUpperCase() : '...'}
+                {userLoading ? '...' : currentUser ? currentUser.username.substring(0, 2).toUpperCase() : '??'}
               </span>
             </button>
           </div>

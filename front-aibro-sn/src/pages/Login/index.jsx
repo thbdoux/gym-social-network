@@ -1,8 +1,7 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../../context/AuthContext';
-import { userService } from '../../api/services';
 import { User, Mail, Lock, ArrowRight } from 'lucide-react';
+import { useLogin, useCurrentUser, useRegisterUser } from '../../hooks/query/useUserQuery';
 import douLogo from '../../assets/dou.svg';
 import douPlusLogo from '../../assets/dou-plus.svg';
 
@@ -15,9 +14,13 @@ const LoginPage = () => {
     confirmPassword: '',
   });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login, isAuthenticated } = useContext(AuthContext);
+  
   const navigate = useNavigate();
+  
+  // Use React Query hooks for login, registration, and current user
+  const loginMutation = useLogin();
+  const registerMutation = useRegisterUser();
+  const { data: currentUser, isSuccess: isAuthenticated } = useCurrentUser();
 
   const handleInputChange = (e) => {
     setFormData(prev => ({
@@ -28,64 +31,65 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
     if (!isLogin) {
       if (formData.password !== formData.confirmPassword) {
         setError('Passwords do not match');
-        setLoading(false);
         return;
       }
       if (!formData.email) {
         setError('Email is required');
-        setLoading(false);
         return;
       }
     }
 
     try {
       if (isLogin) {
-        const success = await login(formData.username, formData.password);
-        if (success) {
-          navigate('/feed');
-        } else {
-          setError('Invalid username or password');
-        }
+        await loginMutation.mutateAsync({
+          username: formData.username,
+          password: formData.password
+        });
+        navigate('/feed');
       } else {
-        try {
-          await userService.registerUser({
-            username: formData.username,
-            password: formData.password,
-            email: formData.email,
-            training_level: 'beginner',
-            personality_type: 'casual'
-          });
-          
-          const success = await login(formData.username, formData.password);
-          if (success) {
-            navigate('/feed');
-          }
-        } catch (err) {
-          if (err.response?.data?.username) {
-            setError('This username is already taken. Please choose another one.');
-          } else if (err.response?.data?.email) {
-            setError('This email is already registered.');
-          } else {
-            setError(Object.values(err.response?.data || {}).flat().join('\n') || 'Registration failed');
-          }
-        }
+        // Register first
+        await registerMutation.mutateAsync({
+          username: formData.username,
+          password: formData.password,
+          email: formData.email,
+          training_level: 'beginner',
+          personality_type: 'casual'
+        });
+        
+        // Then login
+        await loginMutation.mutateAsync({
+          username: formData.username,
+          password: formData.password
+        });
+        navigate('/feed');
       }
     } catch (err) {
-      setError(`An error occurred during ${isLogin ? 'login' : 'registration'}`);
-    } finally {
-      setLoading(false);
+      if (!isLogin) {
+        if (err.response?.data?.username) {
+          setError('This username is already taken. Please choose another one.');
+        } else if (err.response?.data?.email) {
+          setError('This email is already registered.');
+        } else {
+          setError(Object.values(err.response?.data || {}).flat().join('\n') || 'Registration failed');
+        }
+      } else {
+        setError('Invalid username or password');
+      }
     }
   };
 
+  // Redirect if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/feed" replace />;
   }
+
+  // Determine if loading state is active
+  const loading = loginMutation.isPending || registerMutation.isPending;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 relative overflow-hidden">

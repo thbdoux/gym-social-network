@@ -1,53 +1,50 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { userService } from '../api/services';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCurrentUser, useLogin as useLoginMutation } from '../hooks/query/useUserQuery';
+import { userKeys } from '../hooks/query/useUserQuery';
 
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  
+  // Use the react-query hook for fetching the current user
+  const { 
+    data: user,
+    isLoading,
+    error,
+    refetch
+  } = useCurrentUser();
 
-  // Load user data on mount or token change
+  // Login mutation from the query hook
+  const loginMutation = useLoginMutation();
+
+  // Update authentication state when user data changes
   useEffect(() => {
-    const loadUser = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const userData = await userService.getCurrentUser();
-          setUser(userData);
-          setIsAuthenticated(true);
-        } catch (error) {
-          localStorage.removeItem('token');
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      }
-      setIsLoading(false);
-    };
-
-    loadUser();
-  }, []);
+    if (user && !error) {
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+    }
+  }, [user, error]);
 
   const login = async (username, password) => {
     try {
-      // Use the login method from userService
-      const tokenData = await userService.login(username, password);
-      localStorage.setItem('token', tokenData.access);
-      
-      // Get user data after successful login
-      const userData = await userService.getCurrentUser();
-      setUser(userData);
-      setIsAuthenticated(true);
+      await loginMutation.mutateAsync({ username, password });
+      // After successful login, refetch the current user
+      await refetch();
       return true;
     } catch (error) {
+      console.error('Login failed:', error);
       return false;
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    setUser(null);
+    // Invalidate and reset relevant queries
+    queryClient.removeQueries({ queryKey: userKeys.current() });
     setIsAuthenticated(false);
   };
 
@@ -58,8 +55,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated, 
         isLoading, 
         login, 
-        logout,
-        setUser 
+        logout
       }}
     >
       {children}
