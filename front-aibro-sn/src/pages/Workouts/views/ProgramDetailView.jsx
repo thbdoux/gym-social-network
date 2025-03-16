@@ -38,19 +38,33 @@ const ProgramDetailView = ({
   const [loadingState, setLoadingState] = useState(false);
 
   // React Query hooks
-  const { data: currentProgramData, refetch: refetchProgram } = useProgram(plan?.id);
+  const { data: currentProgramData, refetch: refetchProgram } = useProgram(plan?.id, {
+    // Only fetch when initially mounted or manually triggered
+    enabled: !!plan?.id,
+    // Disable automatic refetching on window focus to prevent unnecessary API calls
+    refetchOnWindowFocus: false,
+    // Prevent this query from automatically re-running
+    staleTime: Infinity
+  });
+  
   const updateWorkoutMutation = useUpdateProgramWorkout();
   const removeWorkoutMutation = useRemoveWorkoutFromProgram();
   const createTemplateMutation = useCreateWorkoutTemplate();
   const addWorkoutMutation = useAddWorkoutToProgram();
   const toggleProgramActiveMutation = useToggleProgramActive();
 
-  // Use the latest program data from React Query whenever it updates
+  // Use the latest program data from React Query only when it changes from external sources
+  // and not because of our local updates
   useEffect(() => {
-    if (currentProgramData && plan) {
-      onUpdate(plan.id, currentProgramData);
-    }
-  }, [currentProgramData, plan?.id]);
+    // Skip the effect if we don't have both pieces of data
+    if (!currentProgramData || !plan) return;
+    
+    // Skip the update if the plan is already up to date
+    // This prevents infinite loops by avoiding unnecessary updates
+    if (JSON.stringify(plan) === JSON.stringify(currentProgramData)) return;
+    
+    onUpdate(plan.id, currentProgramData);
+  }, [currentProgramData]);
 
   // Check if user has edit permissions
   const canEdit = user && plan && (user.username === plan.creator_username || user.is_staff);

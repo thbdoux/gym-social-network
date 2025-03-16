@@ -85,7 +85,6 @@ const ProgramCard = ({
   
   // Helper functions and derived state
   const isForked = !!program.forked_from;
-  console.log(program, currentUser)
   const isCreator = program.creator_username === currentUser;
   const canForkProgram = !isCreator;
   // Permission checks

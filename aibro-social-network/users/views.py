@@ -9,6 +9,81 @@ from rest_framework.views import APIView
 from .models import User, Friendship, FriendRequest
 from .serializers import (UserSerializer, FriendshipSerializer,
                         FriendRequestSerializer)
+                        
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from workouts.models import Program
+import logging
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reset_user_current_program(request, user_id):
+    """
+    Reset a user's current_program to null when the program is no longer valid.
+    This handles the case where the frontend detects a program referenced by a user
+    that no longer exists or is not accessible.
+    """
+    try:
+        # Check if the requesting user has permission to modify this user
+        # Only allow a user to modify their own record or admins can modify any
+        target_user = User.objects.get(id=user_id)
+        if int(user_id) != request.user.id and not request.user.is_staff:
+            return Response(
+                {"detail": "You don't have permission to modify this user's program"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Log the current state for debugging
+        logger.info(f"Resetting current program for user {user_id}. Current program ID: {target_user.current_program_id}")
+        
+        with transaction.atomic():
+            # Check if the user has a current program set
+            if target_user.current_program_id:
+                program_id = target_user.current_program_id
+                
+                # Try to find the program
+                try:
+                    program = Program.objects.get(id=program_id)
+                    # If program exists, just deactivate it
+                    program.is_active = False
+                    program.save()
+                    logger.info(f"Found program {program_id}, deactivated it")
+                except Program.DoesNotExist:
+                    logger.warning(f"Program {program_id} not found - it may have been deleted")
+                
+                # Reset the user's current program
+                target_user.current_program = None
+                target_user.save()
+                
+                return Response({
+                    "success": True,
+                    "message": f"Reset current program for user {target_user.username}",
+                    "previous_program_id": program_id
+                })
+            else:
+                return Response({
+                    "success": True, 
+                    "message": f"User {target_user.username} did not have a current program set"
+                })
+    
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.exception(f"Error resetting current program: {str(e)}")
+        return Response(
+            {"detail": f"Error resetting current program: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer

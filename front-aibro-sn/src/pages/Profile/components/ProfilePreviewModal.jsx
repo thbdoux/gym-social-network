@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, AlertCircle } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import OverviewTab from './tabs/OverviewTab';
 import StatsTab from './tabs/StatsTab';
@@ -15,15 +15,22 @@ import {
   useUserProfilePreview,
   useGymDisplay
 } from '../../../hooks/query';
+import { useQueryClient } from '@tanstack/react-query';
 
 const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }) => {
-
   const [activeTab, setActiveTab] = useState('overview');
+  const [programLoadError, setProgramLoadError] = useState(false);
+  const [selectedProgram, setSelectedProgram] = useState(null);
+  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
   const isClosingChildModal = useRef(false);
+  
+  // Get query client for manual operations
+  const queryClient = useQueryClient();
   
   const { 
     data: userData, 
-    isLoading: userLoading 
+    isLoading: userLoading,
+    refetch: refetchUser
   } = useUser(userId, {
     enabled: isOpen && !!userId,
     initialData: initialUserData?.id === userId ? initialUserData : undefined
@@ -52,11 +59,23 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
   
   const workoutLogs = profilePreview?.workout_logs || [];
   
+  // Use the program details hook with enhanced error handling
   const {
     data: fullProgramData,
-    isLoading: programLoading
+    isLoading: programLoading,
+    error: programError
   } = useProgramPreviewDetails(userData?.current_program?.id, {
-    enabled: isOpen && !!userData?.current_program?.id
+    enabled: isOpen && !!userData?.current_program?.id,
+    // This onError callback handles errors when fetching the program
+    onError: (error) => {
+      console.error('Error loading program data:', error);
+      setProgramLoadError(true);
+      
+      // If the program is not found (404), we should update the user data
+      if (error.response?.status === 404) {
+        handleProgramNotFound();
+      }
+    }
   });
 
   // Use the new hook for gym display
@@ -67,12 +86,66 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
     userData?.preferred_gym
   );
 
+  // Combined loading state
   const loading = 
     userLoading || 
     (activeTab === 'overview' && friendsLoading) ||
     (activeTab === 'activity' && postsLoading) || 
     (activeTab === 'workouts' && profilePreviewLoading) ||
     (activeTab === 'stats' && postsLoading);
+
+  // Handle program not found - this will update the user's current program to null
+  const handleProgramNotFound = useCallback(async () => {
+    try {
+      if (!userData || !userData.id) return;
+      
+      console.log('Program not found, attempting to reset user current program');
+      
+      // Call an API endpoint to reset the current program for this user
+      const response = await fetch(`/api/users/${userData.id}/reset-current-program/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.ok) {
+        console.log('Successfully reset user current program');
+        // Invalidate relevant cached data
+        queryClient.invalidateQueries(['users', 'detail', userData.id]);
+        
+        // If this is the current user, also invalidate current user data
+        const currentUser = queryClient.getQueryData(['users', 'current']);
+        if (currentUser && currentUser.id === userData.id) {
+          queryClient.invalidateQueries(['users', 'current']);
+        }
+        
+        // Refetch user data
+        refetchUser();
+      } else {
+        console.error('Failed to reset user current program:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error resetting user current program:', error);
+    }
+  }, [userData, queryClient, refetchUser]);
+
+  // Effect to handle program errors and trigger fixes
+  useEffect(() => {
+    if (programError && userData?.current_program?.id) {
+      // Set the error flag
+      setProgramLoadError(true);
+      
+      // If it's a 404 error, handle program not found
+      if (programError.response?.status === 404) {
+        handleProgramNotFound();
+      }
+    } else {
+      // Reset error flag when there's no error
+      setProgramLoadError(false);
+    }
+  }, [programError, userData?.current_program?.id, handleProgramNotFound]);
 
   // Handle tab change
   const handleTabChange = (tab) => {
@@ -169,6 +242,16 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
               {userData?.bio && (
                 <div className="mt-5 text-gray-300 text-sm max-w-3xl">
                   {userData.bio}
+                </div>
+              )}
+              
+              {/* Program Load Error Banner */}
+              {programLoadError && (
+                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-400" />
+                    <span className="text-red-400">There was an issue loading the current program</span>
+                  </div>
                 </div>
               )}
               

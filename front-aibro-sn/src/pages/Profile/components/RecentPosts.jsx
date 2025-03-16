@@ -257,8 +257,6 @@ const RecentPosts = ({
                           log={post.workout_log_details}
                           onSelect={handleWorkoutLogSelect}
                         />
-                        {/* Overlay to catch all clicks */}
-                        <div className="absolute inset-0 bg-transparent"></div>
                       </div>
                     </div>
                   )}

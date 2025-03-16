@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, Search, ChevronRight, Sparkles } from 'lucide-react';
 import { useCurrentUser } from '../hooks/query/useUserQuery';
+import { getAvatarUrl } from '../utils/imageUtils'; // Import the utility
 import douLogo from '../assets/dou.svg';
 import douPlusLogo from '../assets/dou-plus.svg';
 
@@ -169,13 +170,24 @@ const Layout = ({ children }) => {
               )}
             </div>
             
+            {/* Profile Button - Updated to use avatar */}
             <button 
               onClick={() => navigate('/profile')} 
-              className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center hover:shadow-md hover:shadow-blue-500/20 transition-all duration-200 transform hover:scale-105"
+              className="h-9 w-9 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center hover:shadow-md hover:shadow-blue-500/20 transition-all duration-200 transform hover:scale-105"
             >
-              <span className="text-sm font-bold text-white">
-                {userLoading ? '...' : currentUser ? currentUser.username.substring(0, 2).toUpperCase() : '??'}
-              </span>
+              {userLoading ? (
+                <span className="text-sm font-bold text-white">...</span>
+              ) : currentUser && currentUser.avatar ? (
+                <img 
+                  src={getAvatarUrl(currentUser.avatar)} 
+                  alt={currentUser.username}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-bold text-white">
+                  {currentUser ? currentUser.username.substring(0, 2).toUpperCase() : '??'}
+                </span>
+              )}
             </button>
           </div>
         </div>

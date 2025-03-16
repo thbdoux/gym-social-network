@@ -95,7 +95,17 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
   // Handle form submission
   const handleSubmit = () => {
     if (validateStep()) {
-      onSubmit(formData);
+      // Fill optional fields with default values
+      const enrichedFormData = {
+        ...formData,
+        description: formData.description || '', // Default empty string
+        tags: formData.tags || [], // Default empty array
+        required_equipment: formData.required_equipment || [], // Default empty array
+        recommended_level: formData.recommended_level || formData.difficulty_level // Default to difficulty level
+      };
+      
+      // Submit the enriched form data
+      onSubmit(enrichedFormData);
     }
   };
 

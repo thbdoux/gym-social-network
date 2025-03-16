@@ -1,8 +1,12 @@
+// In ProgramListView.jsx, modify the component to include showProgramWizard state
+// and update the handleCreateProgram function
+
 import React, { useState, useEffect } from 'react';
 import { Plus, ArrowLeft, Loader2, Search, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { ProgramGrid } from '../components/ProgramCard';
 import EmptyState from '../components/EmptyState';
 import ShareProgramModal from '../components/ShareProgramModal';
+import ProgramWizard from '../components/program-wizard/ProgramWizard';
 
 // Import React Query hooks
 import { 
@@ -10,7 +14,9 @@ import {
   useForkProgram, 
   useToggleProgramActive, 
   useDeleteProgram,
-  useShareProgram
+  useShareProgram,
+  useCreateProgram,
+  useUpdateProgram
 } from '../../../hooks/query/useProgramQuery';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -22,6 +28,8 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [programToDelete, setProgramToDelete] = useState(null);
   const [activeToggleLoading, setActiveToggleLoading] = useState(false);
+  const [showProgramWizard, setShowProgramWizard] = useState(false);
+  const [programToEdit, setProgramToEdit] = useState(null);
 
   // React Query setup
   const queryClient = useQueryClient();
@@ -38,6 +46,8 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
   const toggleActiveMutation = useToggleProgramActive();
   const deleteProgramMutation = useDeleteProgram();
   const shareProgramMutation = useShareProgram();
+  const createProgramMutation = useCreateProgram();
+  const updateProgramMutation = useUpdateProgram();
 
   // Derived state
   const hasPlans = workoutPlans.length > 0;
@@ -92,6 +102,40 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
     }
   };
 
+  // Replace the view changing function with modal opening
+  const handleCreateProgram = () => {
+    setProgramToEdit(null);
+    setShowProgramWizard(true);
+  };
+  
+  // Handle creating a new program
+  const handleProgramSubmit = async (planData) => {
+    try {
+      if (programToEdit) {
+        // Update existing program
+        await updateProgramMutation.mutateAsync({ 
+          id: programToEdit.id, 
+          updates: planData 
+        });
+      } else {
+        // Create new program
+        const newProgram = await createProgramMutation.mutateAsync(planData);
+        
+        // If onPlanSelect is provided, we can navigate to the new program
+        if (typeof onPlanSelect === 'function') {
+          onPlanSelect(newProgram);
+        }
+      }
+      
+      // Close the modal
+      setShowProgramWizard(false);
+      setProgramToEdit(null);
+    } catch (err) {
+      console.error('Error saving program:', err);
+      alert(`Failed to ${programToEdit ? 'update' : 'create'} program. Please try again.`);
+    }
+  };
+
   const handleToggleActive = async (planId) => {
     try {
       setActiveToggleLoading(true);
@@ -100,29 +144,28 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
       const program = workoutPlans.find(p => p.id === planId);
       const isActivating = !program.is_active;
       
-      if (isActivating && activeProgram) {
-        // If we're activating a program and there's already an active one, first deactivate the current active program
-        // This is handled by the backend, but we can do optimistic updates in the UI
-        
-        // Optimistic update for the UI - turn off all programs first
-        queryClient.setQueryData(['programs', 'list'], old => {
-          if (!old) return [];
-          return old.map(p => ({
-            ...p,
-            is_active: false
-          }));
-        });
+      // If we're activating a program, first invalidate any cached data
+      // This ensures we get fresh data after the toggle operation
+      if (isActivating) {
+        // Invalidate both programs and user data to ensure fresh state
+        await queryClient.invalidateQueries(['programs', 'list']);
+        await queryClient.invalidateQueries(['users', 'current']);
       }
       
+      // Execute the toggle operation
       await toggleActiveMutation.mutateAsync(planId);
       
-      // React Query will now update the cache with the latest data
+      // After the toggle is complete, refresh the program data and user data
+      // This ensures UI reflects the current state from the server
+      await queryClient.invalidateQueries(['programs', 'list']);
+      await queryClient.invalidateQueries(['users', 'current']);
     } catch (err) {
       console.error('Error toggling plan active state:', err);
       alert('Failed to toggle active status. Please try again.');
       
       // Reset cache in case our optimistic update failed
       queryClient.invalidateQueries(['programs', 'list']);
+      queryClient.invalidateQueries(['users', 'current']);
     } finally {
       setActiveToggleLoading(false);
     }
@@ -154,10 +197,6 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
       console.error('Error forking program:', err);
       alert('Failed to fork program. Please try again.');
     }
-  };
-
-  const handleCreateProgram = () => {
-    setView('create-plan');
   };
 
   // Loading state
@@ -299,7 +338,10 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
           onCreatePlan={handleCreateProgram}
           onShare={handleShareProgram}
           onFork={handleForkProgram}
-          onEdit={handlePlanSelection}
+          onEdit={(program) => {
+            setProgramToEdit(program);
+            setShowProgramWizard(true);
+          }}
           currentUser={user?.username}
           activeProgram={activeProgram}
           isToggleLoading={activeToggleLoading}
@@ -354,6 +396,18 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Program Wizard Modal */}
+      {showProgramWizard && (
+        <ProgramWizard
+          program={programToEdit}
+          onSubmit={handleProgramSubmit}
+          onClose={() => {
+            setShowProgramWizard(false);
+            setProgramToEdit(null);
+          }}
+        />
       )}
     </div>
   );

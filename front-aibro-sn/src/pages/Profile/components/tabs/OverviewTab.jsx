@@ -1,22 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Dumbbell, 
-  Users
+  Users, 
+  AlertCircle 
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../../utils/imageUtils';
 import { ProgramCard } from '../../../Workouts/components/ProgramCard';
 import { useCurrentUser } from '../../../../hooks/query/useUserQuery';
 import { useForkProgram } from '../../../../hooks/query/useProgramQuery';
+import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * Overview Tab - Simplified version showing only current program and friends
+ * With improved error handling for missing programs
  */
 const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }) => {
   // Get the current logged-in user
   const { data: currentUser } = useCurrentUser();
   
+  // State to track program loading errors
+  const [programError, setProgramError] = useState(false);
+  
   // Get fork program mutation
   const { mutateAsync: forkProgram } = useForkProgram();
+  
+  // Get query client for cache operations
+  const queryClient = useQueryClient();
   
   // Format text utility
   const formatText = (text) => {
@@ -35,6 +44,36 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
     }
   };
 
+  // Check for program data inconsistency
+  useEffect(() => {
+    // Reset error state when data changes
+    setProgramError(false);
+    
+    // If user has a current program but no full program data was loaded
+    if (userData?.current_program && !fullProgramData) {
+      console.warn(`User has current_program (ID: ${userData.current_program.id}) but fullProgramData is missing`);
+      setProgramError(true);
+      
+      // Check if we should try to fix the user's current program reference
+      const checkProgramExists = async () => {
+        try {
+          // Try to fetch the program directly
+          await queryClient.fetchQuery(['programs', 'detail', userData.current_program.id], 
+            () => fetch(`/api/workouts/programs/${userData.current_program.id}/`).then(res => {
+              if (!res.ok) throw new Error(`Program not found: ${res.status}`);
+              return res.json();
+            })
+          );
+        } catch (error) {
+          console.error('Program does not exist but is set as current_program:', error);
+          // Could trigger a fix here by calling an API endpoint to reset the user's current program
+        }
+      };
+      
+      checkProgramExists();
+    }
+  }, [userData?.current_program, fullProgramData, queryClient]);
+
   return (
     <div className="animate-fadeIn space-y-6">
       {/* Current Program */}
@@ -44,7 +83,15 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
           Current Program
         </h3>
         
-        {(fullProgramData || userData?.current_program) ? (
+        {/* Program Error State */}
+        {programError && (
+          <div className="text-center py-4 bg-red-900/20 border border-red-500/30 rounded-xl mb-4">
+            <AlertCircle className="w-6 h-6 mx-auto mb-2 text-red-400" />
+            <p className="text-red-400 text-sm">There was an error loading the current program</p>
+          </div>
+        )}
+        
+        {(fullProgramData || (userData?.current_program && !programError)) ? (
           <div 
             onClick={() => handleProgramSelect(fullProgramData || userData.current_program)}
             className="cursor-pointer hover:opacity-90 transition-opacity"
