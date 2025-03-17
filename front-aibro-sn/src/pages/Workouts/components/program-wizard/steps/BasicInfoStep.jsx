@@ -1,12 +1,16 @@
 import React from 'react';
-
-const PROGRAM_SUGGESTIONS = [
-  "Power Builder",
-  "Summer Shred",
-  "Strength Foundations"
-];
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const BasicInfoStep = ({ formData, updateFormData, errors }) => {
+  const { t } = useLanguage();
+  
+  // Program name suggestions from translations
+  const PROGRAM_SUGGESTIONS = [
+    t('wizard_basic_info_suggestion_power'),
+    t('wizard_basic_info_suggestion_shred'),
+    t('wizard_basic_info_suggestion_strength')
+  ];
+
   const handleSuggestionClick = (suggestion) => {
     updateFormData({ name: suggestion });
   };
@@ -14,14 +18,14 @@ const BasicInfoStep = ({ formData, updateFormData, errors }) => {
   return (
     <div className="max-w-md mx-auto py-8">
       <h2 className="text-2xl font-bold text-white text-center mb-8">
-        Name your program
+        {t('wizard_basic_info_title')}
       </h2>
       
       <input
         value={formData.name}
         onChange={(e) => updateFormData({ name: e.target.value })}
         className="w-full px-4 py-3 bg-gray-900 rounded-lg text-white border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-lg"
-        placeholder="e.g., 12-Week Strength Builder"
+        placeholder={t('wizard_basic_info_placeholder')}
         required
       />
       

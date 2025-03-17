@@ -9,12 +9,15 @@ import { ProgramCard } from '../../../Workouts/components/ProgramCard';
 import { useCurrentUser } from '../../../../hooks/query/useUserQuery';
 import { useForkProgram } from '../../../../hooks/query/useProgramQuery';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 /**
  * Overview Tab - Simplified version showing only current program and friends
  * With improved error handling for missing programs
  */
 const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }) => {
+  const { t } = useLanguage();
+  
   // Get the current logged-in user
   const { data: currentUser } = useCurrentUser();
   
@@ -80,14 +83,14 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
       <div className="bg-gray-900/60 rounded-xl p-5 border border-gray-800/40">
         <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
           <Dumbbell className="w-5 h-5 text-blue-400" />
-          Current Program
+          {t('current_program')}
         </h3>
         
         {/* Program Error State */}
         {programError && (
           <div className="text-center py-4 bg-red-900/20 border border-red-500/30 rounded-xl mb-4">
             <AlertCircle className="w-6 h-6 mx-auto mb-2 text-red-400" />
-            <p className="text-red-400 text-sm">There was an error loading the current program</p>
+            <p className="text-red-400 text-sm">{t('program_load_error')}</p>
           </div>
         )}
         
@@ -108,7 +111,7 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
         ) : (
           <div className="text-center py-8 bg-gray-800/20 rounded-xl">
             <Dumbbell className="w-12 h-12 mx-auto mb-3 text-gray-700" />
-            <p className="text-gray-400">No active program</p>
+            <p className="text-gray-400">{t('no_active_program')}</p>
           </div>
         )}
       </div>
@@ -117,7 +120,7 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
       <div className="bg-gray-900/60 rounded-xl p-5 border border-gray-800/40">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Users className="w-5 h-5 text-purple-400" />
-          Friends
+          {t('friends')}
         </h3>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -138,7 +141,7 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
                 <div className="min-w-0">
                   <div className="font-medium text-white truncate">{friend.username}</div>
                   <div className="text-xs text-gray-400 truncate">
-                    {formatText(friend.training_level || 'beginner')}
+                    {formatText(friend.training_level || t('beginner'))}
                   </div>
                 </div>
               </div>
@@ -149,14 +152,14 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
         {friends.length === 0 && (
           <div className="text-center py-6 bg-gray-800/20 rounded-xl">
             <Users className="w-12 h-12 mx-auto mb-3 text-gray-700" />
-            <p className="text-gray-400">No friends yet</p>
+            <p className="text-gray-400">{t('no_friends')}</p>
           </div>
         )}
         
         {friends.length > 6 && (
           <div className="text-center mt-4">
             <button className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
-              See all {friends.length} friends
+              {t('see_all_friends', {count: friends.length})}
             </button>
           </div>
         )}

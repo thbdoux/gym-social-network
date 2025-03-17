@@ -7,11 +7,13 @@ import {
   ChevronDown
 } from 'lucide-react';
 import WorkoutLogCard from '../../../Workouts/components/WorkoutLogCard';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 /**
  * Dedicated tab for workout logs and history
  */
 const WorkoutsTab = ({ userData, workoutLogs, handleWorkoutLogSelect }) => {
+  const { t } = useLanguage();
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState('all'); // Options: all, recent, year
 
@@ -61,7 +63,7 @@ const WorkoutsTab = ({ userData, workoutLogs, handleWorkoutLogSelect }) => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <div className="bg-gray-900/60 rounded-lg p-4 border border-gray-800/40">
           <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-sm">Total Workouts</span>
+            <span className="text-gray-400 text-sm">{t('total_workouts')}</span>
             <Dumbbell className="w-4 h-4 text-blue-400" />
           </div>
           <div className="mt-2 text-2xl font-bold text-white">{workoutStats.total}</div>
@@ -69,15 +71,15 @@ const WorkoutsTab = ({ userData, workoutLogs, handleWorkoutLogSelect }) => {
         
         <div className="bg-gray-900/60 rounded-lg p-4 border border-gray-800/40">
           <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-sm">Current Streak</span>
+            <span className="text-gray-400 text-sm">{t('current_streak')}</span>
             <Calendar className="w-4 h-4 text-green-400" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-white">{workoutStats.streak} days</div>
+          <div className="mt-2 text-2xl font-bold text-white">{workoutStats.streak} {t('days')}</div>
         </div>
         
         <div className="bg-gray-900/60 rounded-lg p-4 border border-gray-800/40">
           <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-sm">Weekly Average</span>
+            <span className="text-gray-400 text-sm">{t('weekly_average')}</span>
             <TrendingUp className="w-4 h-4 text-purple-400" />
           </div>
           <div className="mt-2 text-2xl font-bold text-white">{workoutStats.avgPerWeek}</div>
@@ -89,7 +91,7 @@ const WorkoutsTab = ({ userData, workoutLogs, handleWorkoutLogSelect }) => {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800/40">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Dumbbell className="w-5 h-5 text-blue-400" />
-            Workout History
+            {t('workout_history')}
           </h3>
           
           {/* Filter dropdown */}
@@ -99,7 +101,7 @@ const WorkoutsTab = ({ userData, workoutLogs, handleWorkoutLogSelect }) => {
               onClick={() => setFilterOpen(!filterOpen)}
             >
               <Filter className="w-4 h-4" />
-              {filter === 'all' ? 'All Time' : filter === 'recent' ? 'Last 30 Days' : 'This Year'}
+              {filter === 'all' ? t('all_time') : filter === 'recent' ? t('last_30_days') : t('this_year')}
               <ChevronDown className="w-4 h-4 ml-1" />
             </button>
             
@@ -110,19 +112,19 @@ const WorkoutsTab = ({ userData, workoutLogs, handleWorkoutLogSelect }) => {
                     className={`px-4 py-2 text-sm w-full text-left ${filter === 'all' ? 'bg-blue-600/20 text-blue-400' : 'text-gray-300 hover:bg-gray-700'}`}
                     onClick={() => { setFilter('all'); setFilterOpen(false); }}
                   >
-                    All Time
+                    {t('all_time')}
                   </button>
                   <button 
                     className={`px-4 py-2 text-sm w-full text-left ${filter === 'recent' ? 'bg-blue-600/20 text-blue-400' : 'text-gray-300 hover:bg-gray-700'}`}
                     onClick={() => { setFilter('recent'); setFilterOpen(false); }}
                   >
-                    Last 30 Days
+                    {t('last_30_days')}
                   </button>
                   <button 
                     className={`px-4 py-2 text-sm w-full text-left ${filter === 'year' ? 'bg-blue-600/20 text-blue-400' : 'text-gray-300 hover:bg-gray-700'}`}
                     onClick={() => { setFilter('year'); setFilterOpen(false); }}
                   >
-                    This Year
+                    {t('this_year')}
                   </button>
                 </div>
               </div>
@@ -150,13 +152,13 @@ const WorkoutsTab = ({ userData, workoutLogs, handleWorkoutLogSelect }) => {
           ) : (
             <div className="text-center py-10">
               <Dumbbell className="w-12 h-12 mx-auto mb-3 text-gray-700" />
-              <p className="text-gray-400">No workout logs available</p>
+              <p className="text-gray-400">{t('no_workout_logs_available')}</p>
               {filter !== 'all' && (
                 <button 
                   className="mt-2 text-blue-400 hover:text-blue-300 text-sm"
                   onClick={() => setFilter('all')}
                 >
-                  Show all workouts
+                  {t('show_all_workouts')}
                 </button>
               )}
             </div>

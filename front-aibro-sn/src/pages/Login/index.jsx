@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, ArrowRight } from 'lucide-react';
 import { useLogin, useCurrentUser, useRegisterUser } from '../../hooks/query/useUserQuery';
+import { useLanguage } from '../../context/LanguageContext';
 import douLogo from '../../assets/dou.svg';
 import douPlusLogo from '../../assets/dou-plus.svg';
 
 const LoginPage = () => {
+  const { t } = useLanguage(); // Import the translation function
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -35,11 +37,11 @@ const LoginPage = () => {
 
     if (!isLogin) {
       if (formData.password !== formData.confirmPassword) {
-        setError('Passwords do not match');
+        setError(t('passwords_do_not_match'));
         return;
       }
       if (!formData.email) {
-        setError('Email is required');
+        setError(t('email_required'));
         return;
       }
     }
@@ -71,14 +73,14 @@ const LoginPage = () => {
     } catch (err) {
       if (!isLogin) {
         if (err.response?.data?.username) {
-          setError('This username is already taken. Please choose another one.');
+          setError(t('username_taken'));
         } else if (err.response?.data?.email) {
-          setError('This email is already registered.');
+          setError(t('email_registered'));
         } else {
-          setError(Object.values(err.response?.data || {}).flat().join('\n') || 'Registration failed');
+          setError(Object.values(err.response?.data || {}).flat().join('\n') || t('registration_failed'));
         }
       } else {
-        setError('Invalid username or password');
+        setError(t('invalid_credentials'));
       }
     }
   };
@@ -103,14 +105,14 @@ const LoginPage = () => {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="mb-2 flex justify-center">
-            <img src={douLogo} alt="dou logo" className="h-32" />
+            <img src={douLogo} alt={t('app_name')} className="h-32" />
           </div>
           
           {/* Form container */}
           <div className="backdrop-blur-sm p-6 rounded-2xl border border-gray-800/30 relative overflow-hidden">
             {/* Mode title - simple text instead of tabs */}
             <h2 className="text-xl font-bold text-center text-white mb-6">
-              {isLogin ? 'Welcome back!' : 'Create an account'}
+              {isLogin ? t('welcome_back') : t('create_account')}
             </h2>
 
             {/* Error display */}
@@ -130,7 +132,7 @@ const LoginPage = () => {
                   <input
                     type="text"
                     name="username"
-                    placeholder="Username"
+                    placeholder={t('username')}
                     value={formData.username}
                     onChange={handleInputChange}
                     className="w-full pl-10 px-4 py-3 rounded-lg bg-gray-800/40 text-white border border-gray-700/30 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors placeholder-gray-500"
@@ -148,7 +150,7 @@ const LoginPage = () => {
                     <input
                       type="email"
                       name="email"
-                      placeholder="Email"
+                      placeholder={t('email')}
                       value={formData.email}
                       onChange={handleInputChange}
                       className="w-full pl-10 px-4 py-3 rounded-lg bg-gray-800/40 text-white border border-gray-700/30 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all duration-300 placeholder-gray-500"
@@ -166,7 +168,7 @@ const LoginPage = () => {
                   <input
                     type="password"
                     name="password"
-                    placeholder="Password"
+                    placeholder={t('password')}
                     value={formData.password}
                     onChange={handleInputChange}
                     className="w-full pl-10 px-4 py-3 rounded-lg bg-gray-800/40 text-white border border-gray-700/30 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors placeholder-gray-500"
@@ -184,7 +186,7 @@ const LoginPage = () => {
                     <input
                       type="password"
                       name="confirmPassword"
-                      placeholder="Confirm Password"
+                      placeholder={t('confirm_password')}
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
                       className="w-full pl-10 px-4 py-3 rounded-lg bg-gray-800/40 text-white border border-gray-700/30 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all duration-300 placeholder-gray-500"
@@ -198,7 +200,7 @@ const LoginPage = () => {
               {isLogin && (
                 <div className="flex justify-end">
                   <a href="#" className="text-xs text-gray-400 hover:text-blue-400 transition-colors">
-                    Forgot password?
+                    {t('forgot_password')}
                   </a>
                 </div>
               )}
@@ -218,11 +220,11 @@ const LoginPage = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span className="ml-2">{isLogin ? 'Logging in...' : 'Registering...'}</span>
+                    <span className="ml-2">{isLogin ? t('logging_in') : t('registering')}</span>
                   </>
                 ) : (
                   <>
-                    <span>{isLogin ? 'Continue' : 'Create account'}</span>
+                    <span>{isLogin ? t('continue') : t('create_account_button')}</span>
                     <ArrowRight size={16} className="ml-2" />
                   </>
                 )}
@@ -232,18 +234,18 @@ const LoginPage = () => {
             {/* Account toggle text */}
             <div className="mt-6 text-center text-gray-500 text-sm">
               {isLogin ? (
-                <p>Don't have an account? <button 
+                <p>{t('dont_have_account')} <button 
                   onClick={() => setIsLogin(false)} 
                   className="text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  Register
+                  {t('register')}
                 </button></p>
               ) : (
-                <p>Already have an account? <button 
+                <p>{t('already_have_account')} <button 
                   onClick={() => setIsLogin(true)} 
                   className="text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  Log in
+                  {t('login')}
                 </button></p>
               )}
             </div>
@@ -253,9 +255,9 @@ const LoginPage = () => {
           <div className="mt-6 flex justify-center">
             <div className="backdrop-blur-sm rounded-xl p-3 border border-gray-800/30 max-w-sm">
               <div className="flex items-center space-x-3">
-                <img src={douPlusLogo} alt="dou+ logo" className="h-8" />
+                <img src={douPlusLogo} alt={t('upgrade_to_dou')} className="h-8" />
                 <button className="text-xs text-gray-300 hover:text-white transition-colors flex items-center">
-                  <span>Upgrade to premium</span>
+                  <span>{t('upgrade_to_premium')}</span>
                   <span className="ml-2 text-xs">✨</span>
                 </button>
               </div>
@@ -264,10 +266,10 @@ const LoginPage = () => {
           
           {/* Footer */}
           <div className="mt-6 text-center text-gray-600 text-xs">
-            <p>© 2025 dou</p>
+            <p>© 2025 {t('app_name')}</p>
             <div className="mt-1 flex justify-center space-x-4">
-              <a href="#" className="text-gray-600 hover:text-blue-400 transition-colors">Terms</a>
-              <a href="#" className="text-gray-600 hover:text-blue-400 transition-colors">Privacy</a>
+              <a href="#" className="text-gray-600 hover:text-blue-400 transition-colors">{t('terms')}</a>
+              <a href="#" className="text-gray-600 hover:text-blue-400 transition-colors">{t('privacy')}</a>
             </div>
           </div>
         </div>

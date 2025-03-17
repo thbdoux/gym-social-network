@@ -1,31 +1,99 @@
 import React from 'react';
 import { Target, Award, Check } from 'lucide-react';
-
-const FOCUS_CHOICES = [
-  { value: 'strength', label: 'Strength', description: 'Focus on building maximal strength', icon: '💪', 
-    color: "from-blue-500 to-cyan-400", bgClass: "bg-gradient-to-br from-blue-500/10 to-cyan-400/10", borderClass: "border-blue-500/30" },
-  { value: 'hypertrophy', label: 'Hypertrophy', description: 'Optimize muscle growth', icon: '🏋️', 
-    color: "from-purple-500 to-pink-400", bgClass: "bg-gradient-to-br from-purple-500/10 to-pink-400/10", borderClass: "border-purple-500/30" },
-  { value: 'endurance', label: 'Endurance', description: 'Improve stamina', icon: '🏃', 
-    color: "from-green-500 to-emerald-400", bgClass: "bg-gradient-to-br from-green-500/10 to-emerald-400/10", borderClass: "border-green-500/30" },
-  { value: 'weight_loss', label: 'Weight Loss', description: 'Combine strength and cardio', icon: '⚖️', 
-    color: "from-red-500 to-orange-400", bgClass: "bg-gradient-to-br from-red-500/10 to-orange-400/10", borderClass: "border-red-500/30" },
-  { value: 'strength_hypertrophy', label: 'Strength & Hypertrophy', description: 'Balance strength and size', icon: '💯', 
-    color: "from-indigo-500 to-blue-400", bgClass: "bg-gradient-to-br from-indigo-500/10 to-blue-400/10", borderClass: "border-indigo-500/30" },
-  { value: 'general_fitness', label: 'General Fitness', description: 'Well-rounded fitness', icon: '🔄', 
-    color: "from-amber-500 to-yellow-400", bgClass: "bg-gradient-to-br from-amber-500/10 to-yellow-400/10", borderClass: "border-amber-500/30" }
-];
-
-const DIFFICULTY_LEVELS = [
-  { value: 'beginner', label: 'Beginner', description: 'New to training', icon: '🌱', 
-    color: "from-green-500 to-emerald-400", bgClass: "bg-gradient-to-br from-green-500/10 to-emerald-400/10", borderClass: "border-green-500/30" },
-  { value: 'intermediate', label: 'Intermediate', description: 'Some training experience', icon: '🔄', 
-    color: "from-blue-500 to-cyan-400", bgClass: "bg-gradient-to-br from-blue-500/10 to-cyan-400/10", borderClass: "border-blue-500/30" },
-  { value: 'advanced', label: 'Advanced', description: 'Experienced trainee', icon: '🔥', 
-    color: "from-red-500 to-orange-400", bgClass: "bg-gradient-to-br from-red-500/10 to-orange-400/10", borderClass: "border-red-500/30" }
-];
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const FocusStep = ({ formData, updateFormData }) => {
+  const { t } = useLanguage();
+
+  // Constant focus choices with style data
+  const FOCUS_CHOICES = [
+    { 
+      value: 'strength', 
+      label: t('wizard_focus_strength_label'), 
+      description: t('wizard_focus_strength_desc'), 
+      icon: '💪', 
+      color: "from-blue-500 to-cyan-400", 
+      bgClass: "bg-gradient-to-br from-blue-500/10 to-cyan-400/10", 
+      borderClass: "border-blue-500/30" 
+    },
+    { 
+      value: 'hypertrophy', 
+      label: t('wizard_focus_hypertrophy_label'), 
+      description: t('wizard_focus_hypertrophy_desc'), 
+      icon: '🏋️', 
+      color: "from-purple-500 to-pink-400", 
+      bgClass: "bg-gradient-to-br from-purple-500/10 to-pink-400/10", 
+      borderClass: "border-purple-500/30" 
+    },
+    { 
+      value: 'endurance', 
+      label: t('wizard_focus_endurance_label'), 
+      description: t('wizard_focus_endurance_desc'), 
+      icon: '🏃', 
+      color: "from-green-500 to-emerald-400", 
+      bgClass: "bg-gradient-to-br from-green-500/10 to-emerald-400/10", 
+      borderClass: "border-green-500/30" 
+    },
+    { 
+      value: 'weight_loss', 
+      label: t('wizard_focus_weight_loss_label'), 
+      description: t('wizard_focus_weight_loss_desc'), 
+      icon: '⚖️', 
+      color: "from-red-500 to-orange-400", 
+      bgClass: "bg-gradient-to-br from-red-500/10 to-orange-400/10", 
+      borderClass: "border-red-500/30" 
+    },
+    { 
+      value: 'strength_hypertrophy', 
+      label: t('wizard_focus_strength_hypertrophy_label'), 
+      description: t('wizard_focus_strength_hypertrophy_desc'), 
+      icon: '💯', 
+      color: "from-indigo-500 to-blue-400", 
+      bgClass: "bg-gradient-to-br from-indigo-500/10 to-blue-400/10", 
+      borderClass: "border-indigo-500/30" 
+    },
+    { 
+      value: 'general_fitness', 
+      label: t('wizard_focus_general_fitness_label'), 
+      description: t('wizard_focus_general_fitness_desc'), 
+      icon: '🔄', 
+      color: "from-amber-500 to-yellow-400", 
+      bgClass: "bg-gradient-to-br from-amber-500/10 to-yellow-400/10", 
+      borderClass: "border-amber-500/30" 
+    }
+  ];
+
+  // Difficulty levels with style data
+  const DIFFICULTY_LEVELS = [
+    { 
+      value: 'beginner', 
+      label: t('wizard_difficulty_beginner_label'), 
+      description: t('wizard_difficulty_beginner_desc'), 
+      icon: '🌱', 
+      color: "from-green-500 to-emerald-400", 
+      bgClass: "bg-gradient-to-br from-green-500/10 to-emerald-400/10", 
+      borderClass: "border-green-500/30" 
+    },
+    { 
+      value: 'intermediate', 
+      label: t('wizard_difficulty_intermediate_label'), 
+      description: t('wizard_difficulty_intermediate_desc'), 
+      icon: '🔄', 
+      color: "from-blue-500 to-cyan-400", 
+      bgClass: "bg-gradient-to-br from-blue-500/10 to-cyan-400/10", 
+      borderClass: "border-blue-500/30" 
+    },
+    { 
+      value: 'advanced', 
+      label: t('wizard_difficulty_advanced_label'), 
+      description: t('wizard_difficulty_advanced_desc'), 
+      icon: '🔥', 
+      color: "from-red-500 to-orange-400", 
+      bgClass: "bg-gradient-to-br from-red-500/10 to-orange-400/10", 
+      borderClass: "border-red-500/30" 
+    }
+  ];
+
   // Handle focus selection
   const handleFocusSelect = (focus) => {
     updateFormData({ focus: focus });
@@ -44,7 +112,7 @@ const FocusStep = ({ formData, updateFormData }) => {
       {/* Focus Selection */}
       <div>
         <h3 className="text-xl font-bold text-center text-white mb-6">
-          What's the main focus of this program?
+          {t('wizard_focus_title')}
         </h3>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -101,7 +169,7 @@ const FocusStep = ({ formData, updateFormData }) => {
       {/* Difficulty Selection */}
       <div className="mt-10">
         <h3 className="text-xl font-bold text-center text-white mb-6">
-          Choose a difficulty level
+          {t('wizard_difficulty_title')}
         </h3>
         
         <div className="flex flex-col md:flex-row gap-4 justify-center">
@@ -135,7 +203,7 @@ const FocusStep = ({ formData, updateFormData }) => {
                   {/* Selection indicator */}
                   {isSelected && (
                     <div className={`mt-3 px-3 py-1 rounded-full text-xs bg-gradient-to-r ${level.color} text-white`}>
-                      Selected
+                      {t('wizard_selected')}
                     </div>
                   )}
                 </div>

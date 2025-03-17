@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { X, Save, MapPin, Clock, AlignLeft, Building, Check } from 'lucide-react';
 import { useCreateGym } from '../../../hooks/query';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
+  const { t } = useLanguage();
+  
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -44,7 +47,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
       }
     } catch (error) {
       console.error('Gym creation error:', error);
-      setError(error.response?.data?.detail || 'Failed to create gym');
+      setError(error.response?.data?.detail || t('failed_to_create_gym'));
     }
   };
 
@@ -65,10 +68,11 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fadeIn">
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between bg-gray-800/50 px-6 py-4 border-b border-gray-700/50">
-          <h2 className="text-xl font-bold">Add New Gym</h2>
+          <h2 className="text-xl font-bold">{t('add_new_gym')}</h2>
           <button 
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full transition-all"
+            aria-label={t('close')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -83,7 +87,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
               }`}>
                 {step > 1 ? <Check className="w-4 h-4" /> : 1}
               </div>
-              <div className={`text-sm ${step >= 1 ? 'text-white' : 'text-gray-400'}`}>Basic Info</div>
+              <div className={`text-sm ${step >= 1 ? 'text-white' : 'text-gray-400'}`}>{t('basic_info')}</div>
             </div>
             <div className="w-16 h-0.5 bg-gray-700">
               <div className={`h-full bg-blue-600 transition-all ${step > 1 ? 'w-full' : 'w-0'}`}></div>
@@ -94,7 +98,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
               }`}>
                 {step > 2 ? <Check className="w-4 h-4" /> : 2}
               </div>
-              <div className={`text-sm ${step >= 2 ? 'text-white' : 'text-gray-400'}`}>Details</div>
+              <div className={`text-sm ${step >= 2 ? 'text-white' : 'text-gray-400'}`}>{t('details')}</div>
             </div>
           </div>
 
@@ -102,14 +106,14 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
           {step === 1 && (
             <div className="space-y-5 animate-fadeIn">
               <div>
-                <label className="block text-sm text-gray-300 mb-1 font-medium">Gym Name</label>
+                <label className="block text-sm text-gray-300 mb-1 font-medium">{t('gym_name')}</label>
                 <div className="relative">
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full bg-gray-700/50 border border-gray-700 rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                    placeholder="Enter gym name"
+                    placeholder={t('enter_gym_name')}
                     required
                   />
                   <Building className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
@@ -117,14 +121,14 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-300 mb-1 font-medium">Location</label>
+                <label className="block text-sm text-gray-300 mb-1 font-medium">{t('location')}</label>
                 <div className="relative">
                   <input
                     type="text"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     className="w-full bg-gray-700/50 border border-gray-700 rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                    placeholder="Enter gym location"
+                    placeholder={t('enter_gym_location')}
                     required
                   />
                   <MapPin className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
@@ -137,13 +141,13 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
           {step === 2 && (
             <div className="space-y-5 animate-fadeIn">
               <div>
-                <label className="block text-sm text-gray-300 mb-1 font-medium">Description</label>
+                <label className="block text-sm text-gray-300 mb-1 font-medium">{t('description')}</label>
                 <div className="relative">
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="w-full bg-gray-700/50 border border-gray-700 rounded-lg pl-10 pr-4 py-3 h-24 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                    placeholder="Describe the gym (equipment, amenities, etc.)"
+                    placeholder={t('describe_gym')}
                   />
                   <AlignLeft className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
                 </div>
@@ -151,13 +155,13 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm text-gray-300 font-medium">Opening Hours</label>
+                  <label className="text-sm text-gray-300 font-medium">{t('opening_hours')}</label>
                   <button
                     type="button"
                     onClick={() => setShowHours(!showHours)}
                     className="text-blue-400 hover:text-blue-300 text-sm"
                   >
-                    {showHours ? 'Hide Hours' : 'Set Hours'}
+                    {showHours ? t('hide_hours') : t('set_hours')}
                   </button>
                 </div>
                 
@@ -175,14 +179,14 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
                               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                           }`}
                         >
-                          {day.substring(0, 3)}
+                          {t(day.substring(0, 3))}
                         </button>
                       ))}
                     </div>
                     
                     <div className="flex gap-3">
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-400 mb-1">Open</label>
+                        <label className="block text-xs text-gray-400 mb-1">{t('open')}</label>
                         <input
                           type="time"
                           value={formData.opening_hours[selectedDay].open}
@@ -191,7 +195,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-400 mb-1">Close</label>
+                        <label className="block text-xs text-gray-400 mb-1">{t('close')}</label>
                         <input
                           type="time"
                           value={formData.opening_hours[selectedDay].close}
@@ -207,7 +211,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
                   <div className="bg-gray-800/50 rounded-lg border border-gray-700/50 p-3">
                     <div className="flex items-center gap-2 text-gray-400 text-sm">
                       <Clock className="w-4 h-4" />
-                      <span>Default hours set (6:00 - 22:00 weekdays, 8:00 - 20:00 weekends)</span>
+                      <span>{t('default_hours_set')}</span>
                     </div>
                   </div>
                 )}
@@ -229,7 +233,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
                 onClick={() => setStep(step - 1)}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
               >
-                Back
+                {t('back')}
               </button>
             ) : (
               <button
@@ -237,7 +241,7 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
               >
-                Cancel
+                {t('cancel')}
               </button>
             )}
             
@@ -247,11 +251,11 @@ const GymCreationModal = ({ isOpen, onClose, onGymCreated }) => {
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 text-sm flex items-center gap-2 disabled:opacity-50"
             >
               {step < 2 ? (
-                'Next'
+                t('next')
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  {createGymMutation.isLoading ? 'Creating...' : 'Create Gym'}
+                  {createGymMutation.isLoading ? t('creating') : t('create_gym')}
                 </>
               )}
             </button>

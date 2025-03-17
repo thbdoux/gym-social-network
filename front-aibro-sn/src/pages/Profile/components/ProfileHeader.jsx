@@ -4,8 +4,8 @@ import {
   Users, Activity
 } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
-
 import { useGymDisplay } from '../../../hooks/query/useGymQuery';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const ProfileHeader = ({ 
   user, 
@@ -17,6 +17,8 @@ const ProfileHeader = ({
   setActiveSection,
   activeSection
 }) => {
+  const { t } = useLanguage();
+  
   // Format text utilities
   const formatText = (text) => {
     if (!text) return '';
@@ -38,13 +40,13 @@ const ProfileHeader = ({
             <div className="p-1.5 bg-transparent rounded-full shadow-sm group">
               <img
                 src={getAvatarUrl(user?.avatar)}
-                alt="Profile"
+                alt={t('profile')}
                 className="w-32 h-32 rounded-full object-cover border-2 border-gray-800 transition-all duration-300 group-hover:border-blue-600/40"
               />
               <button 
                 onClick={onEditClick}
                 className="absolute bottom-1 right-1 p-2 bg-gray-800/80 hover:bg-gray-700 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 transform hover:scale-110"
-                title="Edit Profile"
+                title={t('edit_profile')}
               >
                 <Edit className="w-4 h-4" />
               </button>
@@ -64,11 +66,11 @@ const ProfileHeader = ({
             
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-3">
               <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-blue-500/20 text-blue-400 transition-all duration-200 hover:bg-blue-500/30 hover:scale-105">
-                {formatText(user?.training_level) || 'Beginner'}
+                {formatText(user?.training_level) || t('beginner')}
               </span>
               <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-pink-500/20 text-pink-400 transition-all duration-200 hover:bg-pink-500/30 hover:scale-105">
                 <Heart className="w-3 h-3 mr-1" />
-                {formatText(user?.personality_type) || 'Casual'}
+                {formatText(user?.personality_type) || t('casual')}
               </span>
             </div>
           </div>
@@ -83,7 +85,7 @@ const ProfileHeader = ({
                 <Dumbbell className="w-4 h-4 text-blue-400 mr-1" />
                 <span className="text-2xl font-bold">{workoutCount}</span>
               </div>
-              <span className="text-xs text-gray-400">Workouts</span>
+              <span className="text-xs text-gray-400">{t('workouts')}</span>
             </button>
             
             <button 
@@ -94,7 +96,7 @@ const ProfileHeader = ({
                 <Activity className="w-4 h-4 text-purple-400 mr-1" />
                 <span className="text-2xl font-bold">{postCount}</span>
               </div>
-              <span className="text-xs text-gray-400">Posts</span>
+              <span className="text-xs text-gray-400">{t('posts')}</span>
             </button>
             
             <button 
@@ -105,7 +107,7 @@ const ProfileHeader = ({
                 <Users className="w-4 h-4 text-green-400 mr-1" />
                 <span className="text-2xl font-bold">{friendCount}</span>
               </div>
-              <span className="text-xs text-gray-400">Friends</span>
+              <span className="text-xs text-gray-400">{t('friends')}</span>
             </button>
           </div>
         </div>

@@ -1,9 +1,30 @@
 import React from 'react';
 import { Clock, CheckCircle } from 'lucide-react';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const WeeklyCalendar = ({ workouts, onWorkoutClick, onDayChange }) => {
-  const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const SHORT_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const { t } = useLanguage();
+  
+  // Using translations from translations.js for weekdays
+  const WEEKDAYS = [
+    t('monday'),
+    t('tuesday'), 
+    t('wednesday'), 
+    t('thursday'), 
+    t('friday'), 
+    t('saturday'), 
+    t('sunday')
+  ];
+  
+  const SHORT_DAYS = [
+    t('mon'), 
+    t('tue'), 
+    t('wed'), 
+    t('thu'), 
+    t('fri'), 
+    t('sat'), 
+    t('sun')
+  ];
   
   // Group workouts by day
   const workoutsByDay = WEEKDAYS.map((day, index) => ({
@@ -59,7 +80,7 @@ const WeeklyCalendar = ({ workouts, onWorkoutClick, onDayChange }) => {
             <div className="p-2 h-20 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
               {dayData.workouts.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
-                  <span className="text-xs text-gray-500">Rest</span>
+                  <span className="text-xs text-gray-500">{t('rest_day')}</span>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -90,11 +111,11 @@ const WeeklyCalendar = ({ workouts, onWorkoutClick, onDayChange }) => {
       <div className="flex items-center justify-end text-xs text-gray-400 mt-1 px-2">
         <div className="flex items-center">
           <span className="w-2 h-2 rounded-full bg-blue-500 mr-1"></span>
-          <span>Workout day</span>
+          <span>{t('workout_day')}</span>
         </div>
         <div className="flex items-center ml-4">
           <span className="w-2 h-2 rounded-full bg-gray-600 mr-1"></span>
-          <span>Rest day</span>
+          <span>{t('rest_day')}</span>
         </div>
       </div>
     </div>

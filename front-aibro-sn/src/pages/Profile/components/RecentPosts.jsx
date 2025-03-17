@@ -13,6 +13,7 @@ import {
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import { ProgramCard } from '../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
+import { useLanguage } from '../../../context/LanguageContext';
 
 // Import React Query hooks instead of direct service calls
 import { useCurrentUser, useLikePost, useForkProgram } from '../../../hooks/query';
@@ -27,7 +28,7 @@ const RecentPosts = ({
   onDeletePost,
   onUserClick
 }) => {
-
+  const { t } = useLanguage();
   const { data: userData } = useCurrentUser();
   const likePostMutation = useLikePost();
   
@@ -62,10 +63,10 @@ const RecentPosts = ({
     
     if (diffDays === 0) {
       // Today, show time
-      return `Today at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+      return `${t('today')} ${t('at')} ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
     } else if (diffDays === 1) {
       // Yesterday
-      return 'Yesterday';
+      return t('yesterday');
     } else if (diffDays < 7) {
       // Within a week
       return date.toLocaleDateString('en-US', { weekday: 'long' });
@@ -100,7 +101,7 @@ const RecentPosts = ({
 
   // Function to handle delete post request - using the provided callback
   const handleDeletePost = async (postId) => {
-    if (window.confirm('Are you sure you want to delete this post?')) {
+    if (window.confirm(t('confirm_delete_post'))) {
       try {
         if (onDeletePost) {
           await onDeletePost(postId);
@@ -108,7 +109,7 @@ const RecentPosts = ({
         setMenuOpen(null);
       } catch (error) {
         console.error('Error deleting post:', error);
-        alert('Failed to delete post. Please try again.');
+        alert(t('delete_post_error'));
       }
     }
   };
@@ -149,7 +150,7 @@ const RecentPosts = ({
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold flex items-center gap-2 group">
           <Sparkles className="w-5 h-5 text-amber-400 group-hover:rotate-12 transition-transform duration-300" />
-          <span className="group-hover:text-amber-300 transition-colors duration-300">Recent Posts</span>
+          <span className="group-hover:text-amber-300 transition-colors duration-300">{t('recent_posts')}</span>
         </h2>
       </div>
       
@@ -167,7 +168,7 @@ const RecentPosts = ({
               <div className="flex items-start gap-3">
                 <img
                   src={getAvatarUrl(userData?.avatar, 40)}
-                  alt={`${post.user_username}'s avatar`}
+                  alt={`${post.user_username}'s ${t('avatar')}`}
                   className="w-10 h-10 rounded-full object-cover border-2 border-gray-800 transition-all duration-300 hover:scale-110 hover:border-blue-600/40"
                 />
                 <div className="flex-1">
@@ -189,8 +190,8 @@ const RecentPosts = ({
                               ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30' 
                               : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
                         }`}>
-                          {post.post_type === 'workout_log' ? 'Workout' : 
-                          post.post_type === 'program_share' ? 'Program' : 
+                          {post.post_type === 'workout_log' ? t('workout') : 
+                          post.post_type === 'program_share' ? t('program') : 
                           post.post_type}
                         </span>
                       )}
@@ -212,14 +213,14 @@ const RecentPosts = ({
                                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-700 transition-all duration-200 group"
                               >
                                 <Edit2 className="w-4 h-4 text-blue-400 group-hover:rotate-12 transition-transform duration-200" />
-                                <span className="group-hover:translate-x-1 transition-transform duration-200">Edit Post</span>
+                                <span className="group-hover:translate-x-1 transition-transform duration-200">{t('edit_post')}</span>
                               </button>
                               <button 
                                 onClick={() => handleDeletePost(post.id)}
                                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-700 transition-all duration-200 group"
                               >
                                 <Trash2 className="w-4 h-4 text-red-400 group-hover:rotate-12 transition-transform duration-200" />
-                                <span className="group-hover:translate-x-1 transition-transform duration-200">Delete</span>
+                                <span className="group-hover:translate-x-1 transition-transform duration-200">{t('delete')}</span>
                               </button>
                             </div>
                           )}
@@ -238,7 +239,7 @@ const RecentPosts = ({
                     <div className="mt-3 overflow-hidden rounded-lg">
                       <img
                         src={getAvatarUrl(post.image)}
-                        alt=""
+                        alt={t('post_thumbnail')}
                         className="w-full object-cover max-h-96 transform transition-all duration-500 hover:scale-[1.03] rounded-lg hover:shadow-lg"
                       />
                     </div>
@@ -309,7 +310,7 @@ const RecentPosts = ({
                 className="flex items-center justify-center gap-1 mx-auto px-4 py-2 bg-transparent border border-white/5 hover:bg-gray-800/20 rounded-lg transition-all duration-300 group"
               >
                 <span className="group-hover:text-white transition-colors duration-300">
-                  {expandedView ? 'Show Less' : `Show More (${userPosts.length - 3} more)`}
+                  {expandedView ? t('show_less') : t('show_more', { count: userPosts.length - 3 })}
                 </span>
                 <ChevronDown className={`w-4 h-4 transform transition-transform duration-500 ${expandedView ? 'rotate-180' : ''} group-hover:text-blue-400`} />
               </button>
@@ -319,10 +320,10 @@ const RecentPosts = ({
       ) : (
         <div className="text-center py-12 text-gray-400 transition-all duration-300 hover:bg-gray-800/10 rounded-xl group border border-white/5">
           <Dumbbell className="w-12 h-12 mx-auto mb-4 text-gray-600 opacity-50 transition-all duration-500 group-hover:rotate-12 group-hover:text-blue-400 group-hover:opacity-70" />
-          <p className="text-lg group-hover:text-white transition-colors duration-300">No posts yet</p>
-          <p className="text-sm mt-2 group-hover:text-gray-300 transition-colors duration-300">Share your fitness journey by creating your first post</p>
+          <p className="text-lg group-hover:text-white transition-colors duration-300">{t('no_posts')}</p>
+          <p className="text-sm mt-2 group-hover:text-gray-300 transition-colors duration-300">{t('share_fitness_journey')}</p>
           <button className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-300 hover:shadow-md transform hover:scale-105 hover:translate-y-[-2px]">
-            Create Post
+            {t('create_post')}
           </button>
         </div>
       )}

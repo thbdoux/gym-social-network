@@ -1,15 +1,18 @@
 import React from 'react';
 import { Shield, Eye, EyeOff } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const AdvancedOptionsStep = ({ formData, updateFormData }) => {
+  const { t } = useLanguage();
+
   return (
     <div className="max-w-md mx-auto py-8">
       <h2 className="text-2xl font-bold text-white text-center mb-8">
-        Quick Settings
+        {t('wizard_options_title')}
       </h2>
       
       <div className="space-y-6">
-        {/* Minimalist toggle switches */}
+        {/* Active program toggle switch */}
         <label className="relative inline-flex items-center cursor-pointer bg-gray-900 p-4 rounded-lg border border-gray-700 w-full">
           <input
             type="checkbox"
@@ -21,11 +24,12 @@ const AdvancedOptionsStep = ({ formData, updateFormData }) => {
           <div className="ml-4">
             <span className="text-white font-medium flex items-center">
               <Shield className="w-4 h-4 mr-2 text-blue-400" />
-              Active Program
+              {t('wizard_options_active_program')}
             </span>
           </div>
         </label>
 
+        {/* Public toggle switch */}
         <label className="relative inline-flex items-center cursor-pointer bg-gray-900 p-4 rounded-lg border border-gray-700 w-full">
           <input
             type="checkbox"
@@ -41,7 +45,7 @@ const AdvancedOptionsStep = ({ formData, updateFormData }) => {
               ) : (
                 <EyeOff className="w-4 h-4 mr-2 text-red-400" />
               )}
-              Public
+              {t('wizard_options_public')}
             </span>
           </div>
         </label>

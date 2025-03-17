@@ -3,8 +3,11 @@ import {
   Dumbbell, Calendar, FlameIcon, ChevronRight,
   ArrowRight, Zap, Trophy
 } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const ReviewStep = ({ formData }) => {
+  const { t } = useLanguage();
+  
   // Get focus icon and color
   const getFocusData = () => {
     switch(formData.focus) {
@@ -29,22 +32,8 @@ const ReviewStep = ({ formData }) => {
   
   // Motivational phrases based on program focus
   const getMotivationalPhrase = () => {
-    switch(formData.focus) {
-      case 'strength':
-        return "Time to build strength that lasts a lifetime!";
-      case 'hypertrophy':
-        return "Let's sculpt your dream physique!";
-      case 'endurance':
-        return "Ready to push your limits and go the distance!";
-      case 'weight_loss':
-        return "Your transformation journey starts now!";
-      case 'strength_hypertrophy':
-        return "Stronger, bigger, better - let's make it happen!";
-      case 'general_fitness':
-        return "Building a better you, one workout at a time!";
-      default:
-        return "Let's crush this program and transform your fitness!";
-    }
+    const key = `wizard_motivation_${formData.focus}`;
+    return t(key) || t('wizard_motivation_default');
   };
 
   return (
@@ -54,7 +43,7 @@ const ReviewStep = ({ formData }) => {
         <h2 className={`text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${focusData.color} mb-2`}>
           {formData.name}
         </h2>
-        <div className="text-gray-400">Your fitness journey awaits</div>
+        <div className="text-gray-400">{t('wizard_review_subtitle')}</div>
       </div>
       
       {/* Large icon */}
@@ -65,7 +54,7 @@ const ReviewStep = ({ formData }) => {
       {/* Motivational message */}
       <div className="text-center mb-8">
         <h3 className="text-2xl font-bold text-white mb-3">
-          It's Go Time!
+          {t('wizard_review_ready')}
         </h3>
         <p className="text-xl text-gray-300">
           {getMotivationalPhrase()}
@@ -77,19 +66,21 @@ const ReviewStep = ({ formData }) => {
         {/* Sessions per week */}
         <div className={`bg-gradient-to-br ${focusData.color} bg-opacity-10 p-4 rounded-xl border border-gray-700`}>
           <div className="text-white text-xl font-bold mb-1">{formData.sessions_per_week}x</div>
-          <div className="text-gray-300 text-sm">Workouts per week</div>
+          <div className="text-gray-300 text-sm">{t('wizard_stats_workouts_per_week')}</div>
         </div>
         
         {/* Duration */}
         <div className={`bg-gradient-to-br ${focusData.color} bg-opacity-10 p-4 rounded-xl border border-gray-700`}>
-          <div className="text-white text-xl font-bold mb-1">{formData.estimated_completion_weeks} weeks</div>
-          <div className="text-gray-300 text-sm">Program duration</div>
+          <div className="text-white text-xl font-bold mb-1">{formData.estimated_completion_weeks} {t('wizard_stats_weeks')}</div>
+          <div className="text-gray-300 text-sm">{t('wizard_stats_duration')}</div>
         </div>
         
         {/* Difficulty */}
         <div className={`bg-gradient-to-br ${focusData.color} bg-opacity-10 p-4 rounded-xl border border-gray-700 col-span-2`}>
-          <div className="text-white text-xl font-bold mb-1 capitalize">{formData.difficulty_level}</div>
-          <div className="text-gray-300 text-sm">Difficulty level</div>
+          <div className="text-white text-xl font-bold mb-1 capitalize">
+            {t(`wizard_review_${formData.difficulty_level}`)}
+          </div>
+          <div className="text-gray-300 text-sm">{t('wizard_stats_difficulty')}</div>
         </div>
       </div>
       
@@ -97,7 +88,7 @@ const ReviewStep = ({ formData }) => {
       <div className="relative mb-6">
         <div className={`absolute -inset-0.5 rounded-full bg-gradient-to-r ${focusData.color} opacity-75 blur animate-pulse`}></div>
         <button className={`relative bg-gradient-to-r ${focusData.color} text-white px-6 py-3 rounded-full font-bold text-lg`}>
-          Ready to Begin
+          {t('wizard_review_ready_button')}
         </button>
       </div>
     </div>

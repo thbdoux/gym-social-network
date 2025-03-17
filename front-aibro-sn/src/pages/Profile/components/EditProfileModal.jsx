@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Upload, Dumbbell, User, Award, Heart, MapPin, Plus } from 'lucide-react';
 import GymCreationModal from './GymCreationModal';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import { useLanguage } from '../../../context/LanguageContext';
 
 // Import React Query hooks
 import { 
@@ -11,6 +12,8 @@ import {
 } from '../../../hooks/query';
 
 const EditProfileModal = ({ isOpen, onClose, user }) => {
+  const { t } = useLanguage();
+  
   const [error, setError] = useState(null);
   const [showGymCreation, setShowGymCreation] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
@@ -72,14 +75,14 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
       onClose();
       
       if (typeof window.toast === 'function') {
-        window.toast.success('Profile updated successfully');
+        window.toast.success(t('profile_updated_success'));
       }
     } catch (error) {
-      let errorMessage = 'Failed to update profile. Please try again.';
+      let errorMessage = t('profile_update_failed');
       
       if (error.response) {
         if (error.response.status === 413) {
-          errorMessage = 'The uploaded file is too large.';
+          errorMessage = t('file_too_large');
         } else if (error.response.data?.detail) {
           errorMessage = error.response.data.detail;
         }
@@ -100,7 +103,7 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
     }));
     setShowGymCreation(false);
     if (typeof window.toast === 'function') {
-      window.toast.success('Gym created successfully');
+      window.toast.success(t('gym_created_success'));
     }
   };
 
@@ -116,10 +119,11 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fadeIn">
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between bg-gray-800/50 px-6 py-4 border-b border-gray-700/50">
-            <h2 className="text-xl font-bold">Edit Profile</h2>
+            <h2 className="text-xl font-bold">{t('edit_profile')}</h2>
             <button 
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full transition-all"
+              aria-label={t('close')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -133,19 +137,19 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                   active={activeTab === 'general'} 
                   onClick={() => setActiveTab('general')}
                   icon={<User />}
-                  label="General"
+                  label={t('general')}
                 />
                 <TabButton 
                   active={activeTab === 'fitness'} 
                   onClick={() => setActiveTab('fitness')}
                   icon={<Dumbbell />}
-                  label="Fitness"
+                  label={t('fitness')}
                 />
                 <TabButton 
                   active={activeTab === 'gym'} 
                   onClick={() => setActiveTab('gym')}
                   icon={<MapPin />}
-                  label="Gym"
+                  label={t('gym')}
                 />
               </nav>
             </div>
@@ -160,7 +164,7 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                         <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-gray-700 group-hover:border-blue-600 transition-all duration-300 shadow-lg">
                           <img
                             src={avatarPreview}
-                            alt="Profile"
+                            alt={t('profile')}
                             className="w-full h-full object-cover"
                             onError={() => {
                               setAvatarPreview(getAvatarUrl(null));
@@ -177,23 +181,23 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                           />
                         </label>
                         <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <span className="text-white text-sm font-medium">Change Photo</span>
+                          <span className="text-white text-sm font-medium">{t('change_photo')}</span>
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1 font-medium">About Me</label>
+                      <label className="block text-sm text-gray-300 mb-1 font-medium">{t('about_me')}</label>
                       <textarea
                         value={formData.bio}
                         onChange={(e) => setFormData({...formData, bio: e.target.value})}
                         className="w-full bg-gray-700/50 border border-gray-700 rounded-lg px-4 py-3 h-28 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                        placeholder="Tell others about yourself..."
+                        placeholder={t('tell_about_yourself')}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1 font-medium">Personality Type</label>
+                      <label className="block text-sm text-gray-300 mb-1 font-medium">{t('personality_type')}</label>
                       <div className="grid grid-cols-2 gap-3">
                         {['casual', 'lone_wolf', 'competitor', 'extrovert_bro'].map((type) => (
                           <button
@@ -218,17 +222,17 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                 {activeTab === 'fitness' && (
                   <div className="space-y-5 animate-fadeIn">
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1 font-medium">Fitness Goals</label>
+                      <label className="block text-sm text-gray-300 mb-1 font-medium">{t('fitness_goals')}</label>
                       <textarea
                         value={formData.fitness_goals}
                         onChange={(e) => setFormData({...formData, fitness_goals: e.target.value})}
                         className="w-full bg-gray-700/50 border border-gray-700 rounded-lg px-4 py-3 h-32 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                        placeholder="What are your fitness goals?"
+                        placeholder={t('what_are_your_fitness_goals')}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1 font-medium">Training Level</label>
+                      <label className="block text-sm text-gray-300 mb-1 font-medium">{t('training_level')}</label>
                       <div className="grid grid-cols-3 gap-3">
                         {['beginner', 'intermediate', 'advanced'].map((level) => (
                           <button
@@ -242,7 +246,7 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                             }`}
                           >
                             <Award className={`w-4 h-4 ${formData.training_level === level ? 'text-blue-400' : ''}`} />
-                            <span>{formatText(level)}</span>
+                            <span>{t(level)}</span>
                           </button>
                         ))}
                       </div>
@@ -254,13 +258,13 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                   <div className="space-y-5 animate-fadeIn">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-sm text-gray-300 font-medium">Preferred Gym</label>
+                        <label className="text-sm text-gray-300 font-medium">{t('preferred_gym')}</label>
                         <button
                           type="button"
                           onClick={() => setShowGymCreation(true)}
                           className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 transition-colors"
                         >
-                          <Plus className="w-3 h-3" /> Add New Gym
+                          <Plus className="w-3 h-3" /> {t('add_new_gym')}
                         </button>
                       </div>
                       <div className="space-y-3">
@@ -291,13 +295,13 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                           ))
                         ) : (
                           <div className="text-center p-6 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                            <p className="text-gray-400">No gyms available</p>
+                            <p className="text-gray-400">{t('no_gyms_available')}</p>
                             <button
                               type="button"
                               onClick={() => setShowGymCreation(true)}
                               className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors inline-flex items-center gap-1"
                             >
-                              <Plus className="w-4 h-4" /> Add Your Gym
+                              <Plus className="w-4 h-4" /> {t('add_your_gym')}
                             </button>
                           </div>
                         )}
@@ -319,7 +323,7 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                     onClick={onClose}
                     className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <button 
                     type="submit"
@@ -327,7 +331,7 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 text-sm flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     <Save className="w-4 h-4" />
-                    {updateUserMutation.isLoading ? 'Saving...' : 'Save Changes'}
+                    {updateUserMutation.isLoading ? t('saving') : t('save_changes')}
                   </button>
                 </div>
               </form>

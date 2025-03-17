@@ -1,23 +1,66 @@
 import React from 'react';
 import { Calendar, Clock, CheckCircle } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const ScheduleStep = ({ formData, updateFormData }) => {
+  const { t } = useLanguage();
+
   // Days per week options
   const daysPerWeekOptions = [
-    { value: 2, label: "2 days per week", description: "Minimal frequency, good for beginners" },
-    { value: 3, label: "3 days per week", description: "Popular for full body routines" },
-    { value: 4, label: "4 days per week", description: "Common for upper/lower splits" },
-    { value: 5, label: "5 days per week", description: "Good for push/pull/legs routines" },
-    { value: 6, label: "6 days per week", description: "High frequency for advanced trainees" }
+    { 
+      value: 2, 
+      label: t('wizard_frequency_2days_label'), 
+      description: t('wizard_frequency_2days_desc') 
+    },
+    { 
+      value: 3, 
+      label: t('wizard_frequency_3days_label'), 
+      description: t('wizard_frequency_3days_desc') 
+    },
+    { 
+      value: 4, 
+      label: t('wizard_frequency_4days_label'), 
+      description: t('wizard_frequency_4days_desc') 
+    },
+    { 
+      value: 5, 
+      label: t('wizard_frequency_5days_label'), 
+      description: t('wizard_frequency_5days_desc') 
+    },
+    { 
+      value: 6, 
+      label: t('wizard_frequency_6days_label'), 
+      description: t('wizard_frequency_6days_desc') 
+    }
   ];
   
   // Duration options
   const durationOptions = [
-    { value: 4, label: "4 weeks", description: "Short introductory program" },
-    { value: 6, label: "6 weeks", description: "Brief specialization cycle" },
-    { value: 8, label: "8 weeks", description: "Standard program length" },
-    { value: 12, label: "12 weeks", description: "Comprehensive training block" },
-    { value: 16, label: "16 weeks", description: "Long-term periodized program" }
+    { 
+      value: 4, 
+      label: t('wizard_duration_4weeks_label'), 
+      description: t('wizard_duration_4weeks_desc') 
+    },
+    { 
+      value: 6, 
+      label: t('wizard_duration_6weeks_label'), 
+      description: t('wizard_duration_6weeks_desc') 
+    },
+    { 
+      value: 8, 
+      label: t('wizard_duration_8weeks_label'), 
+      description: t('wizard_duration_8weeks_desc') 
+    },
+    { 
+      value: 12, 
+      label: t('wizard_duration_12weeks_label'), 
+      description: t('wizard_duration_12weeks_desc') 
+    },
+    { 
+      value: 16, 
+      label: t('wizard_duration_16weeks_label'), 
+      description: t('wizard_duration_16weeks_desc') 
+    }
   ];
 
   return (
@@ -25,7 +68,7 @@ const ScheduleStep = ({ formData, updateFormData }) => {
       {/* Days per week selection */}
       <div>
         <h3 className="text-xl font-bold text-center text-white mb-6">
-          How many workouts per week?
+          {t('wizard_schedule_frequency_title')}
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -79,7 +122,7 @@ const ScheduleStep = ({ formData, updateFormData }) => {
       {/* Program duration selection */}
       <div>
         <h3 className="text-xl font-bold text-center text-white mb-6">
-          Program duration
+          {t('wizard_schedule_duration_title')}
         </h3>
         
         <div className="flex flex-col items-center">
@@ -101,10 +144,10 @@ const ScheduleStep = ({ formData, updateFormData }) => {
               />
               
               <div className="flex justify-between mt-2 text-xs text-gray-400">
-                <span>4 weeks</span>
-                <span>8 weeks</span>
-                <span>12 weeks</span>
-                <span>16 weeks</span>
+                <span>{t('wizard_duration_4weeks_short')}</span>
+                <span>{t('wizard_duration_8weeks_short')}</span>
+                <span>{t('wizard_duration_12weeks_short')}</span>
+                <span>{t('wizard_duration_16weeks_short')}</span>
               </div>
             </div>
             
@@ -112,7 +155,7 @@ const ScheduleStep = ({ formData, updateFormData }) => {
               <div className="absolute inset-1 bg-blue-600/10 rounded-full flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-xl font-bold text-white">{formData.estimated_completion_weeks}</div>
-                  <div className="text-xs text-gray-400">weeks</div>
+                  <div className="text-xs text-gray-400">{t('wizard_schedule_weeks')}</div>
                 </div>
               </div>
             </div>

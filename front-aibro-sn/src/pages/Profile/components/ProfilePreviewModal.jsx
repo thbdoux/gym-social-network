@@ -5,6 +5,7 @@ import OverviewTab from './tabs/OverviewTab';
 import StatsTab from './tabs/StatsTab';
 import ActivityTab from './tabs/ActivityTab';
 import WorkoutsTab from './tabs/WorkoutsTab';
+import { useLanguage } from '../../../context/LanguageContext';
 
 // Import React Query hooks
 import {
@@ -18,6 +19,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 
 const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }) => {
+  const { t } = useLanguage();
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [programLoadError, setProgramLoadError] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState(null);
@@ -193,7 +196,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700 transition-all z-10"
-          aria-label="Close"
+          aria-label={t('close')}
         >
           <X className="h-5 w-5" />
         </button>
@@ -201,7 +204,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
         {loading ? (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
             <div className="h-12 w-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
-            <p className="mt-4 text-gray-400">Loading profile...</p>
+            <p className="mt-4 text-gray-400">{t('loading_profile')}...</p>
           </div>
         ) : (
           <>
@@ -211,7 +214,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
                   <div className="p-1 bg-gradient-to-br from-blue-700/20 to-purple-700/20 rounded-full shadow-lg">
                     <img
                       src={getAvatarUrl(userData?.avatar)}
-                      alt="Profile"
+                      alt={t('profile')}
                       className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover"
                     />
                   </div>
@@ -228,7 +231,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
                   
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
                     <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-blue-500/10 text-blue-400">
-                      {formatText(userData?.training_level) || 'Beginner'}
+                      {formatText(userData?.training_level) || t('beginner')}
                     </span>
                     {userData?.personality_type && (
                       <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-purple-500/10 text-purple-400">
@@ -250,7 +253,7 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
                 <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-sm">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-red-400" />
-                    <span className="text-red-400">There was an issue loading the current program</span>
+                    <span className="text-red-400">{t('program_load_error')}</span>
                   </div>
                 </div>
               )}
@@ -258,22 +261,22 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
               <div className="border-b border-gray-800/40 mt-6">
                 <div className="flex overflow-x-auto hide-scrollbar">
                   <TabButton 
-                    label="Overview" 
+                    label={t('overview')} 
                     active={activeTab === 'overview'} 
                     onClick={() => handleTabChange('overview')} 
                   />
                   <TabButton 
-                    label="Workouts" 
+                    label={t('workouts')} 
                     active={activeTab === 'workouts'} 
                     onClick={() => handleTabChange('workouts')} 
                   />
                   <TabButton 
-                    label="Stats" 
+                    label={t('statistics')} 
                     active={activeTab === 'stats'} 
                     onClick={() => handleTabChange('stats')} 
                   />
                   <TabButton 
-                    label="Activity" 
+                    label={t('activity')} 
                     active={activeTab === 'activity'} 
                     onClick={() => handleTabChange('activity')} 
                   />

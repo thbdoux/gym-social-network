@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 import {
   useCurrentUser,
@@ -21,6 +22,8 @@ import FriendsPreview from './components/FriendsPreview';
 import RecentPosts from './components/RecentPosts';
 
 const ProfilePage = () => {
+  const { t } = useLanguage();
+  
   // Get current user data
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
   

@@ -5,8 +5,10 @@ import { ProgramCard } from '../../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../../Workouts/components/WorkoutLogCard';
 import { useCurrentUser } from '../../../../hooks/query/useUserQuery';
 import { useForkProgram } from '../../../../hooks/query/useProgramQuery';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSelect }) => {
+  const { t } = useLanguage();
   const { data: currentUser } = useCurrentUser();
   
   // Get fork program mutation
@@ -22,7 +24,7 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
   };
   return (
     <div className="animate-fadeIn">
-      <h3 className="text-lg font-semibold mb-4">Recent Posts</h3>
+      <h3 className="text-lg font-semibold mb-4">{t('recent_posts')}</h3>
       
       {posts.length > 0 ? (
         <div className="space-y-4">
@@ -31,7 +33,7 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
               <div className="flex items-start gap-3">
                 <img
                   src={getAvatarUrl(userData.avatar, 40)}
-                  alt={`${userData.username}'s avatar`}
+                  alt={`${userData.username}'s ${t('avatar')}`}
                   className="w-10 h-10 rounded-full object-cover"
                 />
                 <div className="flex-1">
@@ -48,7 +50,7 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
                     </div>
                     {post.post_type !== 'regular' && (
                       <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
-                        {post.post_type === 'workout_log' ? 'Workout' : post.post_type}
+                        {post.post_type === 'workout_log' ? t('workout') : t(post.post_type)}
                       </span>
                     )}
                   </div>
@@ -82,7 +84,7 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
                   {post.image && (
                     <img
                       src={getAvatarUrl(post.image)}
-                      alt=""
+                      alt={t('post_thumbnail')}
                       className="mt-3 rounded-lg w-full object-cover max-h-60"
                     />
                   )}
@@ -101,14 +103,14 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
           {posts.length > 3 && (
             <div className="text-center mt-2">
               <button className="text-blue-400 hover:text-blue-300 text-sm">
-                View all {posts.length} posts
+                {t('view_all_posts', {count: posts.length})}
               </button>
             </div>
           )}
         </div>
       ) : (
         <div className="text-center py-8 bg-gray-800/30 rounded-xl">
-          <p className="text-gray-400">No posts yet</p>
+          <p className="text-gray-400">{t('no_posts')}</p>
         </div>
       )}
     </div>

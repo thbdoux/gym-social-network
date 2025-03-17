@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Dumbbell, CheckCircle, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 // Import React Query hook
 import { usePrograms } from '../../../../../hooks/query/useProgramQuery';
 
 const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: propPrograms = [], programsLoading, programsError }) => {
+  const { t } = useLanguage();
+  
   // Use React Query hook if not passed from props
   const { 
     data: queryPrograms = [], 
@@ -43,7 +46,7 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: prop
   return (
     <div className="max-w-3xl mx-auto">
       <h3 className="text-xl font-bold text-center text-white mb-6">
-        Is this part of a program?
+        {t("program_selection_title")}
       </h3>
 
       {/* Info toggle */}
@@ -52,7 +55,7 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: prop
         onClick={() => setShowMoreInfo(!showMoreInfo)}
       >
         <Info className="w-4 h-4 text-purple-400 mr-2" />
-        <span className="text-gray-300">Why select a program?</span>
+        <span className="text-gray-300">{t("program_selection_why")}</span>
         {showMoreInfo ? 
           <ChevronUp className="w-4 h-4 text-gray-300 ml-1" /> : 
           <ChevronDown className="w-4 h-4 text-gray-300 ml-1" />
@@ -63,8 +66,7 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: prop
       {showMoreInfo && (
         <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50 mb-6 animate-fadeIn">
           <p className="text-gray-300 text-sm">
-            Adding this workout to a program helps track your progress and maintain consistency.
-            You can skip this step if this is a one-off workout.
+            {t("program_selection_info")}
           </p>
         </div>
       )}
@@ -79,7 +81,7 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: prop
       {/* Error state */}
       {error && (
         <div className="bg-red-900/20 border border-red-500/30 text-red-400 p-4 rounded-lg">
-          {error?.message || 'Failed to load programs'}
+          {error?.message || t("failed_load_programs")}
         </div>
       )}
 
@@ -89,15 +91,15 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: prop
           <div className="bg-purple-900/30 rounded-full p-3 w-14 h-14 mx-auto mb-4 flex items-center justify-center">
             <Dumbbell className="w-7 h-7 text-purple-400" />
           </div>
-          <h3 className="text-lg font-medium text-white mb-2">No active programs found</h3>
+          <h3 className="text-lg font-medium text-white mb-2">{t("no_active_programs")}</h3>
           <p className="text-gray-400 mb-4">
-            You don't have any active programs to associate with this workout.
+            {t("no_active_programs_description")}
           </p>
           <button
             onClick={handleSkip}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors inline-flex items-center"
           >
-            Continue without a program
+            {t("continue_without_program")}
           </button>
         </div>
       )}
@@ -144,16 +146,16 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: prop
                       <div className="flex-1 flex flex-col justify-end">
                         <div className="flex items-center justify-between mt-auto">
                           <div className="text-xs text-gray-400">
-                            {program.workouts?.length || 0} workouts
+                            {program.workouts?.length || 0} {t("workouts")}
                           </div>
                           
                           <div className="text-xs text-gray-400">
-                            {program.sessions_per_week}x/week
+                            {program.sessions_per_week}x/{t("weekly")}
                           </div>
                           
                           {program.is_active && (
                             <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
-                              Active
+                              {t("active")}
                             </span>
                           )}
                         </div>
@@ -191,7 +193,7 @@ const ProgramSelectionStep = ({ formData, updateFormData, colors, programs: prop
               `}
             >
               <X className="w-5 h-5 mr-2" />
-              Skip - Not part of a program
+              {t("skip_program_selection")}
               {selectedProgramId === null && (
                 <CheckCircle className="w-4 h-4 ml-2 text-purple-400" />
               )}

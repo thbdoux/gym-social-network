@@ -2,8 +2,10 @@
 import React, { useState } from 'react';
 import { User, Heart, MessageCircle, Send } from 'lucide-react';
 import { useLikePost, useCommentOnPost } from '../hooks/query/usePostsQuery';
+import { useLanguage } from '../context/LanguageContext';
 
 const CommentSection = ({ comments, postId, onNewComment }) => {
+  const { t } = useLanguage();
   const [newComment, setNewComment] = useState('');
   const commentMutation = useCommentOnPost();
 
@@ -49,13 +51,14 @@ const CommentSection = ({ comments, postId, onNewComment }) => {
           type="text"
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Write a comment..."
+          placeholder={t('write_a_comment')}
           className="flex-1 bg-gray-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           type="submit"
           disabled={commentMutation.isLoading}
           className="p-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          aria-label={t('send_comment')}
         >
           <Send className="w-4 h-4" />
         </button>
@@ -65,6 +68,7 @@ const CommentSection = ({ comments, postId, onNewComment }) => {
 };
 
 const Post = ({ post, onUpdatePost }) => {
+  const { t } = useLanguage();
   const [showComments, setShowComments] = useState(false);
   const likeMutation = useLikePost();
 
@@ -109,7 +113,7 @@ const Post = ({ post, onUpdatePost }) => {
       {post.image && (
         <img
           src={post.image}
-          alt="Post content"
+          alt={t('post_thumbnail')}
           className="w-full rounded-lg mb-4"
         />
       )}
@@ -122,7 +126,7 @@ const Post = ({ post, onUpdatePost }) => {
           }`}
         >
           <Heart className={`w-5 h-5 ${post.is_liked ? 'fill-current' : ''}`} />
-          <span>{post.likes_count} likes</span>
+          <span>{post.likes_count} {t('likes')}</span>
         </button>
         
         <button 
@@ -130,7 +134,7 @@ const Post = ({ post, onUpdatePost }) => {
           className="flex items-center space-x-2 hover:text-blue-500 transition-colors"
         >
           <MessageCircle className="w-5 h-5" />
-          <span>{post.comments.length} comments</span>
+          <span>{post.comments.length} {t('comments')}</span>
         </button>
       </div>
 
@@ -146,6 +150,8 @@ const Post = ({ post, onUpdatePost }) => {
 };
 
 const Feed = ({ posts, loading, error, onUpdatePost }) => {
+  const { t } = useLanguage();
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -164,7 +170,7 @@ const Feed = ({ posts, loading, error, onUpdatePost }) => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-8">Feed</h1>
+      <h1 className="text-3xl font-bold mb-8">{t('feed')}</h1>
       <div className="space-y-6 max-w-3xl">
         {posts.map((post) => (
           <Post

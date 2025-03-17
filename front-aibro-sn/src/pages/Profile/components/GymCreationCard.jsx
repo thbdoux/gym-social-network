@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { X, Save, MapPin } from 'lucide-react';
 import { useCreateGym } from '../../../hooks/query';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const GymCreationCard = ({ onClose, onGymCreated }) => {
+  const { t } = useLanguage();
+  
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -35,41 +38,41 @@ const GymCreationCard = ({ onClose, onGymCreated }) => {
       }
     } catch (error) {
       console.error('Gym creation error:', error);
-      setError(error.response?.data?.detail || 'Failed to create gym');
+      setError(error.response?.data?.detail || t('failed_to_create_gym'));
     }
   };
 
   return (
     <div className="bg-gray-800 rounded-lg p-4 shadow-lg">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Add New Gym</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-white">
+        <h3 className="text-lg font-semibold">{t('add_new_gym')}</h3>
+        <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label={t('close')}>
           <X className="w-5 h-5" />
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Gym Name</label>
+          <label className="block text-sm text-gray-400 mb-1">{t('gym_name')}</label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="w-full bg-gray-700 rounded-lg px-4 py-2"
-            placeholder="Enter gym name"
+            placeholder={t('enter_gym_name')}
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Location</label>
+          <label className="block text-sm text-gray-400 mb-1">{t('location')}</label>
           <div className="relative">
             <input
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               className="w-full bg-gray-700 rounded-lg pl-10 pr-4 py-2"
-              placeholder="Enter gym location"
+              placeholder={t('enter_gym_location')}
               required
             />
             <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
@@ -77,12 +80,12 @@ const GymCreationCard = ({ onClose, onGymCreated }) => {
         </div>
 
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Description</label>
+          <label className="block text-sm text-gray-400 mb-1">{t('description')}</label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="w-full bg-gray-700 rounded-lg px-4 py-2 h-20"
-            placeholder="Describe the gym (equipment, amenities, etc.)"
+            placeholder={t('describe_gym')}
           />
         </div>
 
@@ -98,7 +101,7 @@ const GymCreationCard = ({ onClose, onGymCreated }) => {
           className="w-full bg-blue-600 hover:bg-blue-700 rounded-lg py-2 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          {createGymMutation.isLoading ? 'Creating...' : 'Create Gym'}
+          {createGymMutation.isLoading ? t('creating') : t('create_gym')}
         </button>
       </form>
     </div>

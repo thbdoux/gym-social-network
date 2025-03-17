@@ -5,6 +5,7 @@ import FocusStep from './steps/FocusStep';
 import ScheduleStep from './steps/ScheduleStep';
 import AdvancedOptionsStep from './steps/AdvancedOptionsStep';
 import ReviewStep from './steps/ReviewStep';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 // Initialize form data with defaults or existing data
 const initializeFormData = (program) => {
@@ -33,18 +34,19 @@ const initializeFormData = (program) => {
 };
 
 const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState(() => initializeFormData(program));
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState({});
   const contentRef = useRef(null);
   
-  // Define steps in the wizard - removed EquipmentStep
+  // Define steps in the wizard
   const steps = [
-    { name: "Name", component: BasicInfoStep },
-    { name: "Focus", component: FocusStep },
-    { name: "Schedule", component: ScheduleStep },
-    { name: "Options", component: AdvancedOptionsStep },
-    { name: "Complete", component: ReviewStep }
+    { name: t('wizard_step_name'), component: BasicInfoStep },
+    { name: t('wizard_step_focus'), component: FocusStep },
+    { name: t('wizard_step_schedule'), component: ScheduleStep },
+    { name: t('wizard_step_options'), component: AdvancedOptionsStep },
+    { name: t('wizard_step_complete'), component: ReviewStep }
   ];
 
   // Update form data when props change
@@ -71,7 +73,7 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
     switch(currentStep) {
       case 0: // Basic Info
         if (!formData.name.trim()) {
-          newErrors.name = "Program name is required";
+          newErrors.name = t('wizard_error_name_required');
         }
         break;
     }
@@ -120,7 +122,7 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
           <div className="flex justify-between items-center px-6 py-4">
             <div className="flex items-center">
               <h2 className="text-xl font-bold text-white mr-4">
-                {program ? 'Edit Program' : 'New Program'}
+                {program ? t('wizard_title_edit') : t('wizard_title_new')}
               </h2>
               <div className="flex items-center h-8">
                 {steps.map((step, index) => (
@@ -200,7 +202,7 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
             onClick={currentStep === 0 ? onClose : goToPrevStep}
             className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
           >
-            {currentStep === 0 ? 'Cancel' : 'Back'}
+            {currentStep === 0 ? t('wizard_nav_cancel') : t('wizard_nav_back')}
           </button>
           
           {currentStep < steps.length - 1 ? (
@@ -209,7 +211,7 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
               onClick={goToNextStep}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium text-sm"
             >
-              Next
+              {t('wizard_nav_next')}
             </button>
           ) : (
             <button
@@ -218,7 +220,7 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium text-sm flex items-center"
             >
               <Save className="w-5 h-5 mr-2" />
-              {program ? 'Update' : 'Create'}
+              {program ? t('wizard_nav_update') : t('wizard_nav_create')}
             </button>
           )}
         </div>

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Home, Check, Clock, Plus } from 'lucide-react';
 import { AddGymModal } from '../../GymComponents';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 // Import React Query hooks
 import { useGyms } from '../../../../../hooks/query/useGymQuery';
 
 const GymLocationStep = ({ formData, updateFormData, colors }) => {
+  const { t } = useLanguage();
+  
   // React Query hook for gyms
   const { 
     data: gyms = [], 
@@ -109,7 +112,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
         `}
       >
         <MapPin className="w-4 h-4 mr-2" />
-        At Gym
+        {t("at_gym")}
         {locationType === 'gym' && <Check className="w-4 h-4 ml-2" />}
       </button>
       
@@ -124,7 +127,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
         `}
       >
         <Home className="w-4 h-4 mr-2" />
-        At Home
+        {t("at_home")}
         {locationType === 'home' && <Check className="w-4 h-4 ml-2" />}
       </button>
     </div>
@@ -134,7 +137,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
   const renderGymSelector = () => (
     <div className="mt-3 animate-fadeIn">
       <label className="text-gray-300 mb-2 block">
-        Select your gym
+        {t("select_your_gym")}
       </label>
       
       {loading ? (
@@ -144,11 +147,11 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
             <div className="w-4 h-4 bg-gray-500 rounded-full animate-bounce-delay mr-1"></div>
             <div className="w-4 h-4 bg-gray-500 rounded-full animate-bounce-delay-2"></div>
           </div>
-          <div className="mt-1">Loading gyms...</div>
+          <div className="mt-1">{t("loading_gyms")}</div>
         </div>
       ) : error ? (
         <div className="text-red-400 py-2 text-center animate-shake">
-          Couldn't load gyms
+          {t("couldnt_load_gyms")}
         </div>
       ) : (
         <div className="max-h-72 overflow-y-auto pr-1 gym-scroll">
@@ -158,7 +161,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
               className="text-gray-400 p-3 text-center border border-dashed border-gray-700 rounded-lg cursor-pointer hover:border-gray-500 hover:bg-gray-800/70 transition-all"
             >
               <Plus className="inline-block w-5 h-5 mr-1 mb-1" />
-              No gyms yet. Add your first one!
+              {t("no_gyms_add_first")}
             </div>
           ) : (
             <div className="space-y-2">
@@ -215,7 +218,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         <div className="relative z-10 flex items-center justify-center">
           <Plus className="w-4 h-4 mr-1" />
-          <span className="group-hover:translate-x-1 transition-transform duration-300">Add New Gym</span>
+          <span className="group-hover:translate-x-1 transition-transform duration-300">{t("add_new_gym")}</span>
         </div>
       </button>
     </div>
@@ -232,13 +235,13 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
         <div className="flex items-center justify-between w-full mb-4">
           <div className="flex items-center">
             <Clock className="w-5 h-5 mr-2 text-gray-400" />
-            <label className="text-gray-300 font-medium">Duration</label>
+            <label className="text-gray-300 font-medium">{t("duration")}</label>
           </div>
           <div className="flex items-center">
             <span className="text-white font-medium text-xl">
               {formData.duration}
             </span>
-            <span className="text-gray-400 ml-1">min</span>
+            <span className="text-gray-400 ml-1">{t("mins")}</span>
           </div>
         </div>
         
@@ -314,7 +317,7 @@ const GymLocationStep = ({ formData, updateFormData, colors }) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <label className="block text-gray-300 font-medium mr-4">
-          Where did you work out?
+          {t("where_did_you_workout")}
         </label>
         {/* Location type buttons next to the question */}
         {renderLocationTypeButtons()}

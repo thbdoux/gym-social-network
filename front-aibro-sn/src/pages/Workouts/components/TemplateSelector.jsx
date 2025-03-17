@@ -1,43 +1,50 @@
 import React, { useState } from 'react';
 import { Plus, ArrowLeft, XCircle, Check, Dumbbell, Clock, Flame, Search } from 'lucide-react';
+import { useLanguage } from '../../../context/LanguageContext';
 
 // Simple custom alert component
-const ErrorAlert = ({ message, onClose }) => (
-  <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg flex justify-between items-center">
-    <span>{message}</span>
-    <button 
-      onClick={onClose}
-      className="ml-4 text-red-200 hover:text-red-100"
-    >
-      <XCircle className="w-5 h-5" />
-    </button>
-  </div>
-);
+const ErrorAlert = ({ message, onClose }) => {
+  const { t } = useLanguage();
+  
+  return (
+    <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg flex justify-between items-center">
+      <span>{message}</span>
+      <button 
+        onClick={onClose}
+        className="ml-4 text-red-200 hover:text-red-100"
+      >
+        <XCircle className="w-5 h-5" />
+      </button>
+    </div>
+  );
+};
 
 const DuplicateWarningDialog = ({ isOpen, onConfirm, onCancel, templateName }) => {
+  const { t } = useLanguage();
+  
   if (!isOpen) return null;
   
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
       <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full border border-gray-700">
         <h3 className="text-lg font-medium text-white mb-4">
-          Add Duplicate Workout
+          {t('add_workout')}
         </h3>
         <p className="text-gray-300 mb-6">
-          "{templateName}" is already in this program. Adding it again will let you schedule the same workout multiple times per week.
+          "{templateName}" {t('already_forked_workout_message')}
         </p>
         <div className="flex justify-end space-x-4">
           <button
             onClick={onCancel}
             className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Add Anyway
+            {t('add')}
           </button>
         </div>
       </div>
@@ -46,11 +53,21 @@ const DuplicateWarningDialog = ({ isOpen, onConfirm, onCancel, templateName }) =
 };
 
 const WeekdaySelector = ({ onSelect, onCancel }) => {
-  const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const { t } = useLanguage();
+  
+  const WEEKDAYS = [
+    t('monday'),
+    t('tuesday'), 
+    t('wednesday'), 
+    t('thursday'), 
+    t('friday'), 
+    t('saturday'), 
+    t('sunday')
+  ];
   
   return (
     <div className="flex flex-col space-y-2 mt-2">
-      <div className="text-sm text-gray-300 mb-1">Select day for workout:</div>
+      <div className="text-sm text-gray-300 mb-1">{t('select_day')}:</div>
       <div className="grid grid-cols-7 gap-1">
         {WEEKDAYS.map((day, index) => (
           <button
@@ -67,7 +84,7 @@ const WeekdaySelector = ({ onSelect, onCancel }) => {
         onClick={onCancel}
         className="px-3 py-2 bg-gray-700 rounded hover:bg-gray-600 transition-colors text-sm"
       >
-        Cancel
+        {t('cancel')}
       </button>
     </div>
   );
@@ -85,6 +102,7 @@ const getDifficultyIndicator = (level) => {
 };
 
 const WorkoutTemplateCard = ({ template, onAddClick, isSelecting, onWeekdaySelect, onCancelSelect }) => {
+  const { t } = useLanguage();
   const difficulty = getDifficultyIndicator(template.difficulty_level);
   
   return (
@@ -112,7 +130,7 @@ const WorkoutTemplateCard = ({ template, onAddClick, isSelecting, onWeekdaySelec
               onClick={() => onAddClick(template)}
               className="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white text-sm flex items-center gap-1"
             >
-              <Plus className="w-4 h-4" /> Add
+              <Plus className="w-4 h-4" /> {t('add')}
             </button>
           ) : null}
         </div>
@@ -121,7 +139,7 @@ const WorkoutTemplateCard = ({ template, onAddClick, isSelecting, onWeekdaySelec
           <div className="bg-gray-800/60 rounded-lg p-2 border border-gray-700/30">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <Dumbbell className="w-3 h-3 mr-1 text-blue-400" />
-              <span>Exercises</span>
+              <span>{t('exercises')}</span>
             </div>
             <p className="font-medium text-white">{template.exercises?.length || 0}</p>
           </div>
@@ -129,19 +147,19 @@ const WorkoutTemplateCard = ({ template, onAddClick, isSelecting, onWeekdaySelec
           <div className="bg-gray-800/60 rounded-lg p-2 border border-gray-700/30">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <Clock className="w-3 h-3 mr-1 text-blue-400" />
-              <span>Duration</span>
+              <span>{t('duration')}</span>
             </div>
-            <p className="font-medium text-white">{template.estimated_duration || "--"} <span className="text-xs">min</span></p>
+            <p className="font-medium text-white">{template.estimated_duration || "--"} <span className="text-xs">{t('mins')}</span></p>
           </div>
           
           <div className="bg-gray-800/60 rounded-lg p-2 border border-gray-700/30">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <Flame className="w-3 h-3 mr-1 text-blue-400" />
-              <span>Level</span>
+              <span>{t('level')}</span>
             </div>
             <div className="flex items-center">
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${difficulty.color}`}>{difficulty.icon}</span>
-              <span className="text-xs text-white ml-1 capitalize">{template.difficulty_level || "All"}</span>
+              <span className="text-xs text-white ml-1 capitalize">{t(template.difficulty_level?.toLowerCase() || 'all_levels')}</span>
             </div>
           </div>
         </div>
@@ -164,6 +182,7 @@ const TemplateSelector = ({
   onBack,
   currentProgramWorkouts,
 }) => {
+  const { t } = useLanguage();
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [selectingDayFor, setSelectingDayFor] = useState(null);
@@ -207,7 +226,7 @@ const TemplateSelector = ({
       onSelect(selectingDayFor.id, day);
       setSelectingDayFor(null);
     } catch (err) {
-      setError('Failed to add workout to program');
+      setError(t('failed_add_workout'));
     }
   };
 
@@ -229,14 +248,14 @@ const TemplateSelector = ({
           >
             <ArrowLeft className="w-5 h-5 text-gray-400" />
           </button>
-          <h3 className="text-lg font-medium text-white">Add Workout to Program</h3>
+          <h3 className="text-lg font-medium text-white">{t('add_workout_to_program')}</h3>
         </div>
         <button
           type="button"
           onClick={onCreateNew}
           className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors"
         >
-          Create New
+          {t('create_new')}
         </button>
       </div>
 
@@ -253,7 +272,7 @@ const TemplateSelector = ({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search workouts..."
+            placeholder={t('search_workouts')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-gray-800/50 border border-gray-700 rounded-lg py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -262,11 +281,11 @@ const TemplateSelector = ({
         
         <div className="flex space-x-1">
           {[
-            {id: 'all', label: 'All'},
-            {id: 'strength', label: 'Strength'},
-            {id: 'upper', label: 'Upper'},
-            {id: 'lower', label: 'Lower'},
-            {id: 'full', label: 'Full Body'}
+            {id: 'all', label: t('all_levels')},
+            {id: 'strength', label: t('strength')},
+            {id: 'upper', label: t('upper')},
+            {id: 'lower', label: t('lower')},
+            {id: 'full', label: t('full_body')}
           ].map(filter => (
             <button
               key={filter.id}
@@ -298,14 +317,14 @@ const TemplateSelector = ({
         {filteredTemplates.length === 0 && (
           <div className="col-span-full text-center py-10 bg-gray-800/40 rounded-xl border border-dashed border-gray-700">
             <Dumbbell className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-            <h4 className="text-lg font-medium text-gray-400">No workouts found</h4>
-            <p className="text-gray-500 mt-2">Try different search terms or create a new workout</p>
+            <h4 className="text-lg font-medium text-gray-400">{t('no_workouts_found')}</h4>
+            <p className="text-gray-500 mt-2">{t('adjust_search_or_filters')}</p>
             <button
               onClick={onCreateNew}
               className="mt-4 px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Create New Workout
+              {t('create_workout_plan')}
             </button>
           </div>
         )}

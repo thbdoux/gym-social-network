@@ -1,7 +1,10 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const DateSelectionStep = ({ formData, updateFormData, colors }) => {
+  const { t } = useLanguage();
+  
   // Helper to format dates in YYYY-MM-DD
   const formatDate = (date) => {
     return date.toISOString().split('T')[0];
@@ -19,7 +22,7 @@ const DateSelectionStep = ({ formData, updateFormData, colors }) => {
   return (
     <div className="max-w-md mx-auto">
       <h3 className="text-xl font-bold text-center text-white mb-8">
-        When did you work out?
+        {t("when_did_you_workout")}
       </h3>
       
       {/* Quick selection buttons */}
@@ -34,7 +37,7 @@ const DateSelectionStep = ({ formData, updateFormData, colors }) => {
               : 'bg-gray-800 hover:bg-gray-700'}
           `}
         >
-          <span>Today</span>
+          <span>{t("today")}</span>
         </button>
         
         <button
@@ -47,7 +50,7 @@ const DateSelectionStep = ({ formData, updateFormData, colors }) => {
               : 'bg-gray-800 hover:bg-gray-700'}
           `}
         >
-          <span>Yesterday</span>
+          <span>{t("yesterday")}</span>
         </button>
         
         <button
@@ -60,7 +63,7 @@ const DateSelectionStep = ({ formData, updateFormData, colors }) => {
               : 'bg-gray-800 hover:bg-gray-700'}
           `}
         >
-          <span>2 Days Ago</span>
+          <span>{t("days_ago")}</span>
         </button>
       </div>
       
@@ -81,7 +84,7 @@ const DateSelectionStep = ({ formData, updateFormData, colors }) => {
       
       {/* Current selected date display */}
       <div className="mt-6 text-center text-gray-400 text-sm">
-        Selected: <span className="text-white font-medium">{new Date(formData.date).toLocaleDateString(undefined, { 
+        {t("selected")}: <span className="text-white font-medium">{new Date(formData.date).toLocaleDateString(undefined, { 
           weekday: 'long', 
           year: 'numeric', 
           month: 'long', 

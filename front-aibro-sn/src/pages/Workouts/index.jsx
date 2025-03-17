@@ -24,7 +24,7 @@ import ProgramListView from './views/ProgramListView';
 import { usePrograms, useProgram, useCreateProgram, useUpdateProgram, useDeleteProgram, 
   useToggleProgramActive, useAddWorkoutToProgram, useUpdateProgramWorkout, 
   useRemoveWorkoutFromProgram, useForkProgram } from '../../hooks/query/useProgramQuery';
-import { useWorkoutTemplates } from '../../hooks/query/useWorkoutQuery';
+import { useCreateWorkoutTemplate, useDeleteWorkoutTemplate, useWorkoutTemplates } from '../../hooks/query/useWorkoutQuery';
 import { useLogs, useCreateLog, useUpdateLog, useDeleteLog } from '../../hooks/query/useLogQuery';
 import { useCurrentUser } from '../../hooks/query/useUserQuery';
 import { useQueryClient } from '@tanstack/react-query';
@@ -76,6 +76,8 @@ const WorkoutSpace = () => {
   const createLogMutation = useCreateLog();
   const updateLogMutation = useUpdateLog();
   const forkProgramMutation = useForkProgram();
+  const createTemplateMutation = useCreateWorkoutTemplate();
+  const deleteTemplateMutation = useDeleteWorkoutTemplate();
 
   const handlePlanSelect = async (plan) => {
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
