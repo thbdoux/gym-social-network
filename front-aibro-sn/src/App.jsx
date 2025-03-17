@@ -9,12 +9,14 @@ import WorkoutsSpace from './pages/Workouts';
 import CoachPage from './pages/Coach';
 import ProfilePage from './pages/Profile';
 import MainFeed from './pages/MainFeed';
+import PersonalityPathWizard from './components/PersonalityPathWizard';
 
 // Updated Components
 import Sidebar from './components/Sidebar';
 import Layout from './components/Layout';
 import { useAuth } from './hooks/useAuth';
 import { LanguageProvider } from './context/LanguageContext';
+import { useCurrentUser } from './hooks/query/useUserQuery';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -51,8 +53,11 @@ function App() {
       <LanguageProvider>
         <Router>
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* Registration flow - personality path is now part of registration */}
+            <Route path="/register" element={<PersonalityPathWizard isRegistrationFlow={true} />} />
 
             {/* Protected routes */}
             <Route

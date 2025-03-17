@@ -10,10 +10,11 @@ class User(AbstractUser):
         ('advanced', 'Advanced')
     ]
     PERSONALITY_TYPES = [
-        ('lone_wolf', 'Lone Wolf'),
-        ('extrovert_bro', 'Extrovert Bro'),
-        ('casual', 'Casual'),
-        ('competitor', 'Competitor')
+        ('optimizer', 'Optimizer'),
+        ('diplomate', 'Diplomate'),
+        ('mentor', 'Mentor'),
+        ('versatile', 'Versatile'),
+        ('casual','Casual')
     ]
     LANGUAGE_CHOICES = [
         ('en', 'English'),

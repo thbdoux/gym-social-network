@@ -1,8 +1,9 @@
-// src/utils/translations.js
+import personalityPathTranslations from "./personalityPath";
 
 const translations = {
   en: {
     // Common UI elements
+    ...personalityPathTranslations.en,
     "app_name": "dou",
     "login": "Login",
     "signup": "Sign Up",
@@ -861,6 +862,7 @@ const translations = {
   
   fr: {
     // Common UI elements
+    ...personalityPathTranslations.fr,
     "app_name": "dou",
     "login": "Connexion",
     "signup": "S'inscrire",

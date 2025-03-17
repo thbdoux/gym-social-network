@@ -1,27 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, ArrowRight } from 'lucide-react';
-import { useLogin, useCurrentUser, useRegisterUser } from '../../hooks/query/useUserQuery';
+import { User, Lock, ArrowRight } from 'lucide-react';
+import { useLogin, useCurrentUser } from '../../hooks/query/useUserQuery';
 import { useLanguage } from '../../context/LanguageContext';
 import douLogo from '../../assets/dou.svg';
 import douPlusLogo from '../../assets/dou-plus.svg';
 
 const LoginPage = () => {
   const { t } = useLanguage(); // Import the translation function
-  const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
     password: '',
-    confirmPassword: '',
   });
   const [error, setError] = useState('');
   
   const navigate = useNavigate();
   
-  // Use React Query hooks for login, registration, and current user
+  // Use React Query hooks for login and current user
   const loginMutation = useLogin();
-  const registerMutation = useRegisterUser();
   const { data: currentUser, isSuccess: isAuthenticated } = useCurrentUser();
 
   const handleInputChange = (e) => {
@@ -31,58 +27,23 @@ const LoginPage = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!isLogin) {
-      if (formData.password !== formData.confirmPassword) {
-        setError(t('passwords_do_not_match'));
-        return;
-      }
-      if (!formData.email) {
-        setError(t('email_required'));
-        return;
-      }
-    }
-
     try {
-      if (isLogin) {
-        await loginMutation.mutateAsync({
-          username: formData.username,
-          password: formData.password
-        });
-        navigate('/feed');
-      } else {
-        // Register first
-        await registerMutation.mutateAsync({
-          username: formData.username,
-          password: formData.password,
-          email: formData.email,
-          training_level: 'beginner',
-          personality_type: 'casual'
-        });
-        
-        // Then login
-        await loginMutation.mutateAsync({
-          username: formData.username,
-          password: formData.password
-        });
-        navigate('/feed');
-      }
+      await loginMutation.mutateAsync({
+        username: formData.username,
+        password: formData.password
+      });
+      navigate('/feed');
     } catch (err) {
-      if (!isLogin) {
-        if (err.response?.data?.username) {
-          setError(t('username_taken'));
-        } else if (err.response?.data?.email) {
-          setError(t('email_registered'));
-        } else {
-          setError(Object.values(err.response?.data || {}).flat().join('\n') || t('registration_failed'));
-        }
-      } else {
-        setError(t('invalid_credentials'));
-      }
+      setError(t('invalid_credentials'));
     }
+  };
+
+  const handleRegisterClick = () => {
+    navigate('/register');
   };
 
   // Redirect if already authenticated
@@ -91,7 +52,7 @@ const LoginPage = () => {
   }
 
   // Determine if loading state is active
-  const loading = loginMutation.isPending || registerMutation.isPending;
+  const loading = loginMutation.isPending;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 relative overflow-hidden">
@@ -112,7 +73,7 @@ const LoginPage = () => {
           <div className="backdrop-blur-sm p-6 rounded-2xl border border-gray-800/30 relative overflow-hidden">
             {/* Mode title - simple text instead of tabs */}
             <h2 className="text-xl font-bold text-center text-white mb-6">
-              {isLogin ? t('welcome_back') : t('create_account')}
+              {t('welcome_back')}
             </h2>
 
             {/* Error display */}
@@ -123,7 +84,7 @@ const LoginPage = () => {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -140,25 +101,6 @@ const LoginPage = () => {
                   />
                 </div>
               </div>
-
-              {!isLogin && (
-                <div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail size={16} className="text-gray-500" />
-                    </div>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder={t('email')}
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 px-4 py-3 rounded-lg bg-gray-800/40 text-white border border-gray-700/30 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all duration-300 placeholder-gray-500"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
 
               <div>
                 <div className="relative">
@@ -177,33 +119,12 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              {!isLogin && (
-                <div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock size={16} className="text-gray-500" />
-                    </div>
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      placeholder={t('confirm_password')}
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 px-4 py-3 rounded-lg bg-gray-800/40 text-white border border-gray-700/30 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all duration-300 placeholder-gray-500"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
               {/* Forgot password link */}
-              {isLogin && (
-                <div className="flex justify-end">
-                  <a href="#" className="text-xs text-gray-400 hover:text-blue-400 transition-colors">
-                    {t('forgot_password')}
-                  </a>
-                </div>
-              )}
+              <div className="flex justify-end">
+                <a href="#" className="text-xs text-gray-400 hover:text-blue-400 transition-colors">
+                  {t('forgot_password')}
+                </a>
+              </div>
 
               <button
                 type="submit"
@@ -220,34 +141,25 @@ const LoginPage = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span className="ml-2">{isLogin ? t('logging_in') : t('registering')}</span>
+                    <span className="ml-2">{t('logging_in')}</span>
                   </>
                 ) : (
                   <>
-                    <span>{isLogin ? t('continue') : t('create_account_button')}</span>
+                    <span>{t('continue')}</span>
                     <ArrowRight size={16} className="ml-2" />
                   </>
                 )}
               </button>
             </form>
 
-            {/* Account toggle text */}
+            {/* Register button */}
             <div className="mt-6 text-center text-gray-500 text-sm">
-              {isLogin ? (
-                <p>{t('dont_have_account')} <button 
-                  onClick={() => setIsLogin(false)} 
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  {t('register')}
-                </button></p>
-              ) : (
-                <p>{t('already_have_account')} <button 
-                  onClick={() => setIsLogin(true)} 
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  {t('login')}
-                </button></p>
-              )}
+              <p>{t('dont_have_account')} <button 
+                onClick={handleRegisterClick} 
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                {t('register')}
+              </button></p>
             </div>
           </div>
           

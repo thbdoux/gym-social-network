@@ -53,7 +53,7 @@ class UserSerializer(serializers.ModelSerializer):
                 password=validated_data['password'],
                 email=validated_data.get('email', ''),
                 training_level=validated_data.get('training_level', 'beginner'),
-                personality_type=validated_data.get('personality_type', 'casual'),
+                personality_type=validated_data.get('personality_type', 'versatile'),
                 language_preference=validated_data.get('language_preference', 'en'),
                 fitness_goals=validated_data.get('fitness_goals', ''),
                 bio=validated_data.get('bio', '')
