@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Post from './Post';
 import { useFriends, useUsers } from '../../../hooks/query';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const FeedContainer = ({ 
     posts = [], 
@@ -15,6 +16,7 @@ const FeedContainer = ({
     onForkProgram
   }) => {
     const [filteredPosts, setFilteredPosts] = useState([]);
+    const { t } = useLanguage();
     
     // Use React Query hooks instead of direct API calls
     const { 
@@ -87,8 +89,8 @@ const FeedContainer = ({
       <div>
         {filteredPosts.length === 0 ? (
           <div className="bg-gray-900 rounded-lg p-8 text-center">
-            <h3 className="text-xl font-semibold text-white mb-2">No posts yet</h3>
-            <p className="text-gray-400">Connect with friends to see their updates here</p>
+            <h3 className="text-xl font-semibold text-white mb-2">{t('no_posts')}</h3>
+            <p className="text-gray-400">{t('connect_with_friends')}</p>
           </div>
         ) : (
           <div className="space-y-5">

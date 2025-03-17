@@ -15,11 +15,16 @@ class User(AbstractUser):
         ('casual', 'Casual'),
         ('competitor', 'Competitor')
     ]
+    LANGUAGE_CHOICES = [
+        ('en', 'English'),
+        ('fr', 'French')
+    ]
     
     preferred_gym = models.ForeignKey('gyms.Gym', on_delete=models.SET_NULL, 
                                     null=True, related_name='regular_users')
     training_level = models.CharField(max_length=20, choices=TRAINING_LEVELS)
     personality_type = models.CharField(max_length=20, choices=PERSONALITY_TYPES)
+    language_preference = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='en')
     fitness_goals = models.TextField(blank=True)
     friends = models.ManyToManyField('self', through='Friendship',
                                    symmetrical=False)

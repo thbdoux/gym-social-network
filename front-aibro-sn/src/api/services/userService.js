@@ -35,6 +35,11 @@ import { extractData } from '../utils/responseParser';
     return response.data;
   },
 
+  updateLanguagePreference: async (language) => {
+    const response = await apiClient.post('/users/update-language/', { language });
+    return response.data;
+  },
+  
   followUser: async (userId) => {
     const response = await apiClient.post(`/users/${userId}/follow/`);
     return response.data;

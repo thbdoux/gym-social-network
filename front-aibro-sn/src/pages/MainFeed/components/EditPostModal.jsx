@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { useLanguage } from '../../../context/LanguageContext';
 
-const EditPostModal = ({ post, isOpen, onClose, onSave }) => {
+const EditPostModal = ({ post, isOpen, onClose, onSave, modalTitle, saveButtonText, cancelButtonText }) => {
   const [editedContent, setEditedContent] = React.useState(post?.content || '');
   const textareaRef = useRef(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -26,7 +28,7 @@ const EditPostModal = ({ post, isOpen, onClose, onSave }) => {
       <div className="bg-gray-800 rounded-lg w-full max-w-lg mx-4 overflow-hidden shadow-xl">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Edit Post</h3>
+          <h3 className="text-lg font-semibold text-white">{modalTitle || t('edit_post')}</h3>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-700 rounded-full transition-colors"
@@ -42,7 +44,7 @@ const EditPostModal = ({ post, isOpen, onClose, onSave }) => {
               ref={textareaRef}
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
-              placeholder="What's on your mind?"
+              placeholder={t('whats_on_your_mind')}
               rows={4}
               className="w-full bg-gray-900 text-gray-100 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
             />
@@ -65,10 +67,10 @@ const EditPostModal = ({ post, isOpen, onClose, onSave }) => {
                 )}
               </div>
               <div className="text-sm text-gray-400">
-                Preview as <span className="text-white">{post.user_username}</span>
+                {t('preview_as')} <span className="text-white">{post.user_username}</span>
               </div>
             </div>
-            <p className="text-gray-300">{editedContent || 'Your post content will appear here'}</p>
+            <p className="text-gray-300">{editedContent || t('post_preview_placeholder')}</p>
           </div>
         </div>
 
@@ -79,7 +81,7 @@ const EditPostModal = ({ post, isOpen, onClose, onSave }) => {
             onClick={onClose}
             className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
           >
-            Cancel
+            {cancelButtonText || t('cancel')}
           </button>
           <button
             type="button"
@@ -87,7 +89,7 @@ const EditPostModal = ({ post, isOpen, onClose, onSave }) => {
             disabled={!editedContent.trim()}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:hover:bg-blue-500"
           >
-            Save changes
+            {saveButtonText || t('save_changes')}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import FeedContainer from './components/FeedContainer';
 import EditPostModal from './components/EditPostModal';
 import FriendsPreview from '../Profile/components/FriendsPreview';
 import FriendsModal from '../Profile/components/FriendsModal';
+import { useLanguage } from '../../context/LanguageContext';
 import { 
   usePostsFeed, 
   useCurrentUser, 
@@ -21,6 +22,7 @@ const MainFeed = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
+  const { t } = useLanguage();
   
   // Use React Query hooks
   const { data: posts = [], isLoading: postsLoading, error: postsError } = usePostsFeed();
@@ -115,6 +117,9 @@ const MainFeed = () => {
             setEditingPost(null);
           }}
           onSave={handleEditPost}
+          modalTitle={t('edit_post')}
+          saveButtonText={t('save')}
+          cancelButtonText={t('cancel')}
         />
       )}
       
@@ -123,6 +128,8 @@ const MainFeed = () => {
           isOpen={isFriendsModalOpen}
           onClose={() => setIsFriendsModalOpen(false)}
           currentUser={user}
+          modalTitle={t('your_friends')}
+          closeButtonText={t('close')}
         />
       )}
     </div>

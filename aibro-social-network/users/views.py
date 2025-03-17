@@ -22,6 +22,40 @@ import logging
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+# Add this at the appropriate location in views.py
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_language_preference(request):
+    """
+    Update the user's language preference
+    """
+    try:
+        language = request.data.get('language')
+        if not language or language not in dict(User.LANGUAGE_CHOICES):
+            return Response(
+                {"detail": "Invalid language code. Choose from: " + 
+                          ", ".join([code for code, _ in User.LANGUAGE_CHOICES])},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = request.user
+        user.language_preference = language
+        user.save()
+        
+        return Response({
+            "success": True,
+            "message": "Language preference updated",
+            "language": language
+        })
+        
+    except Exception as e:
+        logger.exception(f"Error updating language preference: {str(e)}")
+        return Response(
+            {"detail": f"Error updating language preference: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def reset_user_current_program(request, user_id):

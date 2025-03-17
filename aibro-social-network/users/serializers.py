@@ -18,8 +18,6 @@ class UserSerializer(serializers.ModelSerializer):
                 'sessions_per_week': obj.current_program.sessions_per_week,
                 'difficulty_level': obj.current_program.difficulty_level
             }
-            # Note: We're returning a simplified version to avoid deep nesting
-            # and potential circular imports with the new workout structure
         return None
     class Meta:
         model = User
@@ -31,11 +29,12 @@ class UserSerializer(serializers.ModelSerializer):
             'email', 
             'training_level', 
             'personality_type',
+            'language_preference',
             'fitness_goals',
             'bio',
             'avatar',
             'preferred_gym',
-            'current_program'  # Add this to fields
+            'current_program' 
         ]
         extra_kwargs = {
             'password': {'write_only': True},
@@ -44,6 +43,7 @@ class UserSerializer(serializers.ModelSerializer):
             'bio': {'required': False},
             'avatar': {'required': False},
             'preferred_gym': {'required': False},
+            'language_preference': {'required': False},
         }
         
     def create(self, validated_data):
@@ -54,6 +54,7 @@ class UserSerializer(serializers.ModelSerializer):
                 email=validated_data.get('email', ''),
                 training_level=validated_data.get('training_level', 'beginner'),
                 personality_type=validated_data.get('personality_type', 'casual'),
+                language_preference=validated_data.get('language_preference', 'en'),
                 fitness_goals=validated_data.get('fitness_goals', ''),
                 bio=validated_data.get('bio', '')
             )

@@ -2,7 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import UserViewSet, UserProfileView, reset_user_current_program
+from .views import UserViewSet, UserProfileView, reset_user_current_program, update_language_preference
 from .profile_preview_api import (
     get_user_profile_preview, 
     get_user_friends, 
@@ -17,7 +17,7 @@ urlpatterns = [
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
-    # Add these new profile preview endpoints
+    path('update-language/', update_language_preference, name='update-language-preference'),
     path('<int:user_id>/profile-preview/', get_user_profile_preview, name='user-profile-preview'),
     path('<int:user_id>/friends/', get_user_friends, name='user-friends'),
     path('<int:user_id>/posts/', get_user_posts, name='user-posts'),

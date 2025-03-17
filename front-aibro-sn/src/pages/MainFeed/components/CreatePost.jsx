@@ -14,6 +14,7 @@ import {
 import ProgramSelector from './ProgramSelector';
 import WorkoutLogSelector from './WorkoutLogSelector';
 import { useCreatePost, useGym } from '../../../hooks/query';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const CreatePost = ({ onPostCreated }) => {
   const [content, setContent] = useState('');
@@ -28,6 +29,7 @@ const CreatePost = ({ onPostCreated }) => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedWorkoutLog, setSelectedWorkoutLog] = useState(null);
   const fileInputRef = useRef(null);
+  const { t } = useLanguage();
 
   // Use React Query hooks
   const createPostMutation = useCreatePost();
@@ -43,24 +45,24 @@ const CreatePost = ({ onPostCreated }) => {
 
   const postTypes = {
     regular: {
-      label: 'Regular Post',
+      label: t('regular_post'),
       icon: Edit,
       color: 'blue'
     },
     workout_log: {
-      label: 'Share Workout',
+      label: t('share_workout'),
       icon: Activity,
       color: 'green',
       action: () => setShowWorkoutLogSelector(true)
     },
     program: {
-      label: 'Share Program',
+      label: t('share_program'),
       icon: Dumbbell,
       color: 'purple',
       action: () => setShowProgramSelector(true)
     },
     workout_invite: {
-      label: 'Group Workout',
+      label: t('group_workout'),
       icon: Users,
       color: 'orange'
     }
@@ -70,11 +72,11 @@ const CreatePost = ({ onPostCreated }) => {
     const file = e.target.files[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        setImageError('Please upload an image file');
+        setImageError(t('error_image_type'));
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        setImageError('Image size should be less than 5MB');
+        setImageError(t('error_image_size'));
         return;
       }
       setImage(file);
@@ -116,7 +118,7 @@ const CreatePost = ({ onPostCreated }) => {
       },
       onError: (error) => {
         console.error('Failed to create post:', error);
-        alert(`Failed to create post: ${error.message || 'Unknown error'}`);
+        alert(`${t('error_create_post')}: ${error.message || t('unknown_error')}`);
       }
     });
   };
@@ -137,14 +139,14 @@ const CreatePost = ({ onPostCreated }) => {
     setSelectedProgram(program);
     setShowProgramSelector(false);
     // Auto-populate content with program name
-    setContent(`Check out my workout program: ${program.name}`);
+    setContent(`${t('check_out_program')}: ${program.name}`);
   };
   
   const handleWorkoutLogSelect = (workoutLog) => {
     setSelectedWorkoutLog(workoutLog);
     setShowWorkoutLogSelector(false);
     // Auto-populate content
-    setContent(`Just completed: ${workoutLog.workout_name || workoutLog.name || "a workout"}`);
+    setContent(`${t('just_completed')}: ${workoutLog.workout_name || workoutLog.name || t('a_workout')}`);
   };
 
   // Handle removing program or workout log
@@ -242,10 +244,10 @@ const CreatePost = ({ onPostCreated }) => {
                   onChange={(e) => setContent(e.target.value)}
                   placeholder={
                     postType === 'program' && selectedProgram 
-                      ? "Add a note about this program..." 
+                      ? t('add_program_note') 
                       : postType === 'workout_log' && selectedWorkoutLog
-                      ? "Add a note about this workout..."
-                      : "What's on your mind?"
+                      ? t('add_workout_note')
+                      : t('whats_on_your_mind')
                   }
                   className="w-full bg-gray-800 text-gray-100 rounded-lg p-3 h-10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder-gray-500 transition-all"
                   style={{ minHeight: '40px', paddingTop: '8px', paddingBottom: '8px' }}
@@ -292,12 +294,12 @@ const CreatePost = ({ onPostCreated }) => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Posting...</span>
+                      <span>{t('posting')}</span>
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      <span>Post</span>
+                      <span>{t('post')}</span>
                     </>
                   )}
                 </button>
@@ -323,7 +325,7 @@ const CreatePost = ({ onPostCreated }) => {
                         </span>
                         {selectedProgram.is_active && (
                           <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
-                            Active
+                            {t('active')}
                           </span>
                         )}
                       </div>
@@ -341,7 +343,7 @@ const CreatePost = ({ onPostCreated }) => {
                 
                 {/* Description (limited to 2 lines) */}
                 <div className="mt-2 text-sm text-gray-400 line-clamp-2 bg-gray-800/50 p-2 rounded-lg">
-                  {selectedProgram.description || "No description available"}
+                  {selectedProgram.description || t('no_description')}
                 </div>
                 
                 {/* Program stats */}
@@ -349,16 +351,16 @@ const CreatePost = ({ onPostCreated }) => {
                   <div className="flex items-center gap-2 p-1">
                     <Calendar className="w-4 h-4 text-purple-400" />
                     <div>
-                      <span className="text-xs text-gray-500">Frequency</span>
+                      <span className="text-xs text-gray-500">{t('frequency')}</span>
                       <p className="text-sm font-medium text-white">
-                        {selectedProgram.sessions_per_week}x weekly
+                        {selectedProgram.sessions_per_week}x {t('weekly')}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 p-1">
                     <Users className="w-4 h-4 text-purple-400" />
                     <div>
-                      <span className="text-xs text-gray-500">Workouts</span>
+                      <span className="text-xs text-gray-500">{t('workouts')}</span>
                       <p className="text-sm font-medium text-white">
                         {selectedProgram.workouts?.length || 0}
                       </p>
@@ -382,7 +384,7 @@ const CreatePost = ({ onPostCreated }) => {
                     
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-white flex items-center text-base">
-                        <span className="truncate">{selectedWorkoutLog.workout_name || selectedWorkoutLog.name || "Unnamed Workout"}</span>
+                        <span className="truncate">{selectedWorkoutLog.workout_name || selectedWorkoutLog.name || t('unnamed_workout')}</span>
                       </h4>
                       {selectedWorkoutLog.program_name && (
                         <span className="text-xs bg-gray-700/50 text-green-400 px-2 py-0.5 rounded-full mt-1 inline-block">
@@ -403,29 +405,29 @@ const CreatePost = ({ onPostCreated }) => {
                 
                 <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
                   <Calendar className="w-3.5 h-3.5 text-green-400" />
-                  <span>{selectedWorkoutLog.date || "No date"}</span>
+                  <span>{selectedWorkoutLog.date || t('no_date')}</span>
                 </div>
                 
                 <div className="text-sm text-gray-400 mt-1 flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5 text-green-400" />
-                  <span>{selectedWorkoutLog.duration_mins || 0} mins</span>
+                  <span>{selectedWorkoutLog.duration_mins || 0} {t('mins')}</span>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-2 mt-3 bg-gray-800/70 p-2 rounded-lg text-center">
                   <div>
-                    <span className="text-xs text-gray-500">Exercises</span>
+                    <span className="text-xs text-gray-500">{t('exercises')}</span>
                     <p className="text-sm font-medium text-white">
                       {selectedWorkoutLog.exercise_count || selectedWorkoutLog.exercises?.length || 0}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-gray-500">Volume</span>
+                    <span className="text-xs text-gray-500">{t('volume')}</span>
                     <p className="text-sm font-medium text-white">
                       {selectedWorkoutLog.total_volume || 0} kg
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-gray-500">Location</span>
+                    <span className="text-xs text-gray-500">{t('location')}</span>
                     <p className="text-sm font-medium text-white truncate">
                       {selectedWorkoutLog.location || gymName || "—"}
                     </p>
@@ -443,7 +445,7 @@ const CreatePost = ({ onPostCreated }) => {
                 <div className="relative rounded-lg overflow-hidden">
                   <img
                     src={imagePreview}
-                    alt="Preview"
+                    alt={t('preview')}
                     className="w-full h-40 object-cover rounded-lg"
                   />
                   <button
@@ -480,6 +482,8 @@ const CreatePost = ({ onPostCreated }) => {
               setPostType('regular');
             }
           }}
+          title={t('select_workout_log')}
+          cancelText={t('cancel')}
         />
       )}
 
@@ -493,6 +497,8 @@ const CreatePost = ({ onPostCreated }) => {
               setPostType('regular');
             }
           }}
+          title={t('select_program')}
+          cancelText={t('cancel')}
         />
       )}
     </>

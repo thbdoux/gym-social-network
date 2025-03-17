@@ -6,6 +6,7 @@ import { ProgramCard } from '../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
 import SharePostModal from './SharePostModal';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
+import { useLanguage } from '../../../context/LanguageContext';
 import { 
   useProgram, 
   useLog, 
@@ -30,6 +31,7 @@ const Post = ({
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const { t } = useLanguage();
   
   // Use React Query hooks instead of direct API calls
   const programId = post.post_type === 'program' ? 
@@ -84,11 +86,11 @@ const Post = ({
               className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700/50 flex items-center gap-2 transition-colors"
             >
               <Edit className="w-4 h-4" />
-              Edit Post
+              {t('edit_post')}
             </button>
             <button
               onClick={() => {
-                if (window.confirm('Are you sure you want to delete this post?')) {
+                if (window.confirm(t('confirm_delete_post'))) {
                   onDelete(post.id);
                 }
                 setShowMenu(false);
@@ -96,7 +98,7 @@ const Post = ({
               className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-700/50 flex items-center gap-2 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
-              Delete Post
+              {t('delete_post')}
             </button>
           </>
         )}
@@ -104,7 +106,7 @@ const Post = ({
           onClick={() => setShowMenu(false)}
           className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700/50 transition-colors"
         >
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     );
@@ -242,7 +244,7 @@ const Post = ({
         {originalPost.image && (
           <img
             src={getAvatarUrl(originalPost.image)}
-            alt="Original post content"
+            alt={t('original_post_content')}
             className="mt-3 rounded-lg w-full object-cover"
           />
         )}
@@ -320,7 +322,7 @@ const Post = ({
               </span>
             </button>
             <div className="absolute bottom-full right-0 mb-2 w-48 bg-gray-900 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow">
-              Shared posts cannot be shared again
+              {t('shared_posts_cannot_be_shared')}
             </div>
           </div>
         ) : (
@@ -369,7 +371,7 @@ const Post = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-white">{post.user_username}</h3>
                 {post.is_share && (
-                  <span className="text-gray-400 text-sm">shared a post</span>
+                  <span className="text-gray-400 text-sm">{t('shared_a_post')}</span>
                 )}
                 {post.post_type && (() => {
                   const { Icon: IconName, label, colors } = getPostTypeDetails(post.post_type);
@@ -383,7 +385,7 @@ const Post = ({
                   return (
                     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium ${colors.bg} ${colors.text}`}>
                       <Icon className="w-3 h-3" />
-                      <span>{label}</span>
+                      <span>{t(label.toLowerCase())}</span>
                     </div>
                   );
                 })()}
@@ -447,7 +449,7 @@ const Post = ({
           {!post.is_share && post.image && (
             <img
               src={getAvatarUrl(post.image)}
-              alt="Post content"
+              alt={t('post_content')}
               className="mt-3 w-full rounded-lg object-cover"
             />
           )}
@@ -478,7 +480,7 @@ const Post = ({
                 type="text"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Write a comment..."
+                placeholder={t('write_a_comment')}
                 className={`flex-1 bg-gray-800 text-gray-100 rounded-full px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-${ringColor}-500`}
               />
               <button

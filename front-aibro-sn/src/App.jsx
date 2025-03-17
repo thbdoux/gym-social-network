@@ -14,6 +14,7 @@ import MainFeed from './pages/MainFeed';
 import Sidebar from './components/Sidebar';
 import Layout from './components/Layout';
 import { useAuth } from './hooks/useAuth';
+import { LanguageProvider } from './context/LanguageContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -47,54 +48,56 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Routes>
-          {/* Public route */}
-          <Route path="/login" element={<LoginPage />} />
+      <LanguageProvider>
+        <Router>
+          <Routes>
+            {/* Public route */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Navigate to="/feed" replace />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/feed"
-            element={
-              <ProtectedRoute>
-                <MainFeed />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/workouts"
-            element={
-              <ProtectedRoute>
-                <WorkoutsSpace />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/coach"
-            element={
-              <ProtectedRoute>
-                <CoachPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Router>
+            {/* Protected routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Navigate to="/feed" replace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/feed"
+              element={
+                <ProtectedRoute>
+                  <MainFeed />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/workouts"
+              element={
+                <ProtectedRoute>
+                  <WorkoutsSpace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/coach"
+              element={
+                <ProtectedRoute>
+                  <CoachPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Router>
+      </LanguageProvider>
       {/* Uncomment for development */}
       {/* <ReactQueryDevtools initialIsOpen={false} position="bottom-right" /> */}
     </QueryClientProvider>
