@@ -6,6 +6,9 @@ import ProgramWizard from '../components/program-wizard/ProgramWizard';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 import WeeklyCalendar from '../components/WeeklyCalendar';
 
+// Import Language Context
+import { useLanguage } from '../../../context/LanguageContext';
+
 // Import React Query hooks
 import { 
   useProgram, 
@@ -29,6 +32,9 @@ const ProgramDetailView = ({
   onRemoveWorkout,
   user,
 }) => {
+  // Get translation function from language context
+  const { t } = useLanguage();
+  
   const [error, setError] = useState('');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showProgramWizard, setShowProgramWizard] = useState(false);
@@ -110,7 +116,7 @@ const ProgramDetailView = ({
       // Refetch happens automatically through queryClient invalidation
     } catch (err) {
       console.error('Error updating workout day:', err);
-      setError('Failed to update workout day');
+      setError(t('failed_update_workout_day'));
     } finally {
       setLoadingState(false);
     }
@@ -143,7 +149,7 @@ const ProgramDetailView = ({
       setShowCreateWorkout(false);
     } catch (err) {
       console.error('Error creating workout:', err);
-      setError(err.response?.data?.detail || 'Failed to create new workout');
+      setError(err.response?.data?.detail || t('failed_create_workout'));
     } finally {
       setLoadingState(false);
     }
@@ -161,14 +167,14 @@ const ProgramDetailView = ({
       setWorkoutBeingEdited(null);
       await refreshPlans();
     } catch (err) {
-      setError('Failed to update workout');
+      setError(t('failed_update_workout'));
     } finally {
       setLoadingState(false);
     }
   };
 
   const handleDeleteWorkout = async (workoutId) => {
-    if (!window.confirm('Remove this workout from the program?')) {
+    if (!window.confirm(t('confirm_remove_workout'))) {
       return;
     }
     try {
@@ -179,14 +185,14 @@ const ProgramDetailView = ({
       });
       // Refetch happens automatically through queryClient invalidation
     } catch (err) {
-      setError('Failed to remove workout from program');
+      setError(t('failed_remove_workout'));
     } finally {
       setLoadingState(false);
     }
   };
 
   const handleDeleteProgram = async () => {
-    if (!window.confirm('Delete this program? This action cannot be undone.')) {
+    if (!window.confirm(t('confirm_delete_program'))) {
       return;
     }
     try {
@@ -194,7 +200,7 @@ const ProgramDetailView = ({
       await onDelete(plan.id);
       onBack();
     } catch (err) {
-      setError('Failed to delete program');
+      setError(t('failed_delete_program'));
     } finally {
       setLoadingState(false);
     }
@@ -213,7 +219,7 @@ const ProgramDetailView = ({
       
       setShowTemplateSelector(false);
     } catch (err) {
-      setError('Failed to add workout to program');
+      setError(t('failed_add_workout'));
     } finally {
       setLoadingState(false);
     }
@@ -226,14 +232,14 @@ const ProgramDetailView = ({
       setShowProgramWizard(false);
       await refreshPlans();
     } catch (err) {
-      setError('Failed to update program');
+      setError(t('failed_update_program'));
     } finally {
       setLoadingState(false);
     }
   };
 
   // Weekly calendar days
-  const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const WEEKDAYS = [t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'), t('sun')];
   
   // Group workouts by day
   const workoutsByDay = WEEKDAYS.map((day, index) => ({
@@ -308,17 +314,17 @@ const ProgramDetailView = ({
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <div className="flex flex-col">
-                    <span className="text-xs uppercase text-gray-500">Focus</span>
-                    <span className="capitalize text-white">{plan.focus.replace(/_/g, ' ')}</span>
+                    <span className="text-xs uppercase text-gray-500">{t('focus')}</span>
+                    <span className="capitalize text-white">{t(plan.focus.replace(/_/g, ''))}</span>
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-xs uppercase text-gray-500">Frequency</span>
-                    <span className="text-white">{plan.sessions_per_week}x per week</span>
+                    <span className="text-xs uppercase text-gray-500">{t('frequency')}</span>
+                    <span className="text-white">{plan.sessions_per_week}x {t('per_week')}</span>
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-xs uppercase text-gray-500">Creator</span>
+                    <span className="text-xs uppercase text-gray-500">{t('creator')}</span>
                     <div className="flex items-center">
                       <span className="text-blue-400 mr-2">{plan.creator_username}</span>
                       <Users className="w-3.5 h-3.5 text-gray-500" />
@@ -328,21 +334,21 @@ const ProgramDetailView = ({
                 
                 <div className="space-y-3">
                   <div className="flex flex-col">
-                    <span className="text-xs uppercase text-gray-500">Level</span>
-                    <span className="capitalize text-white">{plan.difficulty_level}</span>
+                    <span className="text-xs uppercase text-gray-500">{t('level')}</span>
+                    <span className="capitalize text-white">{t(plan.difficulty_level)}</span>
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-xs uppercase text-gray-500">Duration</span>
+                    <span className="text-xs uppercase text-gray-500">{t('duration')}</span>
                     <div className="flex items-center">
-                      <span className="text-white mr-2">{plan.estimated_completion_weeks} weeks</span>
+                      <span className="text-white mr-2">{plan.estimated_completion_weeks} {t('weeks')}</span>
                       <Calendar className="w-3.5 h-3.5 text-gray-500" />
                     </div>
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-xs uppercase text-gray-500">Workouts</span>
-                    <span className="text-white">{plan.workouts.length} total</span>
+                    <span className="text-xs uppercase text-gray-500">{t('workouts')}</span>
+                    <span className="text-white">{plan.workouts.length} {t('total')}</span>
                   </div>
                 </div>
               </div>
@@ -354,7 +360,7 @@ const ProgramDetailView = ({
             <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 p-4">
               <h2 className="flex items-center mb-4 text-lg font-semibold text-white">
                 <Calendar className="w-4 h-4 mr-2 text-blue-400" />
-                Weekly Schedule
+                {t('weekly_schedule')}
               </h2>
               
               {/* Use the WeeklyCalendar component with drag-and-drop functionality */}
@@ -369,7 +375,7 @@ const ProgramDetailView = ({
               <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 p-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium text-gray-400">
-                    {selectedDay !== null ? `${WEEKDAYS[selectedDay]} Workouts` : 'All Workouts'}
+                    {selectedDay !== null ? `${WEEKDAYS[selectedDay]} ${t('workouts')}` : t('all_workouts')}
                   </h3>
                   
                   <div className="relative">
@@ -378,7 +384,7 @@ const ProgramDetailView = ({
                       onChange={(e) => setSelectedDay(e.target.value === "" ? null : Number(e.target.value))}
                       className="appearance-none bg-gray-800 border border-gray-700 rounded-lg py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:ring-blue-500"
                     >
-                      <option value="">All Days</option>
+                      <option value="">{t('all_days')}</option>
                       {daysWithWorkouts.map((day) => (
                         <option key={day.dayIndex} value={day.dayIndex}>
                           {day.day} ({day.workouts.length})
@@ -407,7 +413,7 @@ const ProgramDetailView = ({
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-white flex items-center">
             <Dumbbell className="w-5 h-5 mr-2 text-blue-400" />
-            {selectedDay !== null ? `${WEEKDAYS[selectedDay]} Workouts` : 'All Workouts'}
+            {selectedDay !== null ? `${WEEKDAYS[selectedDay]} ${t('workouts')}` : t('all_workouts')}
           </h2>
           {canEdit && (
             <button
@@ -416,7 +422,7 @@ const ProgramDetailView = ({
               disabled={loadingState}
             >
               <Plus className="w-4 h-4 mr-1" />
-              <span className="text-sm">Add</span>
+              <span className="text-sm">{t('add')}</span>
             </button>
           )}
         </div>
@@ -440,14 +446,14 @@ const ProgramDetailView = ({
                          transition-all hover:bg-gray-800/40">
             {selectedDay !== null ? (
               <div className="space-y-3">
-                <p className="text-gray-400">No workouts scheduled for {WEEKDAYS[selectedDay]}</p>
+                <p className="text-gray-400">{t('no_workouts_for_day', { day: WEEKDAYS[selectedDay] })}</p>
                 {canEdit && (
                   <button
                     onClick={() => setShowTemplateSelector(true)}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors inline-flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Workout
+                    {t('add_workout')}
                   </button>
                 )}
               </div>
@@ -456,14 +462,14 @@ const ProgramDetailView = ({
                 <div className="inline-flex p-3 rounded-full bg-gray-800 mx-auto">
                   <Dumbbell className="w-6 h-6 text-gray-600" />
                 </div>
-                <p className="text-gray-400">No workouts added yet</p>
+                <p className="text-gray-400">{t('no_workouts_added')}</p>
                 {canEdit && (
                   <button
                     onClick={() => setShowTemplateSelector(true)}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors inline-flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Workout
+                    {t('add_workout')}
                   </button>
                 )}
               </div>

@@ -7,6 +7,9 @@ import EnhancedWorkoutCard from '../components/EnhancedWorkoutCard';
 import EmptyState from '../components/EmptyState';
 import TemplateWizard from '../components/workout-wizard/TemplateWizard';
 
+// Import Language Context
+import { useLanguage } from '../../../context/LanguageContext';
+
 const AllWorkoutsView = ({
   workoutTemplates,
   isLoading,
@@ -15,6 +18,9 @@ const AllWorkoutsView = ({
   onDeleteTemplate,
   setView
 }) => {
+  // Get translation function from language context
+  const { t } = useLanguage();
+  
   // State management
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -33,7 +39,7 @@ const AllWorkoutsView = ({
       await onCreateTemplate(templateData);
       setShowCreateModal(false);
     } catch (err) {
-      setError('Failed to create template');
+      setError(t('failed_to_create_template'));
       console.error('Error creating template:', err);
     }
   };
@@ -54,7 +60,7 @@ const AllWorkoutsView = ({
       setSelectedWorkout(null);
       setShowWorkoutForm(false);
     } catch (err) {
-      setError('Failed to update template');
+      setError(t('failed_to_update_template'));
       console.error('Error updating template:', err);
     }
   };
@@ -89,7 +95,7 @@ const AllWorkoutsView = ({
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        <span className="ml-2 text-gray-400">Loading workout templates...</span>
+        <span className="ml-2 text-gray-400">{t('loading_workout_templates')}</span>
       </div>
     );
   }
@@ -107,10 +113,10 @@ const AllWorkoutsView = ({
               <ArrowLeft className="w-6 h-6 text-gray-400" />
             </button>
             <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
-              Workout Templates
+              {t('workout_templates')}
             </h1>
           </div>
-          <p className="text-gray-400 ml-10 text-sm">Build reusable workout blueprints for maximum efficiency and progress.</p>
+          <p className="text-gray-400 ml-10 text-sm">{t('workout_templates_description')}</p>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -121,7 +127,7 @@ const AllWorkoutsView = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search templates..."
+              placeholder={t('search_templates')}
               className="pl-9 w-full bg-gray-800 rounded-lg py-2 text-white placeholder-gray-500 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm h-10"
             />
             {searchQuery && (
@@ -142,7 +148,7 @@ const AllWorkoutsView = ({
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-700 text-gray-400 hover:text-white hover:bg-gray-600'
             }`}
-            title="Filter Templates"
+            title={t('filter_templates')}
           >
             <SlidersHorizontal className="w-5 h-5" />
             {Object.values(filters).some(val => val !== 'all') && (
@@ -157,7 +163,7 @@ const AllWorkoutsView = ({
             onClick={() => setShowCreateModal(true)}
             className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 
                      transition-all shadow-lg shadow-blue-700/20"
-            title="Create New Template"
+            title={t('create_new_template')}
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -184,31 +190,31 @@ const AllWorkoutsView = ({
         <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/50">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Split Method</label>
+              <label className="block text-sm text-gray-400 mb-2">{t('split_method')}</label>
               <select
                 value={filters.splitMethod}
                 onChange={(e) => setFilters({...filters, splitMethod: e.target.value})}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 text-white focus:border-blue-500 focus:ring-blue-500"
               >
-                <option value="all">All Split Types</option>
-                <option value="full_body">Full Body</option>
-                <option value="push_pull_legs">Push/Pull/Legs</option>
-                <option value="upper_lower">Upper/Lower</option>
-                <option value="custom">Custom</option>
+                <option value="all">{t('all_split_types')}</option>
+                <option value="full_body">{t('full_body')}</option>
+                <option value="push_pull_legs">{t('push_pull_legs')}</option>
+                <option value="upper_lower">{t('upper_lower')}</option>
+                <option value="custom">{t('custom')}</option>
               </select>
             </div>
             
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Difficulty Level</label>
+              <label className="block text-sm text-gray-400 mb-2">{t('difficulty_level')}</label>
               <select
                 value={filters.difficultyLevel}
                 onChange={(e) => setFilters({...filters, difficultyLevel: e.target.value})}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 text-white focus:border-blue-500 focus:ring-blue-500"
               >
-                <option value="all">All Levels</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
+                <option value="all">{t('all_levels')}</option>
+                <option value="beginner">{t('beginner')}</option>
+                <option value="intermediate">{t('intermediate')}</option>
+                <option value="advanced">{t('advanced')}</option>
               </select>
             </div>
             
@@ -219,7 +225,7 @@ const AllWorkoutsView = ({
                   className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 
                            transition-colors text-sm"
                 >
-                  Clear All Filters
+                  {t('clear_all_filters')}
                 </button>
               )}
             </div>
@@ -230,11 +236,11 @@ const AllWorkoutsView = ({
       {/* Active filters display */}
       {(filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all') && (
         <div className="flex items-center flex-wrap gap-2 bg-gray-800/50 rounded-lg p-3">
-          <span className="text-sm font-medium text-gray-400">Active filters:</span>
+          <span className="text-sm font-medium text-gray-400">{t('active_filters')}:</span>
           
           {filters.splitMethod !== 'all' && (
             <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm flex items-center">
-              Split: {filters.splitMethod.replace(/_/g, ' ')}
+              {t('split')}: {t(filters.splitMethod)}
               <button
                 onClick={() => setFilters({...filters, splitMethod: 'all'})}
                 className="ml-2 hover:text-blue-300"
@@ -246,7 +252,7 @@ const AllWorkoutsView = ({
           
           {filters.difficultyLevel !== 'all' && (
             <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm flex items-center">
-              Difficulty: {filters.difficultyLevel}
+              {t('difficulty')}: {t(filters.difficultyLevel)}
               <button
                 onClick={() => setFilters({...filters, difficultyLevel: 'all'})}
                 className="ml-2 hover:text-blue-300"
@@ -260,7 +266,7 @@ const AllWorkoutsView = ({
             onClick={clearFilters}
             className="ml-auto text-sm text-gray-400 hover:text-gray-300"
           >
-            Clear all
+            {t('clear_all')}
           </button>
         </div>
       )}
@@ -281,13 +287,13 @@ const AllWorkoutsView = ({
           <div className="col-span-full">
             <EmptyState
               title={searchQuery || filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all' 
-                ? "No matching templates found" 
-                : "No workout templates yet"}
+                ? t("no_matching_templates") 
+                : t("no_workout_templates")}
               description={searchQuery || filters.splitMethod !== 'all' || filters.difficultyLevel !== 'all'
-                ? "Try adjusting your search or filters"
-                : "Create your first template to get started"}
+                ? t("adjust_search_or_filters")
+                : t("create_first_template")}
               action={{
-                label: 'Create Template',
+                label: t('create_template'),
                 onClick: () => setShowCreateModal(true)
               }}
             />
@@ -298,7 +304,7 @@ const AllWorkoutsView = ({
       {/* Footer info */}
       {filteredWorkouts.length > 0 && (
         <div className="flex justify-between mt-8 text-sm text-gray-500">
-          <span>Showing {filteredWorkouts.length} of {workoutTemplates.length} templates</span>
+          <span>{t('showing_templates_count', { filtered: filteredWorkouts.length, total: workoutTemplates.length })}</span>
         </div>
       )}
 

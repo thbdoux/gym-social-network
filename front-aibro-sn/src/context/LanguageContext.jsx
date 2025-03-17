@@ -42,11 +42,19 @@ export function LanguageProvider({ children }) {
     }
   }, [user]);
 
-  // Get translations for current language
-  const t = (key) => {
-    return translations[language]?.[key] || translations['en'][key] || key;
+  // Get translations for current language with placeholder support
+  const t = (key, replacements = {}) => {
+    let translation = translations[language]?.[key] || translations['en'][key] || key;
+    
+    // Replace placeholders like {name} with their values
+    if (replacements && Object.keys(replacements).length > 0) {
+      Object.entries(replacements).forEach(([placeholder, value]) => {
+        translation = translation.replace(new RegExp(`{${placeholder}}`, 'g'), value);
+      });
+    }
+    
+    return translation;
   };
-  
   return (
     <LanguageContext.Provider value={{ 
       language, 

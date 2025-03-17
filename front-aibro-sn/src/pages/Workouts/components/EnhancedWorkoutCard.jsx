@@ -6,8 +6,7 @@ import {
   BarChart, Info, Target
 } from 'lucide-react';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
-
-const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+import { useLanguage } from '../../../context/LanguageContext';
 
 const EnhancedWorkoutCard = ({ 
   workout, 
@@ -20,10 +19,17 @@ const EnhancedWorkoutCard = ({
   isDragging = false,
   onClick
 }) => {
+  const { t } = useLanguage(); // Add language context
   const [isExpanded, setIsExpanded] = useState(false);
   const [isChangingDay, setIsChangingDay] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [expandedExercise, setExpandedExercise] = useState(null);
+  
+  // Use translated weekdays
+  const WEEKDAYS = [
+    t('monday'), t('tuesday'), t('wednesday'), 
+    t('thursday'), t('friday'), t('saturday'), t('sunday')
+  ];
   
   // Get colors from postTypeUtils
   const workoutColors = getPostTypeDetails('workout').colors || {};
@@ -38,7 +44,7 @@ const EnhancedWorkoutCard = ({
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    if (!window.confirm(inProgram ? 'Remove this workout from the program?' : 'Delete this workout template?')) {
+    if (!window.confirm(inProgram ? t('confirm_remove_workout') : t('confirm_delete_workout_template'))) {
       return;
     }
     onDelete(workout.id); 
@@ -75,8 +81,8 @@ const EnhancedWorkoutCard = ({
   
   // Format split method to be more readable
   const formatSplitMethod = (splitMethod) => {
-    if (!splitMethod) return 'General';
-    return splitMethod.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    if (!splitMethod) return t('general');
+    return t(splitMethod) || splitMethod.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   // Get difficulty visual effects
@@ -97,15 +103,31 @@ const EnhancedWorkoutCard = ({
   
   const getFocusDetails = () => {
     const focusMap = {
-      'strength': { label: 'Strength', description: 'Focus on building maximal strength', icon: <Award className="w-5 h-5" /> },
-      'hypertrophy': { label: 'Hypertrophy', description: 'Optimize muscle growth', icon: <Activity className="w-5 h-5" /> },
-      'endurance': { label: 'Endurance', description: 'Improve stamina', icon: <Activity className="w-5 h-5" /> },
-      'general': { label: 'General Fitness', description: 'Well-rounded workout', icon: <Target className="w-5 h-5" /> }
+      'strength': { 
+        label: t('strength'), 
+        description: t('strength_description'), 
+        icon: <Award className="w-5 h-5" /> 
+      },
+      'hypertrophy': { 
+        label: t('hypertrophy'), 
+        description: t('hypertrophy_description'), 
+        icon: <Activity className="w-5 h-5" /> 
+      },
+      'endurance': { 
+        label: t('endurance'), 
+        description: t('endurance_description'), 
+        icon: <Activity className="w-5 h-5" /> 
+      },
+      'general': { 
+        label: t('general_fitness'), 
+        description: t('general_fitness_description'), 
+        icon: <Target className="w-5 h-5" /> 
+      }
     };
 
     return focusMap[workout.focus] || { 
-      label: workout.focus ? workout.focus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'General', 
-      description: 'Custom workout focus',
+      label: workout.focus ? workout.focus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : t('general'), 
+      description: t('custom_workout_focus'),
       icon: <Target className="w-5 h-5" />
     };
   };
@@ -156,9 +178,9 @@ const EnhancedWorkoutCard = ({
                 {hasExercises && (
                   <span className="ml-2 flex items-center flex-shrink-0">
                     <Dumbbell className="w-3.5 h-3.5 mx-1 text-blue-400" />
-                    <span className="text-blue-400">with</span>
+                    <span className="text-blue-400">{t('with')}</span>
                     <span className="ml-1 text-blue-300 font-medium truncate">
-                      {workout.exercises.length} exercises
+                      {workout.exercises.length} {t('exercises')}
                     </span>
                   </span>
                 )}
@@ -202,7 +224,7 @@ const EnhancedWorkoutCard = ({
                 <button
                   onClick={(e) => handleButtonClick(e, () => onDuplicate(workout.id || workout.instance_id))}
                   className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
-                  aria-label="Duplicate workout"
+                  aria-label={t('duplicate_workout')}
                 >
                   <Copy className="w-4 h-4" />
                 </button>
@@ -212,7 +234,7 @@ const EnhancedWorkoutCard = ({
                 <button
                   onClick={(e) => handleButtonClick(e, () => onEdit(workout))}
                   className="p-1.5 text-gray-400 hover:text-blue-400 bg-transparent hover:bg-blue-900/20 rounded-md transition-colors"
-                  aria-label="Edit workout"
+                  aria-label={t('edit_workout')}
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
@@ -222,7 +244,7 @@ const EnhancedWorkoutCard = ({
                 <button
                   onClick={handleDelete}
                   className="p-1.5 text-gray-400 hover:text-red-400 bg-transparent hover:bg-red-900/20 rounded-md transition-colors"
-                  aria-label="Delete workout"
+                  aria-label={t('delete_workout')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -250,7 +272,7 @@ const EnhancedWorkoutCard = ({
           <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 hover:from-blue-900/30 hover:to-blue-800/30 p-3 rounded-lg border border-blue-700/30 transition-all duration-300 transform hover:scale-[1.02]">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <Dumbbell className="w-3.5 h-3.5 mr-1 text-blue-400" />
-              <span>Exercises</span>
+              <span>{t('exercises')}</span>
             </div>
             <p className="font-semibold text-white">
               {workout.exercises?.length || 0}
@@ -260,23 +282,23 @@ const EnhancedWorkoutCard = ({
           <div className="bg-gradient-to-br from-red-900/20 to-red-800/20 hover:from-red-900/30 hover:to-red-800/30 p-3 rounded-lg border border-red-700/30 transition-all duration-300 transform hover:scale-[1.02]">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <Flame className="w-3.5 h-3.5 mr-1 text-red-400" />
-              <span>Difficulty</span>
+              <span>{t('difficulty')}</span>
             </div>
             <p className="font-semibold text-white flex items-center justify-between">
               <span className={`text-xs px-2 py-0.5 rounded-full ${getDifficultyEffect(workout.difficulty_level).color}`}>
                 {getDifficultyEffect(workout.difficulty_level).label}
               </span>
-              <span className="text-xs truncate capitalize">{workout.difficulty_level || 'Intermediate'}</span>
+              <span className="text-xs truncate capitalize">{t(workout.difficulty_level?.toLowerCase()) || t('intermediate')}</span>
             </p>
           </div>
           
           <div className="bg-gradient-to-br from-cyan-900/20 to-cyan-800/20 hover:from-cyan-900/30 hover:to-cyan-800/30 p-3 rounded-lg border border-cyan-700/30 transition-all duration-300 transform hover:scale-[1.02]">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <Clock className="w-3.5 h-3.5 mr-1 text-cyan-400" />
-              <span>Duration</span>
+              <span>{t('duration')}</span>
             </div>
             <p className="font-semibold text-white">
-              {workout.estimated_duration || 45} <span className="text-xs font-normal">min</span>
+              {workout.estimated_duration || 45} <span className="text-xs font-normal">{t('mins')}</span>
             </p>
           </div>
         </div>
@@ -301,24 +323,24 @@ const EnhancedWorkoutCard = ({
             <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
               <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
                 <BarChart className="w-4 h-4 mr-2 text-blue-400" />
-                Workout Details
+                {t('workout_details')}
               </h5>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Duration</span>
-                  <span className="text-white font-medium">{workout.estimated_duration || 45} min</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('duration')}</span>
+                  <span className="text-white font-medium">{workout.estimated_duration || 45} {t('mins')}</span>
                 </div>
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Type</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('type')}</span>
                   <span className="text-white font-medium capitalize">{formatSplitMethod(workout.split_method)}</span>
                 </div>
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Difficulty</span>
-                  <span className="text-white font-medium capitalize">{workout.difficulty_level || 'Intermediate'}</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('difficulty')}</span>
+                  <span className="text-white font-medium capitalize">{t(workout.difficulty_level?.toLowerCase()) || t('intermediate')}</span>
                 </div>
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Created</span>
-                  <span className="text-white font-medium">{new Date(workout.created_at).toLocaleDateString() || 'N/A'}</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('created')}</span>
+                  <span className="text-white font-medium">{new Date(workout.created_at).toLocaleDateString() || t('not_available')}</span>
                 </div>
                 
                 {/* Creator info if available */}
@@ -327,7 +349,7 @@ const EnhancedWorkoutCard = ({
                     <div className="flex items-center">
                       <User className="w-4 h-4 mr-1.5 text-blue-400" />
                       <span className="text-blue-300">
-                        Created by{" "}
+                        {t('created_by')}{" "}
                         <span className="font-medium">{workout.creator_username}</span>
                       </span>
                     </div>
@@ -341,7 +363,7 @@ const EnhancedWorkoutCard = ({
               <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
                 <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
                   <Dumbbell className="w-4 h-4 mr-2 text-blue-400" />
-                  Exercises
+                  {t('exercises')}
                 </h5>
                 
                 <div className="space-y-3">
@@ -362,7 +384,7 @@ const EnhancedWorkoutCard = ({
                             <div className="min-w-0 overflow-hidden">
                               <h4 className="font-medium text-white text-sm truncate">{exercise.name}</h4>
                               <div className="flex items-center text-xs text-gray-400 mt-0.5">
-                                <span className="flex-shrink-0">{exercise.sets?.length || 0} sets</span>
+                                <span className="flex-shrink-0">{exercise.sets?.length || 0} {t('sets')}</span>
                                 {exercise.equipment && (
                                   <>
                                     <span className="mx-1.5 flex-shrink-0">•</span>
@@ -386,10 +408,10 @@ const EnhancedWorkoutCard = ({
                         <div className="border-t border-gray-700 p-4 bg-gray-800/80">
                           <div className="space-y-2 max-h-64 overflow-y-auto">
                             <div className="grid grid-cols-5 gap-1 text-xs text-gray-400 mb-2">
-                              <div className="col-span-1">Set</div>
-                              <div className="col-span-1">Weight</div>
-                              <div className="col-span-1">Reps</div>
-                              <div className="col-span-2">Notes</div>
+                              <div className="col-span-1">{t('set')}</div>
+                              <div className="col-span-1">{t('weight')}</div>
+                              <div className="col-span-1">{t('reps')}</div>
+                              <div className="col-span-2">{t('notes')}</div>
                             </div>
                             
                             {exercise.sets.map((set, setIdx) => (
@@ -403,8 +425,8 @@ const EnhancedWorkoutCard = ({
                             
                             {/* Set Template Info */}
                             <div className="mt-3 pt-2 border-t border-gray-700 text-xs text-gray-400">
-                              <span>Recommended rest: <span className="text-blue-400 font-medium">
-                                {exercise.rest_time || 60} sec
+                              <span>{t('recommended_rest')}: <span className="text-blue-400 font-medium">
+                                {exercise.rest_time || 60} {t('seconds')}
                               </span></span>
                             </div>
                           </div>
@@ -421,7 +443,7 @@ const EnhancedWorkoutCard = ({
                     className="w-full flex items-center justify-center gap-2 py-2 mt-4 bg-gradient-to-r from-blue-600/80 to-indigo-600/80 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-300 text-sm font-medium border border-blue-500/30"
                   >
                     <Eye className="w-4 h-4" />
-                    View Full Workout Details
+                    {t('view_full_workout_details')}
                   </button>
                 )}
               </div>
@@ -432,7 +454,7 @@ const EnhancedWorkoutCard = ({
               <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
                 <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
                   <Info className="w-4 h-4 mr-2 text-blue-400" />
-                  About this Workout
+                  {t('about_this_workout')}
                 </h5>
                 <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">{workout.description}</p>
               </div>

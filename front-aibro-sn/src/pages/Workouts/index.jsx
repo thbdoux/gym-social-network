@@ -29,6 +29,9 @@ import { useLogs, useCreateLog, useUpdateLog, useDeleteLog } from '../../hooks/q
 import { useCurrentUser } from '../../hooks/query/useUserQuery';
 import { useQueryClient } from '@tanstack/react-query';
 
+// Import Language Context
+import { useLanguage } from '../../context/LanguageContext';
+
 // Import centralized API services
 import { programService, logService } from '../../api/services';
 
@@ -47,6 +50,9 @@ const WorkoutSpace = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   const [programToEdit, setProgramToEdit] = useState(null);
+  
+  // Get translation function from language context
+  const { t } = useLanguage();
   
   const { data: currentUser } = useCurrentUser();
   const { data: workoutPlans = [], isLoading: plansLoading, error: plansError, refetch: refreshPlans } = usePrograms();
@@ -152,12 +158,12 @@ const WorkoutSpace = () => {
 
   const handleForkProgram = async (program) => {
     try {
-      if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
+      if (window.confirm(`${t('fork_confirm_text')} "${program.name}" ${t('by')} ${program.creator_username}?`)) {
         await forkProgramMutation.mutateAsync(program.id);
       }
     } catch (err) {
       console.error('Error forking program:', err);
-      alert('Failed to fork program. Please try again.');
+      alert(t('fork_error'));
     }
   };
 
@@ -210,7 +216,7 @@ const WorkoutSpace = () => {
       setSelectedLog(null);
     } catch (err) {
       console.error('Error saving log:', err);
-      alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
+      alert(`${t('error_save_log')}: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -348,11 +354,11 @@ const WorkoutSpace = () => {
           {/* Left Column: Title and Navigation */}
           <div className="lg:col-span-7">
             <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
-              Your Fitness Journey
+              {t('your_fitness_journey')}
             </h1>
             
             <p className="mt-4 text-lg text-gray-300 max-w-3xl">
-              Track your progress, create custom workout templates, manage training programs, and log your fitness journey all in one place.
+              {t('fitness_journey_description')}
             </p>
             
             <div className="flex flex-wrap items-center gap-3 mt-6">
@@ -361,7 +367,7 @@ const WorkoutSpace = () => {
                 className="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <LayoutGrid className="w-5 h-5 text-white" />
-                <span className="text-white">Templates</span>
+                <span className="text-white">{t('templates')}</span>
               </button>
               
               <button 
@@ -369,7 +375,7 @@ const WorkoutSpace = () => {
                 className="px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <Dumbbell className="w-5 h-5 text-white" />
-                <span className="text-white">Programs</span>
+                <span className="text-white">{t('programs')}</span>
               </button>
               
               <button 
@@ -377,7 +383,7 @@ const WorkoutSpace = () => {
                 className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <Calendar className="w-5 h-5 text-white" />
-                <span className="text-white">Workout History</span>
+                <span className="text-white">{t('workout_history')}</span>
               </button>
             </div>
           </div>
@@ -408,10 +414,10 @@ const WorkoutSpace = () => {
             ) : (
               <div className="p-4">
                 <EmptyState
-                  title="No active program"
-                  description="Set up a program to structure your fitness journey"
+                  title={t('no_active_program')}
+                  description={t('setup_program_prompt')}
                   action={{
-                    label: 'Create Program',
+                    label: t('create_program'),
                     onClick: () => {
                       setProgramToEdit(null);
                       setShowProgramWizard(true);
@@ -454,7 +460,7 @@ const WorkoutSpace = () => {
             <div className="bg-white/20 rounded-full p-1 flex items-center justify-center">
               <Plus className="w-6 h-6 text-white" />
             </div>
-            <span className="text-white font-bold text-lg relative z-10">Log Workout</span>
+            <span className="text-white font-bold text-lg relative z-10">{t('log_workout')}</span>
           </button>
           
           {!activeProgram && (
@@ -471,7 +477,7 @@ const WorkoutSpace = () => {
               <div className="bg-white/20 rounded-full p-1 flex items-center justify-center">
                 <Dumbbell className="w-6 h-6 text-white" />
               </div>
-              <span className="text-white font-bold text-lg relative z-10">Create Program</span>
+              <span className="text-white font-bold text-lg relative z-10">{t('create_program')}</span>
             </button>
           )}
         </div>
@@ -512,7 +518,7 @@ const WorkoutSpace = () => {
           onSelect={(workout) => {
             setShowInstanceSelector(false);
             setSelectedLog({
-              name: workout.name || 'Workout Log',
+              name: workout.name || t('unnamed_workout'),
               based_on_instance: workout.id,
               program: activeProgram.id,
               exercises: workout.exercises?.map(ex => ({

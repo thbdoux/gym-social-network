@@ -8,6 +8,9 @@ import EmptyState from '../components/EmptyState';
 import ShareProgramModal from '../components/ShareProgramModal';
 import ProgramWizard from '../components/program-wizard/ProgramWizard';
 
+// Import Language Context
+import { useLanguage } from '../../../context/LanguageContext';
+
 // Import React Query hooks
 import { 
   usePrograms,
@@ -21,6 +24,9 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 
 const ProgramListView = ({ setView, user, onPlanSelect }) => {
+  // Get translation function from language context
+  const { t } = useLanguage();
+  
   // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [showShareModal, setShowShareModal] = useState(false);
@@ -77,7 +83,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
   const handlePlanSelection = (plan) => {
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
       console.error('Unauthorized access attempt to plan:', plan.id);
-      alert('You do not have permission to view this program.');
+      alert(t('unauthorized_access'));
       return;
     }
     
@@ -95,7 +101,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
       // No need to manually update state as React Query will handle cache updates
     } catch (err) {
       console.error('Error deleting plan:', err);
-      alert('Failed to delete program. Please try again.');
+      alert(t('delete_program_error'));
     } finally {
       setIsConfirmingDelete(false);
       setProgramToDelete(null);
@@ -132,7 +138,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
       setProgramToEdit(null);
     } catch (err) {
       console.error('Error saving program:', err);
-      alert(`Failed to ${programToEdit ? 'update' : 'create'} program. Please try again.`);
+      alert(t(programToEdit ? 'update_program_error' : 'create_program_error'));
     }
   };
 
@@ -161,7 +167,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
       await queryClient.invalidateQueries(['users', 'current']);
     } catch (err) {
       console.error('Error toggling plan active state:', err);
-      alert('Failed to toggle active status. Please try again.');
+      alert(t('toggle_active_error'));
       
       // Reset cache in case our optimistic update failed
       queryClient.invalidateQueries(['programs', 'list']);
@@ -183,19 +189,19 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
       setProgramToShare(null);
     } catch (err) {
       console.error('Error sharing program:', err);
-      alert('Failed to share program. Please try again.');
+      alert(t('share_program_error'));
     }
   };
 
   const handleForkProgram = async (program) => {
     try {
-      if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
+      if (window.confirm(`${t('fork_confirm')} "${program.name}" ${t('by')} ${program.creator_username}?`)) {
         const forkedProgram = await forkProgramMutation.mutateAsync(program.id);
         onPlanSelect(forkedProgram);
       }
     } catch (err) {
       console.error('Error forking program:', err);
-      alert('Failed to fork program. Please try again.');
+      alert(t('fork_program_error'));
     }
   };
 
@@ -208,11 +214,11 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
             <button
               onClick={() => setView('main')}
               className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              title="Back to Workout Logs"
+              title={t('back_to_workout_logs')}
             >
               <ArrowLeft className="w-6 h-6 text-gray-400" />
             </button>
-            <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">Your Programs</h1>
+            <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">{t('your_programs')}</h1>
           </div>
         </div>
         <div className="flex justify-center items-center p-12">
@@ -231,21 +237,21 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
             <button
               onClick={() => setView('main')}
               className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              title="Back to Workout Logs"
+              title={t('back_to_workout_logs')}
             >
               <ArrowLeft className="w-6 h-6 text-gray-400" />
             </button>
-            <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">Your Programs</h1>
+            <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">{t('your_programs')}</h1>
           </div>
         </div>
         <div className="bg-red-900/20 border border-red-500/30 text-red-400 px-6 py-4 rounded-lg">
-          <h3 className="text-lg font-semibold mb-2">Error Loading Programs</h3>
-          <p>We couldn't load your workout programs. Please try again later.</p>
+          <h3 className="text-lg font-semibold mb-2">{t('error_loading_programs')}</h3>
+          <p>{t('loading_programs_error_message')}</p>
           <button 
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-white"
           >
-            Retry
+            {t('retry')}
           </button>
         </div>
       </div>
@@ -261,15 +267,15 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
             <button
               onClick={() => setView('main')}
               className="p-2 hover:bg-gray-700 rounded-lg transition-colors mr-2"
-              title="Back to Workout Logs"
+              title={t('back_to_workout_logs')}
             >
               <ArrowLeft className="w-6 h-6 text-gray-400" />
             </button>
             <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
-              Your Programs
+              {t('your_programs')}
             </h1>
           </div>
-          <p className="text-gray-400 ml-10 text-sm">Design structured fitness journeys to transform your body and mind.</p>
+          <p className="text-gray-400 ml-10 text-sm">{t('programs_description')}</p>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -280,7 +286,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search programs..."
+              placeholder={t('search_programs')}
               className="pl-9 w-full bg-gray-800 rounded-lg py-2 text-white placeholder-gray-500 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm h-10"
             />
             {searchQuery && (
@@ -297,7 +303,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
             onClick={handleCreateProgram}
             className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 
                       transition-all shadow-lg shadow-blue-700/20"
-            title="Create New Program"
+            title={t('create_new_program')}
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -310,7 +316,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
           <div className="flex items-center">
             <CheckCircle className="w-5 h-5 mr-2" />
             <div>
-              <span className="font-medium">Active Program: </span>
+              <span className="font-medium">{t('active_program')}: </span>
               <span className="text-white">{activeProgram.name}</span>
             </div>
           </div>
@@ -322,7 +328,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
             {activeToggleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              'Deactivate'
+              t('deactivate')
             )}
           </button>
         </div>
@@ -348,10 +354,10 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
         />
       ) : (
         <EmptyState
-          title="No workout plans yet"
-          description="Create your first workout plan to start tracking your fitness journey"
+          title={t('no_workout_plans')}
+          description={t('create_first_plan')}
           action={{
-            label: 'Create Workout Plan',
+            label: t('create_workout_plan'),
             onClick: handleCreateProgram
           }}
         />
@@ -373,9 +379,9 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
       {isConfirmingDelete && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full border border-gray-700/50">
-            <h3 className="text-xl font-bold mb-4">Confirm Deletion</h3>
+            <h3 className="text-xl font-bold mb-4">{t('confirm_deletion')}</h3>
             <p className="text-gray-300 mb-6">
-              Are you sure you want to delete this program? This action cannot be undone.
+              {t('confirm_deletion_message')}
             </p>
             <div className="flex justify-end space-x-3">
               <button
@@ -385,13 +391,13 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
                 }}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={confirmDelete}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
-                Delete
+                {t('delete')}
               </button>
             </div>
           </div>
