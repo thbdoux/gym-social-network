@@ -6,16 +6,34 @@ import { extractData } from '../utils/responseParser';
  */
 const programService = {
 
+  searchUsers: async (query) => {
+    const response = await apiClient.get(`/users/search/?q=${query}`);
+    return extractData(response);
+  },
+
+  // In programService.js
   getPrograms: async () => {
     const response = await apiClient.get('/workouts/programs/');
     const allPrograms = extractData(response);
     
-    // Filter programs that user owns, forked, or have been shared with them
-    return allPrograms.filter(plan => (
-      plan.is_owner || 
-      (plan.program_shares && plan.program_shares.length > 0) || 
-      (plan.forked_from !== null)
-    ));
+    // Get current user info to verify ownership
+    const currentUserResponse = await apiClient.get('/users/me/');
+    const currentUser = currentUserResponse.data;
+    
+    return allPrograms
+      .map(program => {
+        // Ensure only the owner sees their programs as active
+        if (program.is_active && program.creator_username !== currentUser.username) {
+          return { ...program, is_active: false };
+        }
+        return program;
+      })
+      .filter(plan => (
+        plan.is_owner || 
+        plan.is_public ||
+        plan.is_shared_with_me || 
+        (plan.forked_from !== null)
+      ));
   },
 
   getProgramById: async (id) => {
@@ -24,16 +42,69 @@ const programService = {
   },
 
   createProgram: async (programData) => {
+    // Create the program first
     const response = await apiClient.post('/workouts/programs/', programData);
-    return response.data;
+    const createdProgram = response.data;
+    
+    // Process shares if any
+    if (programData.shares && programData.shares.length > 0) {
+      const sharePromises = programData.shares.map(share => 
+        apiClient.post(`/workouts/programs/${createdProgram.id}/share/`, {
+          username: share.username
+        })
+      );
+      
+      await Promise.all(sharePromises);
+    }
+    
+    return createdProgram;
   },
 
   updateProgram: async (id, updates) => {
+    // Update the program basic info
     const response = await apiClient.patch(`/workouts/programs/${id}/`, updates);
-    return response.data;
+    const updatedProgram = response.data;
+    
+    // Handle shares if they were included in the update
+    if (updates.shares) {
+      // Get existing shares first
+      const existingSharesResponse = await apiClient.get(`/workouts/programs/${id}/shares/`);
+      const existingShares = extractData(existingSharesResponse);
+      
+      // Add new shares
+      const existingUsernames = existingShares.map(share => share.shared_with_username);
+      const sharesToAdd = updates.shares.filter(share => 
+        !existingUsernames.includes(share.username)
+      );
+      
+      for (const share of sharesToAdd) {
+        await apiClient.post(`/workouts/programs/${id}/share/`, {
+          username: share.username
+        });
+      }
+      
+      // Remove shares no longer in the list
+      const updatedUsernames = updates.shares.map(share => share.username);
+      const sharesToRemove = existingShares.filter(share =>
+        !updatedUsernames.includes(share.shared_with_username)
+      );
+      
+      for (const share of sharesToRemove) {
+        await apiClient.delete(`/workouts/programs/${id}/share/`, {
+          data: { username: share.shared_with_username }
+        });
+      }
+    }
+    
+    return updatedProgram;
   },
 
-   getCurrentUser: async () => {
+  getProgramShares: async (programId) => {
+    const response = await apiClient.get(`/workouts/programs/${programId}/shares/`);
+    return extractData(response);
+  },
+
+  getCurrentUser: async () => {
     const response = await apiClient.get('/users/me/');
     return response.data;
   },
@@ -129,7 +200,21 @@ const programService = {
     await apiClient.delete(`/workouts/programs/${programId}/workouts/${workoutId}/`);
   },
 
+  // shareProgram: async (programId, shareData) => {
+  //   const postData = new FormData();
+  //   postData.append('content', shareData.content);
+  //   postData.append('post_type', 'program');
+  //   postData.append('program_id', String(programId));
+    
+  //   if (shareData.programDetails) {
+  //     postData.append('program_details', JSON.stringify(shareData.programDetails));
+  //   }
+    
+  //   const response = await apiClient.post('/posts/', postData);
+  //   return response.data;
+  // },
   shareProgram: async (programId, shareData) => {
+    // Create the FormData for the post
     const postData = new FormData();
     postData.append('content', shareData.content);
     postData.append('post_type', 'program');
@@ -139,7 +224,12 @@ const programService = {
       postData.append('program_details', JSON.stringify(shareData.programDetails));
     }
     
+    // Create the post - the backend will handle making the program public
     const response = await apiClient.post('/posts/', postData);
+    
+    // After sharing, fetch the latest program data to ensure we have updated public status
+    await programService.getProgramById(programId);
+    
     return response.data;
   },
 

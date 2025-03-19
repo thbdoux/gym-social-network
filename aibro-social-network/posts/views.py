@@ -107,6 +107,46 @@ class PostViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # @action(detail=True, methods=['post'])
+    # def share(self, request, pk=None):
+    #     """Share a post"""
+    #     original_post = self.get_object()
+        
+    #     # Prevent sharing of already shared posts
+    #     if original_post.is_share:
+    #         return Response(
+    #             {"detail": "Cannot share a shared post"},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     # Create new shared post
+    #     shared_post = Post.objects.create(
+    #         user=request.user,
+    #         content=request.data.get('content', ''),  # Optional share comment
+    #         is_share=True,
+    #         original_post=original_post,
+    #         post_type='shared'
+    #     )
+
+    #     # Copy relevant fields based on original post type
+    #     if original_post.post_type == 'workout_log':
+    #         shared_post.workout_log = original_post.workout_log
+    #     elif original_post.post_type == 'program':
+    #         shared_post.program = original_post.program
+    #     elif original_post.post_type == 'workout_invite':
+    #         shared_post.workout_instance = original_post.workout_instance
+    #         shared_post.planned_date = original_post.planned_date
+    #         # Copy invited users
+    #         for user in original_post.invited_users.all():
+    #             shared_post.invited_users.add(user)
+
+    #     # Increment share count on original post
+    #     original_post.share_count += 1
+    #     original_post.save()
+
+    #     serializer = self.get_serializer(shared_post)
+    #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
     @action(detail=True, methods=['post'])
     def share(self, request, pk=None):
         """Share a post"""
@@ -133,6 +173,12 @@ class PostViewSet(viewsets.ModelViewSet):
             shared_post.workout_log = original_post.workout_log
         elif original_post.post_type == 'program':
             shared_post.program = original_post.program
+            
+            # Make sure the program is public when shared
+            if shared_post.program and not shared_post.program.is_public:
+                shared_post.program.is_public = True
+                shared_post.program.save()
+                
         elif original_post.post_type == 'workout_invite':
             shared_post.workout_instance = original_post.workout_instance
             shared_post.planned_date = original_post.planned_date

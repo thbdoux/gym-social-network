@@ -176,7 +176,7 @@ export const useRegisterUser = () => {
   });
 };
 
-// Login user
+// In useUserQuery.js
 export const useLogin = () => {
   const queryClient = useQueryClient();
   
@@ -186,12 +186,21 @@ export const useLogin = () => {
       // Store the token
       localStorage.setItem('token', data.access);
       
-      // Reset queries and fetch user data
-      queryClient.resetQueries({ queryKey: userKeys.current() });
+      // COMPLETELY clear the query client cache to remove any previous user's data
+      queryClient.clear();
       
-      // Clear any existing friend-related data to ensure fresh load
-      queryClient.resetQueries({ queryKey: userKeys.friends() });
-      queryClient.resetQueries({ queryKey: userKeys.friendRequests() });
+      // Then refetch current user data
+      queryClient.resetQueries({ queryKey: userKeys.current() });
     },
   });
+};
+
+// Add a logout function if not already present
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+  
+  return () => {
+    localStorage.removeItem('token');
+    queryClient.clear(); // Complete cache purge
+  };
 };

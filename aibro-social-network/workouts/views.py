@@ -146,7 +146,8 @@ class ProgramViewSet(viewsets.ModelViewSet):
         # Include both created programs and public programs
         return Program.objects.filter(
             Q(creator=self.request.user) |  # Created by user
-            Q(is_public=True)               # Public programs
+            Q(is_public=True) |
+            Q(shares__shared_with=self.request.user)       
         ).prefetch_related(
             'workout_instances',
             'workout_instances__exercises',
@@ -156,10 +157,30 @@ class ProgramViewSet(viewsets.ModelViewSet):
             likes_count=Count('likes', distinct=True),
             forks_count=Count('forks', distinct=True)
         )
+    def retrieve(self, request, *args, **kwargs):
+        """Custom retrieve to ensure program active status is accurate"""
+        instance = self.get_object()
+        
+        # If the user is not the creator, ensure is_active is false in the response
+        if instance.creator != request.user and instance.is_active:
+            serializer = self.get_serializer(instance)
+            data = serializer.data
+            data['is_active'] = False
+            return Response(data)
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)
 
+    @action(detail=True, methods=['get'])
+    def shares(self, request, pk=None):
+        program = self.get_object()
+        shares = ProgramShare.objects.filter(program=program)
+        serializer = ProgramShareSerializer(shares, many=True)
+        return Response(serializer.data)
+        
     @action(
         detail=True,
         methods=['get', 'put', 'patch', 'delete'],
@@ -305,6 +326,14 @@ class ProgramViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
         program = self.get_object()
+        
+        # Only allow the creator to toggle active state
+        if program.creator != request.user:
+            return Response(
+                {"detail": "You don't have permission to modify this program."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         new_status = request.data.get('is_active', not program.is_active)
         
         with transaction.atomic():
@@ -337,12 +366,12 @@ class ProgramViewSet(viewsets.ModelViewSet):
             new_program = Program.objects.create(
                 creator=request.user,
                 forked_from=original_program,
-                name=f"Fork of {original_program.name}",
+                name=f"{original_program.name}",
                 description=original_program.description,
                 focus=original_program.focus,
                 sessions_per_week=original_program.sessions_per_week,
                 is_active=False,
-                is_public=False,
+                is_public=True,
                 difficulty_level=original_program.difficulty_level,
                 recommended_level=original_program.recommended_level,
                 required_equipment=original_program.required_equipment,

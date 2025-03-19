@@ -37,9 +37,9 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
   };
   
   // Handle program fork
-  const handleFork = async (program) => {
+  const handleFork = async (programId) => {
     try {
-      const forkedProgram = await forkProgram(program.id);
+      const forkedProgram = await forkProgram(programId);
       return forkedProgram;
     } catch (error) {
       console.error('Error forking program:', error);
@@ -56,24 +56,7 @@ const OverviewTab = ({ userData, friends, fullProgramData, handleProgramSelect }
     if (userData?.current_program && !fullProgramData) {
       console.warn(`User has current_program (ID: ${userData.current_program.id}) but fullProgramData is missing`);
       setProgramError(true);
-      
-      // Check if we should try to fix the user's current program reference
-      const checkProgramExists = async () => {
-        try {
-          // Try to fetch the program directly
-          await queryClient.fetchQuery(['programs', 'detail', userData.current_program.id], 
-            () => fetch(`/api/workouts/programs/${userData.current_program.id}/`).then(res => {
-              if (!res.ok) throw new Error(`Program not found: ${res.status}`);
-              return res.json();
-            })
-          );
-        } catch (error) {
-          console.error('Program does not exist but is set as current_program:', error);
-          // Could trigger a fix here by calling an API endpoint to reset the user's current program
-        }
-      };
-      
-      checkProgramExists();
+
     }
   }, [userData?.current_program, fullProgramData, queryClient]);
 

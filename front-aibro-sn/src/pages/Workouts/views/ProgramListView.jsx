@@ -47,6 +47,8 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
     isError 
   } = usePrograms();
 
+  console.log(workoutPlans);
+
   // Mutation hooks
   const forkProgramMutation = useForkProgram();
   const toggleActiveMutation = useToggleProgramActive();
@@ -61,12 +63,18 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
   // Check if there's any active program
   const activeProgram = workoutPlans.find(program => program.is_active);
 
+  const handleShareComplete = () => {
+    // Invalidate posts feed to ensure shared program appears
+    queryClient.invalidateQueries(['posts', 'feed']);
+  };
+
   // Filter programs by search query and access permissions
   const getAccessiblePrograms = () => {
     const accessiblePlans = workoutPlans.filter(plan => 
-      plan.is_owner || 
-      plan.program_shares?.length > 0 || 
-      plan.forked_from !== null
+      // plan.is_owner || 
+      // plan.program_shares?.length > 0 || 
+      // plan.forked_from !== null
+      plan.creator_username === user?.username
     );
     
     if (!searchQuery) return accessiblePlans;
@@ -144,32 +152,36 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
 
   const handleToggleActive = async (planId) => {
     try {
+      // Get the program to check ownership
+      const programToToggle = workoutPlans.find(p => p.id === planId);
+      
+      // Only allow toggling if the user is the creator
+      if (!programToToggle.is_owner && programToToggle.creator_username !== currentUser?.username) {
+        console.error('Unauthorized attempt to toggle program active state:', planId);
+        alert(t('unauthorized_action'));
+        return;
+      }
+      
       setActiveToggleLoading(true);
       
-      // Get the current state of the program
-      const program = workoutPlans.find(p => p.id === planId);
-      const isActivating = !program.is_active;
+      // Rest of the toggle logic remains the same
+      const isActivating = !programToToggle.is_active;
       
-      // If we're activating a program, first invalidate any cached data
-      // This ensures we get fresh data after the toggle operation
       if (isActivating) {
-        // Invalidate both programs and user data to ensure fresh state
         await queryClient.invalidateQueries(['programs', 'list']);
         await queryClient.invalidateQueries(['users', 'current']);
       }
       
-      // Execute the toggle operation
       await toggleActiveMutation.mutateAsync(planId);
       
-      // After the toggle is complete, refresh the program data and user data
-      // This ensures UI reflects the current state from the server
       await queryClient.invalidateQueries(['programs', 'list']);
       await queryClient.invalidateQueries(['users', 'current']);
+      await queryClient.invalidateQueries(['programs']);
+      await queryClient.invalidateQueries(['logs']);
     } catch (err) {
       console.error('Error toggling plan active state:', err);
       alert(t('toggle_active_error'));
       
-      // Reset cache in case our optimistic update failed
       queryClient.invalidateQueries(['programs', 'list']);
       queryClient.invalidateQueries(['users', 'current']);
     } finally {
@@ -372,6 +384,7 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
             setProgramToShare(null);
           }}
           onSubmit={handleShareSubmit}
+          onShareComplete={handleShareComplete}
         />
       )}
 

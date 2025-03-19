@@ -13,9 +13,9 @@ const ActivityTab = ({ userData, posts, handleWorkoutLogSelect, handleProgramSel
   
   // Get fork program mutation
   const { mutateAsync: forkProgram } = useForkProgram();
-  const handleFork = async (program) => {
+  const handleFork = async (programId) => {
     try {
-      const forkedProgram = await forkProgram(program.id);
+      const forkedProgram = await forkProgram(programId);
       return forkedProgram;
     } catch (error) {
       console.error('Error forking program:', error);

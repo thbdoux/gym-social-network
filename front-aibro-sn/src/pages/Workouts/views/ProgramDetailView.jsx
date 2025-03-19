@@ -42,6 +42,7 @@ const ProgramDetailView = ({
   const [showCreateWorkout, setShowCreateWorkout] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null); // For mobile view filtering
   const [loadingState, setLoadingState] = useState(false);
+  const [programData, setProgramData] = useState(plan); // Local state to store program data
 
   // React Query hooks
   const { data: currentProgramData, refetch: refetchProgram } = useProgram(plan?.id, {
@@ -59,28 +60,28 @@ const ProgramDetailView = ({
   const addWorkoutMutation = useAddWorkoutToProgram();
   const toggleProgramActiveMutation = useToggleProgramActive();
 
-  // Use the latest program data from React Query only when it changes from external sources
-  // and not because of our local updates
+  // Update local state when plan or currentProgramData changes
   useEffect(() => {
-    // Skip the effect if we don't have both pieces of data
-    if (!currentProgramData || !plan) return;
-    
-    // Skip the update if the plan is already up to date
-    // This prevents infinite loops by avoiding unnecessary updates
-    if (JSON.stringify(plan) === JSON.stringify(currentProgramData)) return;
-    
-    onUpdate(plan.id, currentProgramData);
+    if (plan) {
+      setProgramData(plan);
+    }
+  }, [plan]);
+
+  useEffect(() => {
+    if (currentProgramData) {
+      setProgramData(currentProgramData);
+    }
   }, [currentProgramData]);
 
   // Check if user has edit permissions
-  const canEdit = user && plan && (user.username === plan.creator_username || user.is_staff);
+  const canEdit = user && programData && (user.username === programData.creator_username || user.is_staff);
 
   useEffect(() => {
     // Reset selected day whenever plan changes
     setSelectedDay(null);
-  }, [plan?.id]);
+  }, [programData?.id]);
 
-  if (!plan) {
+  if (!programData) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-10 h-10 rounded-full border-4 border-t-blue-500 border-gray-700 animate-spin"></div>
@@ -89,13 +90,17 @@ const ProgramDetailView = ({
   }
 
   const getLatestWorkoutData = (workoutId) => {
-    return plan.workouts.find(w => w.id === workoutId);
+    return programData.workouts.find(w => w.id === workoutId);
   };
 
   const refreshPlans = async () => {
     try {
+      if (loadingState) return;
       setLoadingState(true);
-      await refetchProgram();
+      const refreshedProgram = await refetchProgram();
+      if (refreshedProgram.data) {
+        setProgramData(refreshedProgram.data);
+      }
     } catch (error) {
       console.error('Error refreshing plan data:', error);
     } finally {
@@ -106,14 +111,26 @@ const ProgramDetailView = ({
   const handleDayChange = async (workoutId, newDay) => {
     try {
       setLoadingState(true);
-      await updateWorkoutMutation.mutateAsync({
-        programId: plan.id,
+      const result = await updateWorkoutMutation.mutateAsync({
+        programId: programData.id,
         workoutId,
         updates: {
           preferred_weekday: newDay
         }
       });
-      // Refetch happens automatically through queryClient invalidation
+      
+      // Update local state immediately with the change
+      setProgramData(prevData => ({
+        ...prevData,
+        workouts: prevData.workouts.map(workout => 
+          workout.id === workoutId 
+            ? { ...workout, preferred_weekday: newDay } 
+            : workout
+        )
+      }));
+      
+      // Still refresh to ensure consistent state
+      await refreshPlans();
     } catch (err) {
       console.error('Error updating workout day:', err);
       setError(t('failed_update_workout_day'));
@@ -140,11 +157,14 @@ const ProgramDetailView = ({
       const newTemplate = await createTemplateMutation.mutateAsync(templateData);
       
       // Use React Query mutation to add workout
-      await addWorkoutMutation.mutateAsync({
-        programId: plan.id,
+      const result = await addWorkoutMutation.mutateAsync({
+        programId: programData.id,
         templateId: newTemplate.id,
         weekday: workoutData.preferred_weekday || 0
       });
+      
+      // Refresh to get the new workout included
+      await refreshPlans();
       
       setShowCreateWorkout(false);
     } catch (err) {
@@ -163,7 +183,16 @@ const ProgramDetailView = ({
   const handleWorkoutUpdate = async (updatedWorkout) => {
     try {
       setLoadingState(true);
-      await onUpdateWorkout(plan.id, updatedWorkout.id, updatedWorkout);
+      await onUpdateWorkout(programData.id, updatedWorkout.id, updatedWorkout);
+      
+      // Update local state immediately
+      setProgramData(prevData => ({
+        ...prevData,
+        workouts: prevData.workouts.map(workout => 
+          workout.id === updatedWorkout.id ? updatedWorkout : workout
+        )
+      }));
+      
       setWorkoutBeingEdited(null);
       await refreshPlans();
     } catch (err) {
@@ -180,10 +209,18 @@ const ProgramDetailView = ({
     try {
       setLoadingState(true);
       await removeWorkoutMutation.mutateAsync({
-        programId: plan.id,
+        programId: programData.id,
         workoutId
       });
-      // Refetch happens automatically through queryClient invalidation
+      
+      // Update local state immediately
+      setProgramData(prevData => ({
+        ...prevData,
+        workouts: prevData.workouts.filter(workout => workout.id !== workoutId)
+      }));
+      
+      // Refresh to ensure consistent state
+      await refreshPlans();
     } catch (err) {
       setError(t('failed_remove_workout'));
     } finally {
@@ -197,7 +234,7 @@ const ProgramDetailView = ({
     }
     try {
       setLoadingState(true);
-      await onDelete(plan.id);
+      await onDelete(programData.id);
       onBack();
     } catch (err) {
       setError(t('failed_delete_program'));
@@ -212,11 +249,12 @@ const ProgramDetailView = ({
       
       // Use React Query mutation to add workout
       await addWorkoutMutation.mutateAsync({
-        programId: plan.id,
+        programId: programData.id,
         templateId,
         weekday
       });
       
+      await refreshPlans();
       setShowTemplateSelector(false);
     } catch (err) {
       setError(t('failed_add_workout'));
@@ -228,7 +266,16 @@ const ProgramDetailView = ({
   const handleUpdateProgram = async (updatedData) => {
     try {
       setLoadingState(true);
-      await onUpdate(plan.id, updatedData);
+      const result = await onUpdate(programData.id, updatedData);
+      
+      // Update local state immediately
+      if (result) {
+        setProgramData(prevData => ({
+          ...prevData,
+          ...updatedData
+        }));
+      }
+      
       setShowProgramWizard(false);
       await refreshPlans();
     } catch (err) {
@@ -245,7 +292,7 @@ const ProgramDetailView = ({
   const workoutsByDay = WEEKDAYS.map((day, index) => ({
     day,
     dayIndex: index,
-    workouts: plan.workouts.filter(w => w.preferred_weekday === index)
+    workouts: programData.workouts.filter(w => w.preferred_weekday === index)
   }));
   
   // Days with workouts for mobile view
@@ -257,7 +304,7 @@ const ProgramDetailView = ({
       return workoutsByDay[selectedDay].workouts;
     }
     // For desktop, return all workouts
-    return plan.workouts;
+    return programData.workouts;
   };
 
   return (
@@ -272,7 +319,7 @@ const ProgramDetailView = ({
           >
             <ArrowLeft className="w-5 h-5 text-gray-400" />
           </button>
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">{plan.name}</h1>
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">{programData.name}</h1>
         </div>
         
         {canEdit && (
@@ -315,18 +362,18 @@ const ProgramDetailView = ({
                 <div className="space-y-3">
                   <div className="flex flex-col">
                     <span className="text-xs uppercase text-gray-500">{t('focus')}</span>
-                    <span className="capitalize text-white">{t(plan.focus.replace(/_/g, ''))}</span>
+                    <span className="capitalize text-white">{t(programData.focus.replace(/_/g, ''))}</span>
                   </div>
                   
                   <div className="flex flex-col">
                     <span className="text-xs uppercase text-gray-500">{t('frequency')}</span>
-                    <span className="text-white">{plan.sessions_per_week}x {t('per_week')}</span>
+                    <span className="text-white">{programData.sessions_per_week}x {t('per_week')}</span>
                   </div>
                   
                   <div className="flex flex-col">
                     <span className="text-xs uppercase text-gray-500">{t('creator')}</span>
                     <div className="flex items-center">
-                      <span className="text-blue-400 mr-2">{plan.creator_username}</span>
+                      <span className="text-blue-400 mr-2">{programData.creator_username}</span>
                       <Users className="w-3.5 h-3.5 text-gray-500" />
                     </div>
                   </div>
@@ -335,20 +382,20 @@ const ProgramDetailView = ({
                 <div className="space-y-3">
                   <div className="flex flex-col">
                     <span className="text-xs uppercase text-gray-500">{t('level')}</span>
-                    <span className="capitalize text-white">{t(plan.difficulty_level)}</span>
+                    <span className="capitalize text-white">{t(programData.difficulty_level)}</span>
                   </div>
                   
                   <div className="flex flex-col">
                     <span className="text-xs uppercase text-gray-500">{t('duration')}</span>
                     <div className="flex items-center">
-                      <span className="text-white mr-2">{plan.estimated_completion_weeks} {t('weeks')}</span>
+                      <span className="text-white mr-2">{programData.estimated_completion_weeks} {t('weeks')}</span>
                       <Calendar className="w-3.5 h-3.5 text-gray-500" />
                     </div>
                   </div>
                   
                   <div className="flex flex-col">
                     <span className="text-xs uppercase text-gray-500">{t('workouts')}</span>
-                    <span className="text-white">{plan.workouts.length} {t('total')}</span>
+                    <span className="text-white">{programData.workouts.length} {t('total')}</span>
                   </div>
                 </div>
               </div>
@@ -365,7 +412,7 @@ const ProgramDetailView = ({
               
               {/* Use the WeeklyCalendar component with drag-and-drop functionality */}
               <WeeklyCalendar 
-                workouts={plan.workouts} 
+                workouts={programData.workouts} 
                 onDayChange={canEdit ? handleDayChange : undefined}
               />
             </div>
@@ -490,7 +537,7 @@ const ProgramDetailView = ({
                 setShowCreateWorkout(true);
               }}
               onBack={() => setShowTemplateSelector(false)}
-              currentProgramWorkouts={plan.workouts}
+              currentProgramWorkouts={programData.workouts}
             />
           </div>
         </div>
@@ -505,14 +552,14 @@ const ProgramDetailView = ({
             setShowTemplateSelector(true);
           }}
           inProgram={true}
-          selectedPlan={plan}
+          selectedPlan={programData}
         />
       )}
 
       {/* Program Edit Wizard */}
       {showProgramWizard && (
         <ProgramWizard
-          program={plan}
+          program={programData}
           onSubmit={handleUpdateProgram}
           onClose={() => setShowProgramWizard(false)}
         />
@@ -527,7 +574,7 @@ const ProgramDetailView = ({
               onSubmit={handleWorkoutUpdate}
               onClose={() => setWorkoutBeingEdited(null)}
               inProgram={true}
-              selectedPlan={plan}
+              selectedPlan={programData}
             />
           </div>
         </div>

@@ -4,7 +4,7 @@ import { X, Share2, Activity, Target, Calendar, Send, CheckCircle } from 'lucide
 // Import React Query hook
 import { useShareProgram } from '../../../hooks/query/useProgramQuery';
 
-const ShareProgramModal = ({ program, onClose }) => {
+const ShareProgramModal = ({ program, onClose, onShareComplete }) => {
   const [content, setContent] = useState(`Check out my workout program: ${program.name}`);
   const [error, setError] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -34,6 +34,11 @@ const ShareProgramModal = ({ program, onClose }) => {
       
       // Show success effect before closing
       setShowSuccess(true);
+      
+      // Call onShareComplete if provided
+      if (typeof onShareComplete === 'function') {
+        onShareComplete();
+      }
       
       // Close the modal after a short delay
       setTimeout(() => {

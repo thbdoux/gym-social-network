@@ -79,6 +79,17 @@ const WorkoutSpace = () => {
   const createTemplateMutation = useCreateWorkoutTemplate();
   const deleteTemplateMutation = useDeleteWorkoutTemplate();
 
+  // Function to handle view changes with proper data refreshing
+  const handleViewChange = (newView) => {
+    // If returning to main view, refresh all relevant data
+    if (newView === 'main') {
+      refreshPlans();
+      refreshLogs();
+      queryClient.invalidateQueries(['users', 'current']);
+    }
+    setView(newView);
+  };
+
   const handlePlanSelect = async (plan) => {
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
       console.error('Unauthorized access attempt to plan:', plan.id);
@@ -103,7 +114,7 @@ const WorkoutSpace = () => {
       if (view === 'plans') {
         await refreshPlans();
       } else {
-        setView('plans');
+        handleViewChange('plans');
       }
       return newPlan;
     } catch (err) {
@@ -146,6 +157,11 @@ const WorkoutSpace = () => {
     try {
       setIsTogglingActive(true);
       await toggleActiveMutation.mutateAsync(planId);
+      
+      // Ensure all relevant data is refreshed
+      await queryClient.invalidateQueries(['programs']);
+      await queryClient.invalidateQueries(['users', 'current']);
+      await refreshPlans();
     } catch (err) {
       console.error('Error toggling plan active status:', err);
     } finally {
@@ -157,11 +173,18 @@ const WorkoutSpace = () => {
     setProgramToShare(program);
     setShowShareModal(true);
   };
+  
+  const handleShareComplete = () => {
+    // Invalidate posts feed to ensure shared program appears
+    queryClient.invalidateQueries(['posts', 'feed']);
+  };
 
   const handleForkProgram = async (program) => {
     try {
       if (window.confirm(`${t('fork_confirm_text')} "${program.name}" ${t('by')} ${program.creator_username}?`)) {
         await forkProgramMutation.mutateAsync(program.id);
+        // Refresh program data after forking
+        await refreshPlans();
       }
     } catch (err) {
       console.error('Error forking program:', err);
@@ -214,6 +237,9 @@ const WorkoutSpace = () => {
         await createLogMutation.mutateAsync(preparedData);
       }
       
+      // Refresh logs after creating/updating
+      await refreshLogs();
+      
       setShowLogForm(false);
       setSelectedLog(null);
     } catch (err) {
@@ -236,7 +262,7 @@ const WorkoutSpace = () => {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
         <AllWorkoutLogsView 
-          onBack={() => setView('main')}
+          onBack={() => handleViewChange('main')}
           activeProgram={activeProgram}
           user={currentUser?.username}
         />
@@ -251,7 +277,15 @@ const WorkoutSpace = () => {
           workoutPlans={workoutPlans}
           isLoading={plansLoading}
           onPlanSelect={handlePlanSelect}
-          setView={setView}
+          setView={(newView) => {
+            // When returning to main view, refresh programs data
+            if (newView === 'main') {
+              refreshPlans();
+              refreshLogs();
+              queryClient.invalidateQueries(['users', 'current']);
+            }
+            setView(newView);
+          }}
           user={currentUser}
           deletePlan={(planId) => deletePlanMutation.mutate(planId)}
           togglePlanActive={handleTogglePlanActive}
@@ -273,7 +307,11 @@ const WorkoutSpace = () => {
             onClose={() => {
               setShowShareModal(false);
               setProgramToShare(null);
+              
+              // Refresh data when modal closes
+              queryClient.invalidateQueries(['posts', 'feed']);
             }}
+            onShareComplete={handleShareComplete}
           />
         )}
         
@@ -301,7 +339,7 @@ const WorkoutSpace = () => {
           onCreateTemplate={(template) => createTemplateMutation.mutate(template)}
           onUpdateTemplate={(id, updates) => updateTemplateMutation.mutate({ id, updates })}
           onDeleteTemplate={(id) => deleteTemplateMutation.mutate(id)}
-          setView={setView}
+          setView={handleViewChange}
         />
       </div>
     );
@@ -316,7 +354,7 @@ const WorkoutSpace = () => {
           templates={templates.results || templates}
           onBack={() => {
             setSelectedPlan(null);
-            setView('main');
+            handleViewChange('main');
           }}
           onUpdate={async (planId, updates) => {
             await updatePlanMutation.mutateAsync({ id: planId, updates });
@@ -365,7 +403,7 @@ const WorkoutSpace = () => {
             
             <div className="flex flex-wrap items-center gap-3 mt-6">
               <button 
-                onClick={() => setView('all-workouts')}
+                onClick={() => handleViewChange('all-workouts')}
                 className="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <LayoutGrid className="w-5 h-5 text-white" />
@@ -373,7 +411,7 @@ const WorkoutSpace = () => {
               </button>
               
               <button 
-                onClick={() => setView('plans')}
+                onClick={() => handleViewChange('plans')}
                 className="px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <Dumbbell className="w-5 h-5 text-white" />
@@ -381,7 +419,7 @@ const WorkoutSpace = () => {
               </button>
               
               <button 
-                onClick={() => setView('logs')}
+                onClick={() => handleViewChange('logs')}
                 className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <Calendar className="w-5 h-5 text-white" />
@@ -409,7 +447,7 @@ const WorkoutSpace = () => {
                 singleColumn={true}
                 onEdit={(plan) => {
                   setSelectedPlan(plan);
-                  setView('plan-detail');
+                  handleViewChange('plan-detail');
                 }}
                 compact={true}
               />
@@ -543,7 +581,11 @@ const WorkoutSpace = () => {
           onClose={() => {
             setShowShareModal(false);
             setProgramToShare(null);
+            
+            // Refresh feed data when modal closes
+            queryClient.invalidateQueries(['posts', 'feed']);
           }}
+          onShareComplete={handleShareComplete}
         />
       )}
       

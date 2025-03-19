@@ -16,8 +16,9 @@ const initializeFormData = (program) => {
       sessions_per_week: 3,
       difficulty_level: 'intermediate',
       estimated_completion_weeks: 8,
-      is_active: false,
-      is_public: true
+      is_active: true,
+      is_public: true,
+      shares: []
     };
   }
 
@@ -28,8 +29,12 @@ const initializeFormData = (program) => {
     sessions_per_week: program.sessions_per_week || 3,
     difficulty_level: program.difficulty_level || 'intermediate',
     estimated_completion_weeks: program.estimated_completion_weeks || 8,
-    is_active: program.is_active ?? false,
-    is_public: program.is_public ?? true
+    is_active: program.is_active ?? true,
+    is_public: program.is_public ?? true,
+    shares: program.shares?.map(share => ({
+      username: share.shared_with_username,
+      id: share.shared_with
+    })) || []
   };
 };
 
@@ -103,7 +108,8 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
         description: formData.description || '', // Default empty string
         tags: formData.tags || [], // Default empty array
         required_equipment: formData.required_equipment || [], // Default empty array
-        recommended_level: formData.recommended_level || formData.difficulty_level // Default to difficulty level
+        recommended_level: formData.recommended_level || formData.difficulty_level, // Default to difficulty level
+        shares: formData.shares || []
       };
       
       // Submit the enriched form data

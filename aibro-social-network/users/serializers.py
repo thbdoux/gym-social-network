@@ -8,6 +8,18 @@ class UserSerializer(serializers.ModelSerializer):
     # Use a SerializerMethodField to avoid circular imports
     current_program = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        # Allow for specifying specific fields to include
+        fields = kwargs.pop('fields', None)
+        super().__init__(*args, **kwargs)
+        
+        if fields is not None:
+            # Drop any fields that are not specified in the `fields` argument
+            allowed = set(fields)
+            existing = set(self.fields)
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
+                
     def get_current_program(self, obj):
         if obj.current_program:
             from workouts.serializers import ProgramSerializer

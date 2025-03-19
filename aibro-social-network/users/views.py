@@ -148,6 +148,30 @@ class UserViewSet(viewsets.ModelViewSet):
         
     def get_queryset(self):
         return User.objects.all()
+
+    # In users/views.py, add this to the UserViewSet class:
+
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """
+        Search for users by username or email
+        Returns a list of users matching the search query
+        """
+        query = request.query_params.get('q', '')
+        if len(query) < 2:
+            return Response(
+                {"detail": "Search query must be at least 2 characters"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Exclude the current user from results
+        users = User.objects.filter(
+            Q(username__icontains=query) | 
+            Q(email__icontains=query)
+        ).exclude(id=request.user.id)[:10]  # Limit to 10 results
+        
+        serializer = UserSerializer(users, many=True, fields=['id', 'username', 'avatar'])
+        return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
     def send_friend_request(self, request, pk=None):

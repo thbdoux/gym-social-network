@@ -116,6 +116,15 @@ class WorkoutInstanceSerializer(serializers.ModelSerializer):
         
         return instance
 
+class ProgramShareSerializer(serializers.ModelSerializer):
+    program_name = serializers.CharField(source='program.name', read_only=True)
+    shared_with_username = serializers.CharField(source='shared_with.username', read_only=True)
+    
+    class Meta:
+        model = ProgramShare
+        fields = ['id', 'program', 'program_name', 'shared_with', 
+                 'shared_with_username', 'created_at']
+        read_only_fields = ['id', 'created_at']
 # Program Serializers
 class ProgramSerializer(serializers.ModelSerializer):
     workouts = WorkoutInstanceSerializer(source='workout_instances', many=True, read_only=True)
@@ -124,7 +133,8 @@ class ProgramSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     creator_username = serializers.CharField(source='creator.username', read_only=True)
     is_owner = serializers.SerializerMethodField(read_only=True)  # Add this field
-    
+    is_shared_with_me = serializers.SerializerMethodField(read_only=True)
+    shares = ProgramShareSerializer(source='shares.all', many=True, read_only=True)
     class Meta:
         model = Program
         fields = [
@@ -134,17 +144,26 @@ class ProgramSerializer(serializers.ModelSerializer):
            'difficulty_level', 'recommended_level',
            'required_equipment', 'estimated_completion_weeks',
            'tags', 'forks_count', 'is_liked',
-           'forked_from', 'created_at', 'updated_at','is_owner'
+           'forked_from', 'created_at', 'updated_at','is_owner','shares','is_shared_with_me',
        ]
         read_only_fields = [
             'id', 'creator_username', 'likes_count',
-            'forks_count', 'is_liked','created_at', 'updated_at','is_owner'
+            'forks_count', 'is_liked','created_at', 'updated_at','is_owner','shares', 'is_shared_with_me',
         ]
 
     def get_is_liked(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(id=request.user.id).exists()
+        return False
+
+    def get_is_shared_with_me(self, obj):
+        """
+        Determine if this program has been shared with the current user.
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.shares.filter(shared_with=request.user).exists()
         return False
 
     def get_is_owner(self, obj):
@@ -157,15 +176,6 @@ class ProgramSerializer(serializers.ModelSerializer):
             return obj.creator_id == request.user.id
         return False
 
-class ProgramShareSerializer(serializers.ModelSerializer):
-    program_name = serializers.CharField(source='program.name', read_only=True)
-    shared_with_username = serializers.CharField(source='shared_with.username', read_only=True)
-    
-    class Meta:
-        model = ProgramShare
-        fields = ['id', 'program', 'program_name', 'shared_with', 
-                 'shared_with_username', 'created_at']
-        read_only_fields = ['id', 'created_at']
 
 # Log Serializers
 class SetLogSerializer(serializers.ModelSerializer):

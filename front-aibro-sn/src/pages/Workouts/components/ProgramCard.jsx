@@ -48,7 +48,7 @@ const ProgramCard = ({
   
   // Use either the fetched program or the initial program passed as prop
   const program = initialProgramData || fetchedProgram;
-  
+  console.log(program);
   // For forked programs, fetch the original program
   const { data: originalProgram, isLoading: loadingOriginal } = useProgram(
     program?.forked_from || null
@@ -90,12 +90,14 @@ const ProgramCard = ({
   // Helper functions and derived state
   const isForked = !!program.forked_from;
   const isCreator = program.creator_username === currentUser;
-  const canForkProgram = !isCreator;
+  // const canForkProgram = !isCreator;
+  // In the canForkProgram check, add a check for sharing permission
+  const canForkProgram = !isCreator && (program.is_public || program.is_shared_with_me);
   // Permission checks
   const canEditProgram = canManage && isCreator;
   const canShareProgram = canManage && isCreator;
   const canDeleteProgram = canManage && isCreator;
-  const canToggleActive = canManage;
+  const canToggleActive = canManage && isCreator;
 
   // Check if user has already forked this program
   useEffect(() => {
@@ -207,7 +209,7 @@ const ProgramCard = ({
     
     try {
       setIsForking(true);
-      await onFork?.(program);
+      await onFork?.(program.id);
       setForkSuccess(true);
       setShowForkWarning(false);
       setHasForked(true);
@@ -714,24 +716,29 @@ export const ProgramGrid = ({
     ? "grid grid-cols-1 gap-4" 
     : "grid grid-cols-1 md:grid-cols-2 gap-4";
 
-  return (
-    <div className={gridClass}>
-      {programs.map(program => (
-        <ProgramCard
-          key={program.id}
-          program={program}
-          currentUser={currentUser}
-          canManage={true}
-          onProgramSelect={onSelect}
-          onDelete={onDelete}
-          onToggleActive={onToggleActive}
-          onShare={onShare}
-          onEdit={onEdit}
-          onFork={onFork}
-        />
-      ))}
-    </div>
-  );
+    return (
+      <div className={gridClass}>
+        {programs.map(program => {
+          // Check if the current user is the creator of the program
+          const isCreator = program.creator_username === currentUser;
+          
+          return (
+            <ProgramCard
+              key={program.id}
+              program={program}
+              currentUser={currentUser}
+              canManage={isCreator} // Only the creator can manage
+              onProgramSelect={onSelect}
+              onDelete={onDelete}
+              onToggleActive={onToggleActive}
+              onShare={onShare}
+              onEdit={onEdit}
+              onFork={onFork}
+            />
+          );
+        })}
+      </div>
+    );
 };
 
 export { ProgramCard };

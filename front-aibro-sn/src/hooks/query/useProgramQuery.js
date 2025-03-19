@@ -8,10 +8,10 @@ import {
   // Query keys
   export const programKeys = {
     all: ['programs'],
-    lists: () => [...programKeys.all, 'list'],
-    list: (filters) => [...programKeys.lists(), { ...filters }],
-    details: () => [...programKeys.all, 'detail'],
-    detail: (id) => [...programKeys.details(), id],
+    lists: (userId) => [...programKeys.all, 'list', { userId }],
+    list: (userId, filters) => [...programKeys.lists(userId), { ...filters }],
+    details: (userId) => [...programKeys.all, 'detail', { userId }],
+    detail: (userId, id) => [...programKeys.details(userId), id],
     workouts: (programId) => [...programKeys.detail(programId), 'workouts'],
     workout: (programId, workoutId) => [...programKeys.workouts(programId), workoutId],
   };
@@ -93,12 +93,23 @@ import {
   };
   
   // Toggle program active
+  // Toggle program active
   export const useToggleProgramActive = () => {
     const queryClient = useQueryClient();
     
     return useMutation({
       mutationFn: programService.toggleProgramActive,
       onSuccess: (updatedProgram) => {
+        // Invalidate all program-related queries to ensure fresh data
+        queryClient.invalidateQueries(programKeys.all);
+        
+        // Also invalidate user data as active program status affects user state
+        queryClient.invalidateQueries(['users', 'current']);
+        
+        // Invalidate logs as they may be related to the active program
+        queryClient.invalidateQueries(['logs']);
+        
+        // Still update specific caches for immediate UI updates
         // Update program in list
         queryClient.setQueryData(programKeys.lists(), (oldData) => {
           if (!oldData) return [];
