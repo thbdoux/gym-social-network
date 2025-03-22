@@ -36,7 +36,11 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
     refetch: refetchUser
   } = useUser(userId, {
     enabled: isOpen && !!userId,
-    initialData: initialUserData?.id === userId ? initialUserData : undefined
+    initialData: initialUserData?.id === userId ? initialUserData : undefined,
+    // Always refetch when viewing a profile
+    refetchOnMount: true,
+    // Set staleTime to 0 to always fetch fresh data
+    staleTime: 0
   });
 
   const { 
@@ -62,34 +66,37 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
   
   const workoutLogs = profilePreview?.workout_logs || [];
   
-  // Use the program details hook with enhanced error handling
+
   const {
     data: fullProgramData,
     isLoading: programLoading,
-    error: programError
+    error: programError,
+    refetch: refetchProgram
   } = useProgramPreviewDetails(userData?.current_program?.id, {
     enabled: isOpen && !!userData?.current_program?.id,
-    // This onError callback handles errors when fetching the program
+
+    refetchOnMount: true,
+
     onError: (error) => {
       console.error('Error loading program data:', error);
       setProgramLoadError(true);
-      
-      // If the program is not found (404), we should update the user data
       if (error.response?.status === 404) {
         handleProgramNotFound();
       }
     }
   });
 
-  // Use the new hook for gym display
-  // Note: This component seems to already have gym details in userData.preferred_gym_details
-  // So we can add this as a fallback in case the data isn't preloaded
+  useEffect(() => {
+    if (isOpen && userData?.current_program?.id) {
+      refetchProgram();
+    }
+  }, [isOpen, userData?.current_program?.id, refetchProgram]);
+
   const { displayText: gymDisplayText } = useGymDisplay(
     userData?.id,
     userData?.preferred_gym
   );
 
-  // Combined loading state
   const loading = 
     userLoading || 
     (activeTab === 'overview' && friendsLoading) ||
@@ -97,7 +104,6 @@ const ProfilePreviewModal = ({ isOpen, onClose, userId, initialUserData = null }
     (activeTab === 'workouts' && profilePreviewLoading) ||
     (activeTab === 'stats' && postsLoading);
 
-  // Handle program not found - this will update the user's current program to null
   const handleProgramNotFound = useCallback(async () => {
     try {
       if (!userData || !userData.id) return;

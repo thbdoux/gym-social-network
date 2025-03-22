@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ArrowRight, ArrowLeft, Save } from 'lucide-react';
+import { X, Save } from 'lucide-react';
 import BasicInfoStep from './steps/BasicInfoStep';
 import FocusStep from './steps/FocusStep';
 import ScheduleStep from './steps/ScheduleStep';
@@ -17,8 +17,7 @@ const initializeFormData = (program) => {
       difficulty_level: 'intermediate',
       estimated_completion_weeks: 8,
       is_active: true,
-      is_public: true,
-      shares: []
+      is_public: true
     };
   }
 
@@ -30,11 +29,7 @@ const initializeFormData = (program) => {
     difficulty_level: program.difficulty_level || 'intermediate',
     estimated_completion_weeks: program.estimated_completion_weeks || 8,
     is_active: program.is_active ?? true,
-    is_public: program.is_public ?? true,
-    shares: program.shares?.map(share => ({
-      username: share.shared_with_username,
-      id: share.shared_with
-    })) || []
+    is_public: program.is_public ?? true
   };
 };
 
@@ -108,8 +103,7 @@ const ProgramWizard = ({ program = null, onSubmit, onClose }) => {
         description: formData.description || '', // Default empty string
         tags: formData.tags || [], // Default empty array
         required_equipment: formData.required_equipment || [], // Default empty array
-        recommended_level: formData.recommended_level || formData.difficulty_level, // Default to difficulty level
-        shares: formData.shares || []
+        recommended_level: formData.recommended_level || formData.difficulty_level // Default to difficulty level
       };
       
       // Submit the enriched form data

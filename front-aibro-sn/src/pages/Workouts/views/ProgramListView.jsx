@@ -132,8 +132,17 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
           updates: planData 
         });
       } else {
-        // Create new program
-        const newProgram = await createProgramMutation.mutateAsync(planData);
+        // Create new program - we'll handle the active state ourselves
+        // Force is_active to false initially to prevent multiple active programs
+        const shouldBeActive = planData.is_active;
+        const planDataCopy = { ...planData, is_active: false };
+        const newProgram = await createProgramMutation.mutateAsync(planDataCopy);
+        
+        // If the user wanted the program to be active, toggle it now
+        // This will trigger the backend to deactivate all other programs
+        if (shouldBeActive) {
+          await toggleActiveMutation.mutateAsync(newProgram.id);
+        }
         
         // If onPlanSelect is provided, we can navigate to the new program
         if (typeof onPlanSelect === 'function') {
@@ -152,43 +161,57 @@ const ProgramListView = ({ setView, user, onPlanSelect }) => {
 
   const handleToggleActive = async (planId) => {
     try {
-      // Get the program to check ownership
+      // 1. Find the program we want to toggle
       const programToToggle = workoutPlans.find(p => p.id === planId);
       
-      // Only allow toggling if the user is the creator
+      // 2. Verify user has permission to toggle this program
       if (!programToToggle.is_owner && programToToggle.creator_username !== currentUser?.username) {
         console.error('Unauthorized attempt to toggle program active state:', planId);
         alert(t('unauthorized_action'));
         return;
       }
       
+      // 3. Set loading state to show the user something is happening
       setActiveToggleLoading(true);
       
-      // Rest of the toggle logic remains the same
+      // 4. Check if we're activating or deactivating
       const isActivating = !programToToggle.is_active;
       
+      // 5. If activating, optimistically update UI to show immediate changes
+      //    This makes the app feel responsive without waiting for server
       if (isActivating) {
-        await queryClient.invalidateQueries(['programs', 'list']);
-        await queryClient.invalidateQueries(['users', 'current']);
+        queryClient.setQueryData(['programs', 'list'], oldPrograms => {
+          if (!oldPrograms) return [];
+          
+          // Update all programs: make this one active, all others inactive
+          return oldPrograms.map(p => ({
+            ...p,
+            is_active: p.id === planId ? true : false
+          }));
+        });
       }
       
+      // 6. Actually call the server to make the change
       await toggleActiveMutation.mutateAsync(planId);
       
+      // 7. Refresh all related data from server to ensure consistency
       await queryClient.invalidateQueries(['programs', 'list']);
       await queryClient.invalidateQueries(['users', 'current']);
       await queryClient.invalidateQueries(['programs']);
       await queryClient.invalidateQueries(['logs']);
     } catch (err) {
+      // 8. Handle errors by showing alert and refreshing data
       console.error('Error toggling plan active state:', err);
       alert(t('toggle_active_error'));
       
+      // Refresh the data in case our optimistic update was incorrect
       queryClient.invalidateQueries(['programs', 'list']);
       queryClient.invalidateQueries(['users', 'current']);
     } finally {
+      // 9. Always turn off loading state when done
       setActiveToggleLoading(false);
     }
   };
-
   const handleShareProgram = (program) => {
     setProgramToShare(program);
     setShowShareModal(true);

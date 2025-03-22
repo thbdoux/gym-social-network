@@ -22,7 +22,7 @@ export const useCurrentUser = (options = {}) => {
   return useQuery({
     queryKey: userKeys.current(),
     queryFn: userService.getCurrentUser,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 2, // 5 minutes
     cacheTime: 1000 * 60 * 30, // 30 minutes
     retry: false, // Don't retry if the token is invalid
     // Only attempt to fetch if there's a token
@@ -31,12 +31,14 @@ export const useCurrentUser = (options = {}) => {
   });
 };
 
-// Get a user by ID
 export const useUser = (userId, options = {}) => {
   return useQuery({
     queryKey: userKeys.detail(userId),
     queryFn: () => userService.getUserById(userId),
     enabled: !!userId,
+    // Default to a relatively short stale time for user data
+    // This ensures we're not using very old data
+    staleTime: 1000 * 60 * 2, // 2 minutes
     ...options
   });
 };

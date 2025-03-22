@@ -39,6 +39,7 @@ export const useUserPosts = (userId) => {
 };
 
 // Get program details for profile preview
+// In useProfilePreviewQuery.js
 export const useProgramPreviewDetails = (programId) => {
   const queryClient = useQueryClient();
   
@@ -46,11 +47,11 @@ export const useProgramPreviewDetails = (programId) => {
     queryKey: profilePreviewKeys.program(programId),
     queryFn: async () => {
       try {
-        // If the program doesn't exist in cache, try fetching it
+        // Always fetch fresh data from the server for program previews
+        // This ensures we get the most up-to-date program data for any user
         const data = await profilePreviewService.getProgramDetails(programId);
         
         // Update the programs list cache with this program to ensure consistency
-        // Only do this if the program was successfully fetched
         queryClient.setQueryData(['programs', 'list'], (oldData) => {
           if (!oldData) return [data];
           // If the program already exists in the list, replace it
@@ -91,8 +92,12 @@ export const useProgramPreviewDetails = (programId) => {
     enabled: !!programId,
     // We want to retry a couple times in case of network issues
     retry: 2,
-    // Don't keep stale data for too long - refresh more frequently
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    // Set staleTime to 0 to always fetch fresh data when viewing a profile
+    staleTime: 0, 
+    // Don't cache data for too long
+    cacheTime: 1000 * 60 * 5, // 5 minutes
+    // Always refetch when component mounts
+    refetchOnMount: true
   });
 };
 

@@ -12,13 +12,15 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  Plus
 } from 'lucide-react';
 import WorkoutLogCard from '../components/WorkoutLogCard';
 import { parseDate } from './ActivityComponents';
 import FilterPanel from './FilterPanel';
 import WorkoutWizard from './../components/workout-wizard/WorkoutWizard';
 import WorkoutStatisticsView from './WorkoutStatisticsView';
+import { LogWorkoutModal, WorkoutInstanceSelector } from '../components/LogWorkoutModal';
 
 // Import Language Context
 import { useLanguage } from '../../../context/LanguageContext';
@@ -37,7 +39,7 @@ import {
 const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
   // Get translation function from language context
   const { t } = useLanguage();
-  
+  console.log(activeProgram)
   // State management
   const [view, setView] = useState('grid'); // 'grid', 'calendar', 'stats'
   const [selectedDate, setSelectedDate] = useState(null);
@@ -51,6 +53,10 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
   });
   const [showWorkoutWizard, setShowWorkoutWizard] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  
+  // New state for LogWorkoutModal and WorkoutInstanceSelector
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [showInstanceSelector, setShowInstanceSelector] = useState(false);
   
   // Fetch logs with React Query
   const { 
@@ -225,6 +231,16 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* Add Log Workout Button */}
+          <button
+            onClick={() => setShowLogModal(true)}
+            className="group relative p-2 bg-green-500 hover:bg-green-400 rounded-full transition-all duration-300 
+                     shadow-lg hover:shadow-green-600/30 transform hover:scale-105"
+            title={t('log_workout')}
+          >
+            <Plus className="w-5 h-5 text-white" />
+          </button>
+
           {/* Search bar */}
           <div className="relative w-60">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -458,6 +474,7 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
         onClose={() => setShowFilterPanel(false)}
       />
 
+      {/* Workout Wizard for editing/creating logs */}
       {showWorkoutWizard && (
         <WorkoutWizard
           log={selectedLog}
@@ -467,6 +484,47 @@ const AllWorkoutLogsView = ({ onBack, activeProgram, user }) => {
             setShowWorkoutWizard(false);
             setSelectedLog(null);
           }}
+        />
+      )}
+
+      {/* Log Workout Modal - New addition */}
+      {showLogModal && (
+        <LogWorkoutModal
+          onClose={() => setShowLogModal(false)}
+          onNewLog={() => {
+            setShowLogModal(false);
+            setSelectedLog(null);
+            setShowWorkoutWizard(true);
+          }}
+          onLogFromInstance={() => {
+            setShowLogModal(false);
+            setShowInstanceSelector(true);
+          }}
+          activeProgram={activeProgram}
+        />
+      )}
+      
+      {/* Workout Instance Selector - New addition */}
+      {showInstanceSelector && (
+        <WorkoutInstanceSelector
+          onClose={() => setShowInstanceSelector(false)}
+          onSelect={(workout) => {
+            setShowInstanceSelector(false);
+            setSelectedLog({
+              name: workout.name || t('unnamed_workout'),
+              based_on_instance: workout.id,
+              program: activeProgram.id,
+              exercises: workout.exercises?.map(ex => ({
+                ...ex,
+                sets: ex.sets?.map(set => ({
+                  ...set,
+                  id: Math.floor(Date.now() + Math.random() * 1000)
+                }))
+              })) || []
+            });
+            setShowWorkoutWizard(true);
+          }}
+          activeProgram={activeProgram}
         />
       )}
     </div>
