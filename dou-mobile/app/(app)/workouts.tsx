@@ -1,5 +1,5 @@
 // app/(app)/workouts.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,60 @@ import {
   RefreshControl,
   SafeAreaView,
   Alert,
+  Image,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { usePrograms, useToggleProgramActive } from '../../hooks/query/useProgramQuery';
-import { useLogs } from '../../hooks/query/useLogQuery';
+import { useLanguage } from '../../context/LanguageContext';
+import { 
+  usePrograms, 
+  useToggleProgramActive,
+  useForkProgram
+} from '../../hooks/query/useProgramQuery';
+import { 
+  useLogs,
+  useCreateLog
+} from '../../hooks/query/useLogQuery';
 import { programService } from '../../api/services';
+import WorkoutTimeline from '../../components/workouts/WorkoutTimeline';
+import ProgramCard from '../../components/workouts/ProgramCard';
+import { useQueryClient } from '@tanstack/react-query';
+
+// Interface for workout log
+interface WorkoutLog {
+  id: number;
+  name: string;
+  workout_name?: string;
+  date: string;
+  rating?: number;
+  exercise_count?: number;
+  exercises?: any[];
+  program_name?: string;
+  mood_rating?: number;
+  completed?: boolean;
+}
+
+// Interface for next workout
+interface Workout {
+  id: number;
+  name: string;
+  preferred_weekday?: number;
+  exercises?: any[];
+  estimated_duration?: number;
+}
 
 export default function WorkoutsScreen() {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<WorkoutLog | null>(null);
+  const [showWorkoutDetailsModal, setShowWorkoutDetailsModal] = useState(false);
+  const [showLogWorkoutModal, setShowLogWorkoutModal] = useState(false);
+  const [nextWorkout, setNextWorkout] = useState<Workout | null>(null);
   
   // Use React Query hooks
   const { 
@@ -37,18 +81,24 @@ export default function WorkoutsScreen() {
   } = useLogs();
   
   const { mutateAsync: toggleProgramActive, isLoading: isTogglingProgram } = useToggleProgramActive();
+  const { mutateAsync: createLog, isLoading: isCreatingLog } = useCreateLog();
+  const { mutateAsync: forkProgram, isLoading: isForkingProgram } = useForkProgram();
   
   // Find active program
   const activeProgram = workoutPlans.find(program => program.is_active);
   
-  // Get next workout if there's an active program
-  const [nextWorkout, setNextWorkout] = useState(null);
-  if (activeProgram?.workouts?.length && !nextWorkout) {
-    const next = programService.getNextWorkout(activeProgram);
-    setNextWorkout(next);
-  }
+  // Calculate next workout when active program changes
+  useEffect(() => {
+    if (activeProgram?.workouts?.length) {
+      const next = programService.getNextWorkout(activeProgram);
+      setNextWorkout(next);
+    } else {
+      setNextWorkout(null);
+    }
+  }, [activeProgram]);
 
-  const handleRefresh = async () => {
+  // Handle refresh
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([
@@ -56,40 +106,100 @@ export default function WorkoutsScreen() {
         refetchLogs()
       ]);
       
-      // Reset next workout when refreshing
+      // Reset next workout after refresh
       if (activeProgram?.workouts?.length) {
         const next = programService.getNextWorkout(activeProgram);
         setNextWorkout(next);
       }
     } catch (error) {
       console.error('Error refreshing workout data:', error);
-      Alert.alert('Error', 'Failed to refresh workout data');
+      Alert.alert(
+        t('error'),
+        t('failed_to_refresh_workout_data')
+      );
     } finally {
       setRefreshing(false);
     }
+  }, [refetchPrograms, refetchLogs, activeProgram, t]);
+
+  // Handle program toggle (active/inactive)
+  const handleToggleProgram = async (programId: number) => {
+    try {
+      await toggleProgramActive(programId);
+      await refetchPrograms();
+      
+      // Invalidate queries to ensure data consistency
+      queryClient.invalidateQueries(['programs']);
+      queryClient.invalidateQueries(['logs']);
+    } catch (error) {
+      console.error('Error toggling program:', error);
+      Alert.alert(
+        t('error'),
+        t('failed_to_toggle_program')
+      );
+    }
   };
 
-  const createProgram = () => {
-    Alert.alert('Coming Soon', 'Program creation will be available in future updates');
+  // Navigate to program detail view
+  const navigateToProgramDetail = (programId: number) => {
+    // TODO: Implement navigation to program detail screen
+    Alert.alert('Coming Soon', 'Program details will be available in future updates');
   };
 
-  const logWorkout = () => {
+  // Navigate to all programs view
+  const navigateToAllPrograms = () => {
+    // TODO: Implement navigation to all programs screen
+    Alert.alert('Coming Soon', 'Program list will be available in future updates');
+  };
+
+  // Navigate to all logs view
+  const navigateToAllLogs = () => {
+    // TODO: Implement navigation to all logs screen
+    Alert.alert('Coming Soon', 'Workout log history will be available in future updates');
+  };
+
+  // Handle log workout
+  const handleLogWorkout = () => {
+    setShowLogWorkoutModal(true);
+    // TODO: Implement Log Workout Modal
     Alert.alert('Coming Soon', 'Workout logging will be available in future updates');
   };
 
-  if ((programsLoading || logsLoading) && !refreshing) {
+  // Handle workout selection
+  const handleSelectWorkout = (workout: any) => {
+    // TODO: Implement workout details view
+    Alert.alert('Coming Soon', 'Workout details will be available in future updates');
+  };
+
+  // Handle log selection
+  const handleSelectLog = (log: WorkoutLog) => {
+    setSelectedLog(log);
+    setShowWorkoutDetailsModal(true);
+    // TODO: Implement workout log details modal
+    Alert.alert('Coming Soon', 'Workout log details will be available in future updates');
+  };
+
+  // Handle create program
+  const handleCreateProgram = () => {
+    // TODO: Implement program creation
+    Alert.alert('Coming Soon', 'Program creation will be available in future updates');
+  };
+
+  if (programsLoading || logsLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading your workout data...</Text>
+        <Text style={styles.loadingText}>{t('loading_workout_data')}</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#111827" />
       <ScrollView
-        contentContainerStyle={styles.scrollContainer}
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -100,139 +210,116 @@ export default function WorkoutsScreen() {
         }
       >
         {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Your Fitness Journey</Text>
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>{t('your_fitness_journey')}</Text>
           <Text style={styles.subtitle}>
-            Track your progress and stay consistent with workout plans
+            {t('track_your_progress')}
           </Text>
         </View>
 
-        {/* Active Program Card */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Active Program</Text>
-          {activeProgram ? (
-            <View style={styles.programCard}>
-              <View style={styles.programBadge}>
-                <Ionicons name="barbell" size={24} color="#7C3AED" />
-              </View>
-              <View style={styles.programInfo}>
-                <Text style={styles.programName}>{activeProgram.name}</Text>
-                <Text style={styles.programCreator}>
-                  by {activeProgram.creator_username}
-                </Text>
-                <View style={styles.programStats}>
-                  <View style={styles.statItem}>
-                    <Ionicons name="calendar" size={16} color="#9CA3AF" />
-                    <Text style={styles.statText}>
-                      {activeProgram.workouts?.length || 0} workouts
-                    </Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Ionicons name="fitness" size={16} color="#9CA3AF" />
-                    <Text style={styles.statText}>
-                      {activeProgram.sessions_per_week || '-'} days/week
-                    </Text>
-                  </View>
-                </View>
-              </View>
+        {/* Quick Action Buttons */}
+        <View style={styles.quickActionsContainer}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={navigateToAllPrograms}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(124, 58, 237, 0.2)' }]}>
+              <Ionicons name="barbell-outline" size={20} color="#A78BFA" />
             </View>
+            <Text style={styles.quickActionText}>{t('programs')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={handleLogWorkout}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+              <Ionicons name="add-outline" size={20} color="#10B981" />
+            </View>
+            <Text style={styles.quickActionText}>{t('log_workout')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={navigateToAllLogs}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+              <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
+            </View>
+            <Text style={styles.quickActionText}>{t('history')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Active Program Section */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('active_program')}</Text>
+            {workoutPlans.length > 0 && (
+              <TouchableOpacity onPress={navigateToAllPrograms}>
+                <Text style={styles.sectionLink}>{t('view_all')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {activeProgram ? (
+            <ProgramCard 
+              program={activeProgram}
+              currentUser={user?.username || ''}
+              onToggleActive={handleToggleProgram}
+              onProgramSelect={navigateToProgramDetail}
+              compact={true}
+            />
           ) : (
             <View style={styles.emptyStateCard}>
               <Ionicons name="barbell-outline" size={40} color="#6B7280" />
-              <Text style={styles.emptyStateTitle}>No Active Program</Text>
+              <Text style={styles.emptyStateTitle}>{t('no_active_program')}</Text>
               <Text style={styles.emptyStateText}>
-                Create a workout program to track your fitness journey
+                {t('setup_program_prompt')}
               </Text>
               <TouchableOpacity 
                 style={styles.primaryButton}
-                onPress={createProgram}
+                onPress={handleCreateProgram}
               >
-                <Text style={styles.buttonText}>Create Program</Text>
+                <Text style={styles.buttonText}>{t('create_program')}</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* Next Workout */}
-        {nextWorkout && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Next Workout</Text>
-            <TouchableOpacity style={styles.workoutCard}>
-              <View style={styles.workoutStatusBar} />
-              <View style={styles.workoutContent}>
-                <Text style={styles.workoutName}>{nextWorkout.name}</Text>
-                <Text style={styles.workoutDate}>{nextWorkout.date}</Text>
-                <View style={styles.workoutDetails}>
-                  <View style={styles.workoutStat}>
-                    <Ionicons name="time-outline" size={16} color="#9CA3AF" />
-                    <Text style={styles.workoutStatText}>
-                      {nextWorkout.estimated_duration || 60} mins
-                    </Text>
-                  </View>
-                  <View style={styles.workoutStat}>
-                    <Ionicons name="list-outline" size={16} color="#9CA3AF" />
-                    <Text style={styles.workoutStatText}>
-                      {nextWorkout.exercises?.length || 0} exercises
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Recent Workouts */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Workouts</Text>
-          {logs.length > 0 ? (
-            logs.slice(0, 3).map((log) => (
-              <TouchableOpacity key={log.id} style={styles.workoutCard}>
-                <View style={[styles.workoutStatusBar, styles.completedWorkout]} />
-                <View style={styles.workoutContent}>
-                  <Text style={styles.workoutName}>{log.name || log.workout_name}</Text>
-                  <Text style={styles.workoutDate}>{log.date}</Text>
-                  <View style={styles.workoutDetails}>
-                    <View style={styles.workoutStat}>
-                      <Ionicons name="time-outline" size={16} color="#9CA3AF" />
-                      <Text style={styles.workoutStatText}>
-                        {log.duration || '-'} mins
-                      </Text>
-                    </View>
-                    <View style={styles.workoutStat}>
-                      <Ionicons name="list-outline" size={16} color="#9CA3AF" />
-                      <Text style={styles.workoutStatText}>
-                        {log.exercise_count || log.exercises?.length || 0} exercises
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.emptyStateCard}>
-              <Ionicons name="fitness-outline" size={40} color="#6B7280" />
-              <Text style={styles.emptyStateTitle}>No Workout History</Text>
-              <Text style={styles.emptyStateText}>
-                Log your workouts to track your progress
-              </Text>
-            </View>
-          )}
+        {/* Workout Timeline Section */}
+        <View style={styles.sectionContainer}>
+          <WorkoutTimeline
+            logs={logs}
+            nextWorkout={nextWorkout}
+            logsLoading={logsLoading}
+            plansLoading={programsLoading}
+            activeProgram={activeProgram || undefined}
+            onSelectWorkout={handleSelectWorkout}
+            onSelectLog={handleSelectLog}
+            onLogWorkout={handleLogWorkout}
+          />
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={logWorkout}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={handleLogWorkout}
+          >
             <View style={styles.actionIconContainer}>
               <Ionicons name="add" size={24} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionButtonText}>Log Workout</Text>
+            <Text style={styles.actionButtonText}>{t('log_workout')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.secondaryAction]} onPress={createProgram}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.secondaryAction]} 
+            onPress={handleCreateProgram}
+          >
             <View style={[styles.actionIconContainer, styles.secondaryIconContainer]}>
               <Ionicons name="barbell" size={24} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionButtonText}>Create Program</Text>
+            <Text style={styles.actionButtonText}>{t('create_program')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -241,12 +328,18 @@ export default function WorkoutsScreen() {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#111827',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#111827',
   },
-  scrollContainer: {
+  contentContainer: {
     padding: 16,
+    paddingBottom: 32,
   },
   loadingContainer: {
     flex: 1,
@@ -258,8 +351,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#9CA3AF',
   },
-  header: {
-    marginBottom: 24,
+  headerContainer: {
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
@@ -272,59 +365,52 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     lineHeight: 24,
   },
-  section: {
+  quickActionsContainer: {
+    flexDirection: 'row',
     marginBottom: 24,
+    justifyContent: 'space-between',
+  },
+  quickActionButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginHorizontal: 4,
+    backgroundColor: 'rgba(31, 41, 55, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+  },
+  quickActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  quickActionText: {
+    fontSize: 12,
+    color: '#D1D5DB',
+    fontWeight: '500',
+  },
+  sectionContainer: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 12,
   },
-  programCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  programBadge: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: 'rgba(124, 58, 237, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  programInfo: {
-    flex: 1,
-  },
-  programName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  programCreator: {
+  sectionLink: {
     fontSize: 14,
-    color: '#9CA3AF',
-    marginBottom: 8,
-  },
-  programStats: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  statText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginLeft: 4,
+    color: '#3B82F6',
+    fontWeight: '500',
   },
   emptyStateCard: {
     backgroundColor: '#1F2937',
@@ -359,53 +445,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  workoutCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  workoutStatusBar: {
-    height: 4,
-    backgroundColor: '#3B82F6',
-  },
-  completedWorkout: {
-    backgroundColor: '#10B981',
-  },
-  workoutContent: {
-    padding: 16,
-  },
-  workoutName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  workoutDate: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginBottom: 8,
-  },
-  workoutDetails: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  workoutStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  workoutStatText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 16,
+    marginTop: 12,
   },
   actionButton: {
     flex: 1,
@@ -416,18 +459,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   secondaryAction: {
     backgroundColor: '#7C3AED',
   },
   actionIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 10,
   },
   secondaryIconContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

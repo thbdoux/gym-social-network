@@ -1,6 +1,15 @@
-// components/workout/WorkoutTimeline.tsx
+// components/workouts/WorkoutTimeline.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
+  ActivityIndicator, 
+  ScrollView,
+  Dimensions,
+  Animated
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -38,12 +47,14 @@ interface WorkoutTimelineProps {
   logsLoading: boolean;
   plansLoading: boolean;
   activeProgram?: Program | null;
-  setSelectedWorkout?: (workout: any) => void;
-  setShowWorkoutModal?: (show: boolean) => void;
-  setSelectedLog?: (log: WorkoutLog | null) => void;
-  setShowLogForm?: (show: boolean) => void;
-  handleViewNextWorkout?: () => void;
+  onSelectWorkout?: (workout: any) => void;
+  onSelectLog?: (log: WorkoutLog) => void;
+  onLogWorkout?: () => void;
 }
+
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = width * 0.8 > 300 ? 300 : width * 0.8;
+const DOT_SIZE = 10;
 
 const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
   logs = [],
@@ -51,11 +62,9 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
   logsLoading,
   plansLoading,
   activeProgram,
-  setSelectedWorkout,
-  setShowWorkoutModal,
-  setSelectedLog,
-  setShowLogForm,
-  handleViewNextWorkout
+  onSelectWorkout,
+  onSelectLog,
+  onLogWorkout
 }) => {
   const { t } = useLanguage();
   
@@ -64,7 +73,7 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>{t('loading_posts')}</Text>
+        <Text style={styles.loadingText}>{t('loading')}</Text>
       </View>
     );
   }
@@ -78,13 +87,10 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
         <Text style={styles.emptyText}>
           {t('start_your_fitness_journey')}
         </Text>
-        {setShowLogForm && (
+        {onLogWorkout && (
           <TouchableOpacity 
             style={styles.emptyButton}
-            onPress={() => {
-              if (setSelectedLog) setSelectedLog(null);
-              setShowLogForm(true);
-            }}
+            onPress={onLogWorkout}
           >
             <Text style={styles.emptyButtonText}>{t('get_started')}</Text>
           </TouchableOpacity>
@@ -132,22 +138,21 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
     }
   };
   
-  // Get mood emoji
+  // Get mood emoji based on rating
   const getMoodEmoji = (rating?: number): string => {
     if (!rating) return '🙂';
-    if (rating >= 8) return '😀';
-    if (rating >= 6) return '🙂';
-    if (rating >= 4) return '😐';
-    if (rating >= 2) return '☹️';
-    return '😫';
+    
+    if (rating >= 4.5) return '😀';
+    if (rating >= 3.5) return '🙂';
+    if (rating >= 2.5) return '😐';
+    if (rating >= 1.5) return '😕';
+    return '😞';
   };
   
-  // Sort logs by date - oldest first
-  const sortedLogs = [...logs].sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
-    return dateA.getTime() - dateB.getTime();
-  }).slice(0, 3);
+  // Sort logs by date - newest first (for displaying 3 most recent)
+  const recentLogs = [...logs]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
   
   // Get weekday name for next workout
   const getWeekdayName = (weekdayIndex?: number): string => {
@@ -159,33 +164,42 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
   return (
     <View style={styles.container}>
       {/* Timeline Header */}
-      <Text style={styles.timelineTitle}>{t('workout_history')}</Text>
+      <View style={styles.headerContainer}>
+        <Text style={styles.timelineTitle}>{t('workout_timeline')}</Text>
+        <TouchableOpacity 
+          style={styles.viewAllButton} 
+          onPress={() => {/* Navigate to all workout logs */}}
+        >
+          <Text style={styles.viewAllText}>{t('view_all')}</Text>
+        </TouchableOpacity>
+      </View>
       
       {/* Timeline Content */}
       <ScrollView 
-        horizontal={true} 
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        snapToInterval={CARD_WIDTH + 16} // Card width + margin
+        decelerationRate="fast"
       >
-        {/* Previous Workouts */}
-        {sortedLogs.map((log) => {
+        {/* Timeline line */}
+        <View style={styles.timelineLine} />
+        
+        {/* Past Workouts */}
+        {recentLogs.map((log, index) => {
           const dateLabel = getRelativeDateLabel(log.date);
           
           return (
             <TouchableOpacity 
               key={log.id}
               style={styles.workoutCard}
-              onPress={() => {
-                if (setSelectedLog) {
-                  setSelectedLog(log);
-                }
-              }}
+              onPress={() => onSelectLog && onSelectLog(log)}
+              activeOpacity={0.7}
             >
               {/* Timeline dot */}
               <View style={styles.timelineDotContainer}>
                 <View style={styles.timelineDot} />
                 <Text style={styles.timelineDate}>{dateLabel}</Text>
-                <View style={styles.timelineConnector} />
               </View>
               
               {/* Workout Card */}
@@ -199,13 +213,13 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
                       {log.name || log.workout_name || t('workout')}
                     </Text>
                     <View style={styles.moodBadge}>
-                      <Text>{getMoodEmoji(log.mood_rating)}</Text>
+                      <Text>{getMoodEmoji(log.rating || log.mood_rating)}</Text>
                     </View>
                   </View>
                   
                   <View style={styles.cardFooter}>
                     <View style={styles.exerciseCount}>
-                      <Ionicons name="trending-up" size={16} color="#10B981" style={styles.footerIcon} />
+                      <Ionicons name="barbell-outline" size={14} color="#10B981" style={styles.footerIcon} />
                       <Text style={styles.footerText}>
                         {log.exercise_count || log.exercises?.length || 0} {t('exercises')}
                       </Text>
@@ -213,7 +227,9 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
                     
                     {log.program_name && (
                       <View style={styles.programBadge}>
-                        <Text style={styles.programText}>{log.program_name}</Text>
+                        <Text style={styles.programText} numberOfLines={1}>
+                          {log.program_name}
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -238,15 +254,15 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
         {nextWorkout && (
           <TouchableOpacity 
             style={styles.nextWorkoutCard}
-            onPress={handleViewNextWorkout}
+            onPress={() => onSelectWorkout && onSelectWorkout(nextWorkout)}
+            activeOpacity={0.7}
           >
             {/* Timeline dot */}
             <View style={styles.timelineDotContainer}>
               <View style={styles.upcomingDot} />
               <Text style={styles.upcomingDate}>
-                {t('coming_up_on')} {getWeekdayName(nextWorkout.preferred_weekday)}
+                {t('next')}: {getWeekdayName(nextWorkout.preferred_weekday)}
               </Text>
-              <View style={styles.upcomingConnector} />
             </View>
             
             {/* Workout Card */}
@@ -266,7 +282,7 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
                 
                 <View style={styles.cardFooter}>
                   <View style={styles.exerciseCount}>
-                    <Ionicons name="trending-up" size={16} color="#3B82F6" style={styles.footerIcon} />
+                    <Ionicons name="barbell-outline" size={14} color="#3B82F6" style={styles.footerIcon} />
                     <Text style={styles.footerText}>
                       {nextWorkout.exercises?.length || 0} {t('exercises')}
                     </Text>
@@ -274,7 +290,9 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
                   
                   {activeProgram && (
                     <View style={styles.activeProgramBadge}>
-                      <Text style={styles.activeProgramText}>{activeProgram.name}</Text>
+                      <Text style={styles.activeProgramText} numberOfLines={1}>
+                        {activeProgram.name}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -282,6 +300,21 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
             </View>
           </TouchableOpacity>
         )}
+
+        {/* Add a Log Workout card at the end */}
+        <TouchableOpacity 
+          style={styles.addWorkoutCard}
+          onPress={onLogWorkout}
+          activeOpacity={0.7}
+        >
+          <View style={styles.addWorkoutContent}>
+            <View style={styles.addIcon}>
+              <Ionicons name="add" size={24} color="#FFFFFF" />
+            </View>
+            <Text style={styles.addWorkoutText}>{t('log_workout')}</Text>
+            <Text style={styles.addWorkoutSubtext}>{t('track_your_progress')}</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -289,18 +322,47 @@ const WorkoutTimeline: React.FC<WorkoutTimelineProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
     backgroundColor: '#111827',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginVertical: 8,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(55, 65, 81, 0.3)',
   },
   timelineTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginBottom: 16,
+  },
+  viewAllButton: {
+    padding: 6,
+  },
+  viewAllText: {
+    fontSize: 14,
+    color: '#3B82F6',
+    fontWeight: '500',
   },
   scrollContent: {
-    paddingBottom: 16,
-    paddingRight: 80, // Extra space at the end
+    paddingVertical: 20,
+    paddingLeft: 16,
+    paddingRight: 40, // Extra space at the end
+    minHeight: 220,
+  },
+  timelineLine: {
+    position: 'absolute',
+    left: 23 + (CARD_WIDTH / 2) - (DOT_SIZE / 2),
+    top: 60,
+    bottom: 50,
+    width: 2,
+    backgroundColor: 'rgba(55, 65, 81, 0.5)',
+    zIndex: 1,
   },
   loadingContainer: {
     padding: 32,
@@ -319,6 +381,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
+    margin: 16,
   },
   emptyTitle: {
     fontSize: 18,
@@ -345,54 +408,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   workoutCard: {
-    width: 250,
+    width: CARD_WIDTH,
     marginRight: 16,
   },
   nextWorkoutCard: {
-    width: 250,
+    width: CARD_WIDTH,
     marginLeft: 24, // Add space between now marker and next workout
   },
   timelineDotContainer: {
     alignItems: 'center',
-    height: 50,
+    height: 40,
     marginBottom: 8,
+    position: 'relative',
+    zIndex: 2,
   },
   timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: DOT_SIZE / 2,
     backgroundColor: '#10B981',
     marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#065F46',
   },
   timelineDate: {
     fontSize: 12,
     color: '#10B981',
     fontWeight: '500',
-    marginBottom: 4,
-  },
-  timelineConnector: {
-    width: 2,
-    height: 16, 
-    backgroundColor: '#065F46',
   },
   upcomingDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#3B82F6',
     marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#1E40AF',
   },
   upcomingDate: {
     fontSize: 12,
     color: '#3B82F6',
     fontWeight: '500',
-    marginBottom: 4,
     textAlign: 'center',
-  },
-  upcomingConnector: {
-    width: 2,
-    height: 16,
-    backgroundColor: '#1E40AF',
   },
   cardContent: {
     borderRadius: 12,
@@ -400,6 +457,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#374151',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   completedStatusLine: {
     height: 4,
@@ -431,21 +493,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 16,
+    marginLeft: 8,
   },
   upcomingBadge: {
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 16,
+    marginLeft: 8,
   },
   upcomingText: {
     fontSize: 10,
     color: '#3B82F6',
+    fontWeight: '500',
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 8,
   },
   exerciseCount: {
     flexDirection: 'row',
@@ -463,6 +529,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    maxWidth: 120,
   },
   programText: {
     fontSize: 10,
@@ -473,6 +540,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    maxWidth: 120,
   },
   activeProgramText: {
     fontSize: 10,
@@ -480,7 +548,8 @@ const styles = StyleSheet.create({
   },
   nowMarker: {
     alignItems: 'center',
-    marginHorizontal: 24,
+    marginHorizontal: 20,
+    zIndex: 2,
   },
   nowDot: {
     width: 24,
@@ -490,6 +559,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(245, 158, 11, 0.5)',
   },
   nowInnerDot: {
     width: 8,
@@ -510,7 +581,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#F59E0B',
     marginLeft: 4,
+    fontWeight: '500',
   },
+  addWorkoutCard: {
+    width: CARD_WIDTH,
+    marginLeft: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  addWorkoutContent: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.4)',
+    borderRadius: 12,
+    padding: 16,
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addWorkoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 6,
+  },
+  addWorkoutSubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  }
 });
 
 export default WorkoutTimeline;

@@ -1,6 +1,6 @@
 // hooks/useWorkoutFork.ts
 import { useState } from 'react';
-import { useCreateWorkoutTemplate } from './query/useWorkoutQuery';
+import { useCreateWorkoutTemplate } from './useWorkoutQuery';
 
 interface Exercise {
   name: string;

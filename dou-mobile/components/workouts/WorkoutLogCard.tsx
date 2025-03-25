@@ -1,26 +1,20 @@
-// components/workout/WorkoutLogCard.tsx
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+// components/workouts/WorkoutLogCard.tsx
+import React, { useState, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Animated, 
+  Modal, 
+  Pressable,
+  Platform,
+  Alert
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-
-interface Set {
-  id?: number;
-  reps: number;
-  weight: number;
-  rest_time: number;
-  order: number;
-  notes?: string;
-}
-
-interface Exercise {
-  id?: number;
-  name: string;
-  equipment?: string;
-  notes?: string;
-  order: number;
-  sets: Set[];
-}
+import { useWorkoutFork } from '../../hooks/query/useWorkoutFork';
+import { useWorkoutTemplates } from '../../hooks/query/useWorkoutQuery';
 
 interface WorkoutLog {
   id: number;
@@ -34,7 +28,7 @@ interface WorkoutLog {
   gym_location?: string;
   gym?: number;
   program_name?: string;
-  exercises?: Exercise[];
+  exercises?: any[];
   exercise_count?: number;
   mood_rating?: number;
   perceived_difficulty?: number;
@@ -49,6 +43,7 @@ interface WorkoutLogCardProps {
   onFork?: (log: WorkoutLog) => void;
   onSelect?: (log: WorkoutLog) => void;
   compact?: boolean;
+  feedMode?: boolean;
 }
 
 const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({ 
@@ -59,17 +54,27 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   onFork,
   onSelect,
   compact = false,
+  feedMode = false,
 }) => {
   const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
+  const [showOptionsMenu, setShowOptionsMenu] = useState<boolean>(false);
+  
+  // Get fork hook and templates data for fork functionality
+  const { data: templates = [] } = useWorkoutTemplates();
+  const { 
+    isForking, 
+    forkSuccess,
+    forkWorkout,
+    showForkWarning,
+    cancelFork
+  } = useWorkoutFork();
+  
+  // Animation for expand/collapse
+  const expandAnim = useRef(new Animated.Value(0)).current;
   
   if (!log) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{t('unable_to_load_workout_log')}</Text>
-      </View>
-    );
+    return null;
   }
   
   const isCreator = log.username === currentUser;
@@ -77,48 +82,51 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   
   const formatDate = (dateString: string): string => {
     try {
-      if (!dateString) return t('no_date');
+      if (!dateString) return '';
       // Check if date is in DD/MM/YYYY format
       if (typeof dateString === 'string' && dateString.includes('/')) {
         const [day, month, year] = dateString.split('/');
-        return new Date(`${year}-${month}-${day}`).toLocaleDateString();
+        return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       }
       // Otherwise try standard parsing
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     } catch (e) {
       return dateString; // If parsing fails, return the original string
     }
   };
   
-  const getMoodEmoji = (rating?: number): string | null => {
-    if (!rating) return null;
-    if (rating >= 8) return '😀';
-    if (rating >= 6) return '🙂';
-    if (rating >= 4) return '😐';
-    if (rating >= 2) return '☹️';
-    return '😫';
+  const getMoodEmoji = (rating?: number): string => {
+    if (!rating) return '🙂';
+    if (rating >= 4.5) return '😀';
+    if (rating >= 3.5) return '🙂';
+    if (rating >= 2.5) return '😐';
+    if (rating >= 1.5) return '😕';
+    return '😞';
   };
 
-  const getDifficultyLevel = (rating?: number) => {
-    if (!rating) return { label: '🔥', color: styles.difficultyDefault };
-    if (rating >= 8) return { label: '🔥🔥🔥', color: styles.difficultyHigh };
-    if (rating >= 6) return { label: '🔥🔥', color: styles.difficultyMedium };
-    if (rating >= 4) return { label: '🔥', color: styles.difficultyLow };
-    return { label: '✓', color: styles.difficultyVeryLow };
+  const getDifficultyLevel = (rating?: number): string => {
+    if (!rating) return '🔥';
+    if (rating >= 8) return '🔥🔥🔥';
+    if (rating >= 6) return '🔥🔥';
+    if (rating >= 4) return '🔥';
+    return '✓';
   };
   
-  // Toggle expanded state
-  const handleToggleExpand = (): void => {
+  const toggleExpand = () => {
+    const toValue = isExpanded ? 0 : 1;
+    Animated.timing(expandAnim, {
+      toValue,
+      duration: 300,
+      useNativeDriver: false
+    }).start();
     setIsExpanded(!isExpanded);
-    if (onSelect && !isExpanded) {
-      onSelect(log);
-    }
   };
   
-  const handleExerciseExpand = (exerciseId: number | undefined): void => {
-    if (!exerciseId) return;
-    setExpandedExercise(expandedExercise === exerciseId ? null : exerciseId);
-  };
+  // Calculate max height for animation
+  const maxHeight = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 250]
+  });
   
   const handleDelete = (): void => {
     Alert.alert(
@@ -138,661 +146,676 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
     );
   };
   
+  // Handle fork using the fork hook
+  const handleFork = async () => {
+    if (onFork) {
+      // Use custom fork implementation if provided
+      onFork(log);
+    } else {
+      // Otherwise use the hook implementation
+      await forkWorkout(log, templates);
+      if (forkSuccess) {
+        Alert.alert(
+          t('success'),
+          t('workout_forked_successfully'),
+          [{ text: t('ok') }]
+        );
+      }
+    }
+    setShowOptionsMenu(false);
+  };
+  
+  // Handle fork confirmation if already forked
+  const handleForkConfirm = () => {
+    if (showForkWarning) {
+      Alert.alert(
+        t('already_forked'),
+        t('already_forked_workout_message'),
+        [
+          { 
+            text: t('cancel'),
+            onPress: cancelFork,
+            style: 'cancel'
+          },
+          {
+            text: t('fork_again'),
+            onPress: () => forkWorkout(log, templates, true),
+          }
+        ]
+      );
+    } else {
+      handleFork();
+    }
+  };
+  
   const exerciseCount = log.exercise_count || log.exercises?.length || 0;
   const gymName = log.gym_name || t('unknown_gym');
 
   return (
-    <TouchableOpacity 
-      style={[
-        styles.container, 
-        log.completed ? styles.containerCompleted : styles.containerRegular
-      ]}
-      onPress={handleToggleExpand}
-      activeOpacity={0.8}
-    >
-      {/* Status Indicator Line */}
-      <View style={[styles.statusLine, log.completed ? styles.statusLineCompleted : styles.statusLineRegular]} />
+    <View style={[
+      styles.container, 
+      log.completed ? styles.containerCompleted : styles.containerRegular
+    ]}>
+      {/* Fork button for non-creators */}
+      {canFork && (
+        <TouchableOpacity 
+          style={styles.forkButton}
+          onPress={handleForkConfirm}
+        >
+          <Ionicons name="git-branch-outline" size={18} color="#60a5fa" />
+        </TouchableOpacity>
+      )}
       
-      <View style={styles.content}>
-        {/* Card Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.icon, log.completed ? styles.iconCompleted : styles.iconRegular]}>
-              <Ionicons name="barbell" size={20} color={log.completed ? "#22c55e" : "#9ca3af"} />
-            </View>
-            
-            <View style={styles.titleContainer}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {log.name || log.workout_name || t('workout')}
-                </Text>
-                
-                {log.completed && (
-                  <View style={styles.statusBadge}>
-                    <Ionicons name="checkmark-circle" size={12} color="#22c55e" />
-                    <Text style={styles.statusText}>{t('completed')}</Text>
-                  </View>
-                )}
-              </View>
-              
-              <View style={styles.subtitleRow}>
-                <Ionicons name="calendar-outline" size={12} color="#9ca3af" style={styles.subtitleIcon} />
-                <Text style={styles.subtitle} numberOfLines={1}>{formatDate(log.date)}</Text>
-                
-                {log.program_name && (
-                  <View style={styles.programBadge}>
-                    <Ionicons name="barbell-outline" size={12} color="#c084fc" style={styles.subtitleIcon} />
-                    <Text style={styles.programText} numberOfLines={1}>{log.program_name}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-          
-          {/* Actions */}
-          <View style={styles.actionsContainer}>
-            {isCreator && (
-              <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => onEdit?.(log)}
-                >
-                  <Ionicons name="create-outline" size={18} color="#9ca3af" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={handleDelete}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#9ca3af" />
-                </TouchableOpacity>
-              </View>
-            )}
-            
-            {canFork && onFork && (
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => onFork?.(log)}
-              >
-                <Ionicons name="download-outline" size={18} color="#60a5fa" />
-              </TouchableOpacity>
-            )}
-            
-            <TouchableOpacity style={styles.expandButton} onPress={handleToggleExpand}>
-              <Ionicons 
-                name={isExpanded ? "chevron-up" : "chevron-down"} 
-                size={18} 
-                color={isExpanded ? "#c084fc" : "#9ca3af"} 
-              />
-            </TouchableOpacity>
-          </View>
+      {/* Main Card Content */}
+      <TouchableOpacity 
+        style={styles.mainCard}
+        onPress={feedMode ? () => onSelect && onSelect(log) : toggleExpand}
+        activeOpacity={0.7}
+      >
+        {/* Date Column */}
+        <View style={styles.dateColumn}>
+          <Text style={styles.dateText}>{formatDate(log.date)}</Text>
+          <View style={[
+            styles.statusIndicator, 
+            log.completed ? styles.statusCompleted : styles.statusIncomplete
+          ]} />
         </View>
         
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statsItem}>
-            <View style={styles.statsLabel}>
-              <Ionicons name="location-outline" size={14} color="#60a5fa" style={{marginRight: 4}} />
-              <Text style={styles.statsLabelText}>{t('location')}</Text>
-            </View>
-            <Text style={styles.statsValue} numberOfLines={1}>{gymName}</Text>
-          </View>
-          
-          <View style={styles.statsItem}>
-            <View style={styles.statsLabel}>
-              <Ionicons name="flame-outline" size={14} color="#f87171" style={{marginRight: 4}} />
-              <Text style={styles.statsLabelText}>{t('difficulty')}</Text>
-            </View>
-            <View style={[styles.difficultyContainer, getDifficultyLevel(log.perceived_difficulty).color]}>
-              <Text style={styles.difficultyText}>
-                {getDifficultyLevel(log.perceived_difficulty).label} {log.perceived_difficulty || '-'}/10
-              </Text>
-            </View>
-          </View>
-          
-          {log.mood_rating ? (
-            <View style={styles.statsItem}>
-              <View style={styles.statsLabel}>
-                <Ionicons name="heart-outline" size={14} color="#ec4899" style={{marginRight: 4}} />
-                <Text style={styles.statsLabelText}>{t('mood')}</Text>
-              </View>
-              <View style={styles.moodContainer}>
-                <Text style={styles.moodEmoji}>{getMoodEmoji(log.mood_rating)}</Text>
-                <Text style={styles.moodRating}>{log.mood_rating}/10</Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.statsItem}>
-              <View style={styles.statsLabel}>
-                <Ionicons name="time-outline" size={14} color="#14b8a6" style={{marginRight: 4}} />
-                <Text style={styles.statsLabelText}>{t('duration')}</Text>
-              </View>
-              <Text style={styles.statsValue}>{log.duration || '-'} {t('mins')}</Text>
-            </View>
-          )}
-        </View>
-        
-        {/* Expanded Content */}
-        {isExpanded && (
-          <View style={styles.expandedContent}>
-            {/* Workout Details */}
-            <View style={styles.detailsSection}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="bar-chart-outline" size={16} color="#c084fc" style={{marginRight: 8}} />
-                <Text style={styles.sectionTitle}>{t('workout_details')}</Text>
-              </View>
-              
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>{t('duration')}</Text>
-                  <Text style={styles.detailValue}>{log.duration || '-'} {t('mins')}</Text>
-                </View>
-                
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>{t('exercises')}</Text>
-                  <Text style={styles.detailValue}>{exerciseCount}</Text>
-                </View>
-                
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>{t('location')}</Text>
-                  <Text style={styles.detailValue} numberOfLines={1}>{gymName}</Text>
-                </View>
-                
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>{t('difficulty')}</Text>
-                  <Text style={styles.detailValue}>{log.perceived_difficulty || '-'}/10</Text>
-                </View>
-              </View>
-              
+        {/* Content Column */}
+        <View style={styles.contentColumn}>
+          {/* Title and Program */}
+          <View style={styles.titleSection}>
+            <Text style={styles.title} numberOfLines={2}>
+              {log.name || log.workout_name || t('workout')}
+            </Text>
+            
+            {/* Program and Gym Info Row */}
+            <View style={styles.infoRow}>
               {log.program_name && (
-                <View style={styles.programContainer}>
-                  <Ionicons name="barbell-outline" size={16} color="#22c55e" style={{marginRight: 8}} />
-                  <Text style={styles.programInfo}>
-                    {t('part_of_program')}{" "}
-                    <Text style={styles.programName}>{log.program_name}</Text>
+                <View style={styles.infoTag}>
+                  <Ionicons name="barbell-outline" size={12} color="#c084fc" style={styles.infoIcon} />
+                  <Text style={styles.programText} numberOfLines={1}>
+                    {log.program_name}
+                  </Text>
+                </View>
+              )}
+              
+              {log.gym_name && (
+                <View style={styles.infoTag}>
+                  <Ionicons name="location-outline" size={12} color="#60a5fa" style={styles.infoIcon} />
+                  <Text style={styles.gymText} numberOfLines={1}>
+                    {log.gym_name}
                   </Text>
                 </View>
               )}
             </View>
+          </View>
+          
+          {/* Metrics Row */}
+          <View style={styles.metricsRow}>
+            {/* Exercise Count */}
+            <View style={styles.metricItem}>
+              <Ionicons name="barbell-outline" size={14} color="#9ca3af" />
+              <Text style={styles.metricText}>{exerciseCount}</Text>
+            </View>
             
-            {/* Exercises List */}
-            {log.exercises && log.exercises.length > 0 && (
-              <View style={styles.exercisesSection}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="barbell-outline" size={16} color="#c084fc" style={{marginRight: 8}} />
-                  <Text style={styles.sectionTitle}>{t('exercises')}</Text>
-                </View>
-                
-                {log.exercises.map((exercise, index) => (
-                  <TouchableOpacity 
-                    key={exercise.id || index} 
-                    style={styles.exerciseItem}
-                    onPress={() => handleExerciseExpand(exercise.id)}
-                  >
-                    <View style={styles.exerciseHeader}>
-                      <View style={styles.exerciseIcon}>
-                        <Ionicons name="barbell" size={16} color="#c084fc" />
-                      </View>
-                      
-                      <View style={styles.exerciseDetails}>
-                        <Text style={styles.exerciseName}>{exercise.name}</Text>
-                        <View style={styles.exerciseSubDetails}>
-                          <Text style={styles.exerciseSubDetail}>
-                            {exercise.sets?.length || 0} {t('sets')}
-                          </Text>
-                          {exercise.equipment && (
-                            <>
-                              <Text style={styles.exerciseSeparator}>•</Text>
-                              <Text style={styles.exerciseSubDetail}>{exercise.equipment}</Text>
-                            </>
-                          )}
-                        </View>
-                      </View>
-                      
-                      <Ionicons 
-                        name={expandedExercise === exercise.id ? "chevron-up" : "chevron-down"} 
-                        size={16} 
-                        color={expandedExercise === exercise.id ? "#c084fc" : "#9ca3af"} 
-                      />
-                    </View>
-                    
-                    {expandedExercise === exercise.id && exercise.sets && (
-                      <View style={styles.setsList}>
-                        <View style={styles.setsHeader}>
-                          <Text style={styles.setsHeaderItem}>{t('set')}</Text>
-                          <Text style={styles.setsHeaderItem}>{t('weight')}</Text>
-                          <Text style={styles.setsHeaderItem}>{t('reps')}</Text>
-                          <Text style={[styles.setsHeaderItem, styles.setsHeaderNotes]}>{t('notes')}</Text>
-                        </View>
-                        
-                        {exercise.sets.map((set, setIdx) => (
-                          <View key={setIdx} style={styles.setItem}>
-                            <Text style={styles.setNumber}>{setIdx + 1}</Text>
-                            <Text style={styles.setValue}>{set.weight || 0} kg</Text>
-                            <Text style={styles.setValue}>{set.reps || 0}</Text>
-                            <Text style={styles.setNotes} numberOfLines={1}>{set.notes || '—'}</Text>
-                          </View>
-                        ))}
-                        
-                        <View style={styles.setsSummary}>
-                          <Text style={styles.setSummaryItem}>
-                            {t('total_volume')}: {' '}
-                            <Text style={styles.setSummaryValue}>
-                              {exercise.sets.reduce((total, set) => total + (set.weight || 0) * (set.reps || 0), 0)} kg
-                            </Text>
-                          </Text>
-                          
-                          <Text style={styles.setSummaryItem}>
-                            {t('best_set')}: {' '}
-                            <Text style={styles.setSummaryValue}>
-                              {exercise.sets.reduce((best, set) => Math.max(best, (set.weight || 0)), 0)} kg
-                            </Text>
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
+            {/* Duration */}
+            {log.duration && (
+              <View style={styles.metricItem}>
+                <Ionicons name="time-outline" size={14} color="#9ca3af" />
+                <Text style={styles.metricText}>{log.duration}m</Text>
               </View>
             )}
             
-            {/* Workout Notes */}
-            {log.notes && (
-              <View style={styles.notesSection}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="information-circle-outline" size={16} color="#c084fc" style={{marginRight: 8}} />
-                  <Text style={styles.sectionTitle}>{t('workout_notes')}</Text>
-                </View>
-                <Text style={styles.notesText}>{log.notes}</Text>
+            {/* Mood */}
+            {log.mood_rating && (
+              <View style={styles.moodItem}>
+                <Text style={styles.moodEmoji}>{getMoodEmoji(log.mood_rating)}</Text>
+              </View>
+            )}
+            
+            {/* Difficulty */}
+            {log.perceived_difficulty && (
+              <View style={[
+                styles.difficultyItem,
+                { opacity: Math.min(0.4 + (log.perceived_difficulty / 10) * 0.6, 1) }
+              ]}>
+                <Text style={styles.difficultyText}>
+                  {getDifficultyLevel(log.perceived_difficulty)}
+                </Text>
               </View>
             )}
           </View>
-        )}
-      </View>
-    </TouchableOpacity>
+        </View>
+        
+        {/* Actions Column */}
+        <View style={styles.actionsColumn}>
+          <TouchableOpacity 
+            style={styles.optionsButton}
+            onPress={() => setShowOptionsMenu(true)}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+          
+          {!feedMode && (
+            <TouchableOpacity 
+              style={styles.expandButton}
+              onPress={toggleExpand}
+            >
+              <Ionicons 
+                name={isExpanded ? "chevron-up" : "chevron-down"} 
+                size={18} 
+                color="#9ca3af" 
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+      
+      {/* Exercise Progress Bar */}
+      {exerciseCount > 0 && (
+        <View style={styles.progressContainer}>
+          {Array(Math.min(exerciseCount, 8)).fill(0).map((_, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.progressSegment,
+                log.completed ? styles.progressCompleted : styles.progressIncomplete,
+                { width: `${100 / Math.min(exerciseCount, 8)}%` }
+              ]}
+            />
+          ))}
+        </View>
+      )}
+      
+      {/* Expandable Content */}
+      {!feedMode && (
+        <Animated.View style={[styles.expandedSection, { maxHeight }]}>
+          <View style={styles.expandedContent}>
+            {/* Main Details */}
+            <View style={styles.expandedDetailsSection}>
+              <View style={styles.expandedDetailRow}>
+                <View style={styles.expandedDetailItem}>
+                  <Ionicons name="location-outline" size={16} color="#60a5fa" style={styles.detailIcon} />
+                  <View>
+                    <Text style={styles.detailLabel}>{t('location')}</Text>
+                    <Text style={styles.detailValue}>{gymName}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.expandedDetailItem}>
+                  <Ionicons name="time-outline" size={16} color="#22d3ee" style={styles.detailIcon} />
+                  <View>
+                    <Text style={styles.detailLabel}>{t('duration')}</Text>
+                    <Text style={styles.detailValue}>{log.duration || '-'} {t('mins')}</Text>
+                  </View>
+                </View>
+              </View>
+              
+              <View style={styles.expandedDetailRow}>
+                <View style={styles.expandedDetailItem}>
+                  <Ionicons name="flame-outline" size={16} color="#f87171" style={styles.detailIcon} />
+                  <View>
+                    <Text style={styles.detailLabel}>{t('difficulty')}</Text>
+                    <Text style={styles.detailValue}>{log.perceived_difficulty || '-'}/10</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.expandedDetailItem}>
+                  <Ionicons name="happy-outline" size={16} color="#fbbf24" style={styles.detailIcon} />
+                  <View>
+                    <Text style={styles.detailLabel}>{t('mood')}</Text>
+                    <Text style={styles.detailValue}>
+                      {log.mood_rating ? `${getMoodEmoji(log.mood_rating)} ${log.mood_rating}/10` : '-'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+            
+            {/* Exercise Preview */}
+            {log.exercises && log.exercises.length > 0 && (
+              <View style={styles.exercisesPreview}>
+                <Text style={styles.sectionTitle}>{t('exercises')}</Text>
+                {log.exercises.slice(0, 3).map((exercise, index) => (
+                  <View key={index} style={styles.exerciseItem}>
+                    <Ionicons name="barbell" size={14} color="#c084fc" style={styles.exerciseIcon} />
+                    <Text style={styles.exerciseName} numberOfLines={1}>{exercise.name}</Text>
+                    <Text style={styles.exerciseSets}>
+                      {exercise.sets?.length || 0} {t('sets')}
+                    </Text>
+                  </View>
+                ))}
+                {log.exercises.length > 3 && (
+                  <Text style={styles.moreExercises}>
+                    +{log.exercises.length - 3} {t('more')}
+                  </Text>
+                )}
+              </View>
+            )}
+            
+            {/* Notes Preview */}
+            {log.notes && (
+              <View style={styles.notesPreview}>
+                <Text style={styles.sectionTitle}>{t('notes')}</Text>
+                <Text style={styles.notesText} numberOfLines={2}>{log.notes}</Text>
+              </View>
+            )}
+            
+            {/* View Details Button */}
+            <TouchableOpacity 
+              style={styles.viewDetailsButton}
+              onPress={() => onSelect && onSelect(log)}
+            >
+              <Text style={styles.viewDetailsText}>{t('view_full_details')}</Text>
+              <Ionicons name="arrow-forward" size={16} color="#60a5fa" />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+      
+      {/* Options Menu Modal */}
+      <Modal
+        visible={showOptionsMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowOptionsMenu(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowOptionsMenu(false)}
+        >
+          <View style={styles.optionsMenu}>
+            <Text style={styles.optionsTitle}>{log.name || log.workout_name || t('workout')}</Text>
+            
+            <TouchableOpacity 
+              style={styles.optionItem}
+              onPress={() => {
+                setShowOptionsMenu(false);
+                onSelect && onSelect(log);
+              }}
+            >
+              <Ionicons name="eye-outline" size={20} color="#60a5fa" />
+              <Text style={styles.optionText}>{t('view_details')}</Text>
+            </TouchableOpacity>
+            
+            {isCreator && onEdit && (
+              <TouchableOpacity 
+                style={styles.optionItem}
+                onPress={() => {
+                  setShowOptionsMenu(false);
+                  onEdit(log);
+                }}
+              >
+                <Ionicons name="create-outline" size={20} color="#60a5fa" />
+                <Text style={styles.optionText}>{t('edit_workout')}</Text>
+              </TouchableOpacity>
+            )}
+            
+            {canFork && (
+              <TouchableOpacity 
+                style={styles.optionItem}
+                onPress={handleForkConfirm}
+                disabled={isForking}
+              >
+                <Ionicons name="git-branch-outline" size={20} color="#60a5fa" />
+                <Text style={styles.optionText}>
+                  {isForking ? t('forking_workout') : t('fork_workout')}
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {isCreator && onDelete && (
+              <TouchableOpacity 
+                style={[styles.optionItem, styles.deleteOption]}
+                onPress={() => {
+                  setShowOptionsMenu(false);
+                  handleDelete();
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                <Text style={styles.deleteOptionText}>{t('delete_workout')}</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity 
+              style={styles.cancelOption}
+              onPress={() => setShowOptionsMenu(false)}
+            >
+              <Text style={styles.cancelText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     marginVertical: 8,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: '#1F2937',
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   containerRegular: {
-    backgroundColor: '#1F2937',
     borderColor: 'rgba(55, 65, 81, 0.5)',
   },
   containerCompleted: {
-    backgroundColor: '#1F2937',
     borderColor: 'rgba(34, 197, 94, 0.5)',
   },
-  statusLine: {
-    height: 4,
-    width: '100%',
-  },
-  statusLineRegular: {
-    backgroundColor: '#4B5563',
-  },
-  statusLineCompleted: {
-    backgroundColor: '#22c55e',
-  },
-  content: {
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  icon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+  forkButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.3)',
   },
-  iconRegular: {
-    backgroundColor: 'rgba(75, 85, 99, 0.3)',
-  },
-  iconCompleted: {
-    backgroundColor: 'rgba(34, 197, 94, 0.3)',
-  },
-  titleContainer: {
-    flex: 1,
-  },
-  titleRow: {
+  mainCard: {
     flexDirection: 'row',
+    minHeight: 80,
+  },
+  dateColumn: {
+    width: 54,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(55, 65, 81, 0.2)',
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#d1d5db',
+    textAlign: 'center',
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 6,
+  },
+  statusCompleted: {
+    backgroundColor: '#22c55e',
+  },
+  statusIncomplete: {
+    backgroundColor: '#9ca3af',
+  },
+  contentColumn: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'center',
+  },
+  titleSection: {
+    marginBottom: 8,
   },
   title: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    flex: 1,
+    fontWeight: '700',
+    color: '#ffffff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  statusBadge: {
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  statusText: {
-    fontSize: 10,
-    color: '#22c55e',
-    marginLeft: 2,
-  },
-  subtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginTop: 4,
+    flexWrap: 'wrap',
   },
-  subtitleIcon: {
-    marginRight: 4,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  programBadge: {
+  infoTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginRight: 8,
+    marginBottom: 4,
   },
   programText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#c084fc',
     fontWeight: '500',
   },
-  actionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    padding: 6,
-    borderRadius: 6,
-  },
-  expandButton: {
-    padding: 6,
-    borderRadius: 6,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    marginTop: 16,
-  },
-  statsItem: {
-    flex: 1,
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.3)',
-    marginRight: 8,
-  },
-  statsLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  statsLabelText: {
+  gymText: {
     fontSize: 10,
-    color: '#9ca3af',
-  },
-  statsValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  difficultyContainer: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  difficultyDefault: {
-    backgroundColor: 'rgba(75, 85, 99, 0.5)',
-  },
-  difficultyHigh: {
-    backgroundColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  difficultyMedium: {
-    backgroundColor: 'rgba(249, 115, 22, 0.3)',
-  },
-  difficultyLow: {
-    backgroundColor: 'rgba(234, 179, 8, 0.3)',
-  },
-  difficultyVeryLow: {
-    backgroundColor: 'rgba(34, 197, 94, 0.3)',
-  },
-  difficultyText: {
-    fontSize: 12,
-    color: '#FFFFFF',
+    color: '#60a5fa',
     fontWeight: '500',
   },
-  moodContainer: {
+  infoIcon: {
+    marginRight: 2,
+  },
+  metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+  },
+  metricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  metricText: {
+    fontSize: 12,
+    color: '#d1d5db',
+    marginLeft: 4,
+  },
+  moodItem: {
+    marginRight: 12,
   },
   moodEmoji: {
-    fontSize: 18,
+    fontSize: 16,
   },
-  moodRating: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(236, 72, 153, 0.4)',
+  difficultyItem: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
   },
-  expandedContent: {
-    marginTop: 16,
+  difficultyText: {
+    fontSize: 12,
   },
-  detailsSection: {
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
+  actionsColumn: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  optionsButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expandButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    height: 3,
+  },
+  progressSegment: {
+    height: '100%',
+    marginRight: 1,
+  },
+  progressCompleted: {
+    backgroundColor: '#22c55e',
+  },
+  progressIncomplete: {
+    backgroundColor: 'rgba(55, 65, 81, 0.5)',
+  },
+  expandedSection: {
+    overflow: 'hidden',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(55, 65, 81, 0.2)',
+  },
+  expandedContent: {
     padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+  },
+  expandedDetailsSection: {
     marginBottom: 16,
   },
-  sectionHeader: {
+  expandedDetailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#E5E7EB',
-  },
-  detailsGrid: {
+  expandedDetailItem: {
+    flex: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'flex-start',
   },
-  detailItem: {
-    width: '50%',
-    padding: 12,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.3)',
-    margin: 4,
+  detailIcon: {
+    marginRight: 8,
+    marginTop: 2,
   },
   detailLabel: {
     fontSize: 10,
     color: '#9ca3af',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#FFFFFF',
+    color: '#e5e7eb',
   },
-  programContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-    marginTop: 12,
-  },
-  programInfo: {
-    fontSize: 12,
-    color: '#A7F3D0',
-    flex: 1,
-  },
-  programName: {
+  sectionTitle: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#e5e7eb',
+    marginBottom: 8,
   },
-  exercisesSection: {
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+  exercisesPreview: {
     marginBottom: 16,
   },
   exerciseItem: {
-    backgroundColor: '#1F2937',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.7)',
-    marginBottom: 8,
-  },
-  exerciseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    marginBottom: 6,
   },
   exerciseIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    backgroundColor: 'rgba(192, 132, 252, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(192, 132, 252, 0.3)',
-  },
-  exerciseDetails: {
-    flex: 1,
+    marginRight: 8,
   },
   exerciseName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
+    fontSize: 13,
+    color: '#e5e7eb',
+    flex: 1,
   },
-  exerciseSubDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  exerciseSubDetail: {
+  exerciseSets: {
     fontSize: 12,
     color: '#9ca3af',
+    marginLeft: 4,
   },
-  exerciseSeparator: {
+  moreExercises: {
     fontSize: 12,
-    color: '#9ca3af',
-    marginHorizontal: 4,
+    color: '#60a5fa',
+    marginTop: 4,
   },
-  setsList: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.7)',
-    padding: 12,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
-  },
-  setsHeader: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  setsHeaderItem: {
-    flex: 1,
-    fontSize: 10,
-    color: '#9ca3af',
-  },
-  setsHeaderNotes: {
-    flex: 2,
-  },
-  setItem: {
-    flexDirection: 'row',
-    padding: 8,
-    backgroundColor: 'rgba(55, 65, 81, 0.4)',
-    borderRadius: 6,
-    marginBottom: 4,
-  },
-  setNumber: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
-  setValue: {
-    flex: 1,
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  setNotes: {
-    flex: 2,
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  setsSummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.7)',
-  },
-  setSummaryItem: {
-    fontSize: 10,
-    color: '#9ca3af',
-  },
-  setSummaryValue: {
-    fontSize: 10,
-    color: '#22c55e',
-    fontWeight: '500',
-  },
-  notesSection: {
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+  notesPreview: {
+    marginBottom: 16,
   },
   notesText: {
-    fontSize: 14,
-    color: '#E5E7EB',
-    lineHeight: 20,
+    fontSize: 13,
+    color: '#d1d5db',
+    lineHeight: 18,
   },
-  errorContainer: {
-    marginVertical: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    padding: 16,
-    borderRadius: 12,
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
   },
-  errorText: {
-    color: '#F87171',
-    fontSize: 14,
+  viewDetailsText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#60a5fa',
+    marginRight: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  optionsMenu: {
+    backgroundColor: '#1F2937',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(75, 85, 99, 0.5)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  optionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#e5e7eb',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(55, 65, 81, 0.3)',
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(55, 65, 81, 0.2)',
+  },
+  optionText: {
+    fontSize: 15,
+    marginLeft: 12,
+    color: '#e5e7eb',
+  },
+  deleteOption: {
+    borderBottomWidth: 0,
+  },
+  deleteOptionText: {
+    fontSize: 15,
+    marginLeft: 12,
+    color: '#ef4444',
+  },
+  cancelOption: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: 'rgba(31, 41, 55, 0.7)',
+  },
+  cancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#60a5fa',
   },
 });
 
