@@ -1,5 +1,5 @@
 // app/(app)/workouts.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,53 +13,60 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { programService, logService } from '../../api/services';
+import { usePrograms, useToggleProgramActive } from '../../hooks/query/useProgramQuery';
+import { useLogs } from '../../hooks/query/useLogQuery';
+import { programService } from '../../api/services';
 
 export default function WorkoutsScreen() {
   const { user } = useAuth();
-  const [activeProgram, setActiveProgram] = useState(null);
-  const [workoutPlans, setWorkoutPlans] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Use React Query hooks
+  const { 
+    data: workoutPlans = [], 
+    isLoading: programsLoading, 
+    refetch: refetchPrograms,
+    error: programsError
+  } = usePrograms();
+  
+  const {
+    data: logs = [],
+    isLoading: logsLoading,
+    refetch: refetchLogs,
+    error: logsError
+  } = useLogs();
+  
+  const { mutateAsync: toggleProgramActive, isLoading: isTogglingProgram } = useToggleProgramActive();
+  
+  // Find active program
+  const activeProgram = workoutPlans.find(program => program.is_active);
+  
+  // Get next workout if there's an active program
   const [nextWorkout, setNextWorkout] = useState(null);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [programsData, logsData] = await Promise.all([
-        programService.getPrograms(),
-        logService.getLogs(),
-      ]);
-
-      setWorkoutPlans(programsData || []);
-      setLogs(logsData || []);
-
-      // Find active program
-      const active = programsData.find(program => program.is_active);
-      setActiveProgram(active);
-
-      // Get next workout if there's an active program
-      if (active?.workouts?.length) {
-        const next = programService.getNextWorkout(active);
-        setNextWorkout(next);
-      }
-    } catch (error) {
-      console.error('Error fetching workout data:', error);
-      Alert.alert('Error', 'Failed to load workout data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  if (activeProgram?.workouts?.length && !nextWorkout) {
+    const next = programService.getNextWorkout(activeProgram);
+    setNextWorkout(next);
+  }
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        refetchPrograms(),
+        refetchLogs()
+      ]);
+      
+      // Reset next workout when refreshing
+      if (activeProgram?.workouts?.length) {
+        const next = programService.getNextWorkout(activeProgram);
+        setNextWorkout(next);
+      }
+    } catch (error) {
+      console.error('Error refreshing workout data:', error);
+      Alert.alert('Error', 'Failed to refresh workout data');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const createProgram = () => {
@@ -70,7 +77,7 @@ export default function WorkoutsScreen() {
     Alert.alert('Coming Soon', 'Workout logging will be available in future updates');
   };
 
-  if (loading && !refreshing) {
+  if ((programsLoading || logsLoading) && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
@@ -182,19 +189,19 @@ export default function WorkoutsScreen() {
               <TouchableOpacity key={log.id} style={styles.workoutCard}>
                 <View style={[styles.workoutStatusBar, styles.completedWorkout]} />
                 <View style={styles.workoutContent}>
-                  <Text style={styles.workoutName}>{log.name}</Text>
+                  <Text style={styles.workoutName}>{log.name || log.workout_name}</Text>
                   <Text style={styles.workoutDate}>{log.date}</Text>
                   <View style={styles.workoutDetails}>
                     <View style={styles.workoutStat}>
                       <Ionicons name="time-outline" size={16} color="#9CA3AF" />
                       <Text style={styles.workoutStatText}>
-                        {log.duration} mins
+                        {log.duration || '-'} mins
                       </Text>
                     </View>
                     <View style={styles.workoutStat}>
                       <Ionicons name="list-outline" size={16} color="#9CA3AF" />
                       <Text style={styles.workoutStatText}>
-                        {log.exercise_count} exercises
+                        {log.exercise_count || log.exercises?.length || 0} exercises
                       </Text>
                     </View>
                   </View>

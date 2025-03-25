@@ -18,6 +18,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import WorkoutLogSelector from './WorkoutLogSelector';
 import ProgramSelector from './ProgramSelector';
 import { useAuth } from '../../hooks/useAuth';
+import { useCreatePost } from '../../hooks/query/usePostQuery';
 
 interface CreatePostProps {
   onPostCreated: (post: any) => void;
@@ -36,6 +37,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
   const [selectedProgram, setSelectedProgram] = useState<any>(null);
   const [selectedWorkoutLog, setSelectedWorkoutLog] = useState<any>(null);
   const [expanded, setExpanded] = useState(false);
+  
+  // Use the post creation mutation hook
+  const { mutateAsync: createPost, isLoading: isPosting } = useCreatePost();
   
   // Post type definitions
   const postTypes = {
@@ -119,39 +123,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
         formData.append('workout_log_id', selectedWorkoutLog.id.toString());
       }
 
-      // Make API call to create post
-      // Replace this with your actual API call
-      // const newPost = await postService.createPost(formData);
+      // Use the mutation to create a post
+      const newPost = await createPost(formData);
       
-      // For now, let's simulate the API call with a timeout
-      setTimeout(() => {
-        // Reset form
-        resetForm();
-        
-        // Call the onPostCreated callback with a mock post
-        onPostCreated({
-          id: Math.random().toString(),
-          content,
-          post_type: postType,
-          created_at: new Date().toISOString(),
-          author: {
-            id: user?.id,
-            username: user?.username,
-          },
-          likes_count: 0,
-          comments_count: 0,
-          is_liked: false,
-          program_details: selectedProgram,
-          workout_log_details: selectedWorkoutLog,
-          image,
-          user_username: user?.username
-        });
-        
-        setLoading(false);
-      }, 1000);
+      // Call the onPostCreated callback with the new post
+      onPostCreated(newPost);
+      
+      // Reset form
+      resetForm();
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert(t('error'), t('failed_to_create_post'));
+    } finally {
       setLoading(false);
     }
   };
@@ -422,9 +405,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
                   (!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) && styles.postButtonDisabled
                 ]}
                 onPress={handleCreatePost}
-                disabled={(!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) || loading}
+                disabled={(!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) || loading || isPosting}
               >
-                {loading ? (
+                {loading || isPosting ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <>

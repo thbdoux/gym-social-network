@@ -1,101 +1,111 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
-import { postService } from '../../api/services';
 import { Ionicons } from '@expo/vector-icons';
-import CreatePost from '../../components/feed/CreatePost';
 import FeedContainer from '../../components/feed/FeedContainer';
+import PostCreationModal from '../../components/feed/PostCreationModal';
+import FabMenu from '../../components/feed/FabMenu';
+import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
+import { useForkProgram } from '../../hooks/query/useProgramQuery';
+import { usePostsFeed } from '../../hooks/query/usePostQuery';
 
 export default function FeedScreen() {
   const { user } = useAuth();
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-
-  const fetchPosts = async () => {
-    try {
-      setLoading(true);
-      const fetchedPosts = await postService.getFeed();
-      setPosts(fetchedPosts);
-    } catch (err) {
-      console.error('Error fetching posts:', err);
-      setError('Failed to load posts. Pull down to retry.');
-    } finally {
-      setLoading(false);
-    }
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [selectedPostType, setSelectedPostType] = useState<string>('regular');
+  
+  // Reset post type when modal closes
+  const handleModalClose = () => {
+    setShowPostModal(false);
+    // Reset back to regular after modal closes
+    setTimeout(() => setSelectedPostType('regular'), 300);
   };
-
-  useEffect(() => {
-    fetchPosts();
-  }, []);
+  
+  // Use React Query hooks
+  const { 
+    refetch: refetchPosts,
+    isLoading: postsLoading,
+    error: postsError
+  } = usePostsFeed();
+  
+  // Post action mutations
+  const { mutateAsync: likePost } = useLikePost();
+  const { mutateAsync: commentOnPost } = useCommentOnPost();
+  const { mutateAsync: sharePost } = useSharePost();
+  const { mutateAsync: deletePost } = useDeletePost();
+  const { mutateAsync: forkProgram } = useForkProgram();
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchPosts();
-    setRefreshing(false);
+    try {
+      await refetchPosts();
+    } catch (err) {
+      console.error('Error refreshing posts:', err);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const handleLike = async (postId) => {
+  const handleLike = async (postId: number) => {
     try {
-      await postService.likePost(postId);
-      setPosts(
-        posts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                is_liked: !post.is_liked,
-                likes_count: post.is_liked
-                  ? post.likes_count - 1
-                  : post.likes_count + 1,
-              }
-            : post
-        )
-      );
+      await likePost(postId);
     } catch (err) {
       console.error('Error liking post:', err);
+      Alert.alert('Error', 'Failed to like post');
     }
   };
 
-  const handleComment = async (postId, content) => {
+  const handleComment = async (postId: number, content: string) => {
     try {
-      const newComment = await postService.commentOnPost(postId, content);
-      setPosts(
-        posts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                comments: [...(post.comments || []), newComment],
-                comments_count: (post.comments_count || 0) + 1,
-              }
-            : post
-        )
-      );
+      await commentOnPost({ postId, content });
     } catch (err) {
       console.error('Error commenting on post:', err);
+      Alert.alert('Error', 'Failed to add comment');
     }
   };
 
-  const handleShare = async (postId, content) => {
+  const handleShare = async (postId: number, content: string) => {
     try {
-      const sharedPost = await postService.sharePost(postId, content);
-      setPosts([sharedPost, ...posts]);
+      await sharePost({ postId, content });
     } catch (err) {
       console.error('Error sharing post:', err);
+      Alert.alert('Error', 'Failed to share post');
+    }
+  };
+  
+  const handleDeletePost = async (postId: number) => {
+    try {
+      await deletePost(postId);
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      Alert.alert('Error', 'Failed to delete post');
+    }
+  };
+  
+  const handleForkProgram = async (programId: number) => {
+    try {
+      return await forkProgram(programId);
+    } catch (err) {
+      console.error('Error forking program:', err);
+      Alert.alert('Error', 'Failed to fork program');
+      throw err;
     }
   };
 
-  const handleCreatePost = (newPost) => {
-    setPosts([newPost, ...posts]);
+  const handlePostCreated = (newPost: any) => {
+    // The React Query will automatically update the cache,
+    // so we don't need to manually update the posts state.
+    // Just refetch to ensure everything is fresh
+    refetchPosts();
   };
 
   return (
@@ -106,33 +116,41 @@ export default function FeedScreen() {
         </Text>
       </View>
 
-      <CreatePost onPostCreated={handleCreatePost} />
-
-      {loading && !refreshing ? (
+      {postsLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
           <Text style={styles.loadingText}>Loading posts...</Text>
         </View>
       ) : (
         <FeedContainer
-          posts={posts}
-          loading={loading}
-          currentUser={user?.username || ''}
           onLike={handleLike}
           onComment={handleComment}
           onShare={handleShare}
+          onDelete={handleDeletePost}
+          onForkProgram={handleForkProgram}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
         />
       )}
 
-      {/* Floating action button for new post */}
-      <TouchableOpacity style={styles.fab}>
-        <Ionicons name="add" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* FAB Menu */}
+      <FabMenu 
+        onItemPress={(itemId) => {
+          setSelectedPostType(itemId);
+          setShowPostModal(true);
+        }} 
+      />
+      
+      {/* Post Creation Modal */}
+      <PostCreationModal
+        visible={showPostModal}
+        onClose={handleModalClose}
+        onPostCreated={handlePostCreated}
+        initialPostType={selectedPostType}
+      />
     </SafeAreaView>
   );
 }
-
-// Keep your original styles
 
 const styles = StyleSheet.create({
   container: {
@@ -158,101 +176,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#9CA3AF',
   },
-  feedContainer: {
-    padding: 16,
-    paddingBottom: 80, // Extra padding for FAB
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    marginTop: 100,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#E5E7EB',
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  postCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  authorName: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  postDate: {
-    color: '#9CA3AF',
-    fontSize: 12,
-  },
-  postContent: {
-    color: '#E5E7EB',
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#374151',
-    paddingTop: 12,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  actionText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
+
 });

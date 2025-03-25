@@ -1,5 +1,5 @@
 // components/feed/WorkoutLogSelector.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -12,42 +12,23 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useLogs } from '../../hooks/query/useLogQuery';
 
-// This would normally be fetched from API
-const mockWorkoutLogs = [
-  {
-    id: 1,
-    workout_name: 'Upper Body Workout',
-    date: '2025-03-20',
-    exercise_count: 6,
-    duration: 45,
-    location: 'Home Gym',
-    gym_name: 'Home Gym',
-    program_name: 'Summer Strength'
-  },
-  {
-    id: 2,
-    workout_name: 'Leg Day',
-    date: '2025-03-18',
-    exercise_count: 5,
-    duration: 60,
-    location: 'Fitness Club',
-    gym_name: 'Fitness Club'
-  },
-  {
-    id: 3,
-    workout_name: 'Full Body Workout',
-    date: '2025-03-15',
-    exercise_count: 8,
-    duration: 75,
-    location: 'City Gym',
-    gym_name: 'City Gym',
-    program_name: 'Full Body Program'
-  }
-];
+interface WorkoutLog {
+  id: number;
+  name: string;
+  workout_name?: string;
+  date: string;
+  exercise_count?: number;
+  exercises?: any[];
+  duration?: number;
+  location?: string;
+  gym_name?: string;
+  program_name?: string;
+}
 
 interface WorkoutLogSelectorProps {
-  onSelect: (workoutLog: any) => void;
+  onSelect: (workoutLog: WorkoutLog) => void;
   onCancel: () => void;
 }
 
@@ -58,32 +39,22 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   
-  // Simulate API fetch
-  useEffect(() => {
-    const fetchLogs = async () => {
-      setLoading(true);
-      
-      // Simulate API delay
-      setTimeout(() => {
-        setLogs(mockWorkoutLogs);
-        setLoading(false);
-      }, 1000);
-    };
-    
-    fetchLogs();
-  }, []);
+  // Use React Query hook to fetch logs
+  const { 
+    data: logs = [], 
+    isLoading: loading, 
+    error 
+  } = useLogs();
   
   // Filter logs based on search query
   const filteredLogs = logs.filter(log =>
-    log.workout_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (log.workout_name || log.name)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     log.date?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    log.location?.toLowerCase().includes(searchQuery.toLowerCase())
+    log.gym_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
-  const handleLogSelect = (log: any) => {
+  const handleLogSelect = (log: WorkoutLog) => {
     setSelectedLogId(log.id);
   };
   
@@ -96,8 +67,10 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
     }
   };
   
-  const renderWorkoutItem = ({ item }: { item: any }) => {
+  const renderWorkoutItem = ({ item }: { item: WorkoutLog }) => {
     const isSelected = selectedLogId === item.id;
+    const workoutName = item.workout_name || item.name || t('unnamed_workout');
+    const exerciseCount = item.exercise_count || item.exercises?.length || 0;
     
     return (
       <TouchableOpacity
@@ -118,7 +91,7 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
           
           <View style={styles.workoutTitleContainer}>
             <Text style={styles.workoutTitle} numberOfLines={1}>
-              {item.workout_name}
+              {workoutName}
             </Text>
             
             {item.program_name && (
@@ -145,29 +118,29 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
           
           <View style={styles.workoutDetail}>
             <Ionicons name="time-outline" size={14} color="#34D399" />
-            <Text style={styles.detailText}>{item.duration} {t('mins')}</Text>
+            <Text style={styles.detailText}>{item.duration || '-'} {t('mins')}</Text>
           </View>
           
           <View style={styles.workoutDetail}>
             <Ionicons name="location-outline" size={14} color="#34D399" />
-            <Text style={styles.detailText}>{item.location}</Text>
+            <Text style={styles.detailText}>{item.gym_name || t('unknown_gym')}</Text>
           </View>
         </View>
         
         <View style={styles.workoutStats}>
           <View style={styles.workoutStat}>
             <Text style={styles.statLabel}>{t('exercises')}</Text>
-            <Text style={styles.statValue}>{item.exercise_count}</Text>
+            <Text style={styles.statValue}>{exerciseCount}</Text>
           </View>
           
           <View style={styles.workoutStat}>
             <Text style={styles.statLabel}>{t('duration')}</Text>
-            <Text style={styles.statValue}>{item.duration} {t('mins')}</Text>
+            <Text style={styles.statValue}>{item.duration || '-'} {t('mins')}</Text>
           </View>
           
           <View style={styles.workoutStat}>
             <Text style={styles.statLabel}>{t('location')}</Text>
-            <Text style={styles.statValue} numberOfLines={1}>{item.location}</Text>
+            <Text style={styles.statValue} numberOfLines={1}>{item.gym_name || t('unknown_gym')}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -218,8 +191,18 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
           {/* Workout List */}
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#34D399" />
+              <View style={styles.loaderBackground}>
+                <ActivityIndicator size="large" color="#34D399" />
+              </View>
               <Text style={styles.loadingText}>{t('loading_workouts')}</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <View style={styles.errorIconBackground}>
+                <Ionicons name="close" size={32} color="#EF4444" />
+              </View>
+              <Text style={styles.errorTitle}>{t('something_went_wrong')}</Text>
+              <Text style={styles.errorMessage}>{error.message}</Text>
             </View>
           ) : (
             <FlatList
@@ -434,9 +417,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
+  loaderBackground: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   loadingText: {
     color: '#9CA3AF',
     marginTop: 12,
+  },
+  errorContainer: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderStyle: 'dashed',
+  },
+  errorIconBackground: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#EF4444',
+    textAlign: 'center',
   },
   emptyContainer: {
     padding: 32,

@@ -6,15 +6,28 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Post from './Post';
-import { userService } from '../../api/services';
+import { usePostsFeed } from '../../hooks/query/usePostQuery';
+import { useFriends } from '../../hooks/query/useUserQuery';
+import { useUsers } from '../../hooks/query/useUserQuery';
 import { useAuth } from '../../hooks/useAuth';
 
+interface Post {
+  id: number;
+  content: string;
+  post_type?: string;
+  created_at: string;
+  user_username: string;
+  user_id: number;
+  likes_count: number;
+  comments_count: number;
+  is_liked: boolean;
+  [key: string]: any;
+}
+
 interface FeedContainerProps {
-  posts: any[];
-  loading?: boolean;
-  currentUser: string;
   onLike: (postId: number) => void;
   onComment: (postId: number, content: string) => void;
   onShare: (postId: number, content: string) => void;
@@ -22,12 +35,11 @@ interface FeedContainerProps {
   onDelete?: (postId: number) => void;
   onProgramSelect?: (program: any) => void;
   onForkProgram?: (programId: number) => Promise<any>;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
-  posts = [],
-  loading = false,
-  currentUser,
   onLike,
   onComment,
   onShare,
@@ -35,42 +47,37 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   onDelete,
   onProgramSelect,
   onForkProgram,
+  refreshing = false,
+  onRefresh,
 }) => {
   const { user } = useAuth();
-  const [filteredPosts, setFilteredPosts] = useState([]);
-  const [friends, setFriends] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
-  const [friendsLoading, setFriendsLoading] = useState(true);
-  const [usersLoading, setUsersLoading] = useState(true);
-
-  // Fetch friends and users data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setFriendsLoading(true);
-        setUsersLoading(true);
-        
-        const [friendsList, usersData] = await Promise.all([
-          userService.getFriends(),
-          userService.getAllUsers(),
-        ]);
-        
-        setFriends(friendsList || []);
-        setAllUsers(usersData || []);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setFriendsLoading(false);
-        setUsersLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, []);
+  const currentUser = user?.username || '';
+  
+  // Use React Query hooks
+  const { 
+    data: posts = [], 
+    isLoading: postsLoading, 
+    error: postsError,
+    refetch: refetchPosts
+  } = usePostsFeed();
+  
+  const {
+    data: friends = [],
+    isLoading: friendsLoading,
+    error: friendsError
+  } = useFriends();
+  
+  const {
+    data: allUsers = [],
+    isLoading: usersLoading,
+    error: usersError
+  } = useUsers();
+  
+  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
 
   // Create a memoized map of user data by username for better performance
   const usersData = useMemo(() => {
-    const userData = {};
+    const userData: Record<string, any> = {};
     if (allUsers && allUsers.length > 0) {
       allUsers.forEach(user => {
         if (user.username) {
@@ -83,9 +90,9 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   
   // Create a set of friend usernames
   const friendUsernames = useMemo(() => {
-    if (!friends || friends.length === 0) return new Set();
+    if (!friends || friends.length === 0) return new Set<string>();
     
-    const usernameSet = new Set();
+    const usernameSet = new Set<string>();
     friends.forEach(friend => {
       if (friend.friend?.username) {
         usernameSet.add(friend.friend.username);
@@ -108,15 +115,36 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
       setFilteredPosts([]);
     }
   }, [posts, friendUsernames, currentUser, friendsLoading]);
+  
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      await refetchPosts();
+    }
+  };
 
   // Determine if we're still loading
-  const isLoading = loading || friendsLoading || usersLoading;
+  const isLoading = postsLoading || friendsLoading || usersLoading;
+  const hasError = postsError || friendsError || usersError;
 
-  if (isLoading) {
+  if (isLoading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={styles.loadingText}>Loading posts...</Text>
+      </View>
+    );
+  }
+  
+  if (hasError) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Something went wrong</Text>
+        <Text style={styles.errorText}>
+          {postsError?.message || friendsError?.message || usersError?.message || 'Failed to load posts'}
+        </Text>
       </View>
     );
   }
@@ -146,9 +174,19 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           onEdit={onEdit}
           onDelete={onDelete}
           userData={usersData[item.user_username]}
+          onProgramClick={onProgramSelect}
+          onForkProgram={onForkProgram}
         />
       )}
       contentContainerStyle={styles.listContainer}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor="#3B82F6"
+          colors={['#3B82F6']}
+        />
+      }
     />
   );
 };
@@ -156,24 +194,23 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
+    paddingBottom: 80, // Extra padding for FAB
   },
   loadingContainer: {
-    padding: 32,
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
   },
   loadingText: {
     color: '#9CA3AF',
     marginTop: 8,
   },
   emptyContainer: {
-    backgroundColor: '#1F2937',
-    padding: 32,
-    borderRadius: 12,
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#374151',
+    alignItems: 'center',
+    padding: 32,
   },
   emptyTitle: {
     fontSize: 18,
@@ -184,6 +221,28 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     color: '#9CA3AF',
+    lineHeight: 20,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    margin: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  errorText: {
+    textAlign: 'center',
+    color: '#EF4444',
     lineHeight: 20,
   },
 });

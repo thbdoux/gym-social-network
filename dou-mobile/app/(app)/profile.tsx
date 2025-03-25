@@ -1,5 +1,5 @@
 // app/(app)/profile.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,46 +14,69 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useCurrentUser, useFriends } from '../../hooks/query/useUserQuery';
+import { useLogout } from '../../hooks/query/useUserQuery';
 import { userService, postService } from '../../api/services';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [friends, setFriends] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('posts');
-
-  const fetchProfileData = async () => {
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Use React Query hooks
+  const { 
+    data: profile, 
+    isLoading: profileLoading, 
+    refetch: refetchProfile,
+    error: profileError
+  } = useCurrentUser();
+  
+  const {
+    data: friends = [],
+    isLoading: friendsLoading,
+    refetch: refetchFriends,
+    error: friendsError
+  } = useFriends();
+  
+  // Handle posts - this would typically also use a query hook
+  const [posts, setPosts] = useState<any[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  
+  // Use the logout function
+  const logout = useLogout();
+  
+  React.useEffect(() => {
+    fetchUserPosts();
+  }, [user]);
+  
+  const fetchUserPosts = async () => {
+    if (!user?.id) return;
+    
     try {
-      setLoading(true);
-      
-      const [userData, userFriends, userPosts] = await Promise.all([
-        userService.getCurrentUser(),
-        userService.getFriends(),
-        user?.id ? userService.getUserById(user.id).then(data => data.posts || []) : [],
-      ]);
-      
-      setProfile(userData);
-      setFriends(userFriends || []);
-      setPosts(userPosts || []);
+      setPostsLoading(true);
+      const userData = await userService.getUserById(user.id);
+      setPosts(userData.posts || []);
     } catch (error) {
-      console.error('Error fetching profile data:', error);
-      Alert.alert('Error', 'Failed to load profile data');
+      console.error('Error fetching user posts:', error);
     } finally {
-      setLoading(false);
+      setPostsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchProfileData();
-  }, [user]);
-
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchProfileData();
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        refetchProfile(),
+        refetchFriends(),
+        fetchUserPosts()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing profile data:', error);
+      Alert.alert('Error', 'Failed to refresh profile data');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleLogout = () => {
@@ -67,12 +90,14 @@ export default function ProfileScreen() {
     );
   };
 
-  const getInitials = (name) => {
+  const getInitials = (name?: string) => {
     if (!name) return '?';
     return name.charAt(0).toUpperCase();
   };
 
-  if (loading && !refreshing) {
+  const isLoading = profileLoading || friendsLoading || postsLoading;
+  
+  if (isLoading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
