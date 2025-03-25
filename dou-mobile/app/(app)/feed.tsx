@@ -110,12 +110,6 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>
-          Welcome back, {user?.username || 'Athlete'}!
-        </Text>
-      </View>
-
       {postsLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -157,16 +151,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#111827',
   },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
-  },
-  welcomeText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -176,5 +160,4 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#9CA3AF',
   },
-
 });

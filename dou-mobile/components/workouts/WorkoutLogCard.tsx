@@ -122,10 +122,10 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
     setIsExpanded(!isExpanded);
   };
   
-  // Calculate max height for animation
+  // Calculate max height for animation - even more reduced since we only show exercises
   const maxHeight = expandAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 250]
+    outputRange: [0, 300] // Increased to accommodate potentially more exercises
   });
   
   const handleDelete = (): void => {
@@ -196,16 +196,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
       styles.container, 
       log.completed ? styles.containerCompleted : styles.containerRegular
     ]}>
-      {/* Fork button for non-creators */}
-      {canFork && (
-        <TouchableOpacity 
-          style={styles.forkButton}
-          onPress={handleForkConfirm}
-        >
-          <Ionicons name="git-branch-outline" size={18} color="#60a5fa" />
-        </TouchableOpacity>
-      )}
-      
       {/* Main Card Content */}
       <TouchableOpacity 
         style={styles.mainCard}
@@ -255,14 +245,14 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           <View style={styles.metricsRow}>
             {/* Exercise Count */}
             <View style={styles.metricItem}>
-              <Ionicons name="barbell-outline" size={14} color="#9ca3af" />
+              <Ionicons name="barbell-outline" size={14} style={styles.barbellIcon} />
               <Text style={styles.metricText}>{exerciseCount}</Text>
             </View>
             
             {/* Duration */}
             {log.duration && (
               <View style={styles.metricItem}>
-                <Ionicons name="time-outline" size={14} color="#9ca3af" />
+                <Ionicons name="time-outline" size={14} style={styles.durationIcon} />
                 <Text style={styles.metricText}>{log.duration}m</Text>
               </View>
             )}
@@ -290,16 +280,28 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
         
         {/* Actions Column */}
         <View style={styles.actionsColumn}>
+          {/* Options Menu - Always first/top */}
           <TouchableOpacity 
-            style={styles.optionsButton}
+            style={styles.actionButton}
             onPress={() => setShowOptionsMenu(true)}
           >
             <Ionicons name="ellipsis-vertical" size={18} color="#9ca3af" />
           </TouchableOpacity>
           
+          {/* Fork button for non-creators - Using download icon now */}
+          {canFork && (
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleForkConfirm}
+            >
+              <Ionicons name="download-outline" size={18} color="#60a5fa" />
+            </TouchableOpacity>
+          )}
+          
+          {/* Show expand indicator in non-feed mode - Always last/bottom */}
           {!feedMode && (
             <TouchableOpacity 
-              style={styles.expandButton}
+              style={styles.actionButton}
               onPress={toggleExpand}
             >
               <Ionicons 
@@ -328,77 +330,41 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
         </View>
       )}
       
-      {/* Expandable Content */}
+      {/* Expandable Content - Only exercises as requested */}
       {!feedMode && (
         <Animated.View style={[styles.expandedSection, { maxHeight }]}>
           <View style={styles.expandedContent}>
-            {/* Main Details */}
-            <View style={styles.expandedDetailsSection}>
-              <View style={styles.expandedDetailRow}>
-                <View style={styles.expandedDetailItem}>
-                  <Ionicons name="location-outline" size={16} color="#60a5fa" style={styles.detailIcon} />
-                  <View>
-                    <Text style={styles.detailLabel}>{t('location')}</Text>
-                    <Text style={styles.detailValue}>{gymName}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.expandedDetailItem}>
-                  <Ionicons name="time-outline" size={16} color="#22d3ee" style={styles.detailIcon} />
-                  <View>
-                    <Text style={styles.detailLabel}>{t('duration')}</Text>
-                    <Text style={styles.detailValue}>{log.duration || '-'} {t('mins')}</Text>
-                  </View>
-                </View>
-              </View>
-              
-              <View style={styles.expandedDetailRow}>
-                <View style={styles.expandedDetailItem}>
-                  <Ionicons name="flame-outline" size={16} color="#f87171" style={styles.detailIcon} />
-                  <View>
-                    <Text style={styles.detailLabel}>{t('difficulty')}</Text>
-                    <Text style={styles.detailValue}>{log.perceived_difficulty || '-'}/10</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.expandedDetailItem}>
-                  <Ionicons name="happy-outline" size={16} color="#fbbf24" style={styles.detailIcon} />
-                  <View>
-                    <Text style={styles.detailLabel}>{t('mood')}</Text>
-                    <Text style={styles.detailValue}>
-                      {log.mood_rating ? `${getMoodEmoji(log.mood_rating)} ${log.mood_rating}/10` : '-'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-            
-            {/* Exercise Preview */}
+            {/* Enhanced Exercise Preview - Only showing exercises now */}
             {log.exercises && log.exercises.length > 0 && (
-              <View style={styles.exercisesPreview}>
+              <View style={styles.exercisesPreviewEnhanced}>
                 <Text style={styles.sectionTitle}>{t('exercises')}</Text>
-                {log.exercises.slice(0, 3).map((exercise, index) => (
-                  <View key={index} style={styles.exerciseItem}>
-                    <Ionicons name="barbell" size={14} color="#c084fc" style={styles.exerciseIcon} />
-                    <Text style={styles.exerciseName} numberOfLines={1}>{exercise.name}</Text>
-                    <Text style={styles.exerciseSets}>
-                      {exercise.sets?.length || 0} {t('sets')}
-                    </Text>
-                  </View>
-                ))}
-                {log.exercises.length > 3 && (
-                  <Text style={styles.moreExercises}>
-                    +{log.exercises.length - 3} {t('more')}
-                  </Text>
-                )}
-              </View>
-            )}
-            
-            {/* Notes Preview */}
-            {log.notes && (
-              <View style={styles.notesPreview}>
-                <Text style={styles.sectionTitle}>{t('notes')}</Text>
-                <Text style={styles.notesText} numberOfLines={2}>{log.notes}</Text>
+                <View style={styles.exerciseGrid}>
+                  {log.exercises.map((exercise, index) => (
+                    <View key={index} style={styles.exerciseGridItem}>
+                      <TouchableOpacity 
+                        style={styles.exerciseTouchable}
+                        onPress={() => {
+                          if (onSelect) {
+                            // Select the workout log with focus on this specific exercise
+                            onSelect({...log, activeExerciseId: exercise.id});
+                          }
+                        }}
+                      >
+                        <View style={styles.exerciseIconContainer}>
+                          <Ionicons name="barbell" size={16} color="#c084fc" />
+                        </View>
+                        <View style={styles.exerciseDetails}>
+                          <Text style={styles.exerciseName} numberOfLines={1}>
+                            {exercise.name}
+                          </Text>
+                          <Text style={styles.exerciseSets}>
+                            {exercise.sets?.length || 0} {t('sets')}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
             
@@ -458,7 +424,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
                 onPress={handleForkConfirm}
                 disabled={isForking}
               >
-                <Ionicons name="git-branch-outline" size={20} color="#60a5fa" />
+                <Ionicons name="download-outline" size={20} color="#60a5fa" />
                 <Text style={styles.optionText}>
                   {isForking ? t('forking_workout') : t('fork_workout')}
                 </Text>
@@ -496,8 +462,9 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#1F2937',
+    backgroundColor: 'rgba(34, 197, 94, 0.07)', // Light green background for all cards
     borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.5)', // Green border for all cards
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -505,24 +472,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   containerRegular: {
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+    // Styles shared by all cards now
   },
   containerCompleted: {
-    borderColor: 'rgba(34, 197, 94, 0.5)',
-  },
-  forkButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 2,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
+    // Styles shared by all cards now
   },
   mainCard: {
     flexDirection: 'row',
@@ -617,6 +570,19 @@ const styles = StyleSheet.create({
   moodEmoji: {
     fontSize: 16,
   },
+  // Colorized icons
+  barbellIcon: {
+    color: '#c084fc', // Purple
+  },
+  durationIcon: {
+    color: '#22d3ee', // Cyan
+  },
+  locationIcon: {
+    color: '#60a5fa', // Blue
+  },
+  difficultyIcon: {
+    color: '#f87171', // Red
+  },
   difficultyItem: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
     paddingHorizontal: 6,
@@ -629,22 +595,16 @@ const styles = StyleSheet.create({
   actionsColumn: {
     width: 40,
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 8,
+    justifyContent: 'space-around',
   },
-  optionsButton: {
+  actionButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  expandButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginVertical: 4,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -668,31 +628,27 @@ const styles = StyleSheet.create({
   expandedContent: {
     padding: 16,
   },
-  expandedDetailsSection: {
+  indicatorsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
     marginBottom: 16,
+    flexWrap: 'wrap',
   },
-  expandedDetailRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
+  indicatorItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    minWidth: 70,
   },
-  expandedDetailItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  indicatorLabel: {
+    fontSize: 12,
+    color: '#d1d5db',
+    marginTop: 4,
+    textAlign: 'center',
   },
-  detailIcon: {
-    marginRight: 8,
-    marginTop: 2,
-  },
-  detailLabel: {
-    fontSize: 10,
-    color: '#9ca3af',
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#e5e7eb',
+  bigEmoji: {
+    fontSize: 24,
   },
   sectionTitle: {
     fontSize: 13,
@@ -700,39 +656,54 @@ const styles = StyleSheet.create({
     color: '#e5e7eb',
     marginBottom: 8,
   },
-  exercisesPreview: {
+  exercisesPreviewEnhanced: {
     marginBottom: 16,
   },
-  exerciseItem: {
+  exerciseGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+  exerciseGridItem: {
+    width: '100%', // Changed from 50% to show exercises as a list
+    paddingHorizontal: 4,
+    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(55, 65, 81, 0.1)',
   },
-  exerciseIcon: {
+  exerciseIconContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(192, 132, 252, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 8,
   },
-  exerciseName: {
-    fontSize: 13,
-    color: '#e5e7eb',
+  exerciseTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  exerciseSets: {
+  exerciseDetails: {
+    flex: 1,
+  },
+  exerciseName: {
     fontSize: 12,
+    color: '#e5e7eb',
+    fontWeight: '500',
+  },
+  exerciseSets: {
+    fontSize: 10,
     color: '#9ca3af',
-    marginLeft: 4,
   },
   moreExercises: {
     fontSize: 12,
     color: '#60a5fa',
-    marginTop: 4,
-  },
-  notesPreview: {
-    marginBottom: 16,
-  },
-  notesText: {
-    fontSize: 13,
-    color: '#d1d5db',
-    lineHeight: 18,
+    marginTop: 8,
+    textAlign: 'center',
   },
   viewDetailsButton: {
     flexDirection: 'row',
