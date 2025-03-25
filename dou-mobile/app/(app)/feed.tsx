@@ -1,4 +1,3 @@
-// app/(app)/feed.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,26 +10,14 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
-import { postService, userService } from '../../api/services';
+import { postService } from '../../api/services';
 import { Ionicons } from '@expo/vector-icons';
-
-interface Post {
-  id: number;
-  content: string;
-  author: {
-    id: number;
-    username: string;
-    profile_picture?: string;
-  };
-  created_at: string;
-  likes_count: number;
-  comments_count: number;
-  is_liked: boolean;
-}
+import CreatePost from '../../components/feed/CreatePost';
+import FeedContainer from '../../components/feed/FeedContainer';
 
 export default function FeedScreen() {
   const { user } = useAuth();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -58,7 +45,7 @@ export default function FeedScreen() {
     setRefreshing(false);
   };
 
-  const handleLike = async (postId: number) => {
+  const handleLike = async (postId) => {
     try {
       await postService.likePost(postId);
       setPosts(
@@ -79,68 +66,37 @@ export default function FeedScreen() {
     }
   };
 
-  // Empty component for the feed
-  const EmptyFeed = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="newspaper-outline" size={48} color="#6B7280" />
-      <Text style={styles.emptyTitle}>No posts yet</Text>
-      <Text style={styles.emptyText}>
-        Posts from your friends will appear here.
-      </Text>
-    </View>
-  );
+  const handleComment = async (postId, content) => {
+    try {
+      const newComment = await postService.commentOnPost(postId, content);
+      setPosts(
+        posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comments: [...(post.comments || []), newComment],
+                comments_count: (post.comments_count || 0) + 1,
+              }
+            : post
+        )
+      );
+    } catch (err) {
+      console.error('Error commenting on post:', err);
+    }
+  };
 
-  // Loading component
-  const LoadingIndicator = () => (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#3B82F6" />
-      <Text style={styles.loadingText}>Loading posts...</Text>
-    </View>
-  );
+  const handleShare = async (postId, content) => {
+    try {
+      const sharedPost = await postService.sharePost(postId, content);
+      setPosts([sharedPost, ...posts]);
+    } catch (err) {
+      console.error('Error sharing post:', err);
+    }
+  };
 
-  // Post item component
-  const PostItem = ({ item }: { item: Post }) => (
-    <View style={styles.postCard}>
-      <View style={styles.postHeader}>
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>
-            {item.author.username.charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <View>
-          <Text style={styles.authorName}>{item.author.username}</Text>
-          <Text style={styles.postDate}>
-            {new Date(item.created_at).toLocaleString()}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.postContent}>{item.content}</Text>
-
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleLike(item.id)}
-        >
-          <Ionicons
-            name={item.is_liked ? 'heart' : 'heart-outline'}
-            size={22}
-            color={item.is_liked ? '#EF4444' : '#9CA3AF'}
-          />
-          <Text style={styles.actionText}>{item.likes_count}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={22} color="#9CA3AF" />
-          <Text style={styles.actionText}>{item.comments_count}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="share-social-outline" size={22} color="#9CA3AF" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const handleCreatePost = (newPost) => {
+    setPosts([newPost, ...posts]);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -150,23 +106,21 @@ export default function FeedScreen() {
         </Text>
       </View>
 
+      <CreatePost onPostCreated={handleCreatePost} />
+
       {loading && !refreshing ? (
-        <LoadingIndicator />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Loading posts...</Text>
+        </View>
       ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => <PostItem item={item} />}
-          contentContainerStyle={styles.feedContainer}
-          ListEmptyComponent={EmptyFeed}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#3B82F6"
-              colors={['#3B82F6']}
-            />
-          }
+        <FeedContainer
+          posts={posts}
+          loading={loading}
+          currentUser={user?.username || ''}
+          onLike={handleLike}
+          onComment={handleComment}
+          onShare={handleShare}
         />
       )}
 
@@ -177,6 +131,8 @@ export default function FeedScreen() {
     </SafeAreaView>
   );
 }
+
+// Keep your original styles
 
 const styles = StyleSheet.create({
   container: {

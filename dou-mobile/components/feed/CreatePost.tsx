@@ -1,20 +1,22 @@
 // components/feed/CreatePost.tsx
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Image,
-  Modal,
+import React, { useState, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Image, 
+  Modal, 
   Platform,
-  KeyboardAvoidingView,
+  ActivityIndicator,
+  Alert 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { postService } from '../../api/services';
+import { useLanguage } from '../../context/LanguageContext';
+import WorkoutLogSelector from './WorkoutLogSelector';
+import ProgramSelector from './ProgramSelector';
 import { useAuth } from '../../hooks/useAuth';
 
 interface CreatePostProps {
@@ -23,17 +25,48 @@ interface CreatePostProps {
 
 const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [content, setContent] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [postType, setPostType] = useState('regular');
+  const [showWorkoutLogSelector, setShowWorkoutLogSelector] = useState(false);
+  const [showProgramSelector, setShowProgramSelector] = useState(false);
+  const [selectedProgram, setSelectedProgram] = useState<any>(null);
+  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState<any>(null);
+  const [expanded, setExpanded] = useState(false);
+  
+  // Post type definitions
+  const postTypes = {
+    regular: {
+      label: t('regular_post'),
+      icon: 'create-outline',
+      color: '#60A5FA'
+    },
+    workout_log: {
+      label: t('share_workout'),
+      icon: 'fitness-outline',
+      color: '#34D399'
+    },
+    program: {
+      label: t('share_program'),
+      icon: 'barbell-outline',
+      color: '#A78BFA'
+    },
+    workout_invite: {
+      label: t('group_workout'),
+      icon: 'people-outline',
+      color: '#FB923C'
+    }
+  };
+  
   const pickImage = async () => {
     // Request permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
-      alert('Sorry, we need camera roll permissions to make this work!');
+      Alert.alert(t('permission_needed'), t('camera_roll_permission'));
       return;
     }
 
@@ -47,35 +80,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
-      setModalVisible(true);
     }
   };
-
-  const takePhoto = async () => {
-    // Request permission
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted') {
-      alert('Sorry, we need camera permissions to make this work!');
-      return;
-    }
-
-    // Launch camera
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-      setModalVisible(true);
-    }
-  };
-
+  
   const handleCreatePost = async () => {
-    if (!content.trim() && !image) {
+    if (!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) {
       return;
     }
 
@@ -85,7 +94,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
       // Create FormData for the API request
       const formData = new FormData();
       formData.append('content', content);
-      formData.append('post_type', 'regular');
+      formData.append('post_type', postType);
 
       // Add image if selected
       if (image) {
@@ -99,152 +108,351 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
           type,
         } as any);
       }
+      
+      // Add program details if selected
+      if (postType === 'program' && selectedProgram) {
+        formData.append('program_id', selectedProgram.id.toString());
+      }
+      
+      // Add workout log details if selected
+      if (postType === 'workout_log' && selectedWorkoutLog) {
+        formData.append('workout_log_id', selectedWorkoutLog.id.toString());
+      }
 
-      const newPost = await postService.createPost(formData);
+      // Make API call to create post
+      // Replace this with your actual API call
+      // const newPost = await postService.createPost(formData);
       
-      // Reset form
-      setContent('');
-      setImage(null);
-      setModalVisible(false);
-      
-      // Notify parent component
-      onPostCreated(newPost);
+      // For now, let's simulate the API call with a timeout
+      setTimeout(() => {
+        // Reset form
+        resetForm();
+        
+        // Call the onPostCreated callback with a mock post
+        onPostCreated({
+          id: Math.random().toString(),
+          content,
+          post_type: postType,
+          created_at: new Date().toISOString(),
+          author: {
+            id: user?.id,
+            username: user?.username,
+          },
+          likes_count: 0,
+          comments_count: 0,
+          is_liked: false,
+          program_details: selectedProgram,
+          workout_log_details: selectedWorkoutLog,
+          image,
+          user_username: user?.username
+        });
+        
+        setLoading(false);
+      }, 1000);
     } catch (error) {
       console.error('Error creating post:', error);
-      alert('Failed to create post. Please try again.');
-    } finally {
+      Alert.alert(t('error'), t('failed_to_create_post'));
       setLoading(false);
     }
   };
-
-  const getInitials = (name?: string) => {
-    if (!name) return '?';
-    return name.charAt(0).toUpperCase();
+  
+  const resetForm = () => {
+    setContent('');
+    setImage(null);
+    setPostType('regular');
+    setSelectedProgram(null);
+    setSelectedWorkoutLog(null);
+    setExpanded(false);
   };
-
+  
+  const handleProgramSelect = (program: any) => {
+    setSelectedProgram(program);
+    setShowProgramSelector(false);
+    // Auto-populate content with program name
+    setContent(`${t('check_out_program')}: ${program.name}`);
+    setPostType('program');
+  };
+  
+  const handleWorkoutLogSelect = (workoutLog: any) => {
+    setSelectedWorkoutLog(workoutLog);
+    setShowWorkoutLogSelector(false);
+    // Auto-populate content
+    setContent(`${t('just_completed')}: ${workoutLog.workout_name || workoutLog.name || t('a_workout')}`);
+    setPostType('workout_log');
+  };
+  
+  const handleTypeSelect = (key: string) => {
+    setPostType(key);
+    setShowTypeMenu(false);
+    
+    if (key === 'program') {
+      setShowProgramSelector(true);
+    } else if (key === 'workout_log') {
+      setShowWorkoutLogSelector(true);
+    }
+  };
+  
+  // Get the current post type information
+  const currentType = postTypes[postType as keyof typeof postTypes];
+  
   return (
     <>
-      <TouchableOpacity 
-        style={styles.container}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <View style={styles.avatarContainer}>
-          {user?.profile_picture ? (
-            <Image
-              source={{ uri: user.profile_picture }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>
-                {getInitials(user?.username)}
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {user?.username?.[0]?.toUpperCase() || 'U'}
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.inputPlaceholder}
+            onPress={() => setExpanded(true)}
+          >
+            <Text style={styles.placeholderText}>
+              {t('whats_on_your_mind')}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.photoButton}
+            onPress={pickImage}
+          >
+            <Ionicons name="image-outline" size={24} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Post Type Buttons */}
+        <View style={styles.postTypeContainer}>
+          {Object.entries(postTypes).map(([key, type]) => (
+            <TouchableOpacity
+              key={key}
+              style={[
+                styles.postTypeButton,
+                postType === key && styles.postTypeButtonActive,
+                { borderColor: postType === key ? type.color : 'transparent' }
+              ]}
+              onPress={() => handleTypeSelect(key)}
+            >
+              <Ionicons 
+                name={type.icon as any} 
+                size={18} 
+                color={postType === key ? type.color : '#9CA3AF'} 
+              />
+              <Text 
+                style={[
+                  styles.postTypeText,
+                  postType === key && styles.postTypeTextActive,
+                  { color: postType === key ? type.color : '#9CA3AF' }
+                ]}
+              >
+                {type.label}
               </Text>
-            </View>
-          )}
+            </TouchableOpacity>
+          ))}
         </View>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.placeholder}>
-            What's on your fitness journey today?
-          </Text>
-        </View>
-        
-        <TouchableOpacity style={styles.iconButton} onPress={pickImage}>
-          <Ionicons name="image-outline" size={24} color="#9CA3AF" />
-        </TouchableOpacity>
-      </TouchableOpacity>
-
+      </View>
+      
+      {/* Expanded Post Creation Modal */}
       <Modal
-        visible={modalVisible}
+        visible={expanded}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => setExpanded(false)}
       >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
-        >
+        <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Post</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
-              >
+              <Text style={styles.modalTitle}>{t('create_post')}</Text>
+              <TouchableOpacity onPress={() => setExpanded(false)}>
                 <Ionicons name="close" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-
-            <View style={styles.userInfo}>
-              {user?.profile_picture ? (
-                <Image
-                  source={{ uri: user.profile_picture }}
-                  style={styles.modalAvatar}
-                />
-              ) : (
-                <View style={styles.modalAvatarPlaceholder}>
-                  <Text style={styles.avatarText}>
-                    {getInitials(user?.username)}
+            
+            <View style={styles.modalBody}>
+              <View style={styles.userInfo}>
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userAvatarText}>
+                    {user?.username?.[0]?.toUpperCase() || 'U'}
                   </Text>
                 </View>
-              )}
-              <Text style={styles.username}>{user?.username || 'User'}</Text>
-            </View>
-
-            <TextInput
-              style={styles.input}
-              multiline
-              placeholder="What's on your fitness journey today?"
-              placeholderTextColor="#9CA3AF"
-              value={content}
-              onChangeText={setContent}
-              autoFocus
-            />
-
-            {image && (
-              <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: image }} style={styles.imagePreview} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => setImage(null)}
-                >
-                  <Ionicons name="close-circle" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
+                <Text style={styles.username}>{user?.username}</Text>
               </View>
-            )}
-
-            <View style={styles.actionsContainer}>
+              
+              <TextInput
+                style={styles.contentInput}
+                multiline
+                placeholder={
+                  postType === 'program' && selectedProgram 
+                    ? t('add_program_note') 
+                    : postType === 'workout_log' && selectedWorkoutLog
+                    ? t('add_workout_note')
+                    : t('whats_on_your_mind')
+                }
+                placeholderTextColor="#9CA3AF"
+                value={content}
+                onChangeText={setContent}
+                autoFocus={true}
+              />
+              
+              {/* Program Preview */}
+              {selectedProgram && (
+                <View style={styles.attachmentPreview}>
+                  <View style={styles.attachmentHeader}>
+                    <View style={styles.programIcon}>
+                      <Ionicons name="barbell" size={16} color="#A78BFA" />
+                    </View>
+                    <Text style={styles.attachmentTitle}>{selectedProgram.name}</Text>
+                    <TouchableOpacity 
+                      style={styles.removeButton}
+                      onPress={() => {
+                        setSelectedProgram(null);
+                        setPostType('regular');
+                      }}
+                    >
+                      <Ionicons name="close" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <Text style={styles.attachmentDescription} numberOfLines={2}>
+                    {selectedProgram.description || t('no_description')}
+                  </Text>
+                  
+                  <View style={styles.programDetails}>
+                    <View style={styles.programDetail}>
+                      <Ionicons name="calendar-outline" size={14} color="#A78BFA" />
+                      <Text style={styles.programDetailText}>
+                        {selectedProgram.sessions_per_week}x {t('weekly')}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.programDetail}>
+                      <Ionicons name="barbell-outline" size={14} color="#A78BFA" />
+                      <Text style={styles.programDetailText}>
+                        {selectedProgram.workouts?.length || 0} {t('workouts')}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              
+              {/* Workout Log Preview */}
+              {selectedWorkoutLog && (
+                <View style={styles.attachmentPreview}>
+                  <View style={styles.attachmentHeader}>
+                    <View style={styles.workoutIcon}>
+                      <Ionicons name="fitness" size={16} color="#34D399" />
+                    </View>
+                    <Text style={styles.attachmentTitle}>
+                      {selectedWorkoutLog.workout_name || selectedWorkoutLog.name || t('unnamed_workout')}
+                    </Text>
+                    <TouchableOpacity 
+                      style={styles.removeButton}
+                      onPress={() => {
+                        setSelectedWorkoutLog(null);
+                        setPostType('regular');
+                      }}
+                    >
+                      <Ionicons name="close" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.workoutDetails}>
+                    <View style={styles.workoutDetail}>
+                      <Ionicons name="calendar-outline" size={14} color="#34D399" />
+                      <Text style={styles.workoutDetailText}>
+                        {selectedWorkoutLog.date || t('no_date')}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.workoutDetail}>
+                      <Ionicons name="fitness-outline" size={14} color="#34D399" />
+                      <Text style={styles.workoutDetailText}>
+                        {selectedWorkoutLog.exercise_count || selectedWorkoutLog.exercises?.length || 0} {t('exercises')}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              
+              {/* Image Preview */}
+              {image && (
+                <View style={styles.imagePreviewContainer}>
+                  <Image 
+                    source={{ uri: image }} 
+                    style={styles.imagePreview} 
+                  />
+                  <TouchableOpacity 
+                    style={styles.removeImageButton}
+                    onPress={() => setImage(null)}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.modalFooter}>
               <View style={styles.mediaButtons}>
-                <TouchableOpacity style={styles.mediaButton} onPress={pickImage}>
-                  <Ionicons name="image-outline" size={24} color="#3B82F6" />
-                  <Text style={styles.mediaButtonText}>Gallery</Text>
+                <TouchableOpacity 
+                  style={styles.mediaButton}
+                  onPress={pickImage}
+                >
+                  <Ionicons name="image-outline" size={24} color="#60A5FA" />
                 </TouchableOpacity>
                 
-                <TouchableOpacity style={styles.mediaButton} onPress={takePhoto}>
-                  <Ionicons name="camera-outline" size={24} color="#10B981" />
-                  <Text style={styles.mediaButtonText}>Camera</Text>
+                <TouchableOpacity 
+                  style={styles.mediaButton}
+                  onPress={() => setShowProgramSelector(true)}
+                >
+                  <Ionicons name="barbell-outline" size={24} color="#A78BFA" />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.mediaButton}
+                  onPress={() => setShowWorkoutLogSelector(true)}
+                >
+                  <Ionicons name="fitness-outline" size={24} color="#34D399" />
                 </TouchableOpacity>
               </View>
-
+              
               <TouchableOpacity
                 style={[
                   styles.postButton,
-                  (!content.trim() && !image) ? styles.disabledButton : {},
+                  (!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) && styles.postButtonDisabled
                 ]}
                 onPress={handleCreatePost}
-                disabled={(!content.trim() && !image) || loading}
+                disabled={(!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) || loading}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.postButtonText}>Post</Text>
+                  <>
+                    <Ionicons name="send" size={18} color="#FFFFFF" />
+                    <Text style={styles.postButtonText}>{t('post')}</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
+      
+      {/* Workout Log Selector Modal */}
+      {showWorkoutLogSelector && (
+        <WorkoutLogSelector
+          onSelect={handleWorkoutLogSelect}
+          onCancel={() => setShowWorkoutLogSelector(false)}
+        />
+      )}
+      
+      {/* Program Selector Modal */}
+      {showProgramSelector && (
+        <ProgramSelector
+          onSelect={handleProgramSelect}
+          onCancel={() => setShowProgramSelector(false)}
+        />
+      )}
     </>
   );
 };
@@ -253,94 +461,106 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#1F2937',
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
+    marginVertical: 8,
+  },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  avatarContainer: {
-    marginRight: 12,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  avatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   avatarText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
     fontSize: 16,
+    fontWeight: '600',
   },
-  inputContainer: {
+  inputPlaceholder: {
     flex: 1,
-    height: 40,
-    justifyContent: 'center',
     backgroundColor: '#374151',
     borderRadius: 20,
     paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  placeholder: {
+  placeholderText: {
     color: '#9CA3AF',
     fontSize: 14,
   },
-  iconButton: {
+  photoButton: {
+    marginLeft: 12,
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: '#374151',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+  },
+  postTypeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  postTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginHorizontal: 2,
+  },
+  postTypeButtonActive: {
+    backgroundColor: 'rgba(55, 65, 81, 0.5)',
+  },
+  postTypeText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  postTypeTextActive: {
+    fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#1F2937',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
-    minHeight: '60%',
+    height: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: 'rgba(55, 65, 81, 0.5)',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
-  closeButton: {
-    padding: 4,
+  modalBody: {
+    flex: 1,
+    padding: 16,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
-  modalAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  modalAvatarPlaceholder: {
+  userAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -349,21 +569,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  userAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   username: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
-  input: {
+  contentInput: {
     backgroundColor: '#111827',
     borderRadius: 12,
     padding: 16,
     color: '#FFFFFF',
     fontSize: 16,
-    minHeight: 100,
+    minHeight: 120,
     textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: '#374151',
   },
   imagePreviewContainer: {
     marginTop: 16,
@@ -381,40 +604,114 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 16,
   },
-  actionsContainer: {
+  attachmentPreview: {
     marginTop: 16,
+    backgroundColor: '#111827',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+  },
+  attachmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  programIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(167, 139, 250, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  workoutIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  attachmentTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  removeButton: {
+    padding: 8,
+  },
+  attachmentDescription: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 12,
+  },
+  programDetails: {
+    flexDirection: 'row',
+    marginTop: 12,
+  },
+  programDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  programDetailText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 4,
+  },
+  workoutDetails: {
+    flexDirection: 'row',
+    marginTop: 12,
+  },
+  workoutDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  workoutDetailText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 4,
+  },
+  modalFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(55, 65, 81, 0.5)',
   },
   mediaButtons: {
     flexDirection: 'row',
   },
   mediaButton: {
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#374151',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-    padding: 8,
-  },
-  mediaButtonText: {
-    color: '#9CA3AF',
-    marginLeft: 4,
-    fontSize: 14,
+    marginRight: 12,
   },
   postButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#3B82F6',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
   },
-  disabledButton: {
-    backgroundColor: '#3B82F6',
+  postButtonDisabled: {
     opacity: 0.5,
   },
   postButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 16,
+    marginLeft: 8,
   },
 });
 

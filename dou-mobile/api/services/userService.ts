@@ -31,6 +31,18 @@ const userService = {
     const response = await apiClient.get('/users/me/');
     return response.data;
   },
+  
+  searchUsers: async (query: string): Promise<User[]> => {
+    if (!query || query.length < 2) return [];
+    
+    try {
+      const response = await apiClient.get(`/users/search/?q=${encodeURIComponent(query)}`);
+      return extractData(response);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      return [];
+    }
+  },
 
   getUserById: async (id: number): Promise<User> => {
     const response = await apiClient.get(`/users/${id}/`);
@@ -52,6 +64,11 @@ const userService = {
 
   updateUser: async (updates: Partial<User>): Promise<User> => {
     const response = await apiClient.patch('/users/me/', updates);
+    return response.data;
+  },
+  
+  updateLanguagePreference: async (language: string): Promise<User> => {
+    const response = await apiClient.post('/users/update-language/', { language });
     return response.data;
   },
 

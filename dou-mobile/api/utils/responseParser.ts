@@ -18,6 +18,39 @@ export const extractData = (response: AxiosResponse): any => {
 };
 
 /**
+ * Formats log data for API submission
+ * 
+ * @param logData - The log data to format
+ * @returns Formatted log data
+ */
+export const formatLogData = (logData: any): any => {
+  const formattedData = { ...logData };
+  
+  // Format exercises if they exist
+  if (formattedData.exercises) {
+    formattedData.exercises = formattedData.exercises.map((exercise: any) => {
+      // Format each exercise
+      const formattedExercise = { ...exercise };
+      
+      // Format sets if they exist
+      if (formattedExercise.sets) {
+        formattedExercise.sets = formattedExercise.sets.map((set: any, index: number) => ({
+          ...set,
+          reps: parseInt(String(set.reps)),
+          weight: parseFloat(String(set.weight)),
+          rest_time: parseInt(String(set.rest_time)),
+          order: index
+        }));
+      }
+      
+      return formattedExercise;
+    });
+  }
+  
+  return formattedData;
+};
+
+/**
  * Transforms workout logs for display
  * 
  * @param logs - Array of raw log data
