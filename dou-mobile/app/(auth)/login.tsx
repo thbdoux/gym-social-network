@@ -1,4 +1,4 @@
-// app/(auth)/login.tsx with language support
+// app/(auth)/login.tsx with HeaderLogoWithSVG
 import React, { useState } from 'react';
 import {
   View,
@@ -17,6 +17,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../api/services';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
 
 export default function LoginScreen() {
   const { t } = useLanguage();
@@ -99,9 +100,9 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.formContainer}>
-          {/* Logo placeholder */}
+          {/* Replace text logo with HeaderLogoWithSVG */}
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>dou</Text>
+            <HeaderLogoWithSVG />
           </View>
 
           <Text style={styles.title}>

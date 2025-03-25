@@ -9,6 +9,7 @@ import { LanguageProvider } from '../context/LanguageContext';
 import BottomTabBar from '../components/navigation/BottomTabBar';
 import HeaderLogoWithSVG from '../components/navigation/HeaderLogoWithSVG';
 import CustomBackButton from '../components/navigation/CustomBackButton';
+import HeaderSettingsButton from '../components/navigation/HeaderSettingsButton';
 import { View } from 'react-native';
 
 // Keep the splash screen visible while we fetch resources
@@ -53,6 +54,15 @@ export default function RootLayout() {
                     route.name.includes('login');
                   
                   return isMainRoute ? null : <CustomBackButton />;
+                },
+                // Add settings button to header right
+                headerRight: () => {
+                  // Only show on authenticated app routes, not login or settings screens
+                  const showSettings = 
+                    !route.name.includes('login') && 
+                    !route.name.includes('settings');
+                  
+                  return showSettings ? <HeaderSettingsButton /> : null;
                 },
                 // Hide the default back button
                 headerBackVisible: false,

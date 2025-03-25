@@ -52,7 +52,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   // Steps: 0 = post type selection, 1 = content entry
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(1); // Changed default to 1 to skip type selection
   const [postType, setPostType] = useState<string>(initialPostType);
   const [content, setContent] = useState('');
   const [image, setImage] = useState<string | null>(null);
@@ -97,19 +97,19 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
   // Reset state when modal visibility changes
   useEffect(() => {
     if (visible) {
-      // If a post type is provided via props, skip to step 1
-      if (initialPostType !== 'regular') {
-        setPostType(initialPostType);
-        if (initialPostType === 'workout_log') {
-          setShowWorkoutLogSelector(true);
-        } else if (initialPostType === 'program') {
-          setShowProgramSelector(true);
-        } else {
-          setStep(1);
-        }
+      // Always set the post type from initialPostType
+      setPostType(initialPostType);
+      
+      // Based on the post type, show the appropriate selector
+      if (initialPostType === 'workout_log') {
+        setShowWorkoutLogSelector(true);
+      } else if (initialPostType === 'program') {
+        setShowProgramSelector(true);
       } else {
-        setStep(0);
+        // For regular posts, go directly to content entry
+        setStep(1);
       }
+      
       startEntryAnimation();
     } else {
       resetForm();
@@ -153,23 +153,11 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
     ]).start();
   };
   
-  const handlePostTypeSelect = (type: string) => {
-    setPostType(type);
-    
-    // For workout log and program, we need to show the selectors first
-    if (type === 'workout_log') {
-      setShowWorkoutLogSelector(true);
-    } else if (type === 'program') {
-      setShowProgramSelector(true);
-    } else {
-      // For regular or workout invite, go straight to content entry
-      setStep(1);
-    }
-  };
-  
   const handleProgramSelect = (program: any) => {
     setSelectedProgram(program);
     setShowProgramSelector(false);
+    // FIXED: Update the post type to 'program'
+    setPostType('program');
     // Auto-populate content with program name
     setContent(`${t('check_out_program')}: ${program.name}`);
     setStep(1);
@@ -178,6 +166,8 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
   const handleWorkoutLogSelect = (workoutLog: any) => {
     setSelectedWorkoutLog(workoutLog);
     setShowWorkoutLogSelector(false);
+    // FIXED: Update the post type to 'workout_log'
+    setPostType('workout_log');
     // Auto-populate content
     setContent(`${t('just_completed')}: ${workoutLog.workout_name || workoutLog.name || t('a_workout')}`);
     setStep(1);
@@ -265,38 +255,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
     setPostType(initialPostType);
     setSelectedProgram(null);
     setSelectedWorkoutLog(null);
-    setStep(0);
-  };
-  
-  const renderPostTypeSelection = () => {
-    return (
-      <Animated.View 
-        style={[
-          styles.postTypeContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }]
-          }
-        ]}
-      >
-        <Text style={styles.sectionTitle}>{t('choose_post_type')}</Text>
-        
-        <View style={styles.postTypeGrid}>
-          {Object.values(postTypes).map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              style={styles.postTypeCard}
-              onPress={() => handlePostTypeSelect(type.id)}
-            >
-              <View style={[styles.postTypeIconContainer, { backgroundColor: `${type.color}20` }]}>
-                <Ionicons name={type.icon as any} size={24} color={type.color} />
-              </View>
-              <Text style={styles.postTypeLabel}>{type.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Animated.View>
-    );
+    setStep(1); // Always set to content entry
   };
   
   const renderContentEntry = () => {
@@ -515,7 +474,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
-              {step === 0 ? t('create_post') : postTypes[postType]?.label || t('create_post')}
+              {postTypes[postType]?.label || t('create_post')}
             </Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Ionicons name="close" size={24} color="#9CA3AF" />
@@ -523,7 +482,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
           </View>
           
           <View style={styles.modalBody}>
-            {step === 0 ? renderPostTypeSelection() : renderContentEntry()}
+            {renderContentEntry()}
           </View>
         </View>
         
@@ -591,35 +550,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     marginBottom: 24,
-    textAlign: 'center',
-  },
-  postTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  postTypeCard: {
-    width: '48%',
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
-  },
-  postTypeIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  postTypeLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
     textAlign: 'center',
   },
   keyboardAvoidView: {
