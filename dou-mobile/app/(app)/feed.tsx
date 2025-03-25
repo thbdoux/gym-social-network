@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import FeedContainer from '../../components/feed/FeedContainer';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import FabMenu from '../../components/feed/FabMenu';
+import FriendsBubbleList from '../../components/profile/FriendsBubbleList';
+import FriendsModal from '../../components/profile/FriendsModal';
 import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
@@ -22,6 +24,7 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
   
   // Reset post type when modal closes
   const handleModalClose = () => {
@@ -108,8 +111,15 @@ export default function FeedScreen() {
     refetchPosts();
   };
 
+  const handleOpenFriendsModal = () => {
+    setShowFriendsModal(true);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Friends Bubble List */}
+      <FriendsBubbleList onViewAllClick={handleOpenFriendsModal} />
+
       {postsLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -142,6 +152,15 @@ export default function FeedScreen() {
         onPostCreated={handlePostCreated}
         initialPostType={selectedPostType}
       />
+      
+      {/* Friends Modal */}
+      {showFriendsModal && (
+        <FriendsModal
+          isVisible={showFriendsModal}
+          onClose={() => setShowFriendsModal(false)}
+          currentUser={user}
+        />
+      )}
     </SafeAreaView>
   );
 }

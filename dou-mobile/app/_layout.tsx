@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../context/AuthContext';
 import { LanguageProvider } from '../context/LanguageContext';
+import { ModalProvider } from '../context/ModalContext'; // Import ModalProvider
 import BottomTabBar from '../components/navigation/BottomTabBar';
 import HeaderLogoWithSVG from '../components/navigation/HeaderLogoWithSVG';
 import CustomBackButton from '../components/navigation/CustomBackButton';
@@ -28,48 +29,50 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <AuthProvider>
-          <StatusBar style="light" />
-          <View style={{ flex: 1, backgroundColor: '#111827' }}>
-            <Stack
-              screenOptions={({ route }) => ({
-                headerStyle: {
-                  backgroundColor: '#111827', // dark bg color
-                },
-                headerTintColor: '#ffffff', // white text
-                headerTitleStyle: {
-                  fontWeight: 'bold',
-                },
-                contentStyle: {
-                  backgroundColor: '#111827', // dark bg color
-                },
-                // Use custom logo component for header title
-                headerTitle: () => <HeaderLogoWithSVG />,
-                // Custom back button for routes that need it
-                headerLeft: () => {
-                  // Hide back button on main routes
-                  const isMainRoute = 
-                    route.name === 'index' || 
-                    route.name === '(app)/feed' || 
-                    route.name === 'feed' || 
-                    route.name.includes('login');
-                  
-                  return isMainRoute ? null : <CustomBackButton />;
-                },
-                // Add settings button to header right
-                headerRight: () => {
-                  // Only show on authenticated app routes, not login or settings screens
-                  const showSettings = 
-                    !route.name.includes('login') && 
-                    !route.name.includes('settings');
-                  
-                  return showSettings ? <HeaderSettingsButton /> : null;
-                },
-                // Hide the default back button
-                headerBackVisible: false,
-              })}
-            />
-            <BottomTabBar />
-          </View>
+          <ModalProvider> {/* Add ModalProvider here */}
+            <StatusBar style="light" />
+            <View style={{ flex: 1, backgroundColor: '#111827' }}>
+              <Stack
+                screenOptions={({ route }) => ({
+                  headerStyle: {
+                    backgroundColor: '#111827', // dark bg color
+                  },
+                  headerTintColor: '#ffffff', // white text
+                  headerTitleStyle: {
+                    fontWeight: 'bold',
+                  },
+                  contentStyle: {
+                    backgroundColor: '#111827', // dark bg color
+                  },
+                  // Use custom logo component for header title
+                  headerTitle: () => <HeaderLogoWithSVG />,
+                  // Custom back button for routes that need it
+                  headerLeft: () => {
+                    // Hide back button on main routes
+                    const isMainRoute = 
+                      route.name === 'index' || 
+                      route.name === '(app)/feed' || 
+                      route.name === 'feed' || 
+                      route.name.includes('login');
+                    
+                    return isMainRoute ? null : <CustomBackButton />;
+                  },
+                  // Add settings button to header right
+                  headerRight: () => {
+                    // Only show on authenticated app routes, not login or settings screens
+                    const showSettings = 
+                      !route.name.includes('login') && 
+                      !route.name.includes('settings');
+                    
+                    return showSettings ? <HeaderSettingsButton /> : null;
+                  },
+                  // Hide the default back button
+                  headerBackVisible: false,
+                })}
+              />
+              <BottomTabBar />
+            </View>
+          </ModalProvider>
         </AuthProvider>
       </LanguageProvider>
     </QueryClientProvider>

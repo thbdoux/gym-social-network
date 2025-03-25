@@ -1,18 +1,17 @@
 // components/workouts/ProgramCard.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   StyleSheet, 
-  ActivityIndicator, 
-  Animated, 
   Modal,
   Pressable,
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useModal } from '../../context/ModalContext'; // Import useModal hook
 
 interface Program {
   id: number;
@@ -30,23 +29,26 @@ interface Program {
   forked_from?: number;
   is_public?: boolean;
   is_shared_with_me?: boolean;
+  activeWeekday?: number;
+  activeWorkoutId?: number;
 }
 
 interface ProgramCardProps {
   program: Program;
+  programId: number;
   currentUser?: string;
   onEdit?: (program: Program) => void;
   onDelete?: (programId: number) => void;
   onToggleActive?: (programId: number) => Promise<void>;
   onShare?: (program: Program) => void;
-  onFork?: (programId: number) => Promise<void>;
+  onFork?: (programId: number) => Promise<any>;
   onProgramSelect?: (program: Program) => void;
-  compact?: boolean;
-  feedMode?: boolean;
+  inFeedMode?: boolean;
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({
   program,
+  programId,
   currentUser,
   onEdit,
   onDelete,
@@ -54,16 +56,11 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   onShare,
   onFork,
   onProgramSelect,
-  compact = false,
-  feedMode = false,
+  inFeedMode = false,
 }) => {
   const { t } = useLanguage();
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [isToggling, setIsToggling] = useState<boolean>(false);
+  const { openProgramDetail } = useModal(); // Get openProgramDetail from modal context
   const [showOptionsMenu, setShowOptionsMenu] = useState<boolean>(false);
-  
-  // Animation for expand/collapse
-  const expandAnim = useRef(new Animated.Value(0)).current;
   
   if (!program) {
     return null;
@@ -71,10 +68,10 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   
   // Permission checks
   const isCreator = program.creator_username === currentUser;
-  const canEditProgram = isCreator && !feedMode;
+  const canEditProgram = isCreator && !inFeedMode;
   const canShareProgram = isCreator;
-  const canDeleteProgram = isCreator && !feedMode;
-  const canToggleActive = isCreator && !feedMode;
+  const canDeleteProgram = isCreator && !inFeedMode;
+  const canToggleActive = isCreator && !inFeedMode;
   const canForkProgram = !isCreator && (program.is_public || program.is_shared_with_me);
   
   const getFocusIcon = (focus: string) => {
@@ -98,38 +95,14 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
     }
   };
 
-  const toggleExpand = () => {
-    const toValue = isExpanded ? 0 : 1;
-    Animated.timing(expandAnim, {
-      toValue,
-      duration: 300,
-      useNativeDriver: false
-    }).start();
-    setIsExpanded(!isExpanded);
-  };
-  
-  const handleToggleActive = async (): Promise<void> => {
-    if (isToggling || !onToggleActive) return;
-    
-    try {
-      setIsToggling(true);
-      await onToggleActive(program.id);
-    } catch (error) {
-      console.error('Failed to toggle active state:', error);
-    } finally {
-      setIsToggling(false);
-    }
-  };
-
-  // Calculate max height for animation
-  const maxHeight = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 120] // Reduced from 200 as we're removing details
-  });
-  
   // Map weekdays
   const WEEKDAYS = [t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'), t('sun')];
   
+  const handleOpenDetailModal = () => {
+    // Use the global modal instead of local state
+    openProgramDetail(program);
+  };
+
   return (
     <View style={[
       styles.container, 
@@ -138,12 +111,10 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
       {/* Active Program Indicator */}
       {program.is_active && <View style={styles.activeIndicator} />}
       
-      {/* Fork button moved to action buttons section */}
-      
       {/* Main Card Content */}
       <TouchableOpacity 
         style={styles.contentContainer}
-        onPress={feedMode ? () => onProgramSelect && onProgramSelect(program) : toggleExpand}
+        onPress={handleOpenDetailModal}
         activeOpacity={0.7}
       >
         {/* Main Content Area */}
@@ -230,24 +201,18 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
               </TouchableOpacity>
             )}
             
-            {/* Show expand indicator in non-feed mode - Always last/bottom */}
-            {!feedMode && (
-              <TouchableOpacity 
-                onPress={toggleExpand}
-                style={styles.actionButton}
-              >
-                <Ionicons 
-                  name={isExpanded ? "chevron-up" : "chevron-down"} 
-                  size={18} 
-                  color="#9ca3af" 
-                />
-              </TouchableOpacity>
-            )}
+            {/* Detail View button */}
+            <TouchableOpacity 
+              onPress={handleOpenDetailModal}
+              style={styles.actionButton}
+            >
+              <Ionicons name="eye-outline" size={18} color="#9ca3af" />
+            </TouchableOpacity>
           </View>
         </View>
       </TouchableOpacity>
       
-      {/* Calendar section - Always visible even when not expanded */}
+      {/* Calendar section - Always visible */}
       <View style={styles.calendarSection}>
         <Text style={styles.sectionLabel}>{t('weekly_schedule')}</Text>
         <View style={styles.weekdaysRow}>
@@ -260,9 +225,10 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
                 key={index} 
                 style={styles.weekdayItem}
                 onPress={() => {
-                  if (workoutsForDay.length > 0 && onProgramSelect) {
-                    // Clicking on a day with workouts will show workout content
-                    onProgramSelect({...program, activeWeekday: index});
+                  if (workoutsForDay.length > 0) {
+                    // Set activeWeekday before opening the modal
+                    program.activeWeekday = index;
+                    openProgramDetail(program);
                   }
                 }}
                 disabled={!workoutsForDay.length}
@@ -279,81 +245,6 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
           })}
         </View>
       </View>
-      
-      {/* Expandable Details Section - Only in non-feed mode */}
-      {!feedMode && (
-        <Animated.View style={[styles.expandedSection, { maxHeight }]}>
-          <View style={styles.expandedContent}>
-            {/* Workouts List */}
-            {program.workouts && program.workouts.length > 0 && (
-              <View style={styles.workoutsSection}>
-                <Text style={styles.sectionLabel}>{t('workouts')}</Text>
-                <View style={styles.workoutsList}>
-                  {program.workouts.map((workout, index) => (
-                    <TouchableOpacity 
-                      key={index}
-                      style={styles.workoutItem}
-                      onPress={() => {
-                        if (onProgramSelect) {
-                          onProgramSelect({...program, activeWorkoutId: workout.id});
-                        }
-                      }}
-                    >
-                      <View style={styles.workoutIconContainer}>
-                        <Ionicons name="barbell" size={16} style={styles.barbellIcon} />
-                      </View>
-                      <View style={styles.workoutDetails}>
-                        <Text style={styles.workoutName} numberOfLines={1}>
-                          {workout.name}
-                        </Text>
-                        <Text style={styles.workoutDay}>
-                          {workout.preferred_weekday !== undefined ? 
-                            WEEKDAYS[workout.preferred_weekday] : 
-                            t('any_day')}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-            
-            {/* Action Buttons in Expanded View - Only when not in feed mode */}
-            {canToggleActive && !feedMode && (
-              <View style={styles.expandedActions}>
-                <TouchableOpacity 
-                  style={[
-                    program.is_active ? styles.deactivateButton : styles.activateButton
-                  ]}
-                  onPress={handleToggleActive}
-                  disabled={isToggling}
-                >
-                  {isToggling ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons 
-                        name={program.is_active ? "toggle" : "toggle-outline"} 
-                        size={16} 
-                        color={program.is_active ? "#fff" : "#c084fc"} 
-                      />
-                      <Text 
-                        style={[
-                          styles.actionButtonText,
-                          program.is_active ? styles.deactivateButtonText : styles.activateButtonText
-                        ]}
-                      >
-                        {program.is_active ? t('deactivate') : t('activate')}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </Animated.View>
-      )}
       
       {/* Options Menu Modal */}
       <Modal
@@ -374,7 +265,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
               style={styles.optionItem}
               onPress={() => {
                 setShowOptionsMenu(false);
-                onProgramSelect && onProgramSelect(program);
+                // handleOpenDetailModal();
               }}
             >
               <Ionicons name="eye-outline" size={20} color="#60a5fa" />
@@ -415,7 +306,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
                 style={styles.optionItem}
                 onPress={() => {
                   setShowOptionsMenu(false);
-                  handleToggleActive();
+                  onToggleActive && onToggleActive(program.id);
                 }}
               >
                 <Ionicons 
@@ -502,20 +393,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-  },
-  forkButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
   },
   mainContentArea: {
     flexDirection: 'row',
@@ -622,54 +499,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 4,
   },
-  expandedSection: {
-    overflow: 'hidden',
-  },
-  expandedContent: {
-    padding: 16,
-    paddingTop: 0,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.3)',
-  },
   calendarSection: {
     padding: 16,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(55, 65, 81, 0.3)',
-  },
-  workoutsSection: {
-    marginBottom: 16,
-  },
-  workoutsList: {
-    marginTop: 8,
-  },
-  workoutItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.1)',
-  },
-  workoutIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(192, 132, 252, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  workoutDetails: {
-    flex: 1,
-  },
-  workoutName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#e5e7eb',
-  },
-  workoutDay: {
-    fontSize: 12,
-    color: '#9ca3af',
   },
   sectionLabel: {
     fontSize: 13,
@@ -699,49 +533,6 @@ const styles = StyleSheet.create({
   },
   weekdayInactive: {
     backgroundColor: 'rgba(55, 65, 81, 0.5)',
-  },
-  weekdayButton: {
-    padding: 4, // Makes the touch target larger
-  },
-  expandedActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  deactivateButton: {
-    backgroundColor: '#22c55e',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    flex: 1,
-    maxWidth: 200,
-  },
-  activateButton: {
-    backgroundColor: 'rgba(192, 132, 252, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 132, 252, 0.3)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    flex: 1,
-    maxWidth: 200,
-  },
-  actionButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  activateButtonText: {
-    color: '#c084fc',
-  },
-  deactivateButtonText: {
-    color: '#fff',
   },
   modalOverlay: {
     flex: 1,

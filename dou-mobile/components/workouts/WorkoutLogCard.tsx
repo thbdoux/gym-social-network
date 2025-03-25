@@ -1,11 +1,10 @@
 // components/workouts/WorkoutLogCard.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   StyleSheet, 
-  Animated, 
   Modal, 
   Pressable,
   Platform,
@@ -13,8 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-import { useWorkoutFork } from '../../hooks/query/useWorkoutFork';
-import { useWorkoutTemplates } from '../../hooks/query/useWorkoutQuery';
+import { useModal } from '../../context/ModalContext'; // Import useModal hook
 
 interface WorkoutLog {
   id: number;
@@ -33,50 +31,39 @@ interface WorkoutLog {
   mood_rating?: number;
   perceived_difficulty?: number;
   notes?: string;
+  activeExerciseId?: number;
 }
 
 interface WorkoutLogCardProps {
   log: WorkoutLog;
-  currentUser?: string;
+  logId: number;
+  user: string;
   onEdit?: (log: WorkoutLog) => void;
   onDelete?: (log: WorkoutLog) => void;
-  onFork?: (log: WorkoutLog) => void;
+  onFork?: (log: WorkoutLog) => Promise<void>;
   onSelect?: (log: WorkoutLog) => void;
-  compact?: boolean;
-  feedMode?: boolean;
+  inFeedMode?: boolean;
 }
 
 const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({ 
   log, 
-  currentUser,
+  logId,
+  user,
   onEdit, 
   onDelete, 
   onFork,
   onSelect,
-  compact = false,
-  feedMode = false,
+  inFeedMode = false,
 }) => {
   const { t } = useLanguage();
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const { openWorkoutLogDetail } = useModal(); // Get openWorkoutLogDetail from modal context
   const [showOptionsMenu, setShowOptionsMenu] = useState<boolean>(false);
-  
-  // Get fork hook and templates data for fork functionality
-  const { data: templates = [] } = useWorkoutTemplates();
-  const { 
-    isForking, 
-    forkSuccess,
-    forkWorkout,
-    showForkWarning,
-    cancelFork
-  } = useWorkoutFork();
-  
-  // Animation for expand/collapse
-  const expandAnim = useRef(new Animated.Value(0)).current;
   
   if (!log) {
     return null;
   }
   
+  const currentUser = user;
   const isCreator = log.username === currentUser;
   const canFork = !isCreator;
   
@@ -112,22 +99,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
     return '✓';
   };
   
-  const toggleExpand = () => {
-    const toValue = isExpanded ? 0 : 1;
-    Animated.timing(expandAnim, {
-      toValue,
-      duration: 300,
-      useNativeDriver: false
-    }).start();
-    setIsExpanded(!isExpanded);
-  };
-  
-  // Calculate max height for animation - even more reduced since we only show exercises
-  const maxHeight = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 300] // Increased to accommodate potentially more exercises
-  });
-  
   const handleDelete = (): void => {
     Alert.alert(
       t('delete_log'),
@@ -146,46 +117,9 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
     );
   };
   
-  // Handle fork using the fork hook
-  const handleFork = async () => {
-    if (onFork) {
-      // Use custom fork implementation if provided
-      onFork(log);
-    } else {
-      // Otherwise use the hook implementation
-      await forkWorkout(log, templates);
-      if (forkSuccess) {
-        Alert.alert(
-          t('success'),
-          t('workout_forked_successfully'),
-          [{ text: t('ok') }]
-        );
-      }
-    }
-    setShowOptionsMenu(false);
-  };
-  
-  // Handle fork confirmation if already forked
-  const handleForkConfirm = () => {
-    if (showForkWarning) {
-      Alert.alert(
-        t('already_forked'),
-        t('already_forked_workout_message'),
-        [
-          { 
-            text: t('cancel'),
-            onPress: cancelFork,
-            style: 'cancel'
-          },
-          {
-            text: t('fork_again'),
-            onPress: () => forkWorkout(log, templates, true),
-          }
-        ]
-      );
-    } else {
-      handleFork();
-    }
+  const handleOpenDetailModal = () => {
+    // Use the global modal instead of local state
+    openWorkoutLogDetail(log);
   };
   
   const exerciseCount = log.exercise_count || log.exercises?.length || 0;
@@ -199,7 +133,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
       {/* Main Card Content */}
       <TouchableOpacity 
         style={styles.mainCard}
-        onPress={feedMode ? () => onSelect && onSelect(log) : toggleExpand}
+        onPress={handleOpenDetailModal}
         activeOpacity={0.7}
       >
         {/* Date Column */}
@@ -292,25 +226,19 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           {canFork && (
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={handleForkConfirm}
+              onPress={() => onFork && onFork(log)}
             >
               <Ionicons name="download-outline" size={18} color="#60a5fa" />
             </TouchableOpacity>
           )}
           
-          {/* Show expand indicator in non-feed mode - Always last/bottom */}
-          {!feedMode && (
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={toggleExpand}
-            >
-              <Ionicons 
-                name={isExpanded ? "chevron-up" : "chevron-down"} 
-                size={18} 
-                color="#9ca3af" 
-              />
-            </TouchableOpacity>
-          )}
+          {/* Detail View button */}
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={handleOpenDetailModal}
+          >
+            <Ionicons name="eye-outline" size={18} color="#9ca3af" />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
       
@@ -328,56 +256,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             />
           ))}
         </View>
-      )}
-      
-      {/* Expandable Content - Only exercises as requested */}
-      {!feedMode && (
-        <Animated.View style={[styles.expandedSection, { maxHeight }]}>
-          <View style={styles.expandedContent}>
-            {/* Enhanced Exercise Preview - Only showing exercises now */}
-            {log.exercises && log.exercises.length > 0 && (
-              <View style={styles.exercisesPreviewEnhanced}>
-                <Text style={styles.sectionTitle}>{t('exercises')}</Text>
-                <View style={styles.exerciseGrid}>
-                  {log.exercises.map((exercise, index) => (
-                    <View key={index} style={styles.exerciseGridItem}>
-                      <TouchableOpacity 
-                        style={styles.exerciseTouchable}
-                        onPress={() => {
-                          if (onSelect) {
-                            // Select the workout log with focus on this specific exercise
-                            onSelect({...log, activeExerciseId: exercise.id});
-                          }
-                        }}
-                      >
-                        <View style={styles.exerciseIconContainer}>
-                          <Ionicons name="barbell" size={16} color="#c084fc" />
-                        </View>
-                        <View style={styles.exerciseDetails}>
-                          <Text style={styles.exerciseName} numberOfLines={1}>
-                            {exercise.name}
-                          </Text>
-                          <Text style={styles.exerciseSets}>
-                            {exercise.sets?.length || 0} {t('sets')}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-            
-            {/* View Details Button */}
-            <TouchableOpacity 
-              style={styles.viewDetailsButton}
-              onPress={() => onSelect && onSelect(log)}
-            >
-              <Text style={styles.viewDetailsText}>{t('view_full_details')}</Text>
-              <Ionicons name="arrow-forward" size={16} color="#60a5fa" />
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
       )}
       
       {/* Options Menu Modal */}
@@ -398,7 +276,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
               style={styles.optionItem}
               onPress={() => {
                 setShowOptionsMenu(false);
-                onSelect && onSelect(log);
+                handleOpenDetailModal();
               }}
             >
               <Ionicons name="eye-outline" size={20} color="#60a5fa" />
@@ -421,13 +299,13 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             {canFork && (
               <TouchableOpacity 
                 style={styles.optionItem}
-                onPress={handleForkConfirm}
-                disabled={isForking}
+                onPress={() => {
+                  setShowOptionsMenu(false);
+                  onFork && onFork(log);
+                }}
               >
                 <Ionicons name="download-outline" size={20} color="#60a5fa" />
-                <Text style={styles.optionText}>
-                  {isForking ? t('forking_workout') : t('fork_workout')}
-                </Text>
+                <Text style={styles.optionText}>{t('fork_workout')}</Text>
               </TouchableOpacity>
             )}
             
@@ -453,6 +331,8 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           </View>
         </Pressable>
       </Modal>
+
+      {/* Removed direct WorkoutLogDetailModal rendering */}
     </View>
   );
 };
@@ -619,107 +499,6 @@ const styles = StyleSheet.create({
   },
   progressIncomplete: {
     backgroundColor: 'rgba(55, 65, 81, 0.5)',
-  },
-  expandedSection: {
-    overflow: 'hidden',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.2)',
-  },
-  expandedContent: {
-    padding: 16,
-  },
-  indicatorsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginBottom: 16,
-    flexWrap: 'wrap',
-  },
-  indicatorItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    minWidth: 70,
-  },
-  indicatorLabel: {
-    fontSize: 12,
-    color: '#d1d5db',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  bigEmoji: {
-    fontSize: 24,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#e5e7eb',
-    marginBottom: 8,
-  },
-  exercisesPreviewEnhanced: {
-    marginBottom: 16,
-  },
-  exerciseGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  exerciseGridItem: {
-    width: '100%', // Changed from 50% to show exercises as a list
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.1)',
-  },
-  exerciseIconContainer: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(192, 132, 252, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  exerciseTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  exerciseDetails: {
-    flex: 1,
-  },
-  exerciseName: {
-    fontSize: 12,
-    color: '#e5e7eb',
-    fontWeight: '500',
-  },
-  exerciseSets: {
-    fontSize: 10,
-    color: '#9ca3af',
-  },
-  moreExercises: {
-    fontSize: 12,
-    color: '#60a5fa',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  viewDetailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-  },
-  viewDetailsText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#60a5fa',
-    marginRight: 6,
   },
   modalOverlay: {
     flex: 1,
