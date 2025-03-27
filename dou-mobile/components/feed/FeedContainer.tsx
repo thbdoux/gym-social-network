@@ -1,4 +1,4 @@
-// components/feed/FeedContainer.tsx
+// components/feed/FeedContainer.tsx - Updated
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -7,6 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import Post from './Post';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
@@ -35,8 +37,11 @@ interface FeedContainerProps {
   onDelete?: (postId: number) => void;
   onProgramSelect?: (program: any) => void;
   onForkProgram?: (programId: number) => Promise<any>;
+  onProfileClick?: (userId: number) => void;  // Add this line
   refreshing?: boolean;
   onRefresh?: () => void;
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onPostClick?: (postId: number) => void;
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
@@ -47,8 +52,11 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   onDelete,
   onProgramSelect,
   onForkProgram,
+  onProfileClick, 
+  onPostClick,
   refreshing = false,
   onRefresh,
+  onScroll,
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
@@ -176,6 +184,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           userData={usersData[item.user_username]}
           onProgramClick={onProgramSelect}
           onForkProgram={onForkProgram}
+          onProfileClick={onProfileClick}
+          onPostClick={onPostClick}
         />
       )}
       contentContainerStyle={styles.listContainer}
@@ -187,6 +197,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           colors={['#3B82F6']}
         />
       }
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     />
   );
 };
@@ -194,7 +206,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
-    paddingBottom: 80, // Extra padding for FAB
+    paddingBottom: 160, // Extra padding for FAB and Friends Button
   },
   loadingContainer: {
     flex: 1,

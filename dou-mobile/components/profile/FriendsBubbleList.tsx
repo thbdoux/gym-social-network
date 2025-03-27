@@ -28,9 +28,13 @@ interface FriendResponse {
 
 interface FriendsBubbleListProps {
   onViewAllClick?: () => void;
+  hideViewAllButton?: boolean;
 }
 
-const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({ onViewAllClick }) => {
+const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({ 
+  onViewAllClick,
+  hideViewAllButton = false 
+}) => {
   const [selectedUser, setSelectedUser] = useState<Friend | null>(null);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
 
@@ -90,9 +94,11 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({ onViewAllClick })
     <View style={styles.container}>
       <View style={styles.headerContainer}>
         <Text style={styles.headerText}>Friends</Text>
-        <TouchableOpacity onPress={onViewAllClick} style={styles.viewAllButton}>
-          <Ionicons name="people" size={18} color="#3B82F6" />
-        </TouchableOpacity>
+        {!hideViewAllButton && (
+          <TouchableOpacity onPress={onViewAllClick} style={styles.viewAllButton}>
+            <Ionicons name="people" size={18} color="#3B82F6" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView 
@@ -167,10 +173,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#1F2937',
+    backgroundColor: 'transparent', // Transparent background
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
   },
   headerContainer: {
     flexDirection: 'row',
@@ -221,7 +225,7 @@ const styles = StyleSheet.create({
   name: {
     marginTop: 4,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#E5E7EB', // Lighter color for better visibility on transparent bg
     textAlign: 'center',
     width: '100%',
   },
@@ -240,7 +244,7 @@ const styles = StyleSheet.create({
   viewMoreText: {
     marginTop: 4,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#E5E7EB', // Lighter color for better visibility
     textAlign: 'center',
   },
   loadingContainer: {
@@ -263,7 +267,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   emptyText: {
-    color: '#9CA3AF',
+    color: '#E5E7EB', // Lighter color for better visibility
     marginBottom: 8,
   },
   addFriendButton: {

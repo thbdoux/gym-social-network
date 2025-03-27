@@ -48,14 +48,22 @@ export default function RootLayout() {
                   headerTitle: () => <HeaderLogoWithSVG />,
                   // Custom back button for routes that need it
                   headerLeft: () => {
-                    // Hide back button on main routes
+                    // Hide back button on main routes and login routes
                     const isMainRoute = 
                       route.name === 'index' || 
                       route.name === '(app)/feed' || 
-                      route.name === 'feed' || 
+                      route.name === 'feed';
+                    
+                    // Explicitly check for login routes
+                    const isLoginRoute = 
+                      route.name === '(auth)/login' || 
                       route.name.includes('login');
                     
-                    return isMainRoute ? null : <CustomBackButton />;
+                    // No back button for main routes or login routes
+                    // The friends button will be rendered directly in the FeedScreen component
+                    if (isMainRoute || isLoginRoute) return null;
+                    
+                    return <CustomBackButton />;
                   },
                   // Add settings button to header right
                   headerRight: () => {

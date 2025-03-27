@@ -19,6 +19,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)
     likes_count = serializers.SerializerMethodField()
     user_username = serializers.CharField(source='user.username', read_only=True)
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
     workout_log_details = serializers.SerializerMethodField()
     program_details = serializers.SerializerMethodField()
@@ -29,7 +30,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'id', 'content', 'image', 'created_at', 'post_type',
-            'user_username', 'user_profile_picture', 'comments',
+            'user_username','user_id', 'user_profile_picture', 'comments',
             'likes_count', 'workout_log_details', 'program_details',
             'workout_invite_details', 'invited_users_details'
         ]
@@ -61,13 +62,8 @@ class OriginalPostSerializer(serializers.ModelSerializer):
 
     def get_program_details(self, obj):
         if obj.program:
-            return {
-                'id': obj.program.id,
-                'name': obj.program.name,
-                'focus': obj.program.focus,
-                'difficulty_level': obj.program.difficulty_level,
-                'sessions_per_week': obj.program.sessions_per_week
-            }
+            from workouts.serializers import ProgramSerializer
+            return ProgramSerializer(obj.program).data
         return None
 
     def get_workout_invite_details(self, obj):
@@ -97,6 +93,7 @@ class PostSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)
     likes_count = serializers.SerializerMethodField()
     user_username = serializers.CharField(source='user.username', read_only=True)
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
     is_liked = serializers.SerializerMethodField()
     shares_count = serializers.IntegerField(source='share_count', read_only=True)
@@ -122,7 +119,7 @@ class PostSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'content', 'image', 'created_at', 'post_type',
             'workout_log', 'program',
-            'updated_at', 'user_username', 'user_profile_picture',
+            'updated_at', 'user_username', 'user_id','user_profile_picture',
             'comments', 'likes_count', 'is_liked',
             'workout_log_details', 'program_details', 
             'workout_invite_details', 'invited_users_details',

@@ -53,6 +53,9 @@ interface PostProps {
   userData?: any;
   onProgramClick?: (program: any) => void;
   onForkProgram?: (programId: number) => Promise<any>;
+  onProfileClick?: (userId: number) => void;
+  detailMode?: boolean; 
+  onPostClick?: (postId: number) => void; 
 }
 
 const Post: React.FC<PostProps> = ({
@@ -65,7 +68,10 @@ const Post: React.FC<PostProps> = ({
   onDelete,
   userData,
   onProgramClick,
-  onForkProgram
+  onForkProgram,
+  onProfileClick,
+  detailMode,
+  onPostClick  
 }) => {
   const { t } = useLanguage();
   const [showCommentInput, setShowCommentInput] = useState(false);
@@ -135,6 +141,19 @@ const Post: React.FC<PostProps> = ({
     setShareText('');
     setIsShareModalOpen(false);
   };
+
+  const handlePostClick = () => {
+    // Only navigate if we're not in detail mode and a handler is provided
+    if (!detailMode && onPostClick) {
+      onPostClick(post.id);
+    }
+  };
+
+  const handleOriginalPostClick = (originalPostId: number) => {
+    if (onPostClick) {
+      onPostClick(originalPostId);
+    }
+  };
   
   const handleDeletePost = () => {
     Alert.alert(
@@ -163,18 +182,39 @@ const Post: React.FC<PostProps> = ({
   
   const postTypeDetails = getPostTypeDetails(effectivePostType);
   
-  const SharedPostContent = ({ originalPost }: { originalPost: any }) => {
+  const SharedPostContent = ({ 
+    originalPost, 
+    onOriginalPostClick 
+  }: { 
+    originalPost: any,
+    onOriginalPostClick?: (postId: number) => void 
+  }) => {
     // Get post type details for the original post
     const originalPostTypeDetails = getPostTypeDetails(originalPost.post_type);
     
+    // Add a handler for clicking on the shared post content
+    const handleOriginalPostClick = () => {
+      if (onOriginalPostClick && originalPost.id) {
+        onOriginalPostClick(originalPost.id);
+      }
+    };
+    
     return (
-      <View style={styles.sharedPostContainer}>
+      <TouchableOpacity 
+        style={styles.sharedPostContainer}
+        onPress={handleOriginalPostClick}
+        activeOpacity={0.7}
+      >
         <View style={styles.sharedPostHeader}>
-          <View style={styles.sharedPostAvatar}>
+          <TouchableOpacity 
+            style={styles.sharedPostAvatar}
+            onPress={() => originalPost.user_id && onProfileClick && onProfileClick(originalPost.user_id)}
+            activeOpacity={0.7}
+          >
             <Text style={styles.sharedPostAvatarText}>
               {originalPost.user_username?.[0]?.toUpperCase() || '?'}
             </Text>
-          </View>
+          </TouchableOpacity>
           
           <View>
             <Text style={styles.sharedPostUsername}>{originalPost.user_username}</Text>
@@ -186,7 +226,7 @@ const Post: React.FC<PostProps> = ({
         
         <Text style={styles.sharedPostContent}>{originalPost.content}</Text>
         
-        {/* Use WorkoutLogCard for workout logs */}
+        {/* Keep the rest of the component the same */}
         {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && (
           <WorkoutLogCard
             user={currentUser}
@@ -196,7 +236,6 @@ const Post: React.FC<PostProps> = ({
           />
         )}
         
-        {/* Use ProgramCard for programs */}
         {originalPost.post_type === 'program' && originalPost.program_details && (
           <ProgramCard 
             programId={originalPost.program_id || originalPost.program}
@@ -207,7 +246,6 @@ const Post: React.FC<PostProps> = ({
           />
         )}
         
-        {/* Original Post Image */}
         {originalPost.image && (
           <Image
             source={{ uri: originalPost.image }}
@@ -215,7 +253,7 @@ const Post: React.FC<PostProps> = ({
             resizeMode="cover"
           />
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
   
@@ -250,22 +288,40 @@ const Post: React.FC<PostProps> = ({
   );
   
   return (
+    <TouchableOpacity 
+    activeOpacity={detailMode ? 1 : 0.7}
+    onPress={handlePostClick}
+    disabled={detailMode}
+    style={{marginBottom: 8}} // To maintain spacing
+  >
     <View style={styles.container}>
       {/* Post Header */}
       <View style={styles.header}>
         <View style={styles.authorContainer}>
-          <View style={styles.avatar}>
-            {userData?.avatar ? (
-              <Image
-                source={{ uri: userData.avatar }}
-                style={styles.avatarImage}
-              />
-            ) : (
-              <Text style={styles.avatarText}>
-                {post.user_username?.[0]?.toUpperCase() || '?'}
-              </Text>
-            )}
-          </View>
+        <TouchableOpacity 
+          style={styles.avatar}
+          onPress={() => {
+            console.log('Avatar clicked, post: ', post);
+            // Use shared_by.id for shared posts, otherwise look for user_id elsewhere
+            const userId = post.shared_by?.id || post.user_id;
+            if (onProfileClick && userId) {
+              console.log('Calling onProfileClick with userId:', userId);
+              onProfileClick(userId);
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          {userData?.avatar ? (
+            <Image
+              source={{ uri: userData.avatar }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={styles.avatarText}>
+              {post.user_username?.[0]?.toUpperCase() || '?'}
+            </Text>
+          )}
+        </TouchableOpacity>
           
           <View style={styles.authorInfo}>
             <View style={styles.authorNameRow}>
@@ -367,7 +423,10 @@ const Post: React.FC<PostProps> = ({
         
         {/* Shared Post */}
         {post.is_share && post.original_post_details && (
-          <SharedPostContent originalPost={post.original_post_details} />
+          <SharedPostContent 
+            originalPost={post.original_post_details} 
+            onOriginalPostClick={handleOriginalPostClick}
+          />
         )}
         
         {/* Regular Image */}
@@ -472,7 +531,7 @@ const Post: React.FC<PostProps> = ({
       )}
       
       {/* Comments Section */}
-      {showCommentInput && <Comments />}
+      {(showCommentInput || detailMode) && <Comments />}
       
       {/* Share Modal */}
       <Modal
@@ -518,6 +577,7 @@ const Post: React.FC<PostProps> = ({
         </View>
       </Modal>
     </View>
+    </TouchableOpacity>
   );
 };
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -7,11 +8,14 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Alert,
+  Animated,
+  Modal,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import FeedContainer from '../../components/feed/FeedContainer';
 import PostCreationModal from '../../components/feed/PostCreationModal';
+import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FabMenu from '../../components/feed/FabMenu';
 import FriendsBubbleList from '../../components/profile/FriendsBubbleList';
 import FriendsModal from '../../components/profile/FriendsModal';
@@ -20,11 +24,15 @@ import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
 
 export default function FeedScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
   const [showFriendsModal, setShowFriendsModal] = useState(false);
+  const [showFriendsList, setShowFriendsList] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   
   // Reset post type when modal closes
   const handleModalClose = () => {
@@ -65,6 +73,9 @@ export default function FeedScreen() {
       console.error('Error liking post:', err);
       Alert.alert('Error', 'Failed to like post');
     }
+  };
+  const handlePostClick = (postId: number) => {
+    router.push(`/post/${postId}`);
   };
 
   const handleComment = async (postId: number, content: string) => {
@@ -113,12 +124,32 @@ export default function FeedScreen() {
 
   const handleOpenFriendsModal = () => {
     setShowFriendsModal(true);
+    setShowFriendsList(false); // Close the friends list when opening the modal
+  };
+  
+  // Toggle friends list visibility
+  const toggleFriendsList = () => {
+    setShowFriendsList(!showFriendsList);
+  };
+
+  // Handle profile click
+  const handleProfileClick = (userId: number) => {
+    console.log('Profile clicked in FeedScreen, userId:', userId);
+    setSelectedUserId(userId);
+    setShowProfileModal(true);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Friends Bubble List */}
-      <FriendsBubbleList onViewAllClick={handleOpenFriendsModal} />
+      {/* Friends button in the header */}
+      <View style={styles.friendsButtonContainer}>
+        <TouchableOpacity
+          style={styles.friendsButton}
+          onPress={toggleFriendsList}
+        >
+          <Ionicons name="people" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
 
       {postsLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
@@ -132,6 +163,8 @@ export default function FeedScreen() {
           onShare={handleShare}
           onDelete={handleDeletePost}
           onForkProgram={handleForkProgram}
+          onProfileClick={handleProfileClick}
+          onPostClick={handlePostClick}
           refreshing={refreshing}
           onRefresh={handleRefresh}
         />
@@ -161,6 +194,41 @@ export default function FeedScreen() {
           currentUser={user}
         />
       )}
+
+
+      {/* Profile Preview Modal */}
+      {selectedUserId && (
+        <ProfilePreviewModal
+          isVisible={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          userId={selectedUserId}
+        />
+      )}
+
+      {/* Friends Bubble List Modal with darkened background */}
+      <Modal
+        visible={showFriendsList}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFriendsList(false)}
+      >
+        <View style={styles.friendsListModalContainer}>
+          {/* Darkened background touchable overlay */}
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1}
+            onPress={() => setShowFriendsList(false)}
+          />
+          
+          {/* Friends list content */}
+          <View style={styles.friendsListContent}>
+            <FriendsBubbleList 
+              onViewAllClick={handleOpenFriendsModal} 
+              hideViewAllButton={true} // Hide the top-right button
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -169,6 +237,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#111827',
+  },
+  friendsButtonContainer: {
+    position: 'absolute',
+    top: 8,
+    left: 16,
+    zIndex: 100,
+  },
+  friendsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  friendsListModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  friendsListContent: {
+    marginTop: 56, // Position below the header
+    marginHorizontal: 16,
+    borderRadius: 12,
   },
   loadingContainer: {
     flex: 1,
