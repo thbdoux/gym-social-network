@@ -1,606 +1,319 @@
 // components/workouts/ProgramCard.tsx
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Modal,
-  Pressable,
-  Platform
-} from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-import { useModal } from '../../context/ModalContext'; // Import useModal hook
-
-interface Program {
-  id: number;
-  name: string;
-  description?: string;
-  focus: string;
-  difficulty_level: string;
-  creator_username: string;
-  is_active: boolean;
-  sessions_per_week: number;
-  estimated_completion_weeks: number;
-  created_at: string;
-  workouts?: any[];
-  tags?: string[];
-  forked_from?: number;
-  is_public?: boolean;
-  is_shared_with_me?: boolean;
-  activeWeekday?: number;
-  activeWorkoutId?: number;
-}
+import { useModal } from '../../context/ModalContext';
 
 interface ProgramCardProps {
-  program: Program;
   programId: number;
-  currentUser?: string;
-  onEdit?: (program: Program) => void;
-  onDelete?: (programId: number) => void;
-  onToggleActive?: (programId: number) => Promise<void>;
-  onShare?: (program: Program) => void;
-  onFork?: (programId: number) => Promise<any>;
-  onProgramSelect?: (program: Program) => void;
+  program: {
+    id: number;
+    name: string;
+    focus: string;
+    difficulty_level: string;
+    creator_username: string;
+    is_active?: boolean;
+    sessions_per_week: number;
+    estimated_completion_weeks: number;
+    workouts?: any[];
+    tags?: string[];
+    is_public?: boolean;
+  };
   inFeedMode?: boolean;
+  currentUser?: string;
+  onProgramSelect?: (program: any) => void;
+  onFork?: (programId: number) => Promise<any>;
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({
-  program,
   programId,
-  currentUser,
-  onEdit,
-  onDelete,
-  onToggleActive,
-  onShare,
-  onFork,
-  onProgramSelect,
+  program,
   inFeedMode = false,
+  currentUser,
+  onFork
 }) => {
   const { t } = useLanguage();
-  const { openProgramDetail } = useModal(); // Get openProgramDetail from modal context
-  const [showOptionsMenu, setShowOptionsMenu] = useState<boolean>(false);
+  const { openProgramDetail } = useModal();
+  const isOwner = currentUser === program.creator_username;
+
+  // Get weekdays for program schedule visualization
+  const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   
-  if (!program) {
-    return null;
-  }
-  
-  // Permission checks
-  const isCreator = program.creator_username === currentUser;
-  const canEditProgram = isCreator && !inFeedMode;
-  const canShareProgram = isCreator;
-  const canDeleteProgram = isCreator && !inFeedMode;
-  const canToggleActive = isCreator && !inFeedMode;
-  const canForkProgram = !isCreator && (program.is_public || program.is_shared_with_me);
-  
-  const getFocusIcon = (focus: string) => {
-    switch(focus) {
-      case 'strength': return 'trophy';
-      case 'hypertrophy': return 'layers';
-      case 'endurance': return 'pulse';
-      case 'weight_loss': return 'ribbon';
-      case 'strength_hypertrophy': return 'star';
-      default: return 'trending-up';
-    }
-  };
-  
-  const getDifficultyIcon = (level?: string) => {
-    switch(level?.toLowerCase()) {
-      case 'beginner': return '🔰';
-      case 'intermediate': return '⚡';
-      case 'advanced': return '💪';
-      case 'expert': return '🏆';
-      default: return '✓';
-    }
+  // Format focus text (convert snake_case to Title Case)
+  const formatFocus = (focus: string) => {
+    return focus
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
-  // Map weekdays
-  const WEEKDAYS = [t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'), t('sun')];
-  
-  const handleOpenDetailModal = () => {
-    // Use the global modal instead of local state
+  const handleCardPress = () => {
     openProgramDetail(program);
   };
 
+  const handleFork = (e: any) => {
+    e.stopPropagation();
+    if (onFork) {
+      onFork(programId);
+    }
+  };
+
   return (
-    <View style={[
-      styles.container, 
-      program.is_active ? styles.containerActive : styles.containerRegular
-    ]}>
-      {/* Active Program Indicator */}
-      {program.is_active && <View style={styles.activeIndicator} />}
-      
-      {/* Main Card Content */}
-      <TouchableOpacity 
-        style={styles.contentContainer}
-        onPress={handleOpenDetailModal}
-        activeOpacity={0.7}
-      >
-        {/* Main Content Area */}
-        <View style={styles.mainContentArea}>
-          {/* Title and Basic Info */}
-          <View style={styles.titleAndInfoContainer}>
-            <View style={styles.titleWrapper}>
-              <Text style={styles.title} numberOfLines={1}>
-                {program.name}
-              </Text>
-              
-              {/* Active/Inactive Badge */}
-              {program.is_active ? (
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeText}>{t('active')}</Text>
-                </View>
-              ) : (
-                <View style={styles.inactiveBadge}>
-                  <Text style={styles.inactiveBadgeText}>{t('inactive')}</Text>
-                </View>
-              )}
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={handleCardPress}
+      style={styles.container}
+    >
+      {/* Main content */}
+      <View style={styles.cardContent}>
+        {/* Title and badges row */}
+        <View style={styles.topRow}>
+          <Text style={styles.title} numberOfLines={1}>
+            {program.name}
+          </Text>
+          
+          {program.is_active && (
+            <View style={styles.activeBadge}>
+              <Text style={styles.badgeText}>{t('active')}</Text>
             </View>
-            
-            {/* Stats Row - moved below title */}
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Ionicons name="calendar-outline" size={14} style={styles.calendarIcon} />
-                <Text style={styles.statValue}>{program.sessions_per_week}x</Text>
-              </View>
-              
-              <View style={styles.statDivider} />
-              
-              <View style={styles.statItem}>
-                <Ionicons name="barbell-outline" size={14} style={styles.barbellIcon} />
-                <Text style={styles.statValue}>{program.workouts?.length || 0}</Text>
-              </View>
-              
-              <View style={styles.statDivider} />
-              
-              <View style={styles.statItem}>
-                <Text style={styles.levelIcon}>
-                  {getDifficultyIcon(program.difficulty_level)}
-                </Text>
-                <Text style={styles.statValue}>{t(program.difficulty_level)}</Text>
-              </View>
-              
-              {program.focus && (
-                <>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Ionicons name={getFocusIcon(program.focus)} size={14} style={styles.focusIcon} />
-                    <Text style={styles.statValue}>{t(program.focus.replace(/_/g, ' '))}</Text>
-                  </View>
-                </>
-              )}
-            </View>
-            
-            {/* Creator Info */}
-            <View style={styles.creatorRow}>
-              <Ionicons name="person-outline" size={12} color="#9ca3af" />
-              <Text style={styles.creatorText} numberOfLines={1}>
-                {program.creator_username}
-              </Text>
-            </View>
+          )}
+        </View>
+        
+        {/* Focus area (goal) */}
+        <View style={styles.focusRow}>
+          <Text style={styles.focusText}>
+            {formatFocus(program.focus)}
+          </Text>
+        </View>
+        
+        {/* Info row */}
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>{t('level')}</Text>
+            <Text style={styles.infoValue}>{program.difficulty_level}</Text>
           </View>
           
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            {/* Options Menu - Always first/top */}
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => setShowOptionsMenu(true)}
-            >
-              <Ionicons name="ellipsis-vertical" size={18} color="#9ca3af" />
-            </TouchableOpacity>
-            
-            {/* Fork button for non-creators - Using download icon now */}
-            {canForkProgram && (
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => onFork && onFork(program.id)}
-              >
-                <Ionicons name="download-outline" size={18} color="#60a5fa" />
-              </TouchableOpacity>
-            )}
-            
-            {/* Detail View button */}
-            <TouchableOpacity 
-              onPress={handleOpenDetailModal}
-              style={styles.actionButton}
-            >
-              <Ionicons name="eye-outline" size={18} color="#9ca3af" />
-            </TouchableOpacity>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>{t('sessions')}</Text>
+            <Text style={styles.infoValue}>{program.sessions_per_week}x</Text>
           </View>
-        </View>
-      </TouchableOpacity>
-      
-      {/* Calendar section - Always visible */}
-      <View style={styles.calendarSection}>
-        <Text style={styles.sectionLabel}>{t('weekly_schedule')}</Text>
-        <View style={styles.weekdaysRow}>
-          {WEEKDAYS.map((day, index) => {
-            const hasWorkouts = program.workouts?.some(w => w.preferred_weekday === index);
-            const workoutsForDay = program.workouts?.filter(w => w.preferred_weekday === index) || [];
-            
-            return (
-              <TouchableOpacity 
-                key={index} 
-                style={styles.weekdayItem}
-                onPress={() => {
-                  if (workoutsForDay.length > 0) {
-                    // Set activeWeekday before opening the modal
-                    program.activeWeekday = index;
-                    openProgramDetail(program);
-                  }
-                }}
-                disabled={!workoutsForDay.length}
-              >
-                <Text style={styles.weekdayLabel}>{day}</Text>
-                <View 
-                  style={[
-                    styles.weekdayIndicator,
-                    hasWorkouts ? styles.weekdayActive : styles.weekdayInactive
-                  ]}
-                />
-              </TouchableOpacity>
-            );
-          })}
         </View>
       </View>
       
-      {/* Options Menu Modal */}
-      <Modal
-        visible={showOptionsMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowOptionsMenu(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowOptionsMenu(false)}
-        >
-          <View style={styles.optionsMenu}>
-            <Text style={styles.optionsTitle}>{program.name}</Text>
-            
-            {/* View Details */}
-            <TouchableOpacity 
-              style={styles.optionItem}
-              onPress={() => {
-                setShowOptionsMenu(false);
-                // handleOpenDetailModal();
-              }}
-            >
-              <Ionicons name="eye-outline" size={20} color="#60a5fa" />
-              <Text style={styles.optionText}>{t('view_details')}</Text>
-            </TouchableOpacity>
-            
-            {/* Edit option - only for creator and not in feed mode */}
-            {canEditProgram && (
-              <TouchableOpacity 
-                style={styles.optionItem}
-                onPress={() => {
-                  setShowOptionsMenu(false);
-                  onEdit && onEdit(program);
-                }}
-              >
-                <Ionicons name="create-outline" size={20} color="#60a5fa" />
-                <Text style={styles.optionText}>{t('edit_program')}</Text>
-              </TouchableOpacity>
-            )}
-            
-            {/* Share option */}
-            {canShareProgram && (
-              <TouchableOpacity 
-                style={styles.optionItem}
-                onPress={() => {
-                  setShowOptionsMenu(false);
-                  onShare && onShare(program);
-                }}
-              >
-                <Ionicons name="share-social-outline" size={20} color="#60a5fa" />
-                <Text style={styles.optionText}>{t('share_program')}</Text>
-              </TouchableOpacity>
-            )}
-            
-            {/* Toggle active - only for creator and not in feed mode */}
-            {canToggleActive && (
-              <TouchableOpacity 
-                style={styles.optionItem}
-                onPress={() => {
-                  setShowOptionsMenu(false);
-                  onToggleActive && onToggleActive(program.id);
-                }}
-              >
-                <Ionicons 
-                  name={program.is_active ? "toggle" : "toggle-outline"} 
-                  size={20} 
-                  color={program.is_active ? "#22c55e" : "#60a5fa"} 
-                />
-                <Text style={styles.optionText}>
-                  {program.is_active ? t('deactivate_program') : t('activate_program')}
-                </Text>
-              </TouchableOpacity>
-            )}
-            
-            {/* Fork option for non-creators */}
-            {canForkProgram && (
-              <TouchableOpacity 
-                style={styles.optionItem}
-                onPress={() => {
-                  setShowOptionsMenu(false);
-                  onFork && onFork(program.id);
-                }}
-              >
-                <Ionicons name="download-outline" size={20} color="#60a5fa" />
-                <Text style={styles.optionText}>{t('fork_program')}</Text>
-              </TouchableOpacity>
-            )}
-            
-            {/* Delete option - only for creator and not in feed mode */}
-            {canDeleteProgram && (
-              <TouchableOpacity 
-                style={[styles.optionItem, styles.deleteOption]}
-                onPress={() => {
-                  setShowOptionsMenu(false);
-                  onDelete && onDelete(program.id);
-                }}
-              >
-                <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                <Text style={styles.deleteOptionText}>{t('delete_program')}</Text>
-              </TouchableOpacity>
-            )}
-            
-            <TouchableOpacity 
-              style={styles.cancelOption}
-              onPress={() => setShowOptionsMenu(false)}
-            >
-              <Text style={styles.cancelText}>{t('cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
-    </View>
+      {/* Weekly schedule visualization */}
+      <View style={styles.scheduleRow}>
+        {WEEKDAYS.map((day, index) => {
+          const hasWorkout = program.workouts?.some(w => 
+            w.preferred_weekday === index
+          );
+          
+          return (
+            <View key={index} style={styles.dayItem}>
+              <Text style={styles.dayText}>{day}</Text>
+              <View style={[
+                styles.dayIndicator,
+                hasWorkout ? styles.dayActive : styles.dayInactive
+              ]} />
+            </View>
+          );
+        })}
+      </View>
+      
+      {/* Actions */}
+      <View style={styles.actionsRow}>
+        <View style={styles.creatorInfo}>
+          <Ionicons name="person" size={12} color="#9CA3AF" />
+          <Text style={styles.creatorText}>{program.creator_username}</Text>
+        </View>
+        
+        {!isOwner && (
+          <TouchableOpacity 
+            style={styles.forkButton}
+            onPress={handleFork}
+          >
+            <Ionicons name="download-outline" size={14} color="#FFFFFF" />
+            <Text style={styles.forkText}>{t('fork')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'rgba(192, 132, 252, 0.1)', // Light purple background for all cards
-    borderWidth: 1,
-    borderColor: 'rgba(192, 132, 252, 0.5)', // Purple border for all cards
+    backgroundColor: '#7e22ce', // Deeper, more vigorous purple
+    marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
-    position: 'relative',
   },
-  containerRegular: {
-    // Styles shared by all cards now
-  },
-  containerActive: {
-    // Styles shared by all cards now
-  },
-  activeIndicator: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: '#c084fc',
-    zIndex: 1,
-  },
-  contentContainer: {
+  cardContent: {
     padding: 16,
   },
-  mainContentArea: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  titleAndInfoContainer: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  titleWrapper: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 6,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#FFFFFF',
     flex: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    marginRight: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  activeBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  badgeText: {
+    color: '#7e22ce',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  focusRow: {
+    marginBottom: 12,
+  },
+  focusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  infoItem: {
+    marginRight: 16,
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  activeBadge: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-  },
-  inactiveBadge: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: 'rgba(156, 163, 175, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(156, 163, 175, 0.3)',
-  },
-  activeBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#22c55e',
-  },
-  inactiveBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#9ca3af',
-  },
-  statsRow: {
+  scheduleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
-  statItem: {
-    flexDirection: 'row',
+  dayItem: {
     alignItems: 'center',
   },
-  statDivider: {
-    width: 1,
+  dayText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+  },
+  dayIndicator: {
+    width: 12,
     height: 12,
-    backgroundColor: 'rgba(156, 163, 175, 0.3)',
-    marginHorizontal: 6,
+    borderRadius: 6,
   },
-  statValue: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#d1d5db',
-    marginLeft: 4,
+  dayActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
   },
-  levelIcon: {
-    fontSize: 14,
+  dayInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  // Colorized stat icons
-  calendarIcon: {
-    color: '#f97316', // Orange
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  barbellIcon: {
-    color: '#c084fc', // Purple
-  },
-  focusIcon: {
-    color: '#60a5fa', // Blue
-  },
-  creatorRow: {
+  creatorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   creatorText: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: 'rgba(255, 255, 255, 0.7)',
     marginLeft: 4,
   },
-  actionButtons: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  actionButton: {
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  calendarSection: {
-    padding: 16,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.3)',
-  },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#e5e7eb',
-    marginBottom: 8,
-  },
-  weekdaysRow: {
+  forkButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  weekdayItem: {
     alignItems: 'center',
-  },
-  weekdayLabel: {
-    fontSize: 11,
-    color: '#9ca3af',
-    marginBottom: 4,
-  },
-  weekdayIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  weekdayActive: {
-    backgroundColor: '#c084fc',
-  },
-  weekdayInactive: {
-    backgroundColor: 'rgba(55, 65, 81, 0.5)',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  optionsMenu: {
-    backgroundColor: '#1F2937',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 16,
-    width: '90%',
-    maxWidth: 400,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(75, 85, 99, 0.5)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  optionsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#e5e7eb',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.3)',
+  forkText: {
+    color: '#7e22ce',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
   },
-  optionItem: {
-    flexDirection: 'row',
+  workoutBubbles: {
+    position: 'absolute',
+    top: 25,
+    left: -20,
+    width: 60,
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.2)',
   },
-  optionText: {
-    fontSize: 15,
-    marginLeft: 12,
-    color: '#e5e7eb',
+  workoutBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 5,
+    marginTop: 2,
+    maxWidth: 60,
   },
-  deleteOption: {
-    borderBottomWidth: 0,
-  },
-  deleteOptionText: {
-    fontSize: 15,
-    marginLeft: 12,
-    color: '#ef4444',
-  },
-  cancelOption: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
-  },
-  cancelText: {
-    fontSize: 15,
+  workoutName: {
+    color: '#7e22ce',
+    fontSize: 8,
     fontWeight: '600',
-    color: '#60a5fa',
   },
+  moreBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 5,
+    marginTop: 2,
+  },
+  moreText: {
+    color: '#7e22ce',
+    fontSize: 8,
+    fontWeight: '600',
+  }
 });
 
 export default ProgramCard;

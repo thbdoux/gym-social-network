@@ -1,22 +1,19 @@
-import React, { useState, useRef } from 'react';
+// app/(app)/feed.tsx
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   SafeAreaView,
   Alert,
   Animated,
-  Modal,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
-import { Ionicons } from '@expo/vector-icons';
+import { useHeaderAnimation } from '../../context/HeaderAnimationContext';
 import FeedContainer from '../../components/feed/FeedContainer';
-import PostCreationModal from '../../components/feed/PostCreationModal';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
-import FabMenu from '../../components/feed/FabMenu';
 import FriendsBubbleList from '../../components/profile/FriendsBubbleList';
 import FriendsModal from '../../components/profile/FriendsModal';
 import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
@@ -27,19 +24,18 @@ export default function FeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [selectedPostType, setSelectedPostType] = useState<string>('regular');
   const [showFriendsModal, setShowFriendsModal] = useState(false);
-  const [showFriendsList, setShowFriendsList] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   
-  // Reset post type when modal closes
-  const handleModalClose = () => {
-    setShowPostModal(false);
-    // Reset back to regular after modal closes
-    setTimeout(() => setSelectedPostType('regular'), 300);
-  };
+  // Create an animated scroll value and share it with the header animation context
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const { setScrollY } = useHeaderAnimation();
+  
+  // Share the scroll value with the header animation context
+  useEffect(() => {
+    setScrollY(scrollY);
+  }, [scrollY, setScrollY]);
   
   // Use React Query hooks
   const { 
@@ -74,6 +70,7 @@ export default function FeedScreen() {
       Alert.alert('Error', 'Failed to like post');
     }
   };
+  
   const handlePostClick = (postId: number) => {
     router.push(`/post/${postId}`);
   };
@@ -115,76 +112,55 @@ export default function FeedScreen() {
     }
   };
 
-  const handlePostCreated = (newPost: any) => {
-    // The React Query will automatically update the cache,
-    // so we don't need to manually update the posts state.
-    // Just refetch to ensure everything is fresh
-    refetchPosts();
-  };
-
   const handleOpenFriendsModal = () => {
     setShowFriendsModal(true);
-    setShowFriendsList(false); // Close the friends list when opening the modal
   };
   
-  // Toggle friends list visibility
-  const toggleFriendsList = () => {
-    setShowFriendsList(!showFriendsList);
-  };
-
   // Handle profile click
   const handleProfileClick = (userId: number) => {
-    console.log('Profile clicked in FeedScreen, userId:', userId);
     setSelectedUserId(userId);
     setShowProfileModal(true);
   };
+  
+  // Handle scroll events to track scroll position for header animation
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false }
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Friends button in the header */}
-      <View style={styles.friendsButtonContainer}>
-        <TouchableOpacity
-          style={styles.friendsButton}
-          onPress={toggleFriendsList}
-        >
-          <Ionicons name="people" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      {postsLoading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>Loading posts...</Text>
+      <View style={styles.mainContainer}>
+        {/* Friends list in a fixed position above feed (not overlapping) */}
+        <View style={styles.friendsListWrapper}>
+          <FriendsBubbleList onViewAllClick={handleOpenFriendsModal} />
         </View>
-      ) : (
-        <FeedContainer
-          onLike={handleLike}
-          onComment={handleComment}
-          onShare={handleShare}
-          onDelete={handleDeletePost}
-          onForkProgram={handleForkProgram}
-          onProfileClick={handleProfileClick}
-          onPostClick={handlePostClick}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-        />
-      )}
-
-      {/* FAB Menu */}
-      <FabMenu 
-        onItemPress={(itemId) => {
-          setSelectedPostType(itemId);
-          setShowPostModal(true);
-        }} 
-      />
-      
-      {/* Post Creation Modal */}
-      <PostCreationModal
-        visible={showPostModal}
-        onClose={handleModalClose}
-        onPostCreated={handlePostCreated}
-        initialPostType={selectedPostType}
-      />
+        
+        {/* Then render the feed with proper spacing to avoid overlap */}
+        <View style={styles.feedWrapper}>
+          {postsLoading && !refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text style={styles.loadingText}>Loading posts...</Text>
+            </View>
+          ) : (
+            <FeedContainer
+              onLike={handleLike}
+              onComment={handleComment}
+              onShare={handleShare}
+              onDelete={handleDeletePost}
+              onForkProgram={handleForkProgram}
+              onProfileClick={handleProfileClick}
+              onPostClick={handlePostClick}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={styles.feedContentContainer}
+            />
+          )}
+        </View>
+      </View>
       
       {/* Friends Modal */}
       {showFriendsModal && (
@@ -195,7 +171,6 @@ export default function FeedScreen() {
         />
       )}
 
-
       {/* Profile Preview Modal */}
       {selectedUserId && (
         <ProfilePreviewModal
@@ -204,31 +179,6 @@ export default function FeedScreen() {
           userId={selectedUserId}
         />
       )}
-
-      {/* Friends Bubble List Modal with darkened background */}
-      <Modal
-        visible={showFriendsList}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowFriendsList(false)}
-      >
-        <View style={styles.friendsListModalContainer}>
-          {/* Darkened background touchable overlay */}
-          <TouchableOpacity 
-            style={styles.modalOverlay} 
-            activeOpacity={1}
-            onPress={() => setShowFriendsList(false)}
-          />
-          
-          {/* Friends list content */}
-          <View style={styles.friendsListContent}>
-            <FriendsBubbleList 
-              onViewAllClick={handleOpenFriendsModal} 
-              hideViewAllButton={true} // Hide the top-right button
-            />
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -238,32 +188,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#111827',
   },
-  friendsButtonContainer: {
-    position: 'absolute',
-    top: 8,
-    left: 16,
-    zIndex: 100,
-  },
-  friendsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(59, 130, 246, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  friendsListModalContainer: {
+  mainContainer: {
     flex: 1,
-    justifyContent: 'flex-start',
+    position: 'relative',
   },
-  modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  friendsListWrapper: {
+    width: '100%',
+    backgroundColor: '#111827',
+    zIndex: 5,
+    // Fixed position at the top of the screen, not animated
+    // No position: 'absolute' so it doesn't overlap
   },
-  friendsListContent: {
-    marginTop: 56, // Position below the header
-    marginHorizontal: 16,
-    borderRadius: 12,
+  feedWrapper: {
+    flex: 1,
+    // No paddingTop needed as the FriendsBubbleList takes its natural height
+  },
+  feedContentContainer: {
+    paddingBottom: 80, // Space for bottom tab bar
   },
   loadingContainer: {
     flex: 1,

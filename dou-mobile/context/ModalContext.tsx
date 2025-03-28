@@ -1,5 +1,6 @@
 // context/ModalContext.tsx
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { View } from 'react-native'; // Import View component
 import ProgramDetailModal from '../components/workouts/ProgramDetailModal';
 import WorkoutLogDetailModal from '../components/workouts/WorkoutLogDetailModal';
 import { useAuth } from '../hooks/useAuth';
@@ -206,30 +207,36 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     >
       {children}
       
-      {/* Important: Place modals inside the provider, not nested in other components */}
-      <ProgramDetailModal
-        visible={isProgramDetailOpen}
-        program={currentProgram}
-        onClose={closeProgramDetail}
-        currentUser={currentUsername}
-        onEdit={handleProgramEdit}
-        onDelete={handleProgramDelete}
-        onToggleActive={handleProgramToggleActive}
-        onShare={handleProgramShare}
-        onFork={handleProgramFork}
-        onWorkoutSelect={handleWorkoutSelect}
-      />
-      
-      <WorkoutLogDetailModal
-        visible={isWorkoutLogDetailOpen}
-        log={currentWorkoutLog}
-        onClose={closeWorkoutLogDetail}
-        currentUser={currentUsername}
-        onEdit={handleWorkoutLogEdit}
-        onDelete={handleWorkoutLogDelete}
-        onFork={handleWorkoutLogFork}
-        onExerciseSelect={handleExerciseSelect}
-      />
+      {/* Wrap modals in a View to prevent direct text rendering issues */}
+      <View>
+        {currentProgram && (
+          <ProgramDetailModal
+            visible={isProgramDetailOpen}
+            program={currentProgram}
+            onClose={closeProgramDetail}
+            currentUser={currentUsername}
+            onEdit={handleProgramEdit}
+            onDelete={handleProgramDelete}
+            onToggleActive={handleProgramToggleActive}
+            onShare={handleProgramShare}
+            onFork={handleProgramFork}
+            onWorkoutSelect={handleWorkoutSelect}
+          />
+        )}
+        
+        {currentWorkoutLog && (
+          <WorkoutLogDetailModal
+            visible={isWorkoutLogDetailOpen}
+            log={currentWorkoutLog}
+            onClose={closeWorkoutLogDetail}
+            currentUser={currentUsername}
+            onEdit={handleWorkoutLogEdit}
+            onDelete={handleWorkoutLogDelete}
+            onFork={handleWorkoutLogFork}
+            onExerciseSelect={handleExerciseSelect}
+          />
+        )}
+      </View>
     </ModalContext.Provider>
   );
 };

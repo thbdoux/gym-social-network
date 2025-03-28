@@ -1,3 +1,4 @@
+// components/profile/FriendsBubbleList.tsx
 import React, { useState } from 'react';
 import { 
   View, 
@@ -28,12 +29,10 @@ interface FriendResponse {
 
 interface FriendsBubbleListProps {
   onViewAllClick?: () => void;
-  hideViewAllButton?: boolean;
 }
 
 const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({ 
-  onViewAllClick,
-  hideViewAllButton = false 
+  onViewAllClick
 }) => {
   const [selectedUser, setSelectedUser] = useState<Friend | null>(null);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
@@ -92,15 +91,6 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerText}>Friends</Text>
-        {!hideViewAllButton && (
-          <TouchableOpacity onPress={onViewAllClick} style={styles.viewAllButton}>
-            <Ionicons name="people" size={18} color="#3B82F6" />
-          </TouchableOpacity>
-        )}
-      </View>
-
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -170,27 +160,11 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 10,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: 'transparent', // Transparent background
-    borderRadius: 12,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  headerText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  viewAllButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#374151',
+    backgroundColor: 'rgba(17, 24, 39, 0.8)', // Semi-transparent background
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   scrollContent: {
     paddingRight: 20, // Extra padding for the end
@@ -248,12 +222,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loadingContainer: {
-    height: 100,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
   },
   errorContainer: {
-    height: 100,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
   },

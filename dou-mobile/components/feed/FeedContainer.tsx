@@ -1,4 +1,4 @@
-// components/feed/FeedContainer.tsx - Updated
+// components/feed/FeedContainer.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -37,11 +37,13 @@ interface FeedContainerProps {
   onDelete?: (postId: number) => void;
   onProgramSelect?: (program: any) => void;
   onForkProgram?: (programId: number) => Promise<any>;
-  onProfileClick?: (userId: number) => void;  // Add this line
+  onProfileClick?: (userId: number) => void;
   refreshing?: boolean;
   onRefresh?: () => void;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onPostClick?: (postId: number) => void;
+  contentContainerStyle?: object;
+  scrollEventThrottle?: number;
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
@@ -57,6 +59,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   refreshing = false,
   onRefresh,
   onScroll,
+  contentContainerStyle,
+  scrollEventThrottle = 16,
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
@@ -188,7 +192,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           onPostClick={onPostClick}
         />
       )}
-      contentContainerStyle={styles.listContainer}
+      contentContainerStyle={[styles.listContainer, contentContainerStyle]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -198,7 +202,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
         />
       }
       onScroll={onScroll}
-      scrollEventThrottle={16}
+      scrollEventThrottle={scrollEventThrottle}
     />
   );
 };
@@ -206,7 +210,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
-    paddingBottom: 160, // Extra padding for FAB and Friends Button
+    paddingBottom: 160, // Extra padding for bottom tab bar
   },
   loadingContainer: {
     flex: 1,
