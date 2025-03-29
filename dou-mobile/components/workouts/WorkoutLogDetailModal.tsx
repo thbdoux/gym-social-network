@@ -17,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 // Get window dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -68,16 +69,35 @@ interface WorkoutLogDetailModalProps {
   onDelete?: (log: WorkoutLog) => void;
   onFork?: (log: WorkoutLog) => Promise<void>;
   onExerciseSelect?: (exerciseId: number) => void;
+  inFeedMode?: boolean;
 }
 
-// Updated to match the card's color scheme
+// Updated subtle green color scheme
+const COLORS = {
+  primary: "#4ade80", // Light green
+  secondary: "#10b981", // Emerald
+  tertiary: "#059669", // Green-teal
+  accent: "#f59e0b", // Amber
+  success: "#10b981", // Emerald
+  danger: "#ef4444", // Red
+  background: "#18181b", // Zinc-900
+  card: "#27272a", // Zinc-800
+  text: {
+    primary: "#ffffff",
+    secondary: "rgba(255, 255, 255, 0.7)",
+    tertiary: "rgba(255, 255, 255, 0.5)"
+  },
+  border: "rgba(255, 255, 255, 0.1)"
+};
+
+// Exercise colors - subtle green variants with complementary colors
 const EXERCISE_COLORS = [
-  "#16a34a", // Primary green (matching card)
-  "#15803d", // Darker green
-  "#22c55e", // Lighter green
-  "#166534", // Deep green (from card)
-  "#86efac", // Very light green
-  "#4ade80"  // Medium light green
+  "#4ade80", // Light green
+  "#34d399", // Emerald
+  "#2dd4bf", // Teal
+  "#a3e635", // Lime
+  "#fbbf24", // Amber
+  "#f472b6"  // Pink
 ];
 
 const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
@@ -88,37 +108,126 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
   onEdit,
   onDelete,
   onFork,
-  onExerciseSelect
+  onExerciseSelect,
+  inFeedMode = false
 }) => {
   const { t } = useLanguage();
   const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState('exercises'); // 'exercises' or 'stats'
   const [animationValues] = useState(() => ({
     fadeIn: new Animated.Value(0),
     contentFade: new Animated.Value(0),
-    barScale: new Animated.Value(0)
+    barScale: new Animated.Value(0),
+    tabIndicator: new Animated.Value(0)
   }));
 
-  // Calculate the maximum reps and weight across all exercises
-  const { maxReps, maxWeight } = useMemo(() => {
-    if (!log?.exercises) return { maxReps: 1, maxWeight: 1 };
+  // Memoized calculations for workout statistics
+  const workoutStats = useMemo(() => {
+    if (!log?.exercises) return {
+      maxReps: 1,
+      maxWeight: 1,
+      totalWeight: 0,
+      totalSets: 0,
+      totalReps: 0,
+      meanWeightPerRep: 0,
+      exerciseStats: [],
+      muscleGroupStats: {}
+    };
     
-    let maxR = 0;
-    let maxW = 0;
+    let maxReps = 0;
+    let maxWeight = 0;
+    let totalWeight = 0;
+    let totalSets = 0;
+    let totalReps = 0;
+    let weightedReps = 0;
+    const muscleGroupStats = {};
     
-    log.exercises.forEach(exercise => {
-      exercise.sets?.forEach(set => {
-        if (set.reps && set.reps > maxR) maxR = set.reps;
-        if (set.weight && set.weight > maxW) maxW = set.weight;
+    // Calculate per-exercise stats
+    const exerciseStats = log.exercises.map(exercise => {
+      if (!exercise.sets) return {
+        name: exercise.name,
+        totalSets: 0,
+        totalReps: 0,
+        totalWeight: 0,
+        meanWeightPerRep: 0
+      };
+      
+      let exerciseTotalWeight = 0;
+      let exerciseTotalReps = 0;
+      let exerciseWeightedReps = 0;
+      
+      // Accumulate set data for this exercise
+      exercise.sets.forEach(set => {
+        const reps = set.reps || 0;
+        const weight = set.weight || 0;
+        
+        // Update max values
+        if (reps > maxReps) maxReps = reps;
+        if (weight > maxWeight) maxWeight = weight;
+        
+        // Accumulate totals
+        exerciseTotalReps += reps;
+        exerciseTotalWeight += (weight * reps);
+        exerciseWeightedReps += (weight > 0 && reps > 0) ? reps : 0;
+        
+        // Global totals
+        totalSets++;
       });
+      
+      // Accumulate global totals
+      totalReps += exerciseTotalReps;
+      totalWeight += exerciseTotalWeight;
+      weightedReps += exerciseWeightedReps;
+      
+      // Track by muscle group if available
+      if (exercise.muscleGroup) {
+        if (!muscleGroupStats[exercise.muscleGroup]) {
+          muscleGroupStats[exercise.muscleGroup] = {
+            totalSets: 0,
+            totalReps: 0,
+            totalWeight: 0
+          };
+        }
+        
+        muscleGroupStats[exercise.muscleGroup].totalSets += exercise.sets.length;
+        muscleGroupStats[exercise.muscleGroup].totalReps += exerciseTotalReps;
+        muscleGroupStats[exercise.muscleGroup].totalWeight += exerciseTotalWeight;
+      }
+      
+      return {
+        name: exercise.name,
+        totalSets: exercise.sets.length,
+        totalReps: exerciseTotalReps,
+        totalWeight: exerciseTotalWeight,
+        meanWeightPerRep: exerciseWeightedReps > 0 ? 
+          (exerciseTotalWeight / exerciseWeightedReps).toFixed(1) : 0
+      };
     });
     
-    return { maxReps: maxR || 1, maxWeight: maxW || 1 };
+    // Compute mean weight per rep for muscle groups
+    Object.keys(muscleGroupStats).forEach(group => {
+      const stats = muscleGroupStats[group];
+      stats.meanWeightPerRep = stats.totalReps > 0 ? 
+        (stats.totalWeight / stats.totalReps).toFixed(1) : 0;
+    });
+    
+    return {
+      maxReps,
+      maxWeight,
+      totalWeight,
+      totalSets,
+      totalReps,
+      meanWeightPerRep: weightedReps > 0 ? (totalWeight / weightedReps).toFixed(1) : 0,
+      exerciseStats,
+      muscleGroupStats
+    };
   }, [log?.exercises]);
 
   // Reset and start animations when modal opens
   useEffect(() => {
     if (visible && log?.exercises?.length) {
       setSelectedExerciseIndex(0);
+      setActiveTab('exercises');
       
       // Reset animations
       Object.values(animationValues).forEach(value => value.setValue(0));
@@ -147,6 +256,15 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
     }
   }, [visible, log]);
 
+  // Animate tab indicator
+  useEffect(() => {
+    Animated.timing(animationValues.tabIndicator, {
+      toValue: activeTab === 'exercises' ? 0 : 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab]);
+
   if (!log) return null;
 
   // Permission checks
@@ -162,31 +280,11 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
 
   // Get color with opacity
   const getColorWithOpacity = (color: string, opacity: number): string => {
-    return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
-  };
-
-  // Calculate total workout volume across all exercises
-  const calculateTotalVolume = (): number => {
-    if (!log.exercises) return 0;
-    return log.exercises.reduce((workoutTotal, exercise) => {
-      if (!exercise.sets) return workoutTotal;
-      const exerciseVolume = exercise.sets.reduce((total, set) => {
-        return total + ((set.weight || 0) * (set.reps || 0));
-      }, 0);
-      return workoutTotal + exerciseVolume;
-    }, 0);
-  };
-
-  // Get total workout reps across all exercises
-  const getTotalReps = (): number => {
-    if (!log.exercises) return 0;
-    return log.exercises.reduce((workoutTotal, exercise) => {
-      if (!exercise.sets) return workoutTotal;
-      const exerciseReps = exercise.sets.reduce((total, set) => {
-        return total + (set.reps || 0);
-      }, 0);
-      return workoutTotal + exerciseReps;
-    }, 0);
+    // Check if the color is in hex format (#rrggbb)
+    if (color.startsWith('#') && color.length === 7) {
+      return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+    }
+    return color; // Return as is if not in expected format
   };
 
   // Format date for display
@@ -233,11 +331,10 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
 
   // Render the exercise visualization with sets
   const renderExerciseVisualization = () => {
-    console.log("Rendering exercise visualization", log?.exercises?.length);
     if (!log.exercises || log.exercises.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="barbell-outline" size={48} color="#86efac" />
+          <Ionicons name="barbell-outline" size={48} color={COLORS.text.secondary} />
           <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
         </View>
       );
@@ -266,7 +363,7 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
           {/* Legends at the top */}
           <View style={styles.legendContainer}>
             <Text style={styles.legendText}>{t('reps')}</Text>
-            <Text style={styles.legendText}>{t('weight')} (lbs)</Text>
+            <Text style={styles.legendText}>{t('weight')} (kg)</Text>
           </View>
           
           {/* Sets */}
@@ -319,7 +416,7 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
                       style={[
                         styles.weightBar,
                         { 
-                          width: `${((set.weight || 0) / maxWeight) * 100}%`,
+                          width: `${((set.weight || 0) / workoutStats.maxWeight) * 100}%`,
                           backgroundColor: exerciseColor 
                         }
                       ]}
@@ -342,7 +439,7 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
     );
   };
 
-  // Render exercise selector buttons - Now as buttons with arrows
+  // Render exercise selector buttons
   const renderExerciseSelector = () => {
     if (!log.exercises || log.exercises.length === 0) {
       return null;
@@ -357,128 +454,152 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
           contentContainerStyle={styles.exerciseSelectorContent}
         >
           {log.exercises.map((exercise, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && (
-                <View style={styles.arrowContainer}>
-                  <Ionicons name="arrow-forward" size={14} color="rgba(255, 255, 255, 0.4)" />
-                </View>
-              )}
-              <TouchableOpacity
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.exerciseButton,
+                selectedExerciseIndex === index && [
+                  styles.exerciseButtonSelected,
+                  { borderColor: getExerciseColor(index) }
+                ]
+              ]}
+              onPress={() => setSelectedExerciseIndex(index)}
+            >
+              <Text 
                 style={[
-                  styles.exerciseButton,
-                  selectedExerciseIndex === index && [
-                    styles.exerciseButtonSelected,
-                    { borderColor: getExerciseColor(index) }
-                  ]
+                  styles.exerciseButtonText,
+                  selectedExerciseIndex === index && {
+                    color: COLORS.text.primary,
+                    fontWeight: '700'
+                  }
                 ]}
-                onPress={() => setSelectedExerciseIndex(index)}
+                numberOfLines={1}
               >
-                <Text 
-                  style={[
-                    styles.exerciseButtonText,
-                    selectedExerciseIndex === index && [
-                      styles.exerciseButtonTextSelected,
-                      { color: '#FFFFFF' }
-                    ]
-                  ]}
-                  numberOfLines={1}
-                >
-                  {exercise.name}
+                {exercise.name}
+              </Text>
+              {exercise.muscleGroup && (
+                <Text style={styles.exerciseMuscleGroup}>
+                  {exercise.muscleGroup}
                 </Text>
-              </TouchableOpacity>
-            </React.Fragment>
+              )}
+            </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
     );
   };
 
-  // Render compact workout metadata
-  const renderMetadataHeader = () => (
-    <Animated.View 
-      style={[
-        styles.metadataContainer,
-        { opacity: animationValues.fadeIn }
-      ]}
-    >
-      <View style={styles.dateRow}>
-        <Text style={styles.dateText}>{formatDate(log.date)}</Text>
-        
-        <View style={[
-          styles.statusBadge,
-          log.completed ? styles.completedBadge : styles.pendingBadge
-        ]}>
-          <Ionicons 
-            name={log.completed ? "checkmark-circle" : "time"} 
-            size={12} 
-            color={log.completed ? "#FFFFFF" : "#FFFFFF"} 
-          />
-          <Text style={[
-            styles.statusText,
-            log.completed ? styles.completedText : styles.pendingText
-          ]}>
-            {log.completed ? t('completed') : t('in_progress')}
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.metadataRow}>
-        {log.gym_name && (
-          <View style={styles.metadataItem}>
-            <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
-            <Text style={styles.metadataText}>{log.gym_name}</Text>
-          </View>
-        )}
-        
-        {log.duration && (
-          <View style={styles.metadataItem}>
-            <Ionicons name="time" size={12} color="rgba(255, 255, 255, 0.8)" />
-            <Text style={styles.metadataText}>{log.duration}m</Text>
-          </View>
-        )}
-        
-        {log.mood_rating && (
-          <View style={styles.metadataItem}>
-            <Text style={styles.metadataEmoji}>
-              {getMoodEmoji(log.mood_rating)}
-            </Text>
-          </View>
-        )}
-        
-        {log.perceived_difficulty && (
-          <View style={styles.metadataItem}>
-            <Text style={styles.metadataEmoji}>
-              {getDifficultyIndicator(log.perceived_difficulty)}
-            </Text>
-          </View>
-        )}
-      </View>
-    </Animated.View>
-  );
-
-  // Render Workout Performance component 
-  const renderWorkoutPerformance = () => {
-    if (!log.exercises || log.exercises.length === 0) return null;
-    
+  // Render advanced stats content
+  const renderAdvancedStats = () => {
     return (
-      <View style={styles.performanceContainer}>
-        <View style={styles.performanceHeader}>
-          <Ionicons name="trophy" size={16} color="#FFFFFF" />
-          <Text style={styles.performanceTitle}>{t('workout_performance')}</Text>
-        </View>
-        
-        <View style={styles.metricsContainer}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>{t('total_volume')}</Text>
-            <Text style={styles.metricValue}>{calculateTotalVolume()}</Text>
+      <ScrollView style={styles.statsContainer} showsVerticalScrollIndicator={false}>
+        {/* Overall workout summary */}
+        <View style={styles.statsSectionContainer}>
+          <View style={styles.statsSectionHeader}>
+            <Ionicons name="trending-up" size={16} color={COLORS.text.primary} />
+            <Text style={styles.statsSectionTitle}>{t('workout_summary')}</Text>
           </View>
           
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>{t('total_reps')}</Text>
-            <Text style={styles.metricValue}>{getTotalReps()}</Text>
+          <View style={styles.statsCardsRow}>
+            <View style={[styles.statsCard, { borderColor: COLORS.primary }]}>
+              <Text style={styles.statsCardLabel}>{t('total_weight')}</Text>
+              <Text style={styles.statsCardValue}>{workoutStats.totalWeight} kg</Text>
+            </View>
+            
+            <View style={[styles.statsCard, { borderColor: COLORS.secondary }]}>
+              <Text style={styles.statsCardLabel}>{t('total_sets')}</Text>
+              <Text style={styles.statsCardValue}>{workoutStats.totalSets}</Text>
+            </View>
+            
+            <View style={[styles.statsCard, { borderColor: COLORS.tertiary }]}>
+              <Text style={styles.statsCardLabel}>{t('total_reps')}</Text>
+              <Text style={styles.statsCardValue}>{workoutStats.totalReps}</Text>
+            </View>
+          </View>
+          
+          <View style={[styles.statsCard, { borderColor: COLORS.accent, marginTop: 8 }]}>
+            <Text style={styles.statsCardLabel}>{t('avg_weight_per_rep')}</Text>
+            <Text style={styles.statsCardValue}>{workoutStats.meanWeightPerRep} kg</Text>
           </View>
         </View>
-      </View>
+        
+        {/* Exercise breakdown */}
+        <View style={styles.statsSectionContainer}>
+          <View style={styles.statsSectionHeader}>
+            <Ionicons name="barbell-outline" size={16} color={COLORS.text.primary} />
+            <Text style={styles.statsSectionTitle}>{t('exercise_breakdown')}</Text>
+          </View>
+          
+          {workoutStats.exerciseStats.map((stat, index) => (
+            <View key={index} style={styles.exerciseStatCard}>
+              <View style={styles.exerciseStatHeader}>
+                <View style={[styles.exerciseColorDot, { backgroundColor: getExerciseColor(index) }]} />
+                <Text style={styles.exerciseStatName}>{stat.name}</Text>
+              </View>
+              
+              <View style={styles.exerciseStatGrid}>
+                <View style={styles.exerciseStatItem}>
+                  <Text style={styles.exerciseStatLabel}>{t('sets')}</Text>
+                  <Text style={styles.exerciseStatValue}>{stat.totalSets}</Text>
+                </View>
+                
+                <View style={styles.exerciseStatItem}>
+                  <Text style={styles.exerciseStatLabel}>{t('reps')}</Text>
+                  <Text style={styles.exerciseStatValue}>{stat.totalReps}</Text>
+                </View>
+                
+                <View style={styles.exerciseStatItem}>
+                  <Text style={styles.exerciseStatLabel}>{t('weight')}</Text>
+                  <Text style={styles.exerciseStatValue}>{stat.totalWeight} kg</Text>
+                </View>
+                
+                <View style={styles.exerciseStatItem}>
+                  <Text style={styles.exerciseStatLabel}>{t('avg_per_rep')}</Text>
+                  <Text style={styles.exerciseStatValue}>{stat.meanWeightPerRep} kg</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+        
+        {/* Muscle group breakdown */}
+        {Object.keys(workoutStats.muscleGroupStats).length > 0 && (
+          <View style={styles.statsSectionContainer}>
+            <View style={styles.statsSectionHeader}>
+              <Ionicons name="body-outline" size={16} color={COLORS.text.primary} />
+              <Text style={styles.statsSectionTitle}>{t('muscle_group_breakdown')}</Text>
+            </View>
+            
+            {Object.entries(workoutStats.muscleGroupStats).map(([group, stats], index) => (
+              <View key={group} style={styles.muscleGroupStatCard}>
+                <Text style={styles.muscleGroupName}>{group}</Text>
+                
+                <View style={styles.muscleGroupStatGrid}>
+                  <View style={styles.muscleGroupStatItem}>
+                    <Text style={styles.muscleGroupStatLabel}>{t('sets')}</Text>
+                    <Text style={styles.muscleGroupStatValue}>{stats.totalSets}</Text>
+                  </View>
+                  
+                  <View style={styles.muscleGroupStatItem}>
+                    <Text style={styles.muscleGroupStatLabel}>{t('reps')}</Text>
+                    <Text style={styles.muscleGroupStatValue}>{stats.totalReps}</Text>
+                  </View>
+                  
+                  <View style={styles.muscleGroupStatItem}>
+                    <Text style={styles.muscleGroupStatLabel}>{t('weight')}</Text>
+                    <Text style={styles.muscleGroupStatValue}>{stats.totalWeight} kg</Text>
+                  </View>
+                  
+                  <View style={styles.muscleGroupStatItem}>
+                    <Text style={styles.muscleGroupStatLabel}>{t('avg_per_rep')}</Text>
+                    <Text style={styles.muscleGroupStatValue}>{stats.meanWeightPerRep} kg</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
     );
   };
 
@@ -503,11 +624,227 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
     );
   };
 
+  // Fancy header with workout details
+  const renderFancyHeader = () => (
+    <View style={styles.fancyHeaderContainer}>
+      {/* Background gradient */}
+      <LinearGradient
+        colors={['rgba(74, 222, 128, 0.8)', 'rgba(16, 185, 129, 0.7)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerGradient}
+      />
+      
+      {/* Header content */}
+      <View style={styles.headerContentContainer}>
+        {/* Close button */}
+        <TouchableOpacity 
+          style={styles.closeButton} 
+          onPress={onClose}
+        >
+          <Ionicons name="close" size={22} color={COLORS.text.primary} />
+        </TouchableOpacity>
+        
+        {/* Workout title and info */}
+        <View style={styles.workoutTitleContainer}>
+          <Text style={styles.workoutTitle} numberOfLines={1}>
+            {log.name || log.workout_name || t('workout')}
+          </Text>
+          
+          {log.program_name && (
+            <Text style={styles.programName} numberOfLines={1}>
+              {log.program_name}
+            </Text>
+          )}
+        </View>
+        
+        {/* Workout details */}
+        <View style={styles.workoutDetailsContainer}>
+          {/* Top row - Date and completion status */}
+          <View style={styles.workoutDetailsRow}>
+            <View style={styles.workoutDetailItem}>
+              <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
+              <Text style={styles.workoutDetailText}>{formatDate(log.date)}</Text>
+            </View>
+            
+            <View style={[
+              styles.statusBadge,
+              log.completed ? { backgroundColor: COLORS.success } : { backgroundColor: COLORS.accent }
+            ]}>
+              <Ionicons 
+                name={log.completed ? "checkmark-circle" : "time"} 
+                size={12} 
+                color={COLORS.text.primary}
+              />
+              <Text style={styles.statusText}>
+                {log.completed ? t('completed') : t('in_progress')}
+              </Text>
+            </View>
+          </View>
+          
+          {/* Bottom row - Location, duration, mood, difficulty */}
+          <View style={styles.workoutDetailsRow}>
+            {log.gym_name && (
+              <View style={styles.workoutDetailItem}>
+                <Ionicons name="location-outline" size={14} color={COLORS.text.secondary} />
+                <Text style={styles.workoutDetailText}>{log.gym_name}</Text>
+              </View>
+            )}
+            
+            {log.duration && (
+              <View style={styles.workoutDetailItem}>
+                <Ionicons name="time-outline" size={14} color={COLORS.text.secondary} />
+                <Text style={styles.workoutDetailText}>{log.duration}m</Text>
+              </View>
+            )}
+            
+            {log.mood_rating && (
+              <View style={styles.workoutDetailItem}>
+                <Text style={styles.workoutDetailEmoji}>
+                  {getMoodEmoji(log.mood_rating)}
+                </Text>
+              </View>
+            )}
+            
+            {log.perceived_difficulty && (
+              <View style={styles.workoutDetailItem}>
+                <Text style={styles.workoutDetailEmoji}>
+                  {getDifficultyIndicator(log.perceived_difficulty)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  // Render tab navigation
+  const renderTabNavigation = () => {
+    // Calculate the translateX for the tab indicator
+    const translateX = animationValues.tabIndicator.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, SCREEN_WIDTH * 0.92 / 2]
+    });
+    
+    return (
+      <View style={styles.tabNavigationContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'exercises' && styles.tabButtonActive
+          ]}
+          onPress={() => setActiveTab('exercises')}
+        >
+          <Ionicons 
+            name="barbell-outline" 
+            size={18} 
+            color={activeTab === 'exercises' ? COLORS.primary : COLORS.text.secondary} 
+          />
+          <Text 
+            style={[
+              styles.tabButtonText,
+              activeTab === 'exercises' && { color: COLORS.primary }
+            ]}
+          >
+            {t('exercises')}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'stats' && styles.tabButtonActive
+          ]}
+          onPress={() => setActiveTab('stats')}
+        >
+          <Ionicons 
+            name="stats-chart" 
+            size={18} 
+            color={activeTab === 'stats' ? COLORS.primary : COLORS.text.secondary} 
+          />
+          <Text 
+            style={[
+              styles.tabButtonText,
+              activeTab === 'stats' && { color: COLORS.primary }
+            ]}
+          >
+            {t('advanced_stats')}
+          </Text>
+        </TouchableOpacity>
+        
+        {/* Animated tab indicator */}
+        <Animated.View 
+          style={[
+            styles.tabIndicator,
+            { 
+              backgroundColor: COLORS.primary,
+              transform: [{ translateX }],
+              width: SCREEN_WIDTH * 0.92 / 4 // Half of a tab width for a more subtle indicator
+            }
+          ]} 
+        />
+      </View>
+    );
+  };
+
+  // Render action buttons
+  const renderActionButtons = () => {
+    // Don't render buttons in feed mode
+    if (inFeedMode) return null;
+    
+    return (
+      <View style={styles.actionsContainer}>
+        {canEditLog && (
+          <TouchableOpacity 
+            style={[styles.actionButton, { borderColor: COLORS.primary }]}
+            onPress={() => {
+              onClose();
+              if (onEdit) onEdit(log);
+            }}
+          >
+            <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+            <Text style={[styles.actionButtonText, { color: COLORS.primary }]}>
+              {t('edit')}
+            </Text>
+          </TouchableOpacity>
+        )}
+        
+        {canForkLog && (
+          <TouchableOpacity 
+            style={[styles.actionButton, { borderColor: COLORS.tertiary }]}
+            onPress={() => {
+              onClose();
+              if (onFork) onFork(log);
+            }}
+          >
+            <Ionicons name="download-outline" size={16} color={COLORS.tertiary} />
+            <Text style={[styles.actionButtonText, { color: COLORS.tertiary }]}>
+              {t('fork')}
+            </Text>
+          </TouchableOpacity>
+        )}
+        
+        {canDeleteLog && (
+          <TouchableOpacity 
+            style={[styles.actionButton, { borderColor: COLORS.danger }]}
+            onPress={handleDelete}
+          >
+            <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+            <Text style={[styles.actionButtonText, { color: COLORS.danger }]}>
+              {t('delete')}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   return (
     <Modal
       visible={visible}
       transparent={true}
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
@@ -518,92 +855,33 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
         
         {/* Modal content */}
         <View style={styles.modalContent}>
-          <TouchableWithoutFeedback>
             <View style={styles.contentContainer}>
-              {/* Header */}
-              <LinearGradient
-                colors={['#16a34a', '#15803d']}
-                style={styles.header}
-              >
-                <View style={styles.headerTitleContainer}>
-                  <Text style={styles.headerTitle} numberOfLines={1}>
-                    {log.name || log.workout_name || t('workout')}
-                  </Text>
-                  {log.program_name && (
-                    <Text style={styles.programName}>
-                      {log.program_name}
-                    </Text>
+              {/* Fancy header with workout details */}
+              {renderFancyHeader()}
+              
+              {/* Tab navigation */}
+              {renderTabNavigation()}
+              
+              <View style={styles.tabContentContainer}>
+                  {activeTab === 'exercises' ? (
+                    <View style={styles.exercisesTabContent}>
+                      {/* Exercise selector - keep this ScrollView as it's horizontal */}
+                      {renderExerciseSelector()}
+                      
+                      {/* Exercise visualization - this will be the only vertical ScrollView */}
+                      {renderExerciseVisualization()}
+                    </View>
+                  ) : (
+                    <View style={styles.statsTabContent}>
+                      {/* Advanced stats - already has ScrollView inside */}
+                      {renderAdvancedStats()}
+                    </View>
                   )}
                 </View>
-                
-                <TouchableOpacity 
-                  style={styles.closeButton} 
-                  onPress={onClose}
-                >
-                  <Ionicons name="close" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </LinearGradient>
-              
-              {/* Metadata header */}
-              {renderMetadataHeader()}
-              
-              {/* Exercise selector */}
-              {renderExerciseSelector()}
-              
-              {/* Scrollable content */}
-              <View style={styles.exerciseContainer}>
-                {renderExerciseVisualization()}
-              </View>
-              
-              {/* Global workout performance metrics - Moved to bottom */}
-              {renderWorkoutPerformance()}
               
               {/* Action buttons */}
-              <View style={styles.actionsContainer}>
-                {canEditLog && (
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.editButton]}
-                    onPress={() => {
-                      onClose();
-                      if (onEdit) onEdit(log);
-                    }}
-                  >
-                    <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                    <Text style={[styles.actionButtonText, styles.editButtonText]}>
-                      {t('edit')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                
-                {canForkLog && (
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.forkButton]}
-                    onPress={() => {
-                      onClose();
-                      if (onFork) onFork(log);
-                    }}
-                  >
-                    <Ionicons name="download-outline" size={16} color="#FFFFFF" />
-                    <Text style={[styles.actionButtonText, styles.forkButtonText]}>
-                      {t('fork')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                
-                {canDeleteLog && (
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.deleteButton]}
-                    onPress={handleDelete}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-                    <Text style={[styles.actionButtonText, styles.deleteButtonText]}>
-                      {t('delete')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              {renderActionButtons()}
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </View>
     </Modal>
@@ -611,6 +889,7 @@ const WorkoutLogDetailModal: React.FC<WorkoutLogDetailModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // Modal base styles
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -622,11 +901,10 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '92%',
-    height: '80%', // Fixed height instead of maxHeight
-    backgroundColor: '#1a1a1a', // Darker background matching card theme
+    height: '80%',
+    backgroundColor: COLORS.background,
     borderRadius: 24,
     overflow: 'hidden',
-    display: 'flex', // Ensure flex display
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -641,54 +919,74 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexDirection: 'column',
-    flex: 1, // Take full height
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  headerTitleContainer: {
     flex: 1,
   },
-  headerTitle: {
-    fontSize: 20,
+  
+  // Fancy header styles
+  fancyHeaderContainer: {
+    position: 'relative',
+    height: 140,
+  },
+  headerGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerContentContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    zIndex: 10,
+  },
+  workoutTitleContainer: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  workoutTitle: {
+    fontSize: 22,
     fontWeight: '800',
-    marginBottom: 2,
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    color: COLORS.text.primary,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   programName: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: COLORS.text.secondary,
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  workoutDetailsContainer: {
+    marginTop: 'auto',
+  },
+  workoutDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  workoutDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    marginBottom: 4,
+  },
+  workoutDetailText: {
     fontSize: 12,
+    color: COLORS.text.secondary,
+    marginLeft: 4,
     fontWeight: '500',
   },
-  closeButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  // Metadata header styles
-  metadataContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  dateText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '600',
+  workoutDetailEmoji: {
+    fontSize: 14,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -696,105 +994,126 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
-  },
-  completedBadge: {
-    backgroundColor: 'rgba(34, 197, 94, 0.9)',
-  },
-  pendingBadge: {
-    backgroundColor: 'rgba(249, 115, 22, 0.9)',
+    marginRight: 12,
+    borderWidth: 1,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '600',
     marginLeft: 4,
+    color: COLORS.text.primary,
   },
-  completedText: {
-    color: '#FFFFFF',
-  },
-  pendingText: {
-    color: '#FFFFFF',
-  },
-  metadataRow: {
+  
+  // Tab navigation styles
+  tabNavigationContainer: {
     flexDirection: 'row',
+    height: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    position: 'relative',
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  metadataItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 14,
+  tabButtonActive: {
+    backgroundColor: 'rgba(74, 222, 128, 0.05)', // Very subtle primary color background
   },
-  metadataText: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginLeft: 4,
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginLeft: 6,
   },
-  metadataEmoji: {
-    fontSize: 13,
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
-  // Exercise selector styles - Updated with arrows
+  
+  // Tab content container
+  tabContentContainer: {
+    flex: 1,
+  },
+  exercisesTabContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  statsTabContent: {
+    flex: 1,
+  },
+  
+  // Exercise selector styles
   exerciseSelectorContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    paddingBottom: 8,
+    borderBottomColor: COLORS.border,
+    paddingBottom: 10,
+    paddingTop: 6,
   },
   exerciseSelectorScroll: {
-    maxHeight: 40,
+    maxHeight: 60,
   },
   exerciseSelectorContent: {
     paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: 10,
   },
   exerciseButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    minWidth: 100,
   },
   exerciseButtonSelected: {
-    backgroundColor: 'rgba(22, 163, 74, 0.2)',
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
   },
   exerciseButtonText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: COLORS.text.secondary,
   },
-  exerciseButtonTextSelected: {
-    color: '#FFFFFF',
+  exerciseMuscleGroup: {
+    fontSize: 10,
+    color: COLORS.text.tertiary,
+    marginTop: 2,
   },
-  arrowContainer: {
-    paddingHorizontal: 4,
-  },
-  // Exercise visualization styles - Updated for scrolling
+  
+  // Exercise visualization styles
   visualizationContainer: {
-    paddingVertical: 8,
+    paddingVertical: 12,
     flex: 1,
-    minHeight: 200, // Ensure minimum height
   },
   setsScrollView: {
-    maxHeight: 280, // Increased for scrollability
-    flex: 1, // Add flex to ensure it takes space
+    flex: 1,
+  },
+  setsScrollViewContent: {
+    paddingBottom: 20, // Add some bottom padding for better scrolling experience
   },
   legendContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginBottom: 6,
     paddingHorizontal: 16,
+    marginBottom: 8,
   },
   legendText: {
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: COLORS.text.tertiary,
+    fontWeight: '500',
   },
   setContainer: {
     flexDirection: 'row',
-    borderRadius: 10,
-    padding: 8,
-    marginBottom: 6,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.card,
     marginHorizontal: 16,
   },
   repsSection: {
@@ -804,10 +1123,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   repCountText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginRight: 6,
+    color: COLORS.text.primary,
+    marginRight: 8,
   },
   repDotsContainer: {
     flexDirection: 'row-reverse',
@@ -824,14 +1143,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   setNumberBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 5,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   setNumberText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '600',
   },
   weightSection: {
@@ -841,10 +1160,10 @@ const styles = StyleSheet.create({
   },
   weightBarContainer: {
     flex: 1,
-    marginRight: 6,
+    marginRight: 8,
   },
   weightBarBackground: {
-    height: 5,
+    height: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 3,
     overflow: 'hidden',
@@ -854,125 +1173,184 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   weightText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
-    width: 28,
+    color: COLORS.text.primary,
+    width: 30,
     textAlign: 'right',
   },
-  // Exercise container
-  exerciseContainer: {
+  noteContainer: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  noteText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: COLORS.text.secondary,
+    lineHeight: 18,
+  },
+  
+  // Stats styles
+  statsContainer: {
     flex: 1,
-    paddingVertical: 8,
-    minHeight: 300, // Ensure minimum height for visibility
+    paddingTop: 16,
   },
-  // Performance metrics styles - Moved to bottom
-  performanceContainer: {
+  statsSectionContainer: {
+    marginBottom: 24,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
-  performanceHeader: {
+  statsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statsSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    marginLeft: 8,
+  },
+  statsCardsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statsCard: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+  },
+  statsCardLabel: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  statsCardValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+  },
+  exerciseStatCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  exerciseStatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
   },
-  performanceTitle: {
+  exerciseColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  exerciseStatName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 6,
+    color: COLORS.text.primary,
   },
-  metricsContainer: {
+  exerciseStatGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
   },
-  metricCard: {
-    flex: 1,
-    backgroundColor: '#16a34a',
-    borderRadius: 10,
-    padding: 10,
-    alignItems: 'center',
+  exerciseStatItem: {
+    width: '50%',
+    padding: 4,
   },
-  metricLabel: {
+  exerciseStatLabel: {
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 3,
+    color: COLORS.text.tertiary,
+    marginBottom: 2,
   },
-  metricValue: {
+  exerciseStatValue: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '600',
+    color: COLORS.text.secondary,
   },
-  noteContainer: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
-    marginHorizontal: 16,
+  muscleGroupStatCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
   },
-  noteText: {
+  muscleGroupName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    marginBottom: 10,
+  },
+  muscleGroupStatGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+  muscleGroupStatItem: {
+    width: '50%',
+    padding: 4,
+  },
+  muscleGroupStatLabel: {
     fontSize: 10,
-    fontStyle: 'italic',
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: COLORS.text.tertiary,
+    marginBottom: 2,
   },
+  muscleGroupStatValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+  },
+  
   // Empty state styles
   emptyState: {
     padding: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
   },
   emptyStateText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: COLORS.text.tertiary,
     textAlign: 'center',
     marginTop: 16,
   },
+  
   // Action buttons styles
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: COLORS.border,
     gap: 10,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    minWidth: 90,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    minWidth: 100,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
   },
   actionButtonText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
-    color: '#FFFFFF',
+    color: COLORS.text.primary,
   },
-  editButton: {
-    backgroundColor: '#16a34a',
-  },
-  editButtonText: {
-    color: '#FFFFFF',
-  },
-  forkButton: {
-    backgroundColor: '#16a34a',
-  },
-  forkButtonText: {
-    color: '#FFFFFF',
-  },
-  deleteButton: {
-    backgroundColor: '#b91c1c',
-  },
-  deleteButtonText: {
-    color: '#FFFFFF',
-  }
 });
 
 export default WorkoutLogDetailModal;
