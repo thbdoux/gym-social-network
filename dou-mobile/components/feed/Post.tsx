@@ -2,6 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, TextInput, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useLanguage } from '../../context/LanguageContext';
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
 import ProgramCard from '../workouts/ProgramCard';
@@ -40,6 +42,15 @@ interface Post {
   workout_log_details?: any;
   user_username: string;
   user_id?: number;
+  // New fields for the updated design
+  streak?: number;
+  achievements?: string[];
+  stats?: {
+    totalWorkouts?: number;
+    thisWeek?: number;
+    streak?: number;
+  };
+  personality?: string; // Added personality field for avatar gradient
 }
 
 interface PostProps {
@@ -79,8 +90,26 @@ const Post: React.FC<PostProps> = ({
   const [showMenu, setShowMenu] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareText, setShareText] = useState('');
+  const [liked, setLiked] = useState(post.is_liked);
+
+  // Format date to display relative time for recent dates
+  const formatDate = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffHours < 24) {
+      return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
   
-  // Get post type details
+  // Get post type details including colors for gradient
   const getPostTypeDetails = (type: string = 'regular') => {
     switch(type) {
       case 'program':
@@ -90,7 +119,8 @@ const Post: React.FC<PostProps> = ({
           colors: { 
             bg: 'rgba(124, 58, 237, 0.2)',
             text: '#A78BFA',
-            border: 'rgba(124, 58, 237, 0.3)'
+            border: 'rgba(124, 58, 237, 0.3)',
+            gradient: ['#9333EA', '#D946EF']
           }
         };
       case 'workout_log':
@@ -100,7 +130,8 @@ const Post: React.FC<PostProps> = ({
           colors: { 
             bg: 'rgba(16, 185, 129, 0.2)',
             text: '#34D399',
-            border: 'rgba(16, 185, 129, 0.3)'
+            border: 'rgba(16, 185, 129, 0.3)',
+            gradient: ['#059669', '#10B981']
           }
         };
       case 'workout_invite':
@@ -110,7 +141,8 @@ const Post: React.FC<PostProps> = ({
           colors: { 
             bg: 'rgba(249, 115, 22, 0.2)',
             text: '#FB923C',
-            border: 'rgba(249, 115, 22, 0.3)'
+            border: 'rgba(249, 115, 22, 0.3)',
+            gradient: ['#EA580C', '#F97316']
           }
         };
       default:
@@ -120,9 +152,28 @@ const Post: React.FC<PostProps> = ({
           colors: { 
             bg: 'rgba(59, 130, 246, 0.2)',
             text: '#60A5FA',
-            border: 'rgba(59, 130, 246, 0.3)'
+            border: 'rgba(59, 130, 246, 0.3)',
+            gradient: ['#6366F1', '#3B82F6']
           }
         };
+    }
+  };
+
+  // Get avatar gradient colors based on user personality
+  const getPersonalityGradient = () => {
+    const personality = post.personality || 'default';
+    
+    switch(personality.toLowerCase()) {
+      case 'optimizer':
+        return ['#F59E0B', '#EF4444']; // Amber to Red
+      case 'diplomate':
+        return ['#10B981', '#3B82F6']; // Emerald to Blue
+      case 'mentor':
+        return ['#6366F1', '#4F46E5']; // Indigo to Dark Indigo
+      case 'versatile':
+        return ['#EC4899', '#8B5CF6']; // Pink to Purple
+      default:
+        return ['#9333EA', '#D946EF']; // Default Purple Gradient
     }
   };
   
@@ -174,6 +225,11 @@ const Post: React.FC<PostProps> = ({
       ]
     );
   };
+
+  const handleLike = () => {
+    setLiked(!liked);
+    onLike(post.id);
+  };
   
   // Determine what type of post this is
   const effectivePostType = (post.is_share && post.original_post_details?.post_type) 
@@ -219,7 +275,7 @@ const Post: React.FC<PostProps> = ({
           <View>
             <Text style={styles.sharedPostUsername}>{originalPost.user_username}</Text>
             <Text style={styles.sharedPostDate}>
-              {new Date(originalPost.created_at).toLocaleDateString()}
+              {formatDate(originalPost.created_at)}
             </Text>
           </View>
         </View>
@@ -274,7 +330,7 @@ const Post: React.FC<PostProps> = ({
                   {comment.user_username}
                 </Text>
                 <Text style={styles.commentDate}>
-                  {new Date(comment.created_at).toLocaleDateString()}
+                  {formatDate(comment.created_at)}
                 </Text>
               </View>
               <Text style={styles.commentContent}>{comment.content}</Text>
@@ -286,312 +342,422 @@ const Post: React.FC<PostProps> = ({
       )}
     </View>
   );
+
+  // Get user streak to display on avatar
+  const userStreak = post.streak || post.stats?.streak || 0;
+  
+  // Mock badges based on user activity
+  const mockBadges = [
+    { id: 1, name: "20-Day Streak", icon: "flame", color: ["#F59E0B", "#EF4444"] },
+    { id: 2, name: "Power Lifter", icon: "barbell", color: ["#DC2626", "#7F1D1D"] },
+    { id: 3, name: "Early Bird", icon: "sunny", color: ["#F59E0B", "#FBBF24"] },
+    { id: 4, name: "Yoga Master", icon: "body", color: ["#10B981", "#3B82F6"] },
+    { id: 5, name: "Weekend Warrior", icon: "trophy", color: ["#6366F1", "#4F46E5"] },
+    { id: 6, name: "Community Coach", icon: "people", color: ["#EC4899", "#8B5CF6"] },
+  ];
+  
+  // Determine which badges to show (either from post or mocked)
+  const badgesToShow = post.achievements && post.achievements.length > 0 
+    ? post.achievements.map(name => {
+        const foundBadge = mockBadges.find(b => b.name === name);
+        return foundBadge || { 
+          id: Math.random(), 
+          name, 
+          icon: "trophy", 
+          color: ["#9333EA", "#D946EF"] 
+        };
+      })
+    : [mockBadges[0], mockBadges[Math.floor(Math.random() * (mockBadges.length - 1)) + 1]];
+  
+  // Get stats for the activity stats bar
+  const stats = {
+    totalWorkouts: post.stats?.totalWorkouts || 0,
+    thisWeek: post.stats?.thisWeek || 0,
+    streak: userStreak || 0
+  };
+  
+  // Get personality-based gradient for avatar
+  const avatarGradientColors = getPersonalityGradient();
+  
+  // Check if post is workout related
+  const isWorkoutRelated = post.post_type === 'workout_log' || post.post_type === 'program';
   
   return (
     <TouchableOpacity 
-    activeOpacity={detailMode ? 1 : 0.7}
-    onPress={handlePostClick}
-    disabled={detailMode}
-    style={{marginBottom: 8}} // To maintain spacing
-  >
-    <View style={styles.container}>
-      {/* Post Header */}
-      <View style={styles.header}>
-        <View style={styles.authorContainer}>
-        <TouchableOpacity 
-          style={styles.avatar}
-          onPress={() => {
-            console.log('Avatar clicked, post: ', post);
-            // Use shared_by.id for shared posts, otherwise look for user_id elsewhere
-            const userId = post.shared_by?.id || post.user_id;
-            if (onProfileClick && userId) {
-              console.log('Calling onProfileClick with userId:', userId);
-              onProfileClick(userId);
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          {userData?.avatar ? (
-            <Image
-              source={{ uri: userData.avatar }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <Text style={styles.avatarText}>
-              {post.user_username?.[0]?.toUpperCase() || '?'}
-            </Text>
-          )}
-        </TouchableOpacity>
-          
-          <View style={styles.authorInfo}>
-            <View style={styles.authorNameRow}>
-              <Text style={styles.authorName}>{post.user_username}</Text>
+      activeOpacity={detailMode ? 1 : 0.7}
+      onPress={handlePostClick}
+      disabled={detailMode}
+      style={styles.postWrapper}
+    >
+      <View style={styles.container}>
+        {/* Blur effect background */}
+        <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+        
+        {/* Glow effect for premium posts */}
+        <View style={styles.glowEffect} />
+        
+        {/* Gradient top line */}
+        <LinearGradient
+          colors={postTypeDetails.colors.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradientLine}
+        />
+        
+        {/* Post Header */}
+        <View style={styles.header}>
+          <View style={styles.authorContainer}>
+            {/* User Avatar with Activity Ring */}
+            <View style={styles.avatarWrapper}>
+              <LinearGradient
+                colors={avatarGradientColors}
+                style={styles.avatarGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.avatarInner}>
+                  {userData?.avatar ? (
+                    <Image
+                      source={{ uri: userData.avatar }}
+                      style={styles.avatarImage}
+                    />
+                  ) : (
+                    <Text style={styles.avatarText}>
+                      {post.user_username?.[0]?.toUpperCase() || '?'}
+                    </Text>
+                  )}
+                </View>
+              </LinearGradient>
               
-              {post.is_share && (
-                <Text style={styles.sharedLabel}>{t('shared_a_post')}</Text>
-              )}
-              
-              {post.post_type && (
-                <View style={[styles.postTypeBadge, { backgroundColor: postTypeDetails.colors.bg }]}>
-                  <Ionicons name={postTypeDetails.icon} size={12} color={postTypeDetails.colors.text} />
-                  <Text style={[styles.postTypeText, { color: postTypeDetails.colors.text }]}>
-                    {postTypeDetails.label}
-                  </Text>
+              {/* Streak indicator */}
+              {userStreak > 0 && (
+                <View style={styles.streakBadge}>
+                  <Text style={styles.streakText}>{userStreak}</Text>
                 </View>
               )}
             </View>
             
-            <Text style={styles.postDate}>
-              {new Date(post.created_at).toLocaleDateString()}
-            </Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.menuButton}
-          onPress={() => setShowMenu(!showMenu)}
-        >
-          <Ionicons name="ellipsis-vertical" size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-      </View>
-      
-      {/* Post Menu */}
-      {showMenu && (
-        <View style={styles.menuPopup}>
-          {post.user_username === currentUser && (
-            <>
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={() => {
-                  if (onEdit) onEdit(post);
-                  setShowMenu(false);
-                }}
-              >
-                <Ionicons name="create-outline" size={20} color="#E5E7EB" />
-                <Text style={styles.menuItemText}>{t('edit_post')}</Text>
-              </TouchableOpacity>
+            <View style={styles.authorInfo}>
+              <View style={styles.authorNameRow}>
+                <Text style={styles.authorName}>{post.user_username}</Text>
+                
+                {post.is_share && (
+                  <Text style={styles.sharedLabel}>{t('shared_a_post')}</Text>
+                )}
+              </View>
               
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={handleDeletePost}
-              >
-                <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                <Text style={[styles.menuItemText, styles.deleteText]}>{t('delete_post')}</Text>
-              </TouchableOpacity>
-            </>
-          )}
+              <Text style={styles.postDate}>
+                @{post.user_username} • {formatDate(post.created_at)}
+              </Text>
+            </View>
+          </View>
           
           <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => setShowMenu(false)}
+            style={styles.menuButton}
+            onPress={() => setShowMenu(!showMenu)}
           >
-            <Ionicons name="close-outline" size={20} color="#E5E7EB" />
-            <Text style={styles.menuItemText}>{t('cancel')}</Text>
+            <Ionicons name="ellipsis-horizontal" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
-      )}
-      
-      {/* Post Content */}
-      <View style={styles.content}>
-        {post.content && <Text style={styles.postText}>{post.content}</Text>}
         
-        {/* Program Card */}
-        {post.post_type === 'program' && post.program_details && (
-          <View style={styles.programCardContainer}>
-            <ProgramCard
-              programId={post.program_id}
-              program={post.program_details}
-              onProgramSelect={onProgramClick}
-              currentUser={currentUser}
-              inFeedMode={true}
-              onFork={onForkProgram}
-            />
-          </View>
-        )}
-        
-        {/* Workout Log */}
-        {post.post_type === 'workout_log' && post.workout_log_details && (
-          <View style={styles.workoutLogContainer}>
-            <WorkoutLogCard 
-              user={currentUser}
-              logId={post.workout_log}
-              log={post.workout_log_details}
-              inFeedMode={true}
-            />
-          </View>
-        )}
-        
-        {/* Shared Post */}
-        {post.is_share && post.original_post_details && (
-          <SharedPostContent 
-            originalPost={post.original_post_details} 
-            onOriginalPostClick={handleOriginalPostClick}
-          />
-        )}
-        
-        {/* Regular Image */}
-        {!post.is_share && post.image && (
-          <Image
-            source={{ uri: post.image }}
-            style={styles.postImage}
-            resizeMode="cover"
-          />
-        )}
-      </View>
-      
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => onLike(post.id)}
-        >
-          <Ionicons 
-            name={post.is_liked ? "heart" : "heart-outline"} 
-            size={24} 
-            color={post.is_liked ? "#EF4444" : "#9CA3AF"} 
-          />
-          <Text 
-            style={[
-              styles.actionText, 
-              post.is_liked && styles.likedText
-            ]}
-          >
-            {post.likes_count || 0}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => setShowCommentInput(!showCommentInput)}
-        >
-          <Ionicons name="chatbubble-outline" size={22} color="#9CA3AF" />
-          <Text style={styles.actionText}>{post.comments_count || 0}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={handleShare}
-          disabled={post.is_share}
-        >
-          <Ionicons 
-            name="share-social-outline" 
-            size={22} 
-            color={post.is_share ? "#6B7280" : "#9CA3AF"} 
-          />
-          <Text 
-            style={[
-              styles.actionText, 
-              post.is_share && styles.disabledText
-            ]}
-          >
-            {post.shares_count || 0}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
-      {/* Comment Input */}
-      {showCommentInput && (
-        <View style={styles.commentInputContainer}>
-          <View style={styles.commentInputAvatar}>
-            <Text style={styles.commentInputAvatarText}>
-              {currentUser?.[0]?.toUpperCase() || '?'}
-            </Text>
-          </View>
-          
-          <View style={styles.commentInputWrapper}>
-            <TextInput
-              style={styles.commentInput}
-              placeholder={t('write_a_comment')}
-              placeholderTextColor="#9CA3AF"
-              value={commentText}
-              onChangeText={setCommentText}
-            />
+        {/* Post Menu */}
+        {showMenu && (
+          <View style={styles.menuPopup}>
+            {post.user_username === currentUser && (
+              <>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => {
+                    if (onEdit) onEdit(post);
+                    setShowMenu(false);
+                  }}
+                >
+                  <Ionicons name="create-outline" size={20} color="#E5E7EB" />
+                  <Text style={styles.menuItemText}>{t('edit_post')}</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={handleDeletePost}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  <Text style={[styles.menuItemText, styles.deleteText]}>{t('delete_post')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
             
             <TouchableOpacity 
-              style={[
-                styles.sendButton,
-                !commentText.trim() && styles.sendButtonDisabled
-              ]}
-              onPress={() => {
-                if (commentText.trim()) {
-                  onComment(post.id, commentText);
-                  setCommentText('');
-                }
-              }}
-              disabled={!commentText.trim()}
+              style={styles.menuItem}
+              onPress={() => setShowMenu(false)}
             >
-              <Ionicons 
-                name="send" 
-                size={18} 
-                color={commentText.trim() ? "#60A5FA" : "#6B7280"} 
-              />
+              <Ionicons name="close-outline" size={20} color="#E5E7EB" />
+              <Text style={styles.menuItemText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
+        )}
+        
+        {/* Achievement Pills */}
+        {badgesToShow.length > 0 && (
+          <View style={styles.achievementsContainer}>
+            {badgesToShow.map((badge, index) => (
+              <LinearGradient
+                key={index}
+                colors={badge.color}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.achievementPill}
+              >
+                <Ionicons name={badge.icon} size={12} color="#FFFFFF" />
+                <Text style={styles.achievementText}>{badge.name}</Text>
+              </LinearGradient>
+            ))}
+          </View>
+        )}
+        
+        {/* Post Content */}
+        <View style={styles.content}>
+          {post.content && <Text style={styles.postText}>{post.content}</Text>}
+          
+          {/* Program Card - Always visible now */}
+          {post.post_type === 'program' && post.program_details && (
+            <View style={styles.programCardContainer}>
+              <ProgramCard
+                programId={post.program_id}
+                program={post.program_details}
+                onProgramSelect={onProgramClick}
+                currentUser={currentUser}
+                inFeedMode={true}
+                onFork={onForkProgram}
+              />
+            </View>
+          )}
+          
+          {/* Workout Log */}
+          {post.post_type === 'workout_log' && post.workout_log_details && (
+            <View style={styles.workoutLogContainer}>
+              <WorkoutLogCard 
+                user={currentUser}
+                logId={post.workout_log}
+                log={post.workout_log_details}
+                inFeedMode={true}
+              />
+            </View>
+          )}
+          
+          {/* Shared Post */}
+          {post.is_share && post.original_post_details && (
+            <SharedPostContent 
+              originalPost={post.original_post_details} 
+              onOriginalPostClick={handleOriginalPostClick}
+            />
+          )}
+          
+          {/* Regular Image */}
+          {!post.is_share && post.image && (
+            <Image
+              source={{ uri: post.image }}
+              style={styles.postImage}
+              resizeMode="cover"
+            />
+          )}
         </View>
-      )}
-      
-      {/* Comments Section */}
-      {(showCommentInput || detailMode) && <Comments />}
-      
-      {/* Share Modal */}
-      <Modal
-        visible={isShareModalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsShareModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.shareModalContent}>
-            <View style={styles.shareModalHeader}>
-              <Text style={styles.shareModalTitle}>{t('share_post')}</Text>
-              <TouchableOpacity onPress={() => setIsShareModalOpen(false)}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+        
+        {/* Activity Stats Bar - Only show for workout related posts */}
+        {isWorkoutRelated && (
+          <View style={styles.statsBar}>
+            <View style={styles.statItem}>
+              <Ionicons name="bar-chart" size={14} color="#A78BFA" />
+              <Text style={styles.statText}>{stats.totalWorkouts} workouts</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="flash" size={14} color="#FBBF24" />
+              <Text style={styles.statText}>{stats.thisWeek} this week</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="flash" size={14} color="#F87171" />
+              <Text style={styles.statText}>{stats.streak} day streak</Text>
+            </View>
+          </View>
+        )}
+        
+        {/* Action Buttons */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={handleLike}
+          >
+            <Ionicons 
+              name={post.is_liked ? "heart" : "heart-outline"} 
+              size={20} 
+              color={post.is_liked ? "#F87171" : "#9CA3AF"} 
+            />
+            <Text 
+              style={[
+                styles.actionText, 
+                post.is_liked && styles.likedText
+              ]}
+            >
+              {post.likes_count || 0}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => setShowCommentInput(!showCommentInput)}
+          >
+            <Ionicons name="chatbubble-outline" size={20} color="#9CA3AF" />
+            <Text style={styles.actionText}>{post.comments_count || 0}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={handleShare}
+            disabled={post.is_share}
+          >
+            <Ionicons 
+              name="share-social-outline" 
+              size={20} 
+              color={post.is_share ? "#6B7280" : "#9CA3AF"} 
+            />
+            <Text 
+              style={[
+                styles.actionText, 
+                post.is_share && styles.disabledText
+              ]}
+            >
+              {post.shares_count || 0}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Comment Input */}
+        {showCommentInput && (
+          <View style={styles.commentInputContainer}>
+            <View style={styles.commentInputAvatar}>
+              <Text style={styles.commentInputAvatarText}>
+                {currentUser?.[0]?.toUpperCase() || '?'}
+              </Text>
+            </View>
+            
+            <View style={styles.commentInputWrapper}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder={t('write_a_comment')}
+                placeholderTextColor="#9CA3AF"
+                value={commentText}
+                onChangeText={setCommentText}
+              />
+              
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton,
+                  !commentText.trim() && styles.sendButtonDisabled
+                ]}
+                onPress={() => {
+                  if (commentText.trim()) {
+                    onComment(post.id, commentText);
+                    setCommentText('');
+                  }
+                }}
+                disabled={!commentText.trim()}
+              >
+                <Ionicons 
+                  name="send" 
+                  size={18} 
+                  color={commentText.trim() ? "#60A5FA" : "#6B7280"} 
+                />
               </TouchableOpacity>
             </View>
-            
-            <TextInput
-              style={styles.shareInput}
-              placeholder={t('add_your_thoughts')}
-              placeholderTextColor="#9CA3AF"
-              multiline
-              value={shareText}
-              onChangeText={setShareText}
-            />
-            
-            <View style={styles.sharedPostPreview}>
-              <Text style={styles.sharedLabel}>
-                {t('original_post_by')} {post.user_username}
-              </Text>
-              <Text style={styles.sharedPreviewText} numberOfLines={2}>
-                {post.content}
-              </Text>
-            </View>
-            
-            <TouchableOpacity 
-              style={styles.shareButton}
-              onPress={submitShare}
-            >
-              <Text style={styles.shareButtonText}>{t('share')}</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </View>
+        )}
+        
+        {/* Comments Section */}
+        {(showCommentInput || detailMode) && <Comments />}
+        
+        {/* Share Modal */}
+        <Modal
+          visible={isShareModalOpen}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsShareModalOpen(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.shareModalContent}>
+              <View style={styles.shareModalHeader}>
+                <Text style={styles.shareModalTitle}>{t('share_post')}</Text>
+                <TouchableOpacity onPress={() => setIsShareModalOpen(false)}>
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+              
+              <TextInput
+                style={styles.shareInput}
+                placeholder={t('add_your_thoughts')}
+                placeholderTextColor="#9CA3AF"
+                multiline
+                value={shareText}
+                onChangeText={setShareText}
+              />
+              
+              <View style={styles.sharedPostPreview}>
+                <Text style={styles.sharedLabel}>
+                  {t('original_post_by')} {post.user_username}
+                </Text>
+                <Text style={styles.sharedPreviewText} numberOfLines={2}>
+                  {post.content}
+                </Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.shareButton}
+                onPress={submitShare}
+              >
+                <Text style={styles.shareButtonText}>{t('share')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
+  postWrapper: {
+    marginBottom: 16,
+    position: 'relative',
+  },
   container: {
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
+    backgroundColor: 'rgba(17, 24, 39, 0.9)', // More transparent background for blur effect
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    marginVertical: 8,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+    position: 'relative',
+  },
+  blurBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 24,
+  },
+  glowEffect: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(124, 58, 237, 0.05)',
+    borderRadius: 24,
+  },
+  gradientLine: {
+    height: 2,
+    width: '100%',
   },
   header: {
-    padding: 16,
+    padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -601,24 +767,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarWrapper: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  avatarGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    overflow: 'hidden',
   },
   avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
   },
   avatarText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
+  },
+  streakBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#9333EA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#111827',
+  },
+  streakText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   authorInfo: {
     flex: 1,
@@ -630,7 +826,7 @@ const styles = StyleSheet.create({
   },
   authorName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
     marginRight: 8,
   },
@@ -638,20 +834,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
   },
-  postTypeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 16,
-    marginLeft: 8,
-  },
-  postTypeText: {
-    fontSize: 10,
-    marginLeft: 4,
-  },
   postDate: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#9CA3AF',
     marginTop: 2,
   },
@@ -659,12 +843,33 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
   },
+  achievementsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  achievementPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  achievementText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
   menuPopup: {
     position: 'absolute',
     top: 60,
     right: 16,
     backgroundColor: '#1F2937',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
     zIndex: 10,
@@ -690,32 +895,52 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
   content: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 16,
   },
   postText: {
     fontSize: 16,
     color: '#E5E7EB',
     lineHeight: 24,
-    marginBottom: 16,
+    marginBottom: 8, // Reduced margin between text and cards
   },
   programCardContainer: {
-    marginTop: 12,
+    marginTop: 8, // Reduced margin between text and program card
   },
   workoutLogContainer: {
-    marginTop: 12,
+    marginTop: 8, // Reduced margin between text and workout log
   },
   postImage: {
     width: '100%',
-    height: 300,
-    borderRadius: 12,
-    marginTop: 12,
+    height: 250,
+    borderRadius: 16,
+    marginTop: 8, // Reduced margin
+  },
+  statsBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(31, 41, 55, 0.5)',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statText: {
+    fontSize: 12,
+    color: '#D1D5DB',
+    marginLeft: 6,
   },
   sharedPostContainer: {
-    backgroundColor: '#111827',
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
     borderRadius: 12,
     padding: 16,
-    marginTop: 12,
+    marginTop: 8, // Reduced margin
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
   },
@@ -756,13 +981,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 8,
-    marginTop: 12,
+    marginTop: 8, // Reduced margin
   },
   actionsContainer: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.5)',
-    padding: 4,
+    borderTopColor: 'rgba(55, 65, 81, 0.3)',
+    paddingVertical: 12,
   },
   actionButton: {
     flex: 1,
@@ -772,12 +997,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   actionText: {
-    marginLeft: 4,
+    marginLeft: 6,
     fontSize: 14,
     color: '#9CA3AF',
   },
   likedText: {
-    color: '#EF4444',
+    color: '#F87171',
   },
   disabledText: {
     color: '#6B7280',
@@ -787,7 +1012,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.5)',
+    borderTopColor: 'rgba(55, 65, 81, 0.3)',
   },
   commentInputAvatar: {
     width: 32,
@@ -810,7 +1035,7 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    backgroundColor: '#374151',
+    backgroundColor: '#1F2937',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -848,7 +1073,7 @@ const styles = StyleSheet.create({
   },
   commentBubble: {
     flex: 1,
-    backgroundColor: '#374151',
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
     borderRadius: 12,
     padding: 12,
   },
@@ -886,7 +1111,7 @@ const styles = StyleSheet.create({
   },
   shareModalContent: {
     width: '100%',
-    backgroundColor: '#1F2937',
+    backgroundColor: 'rgba(31, 41, 55, 0.9)',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
@@ -907,7 +1132,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   shareInput: {
-    backgroundColor: '#111827',
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
     borderRadius: 12,
     padding: 16,
     color: '#FFFFFF',
@@ -918,7 +1143,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(55, 65, 81, 0.5)',
   },
   sharedPostPreview: {
-    backgroundColor: '#111827',
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,

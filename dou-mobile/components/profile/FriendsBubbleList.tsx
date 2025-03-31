@@ -7,9 +7,11 @@ import {
   Image, 
   TouchableOpacity, 
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFriends } from '../../hooks/query/useUserQuery';
 import ProfilePreviewModal from './ProfilePreviewModal';
 
@@ -30,6 +32,9 @@ interface FriendResponse {
 interface FriendsBubbleListProps {
   onViewAllClick?: () => void;
 }
+
+const { width } = Dimensions.get('window');
+const BUBBLE_SIZE = 54; // Smaller bubbles
 
 const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({ 
   onViewAllClick
@@ -96,6 +101,16 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Your Story Bubble */}
+        <TouchableOpacity 
+          style={styles.yourStoryContainer}
+        >
+          <View style={styles.yourStoryBubble}>
+            <View style={styles.youAvatar} />
+          </View>
+          <Text style={styles.name}>Your Story</Text>
+        </TouchableOpacity>
+
         {friends.length > 0 ? (
           <>
             {friends.map((friendData: FriendResponse) => {
@@ -106,16 +121,26 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
                   style={styles.bubbleContainer}
                   onPress={() => handleFriendClick(friend)}
                 >
-                  {friend.avatar ? (
-                    <Image 
-                      source={getAvatarSource(friend.avatar)} 
-                      style={styles.avatar} 
-                    />
-                  ) : (
-                    <View style={styles.avatarPlaceholder}>
-                      <Text style={styles.avatarText}>{getInitials(friend.username)}</Text>
+                  {/* Instagram-like gradient ring */}
+                  <LinearGradient
+                    colors={['#DE0046', '#F7A34B']}
+                    style={styles.storyRing}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.innerRing}>
+                      {friend.avatar ? (
+                        <Image 
+                          source={getAvatarSource(friend.avatar)} 
+                          style={styles.avatar} 
+                        />
+                      ) : (
+                        <View style={styles.avatarPlaceholder}>
+                          <Text style={styles.avatarText}>{getInitials(friend.username)}</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
+                  </LinearGradient>
                   <Text style={styles.name} numberOfLines={1}>{friend.username}</Text>
                 </TouchableOpacity>
               );
@@ -160,65 +185,108 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#111827', // Match the feed background
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(17, 24, 39, 0.8)', // Semi-transparent background
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 8,
+    // No borders or separators
   },
   scrollContent: {
-    paddingRight: 20, // Extra padding for the end
+    paddingRight: 10,
   },
   bubbleContainer: {
     alignItems: 'center',
-    marginRight: 16,
-    width: 70,
+    marginHorizontal: 8,
+    width: BUBBLE_SIZE,
+  },
+  yourStoryContainer: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+    width: BUBBLE_SIZE,
+    marginLeft: 4,
+  },
+  yourStoryBubble: {
+    width: BUBBLE_SIZE,
+    height: BUBBLE_SIZE,
+    borderRadius: BUBBLE_SIZE / 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  youAvatar: {
+    width: BUBBLE_SIZE - 6,
+    height: BUBBLE_SIZE - 6,
+    borderRadius: (BUBBLE_SIZE - 6) / 2,
+    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  yourStoryPlus: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  storyRing: {
+    width: BUBBLE_SIZE,
+    height: BUBBLE_SIZE,
+    borderRadius: BUBBLE_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2, // Space for the gradient ring
+  },
+  innerRing: {
+    width: '100%',
+    height: '100%',
+    borderRadius: (BUBBLE_SIZE - 4) / 2,
+    borderWidth: 2,
+    borderColor: '#0F172A', // Dark border between gradient and image
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: '#3B82F6',
+    width: '100%',
+    height: '100%',
+    borderRadius: (BUBBLE_SIZE - 8) / 2,
   },
   avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: '100%',
+    height: '100%',
+    borderRadius: (BUBBLE_SIZE - 8) / 2,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#2563EB',
   },
   avatarText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
   },
   name: {
     marginTop: 4,
-    fontSize: 12,
-    color: '#E5E7EB', // Lighter color for better visibility on transparent bg
+    fontSize: 10, // Smaller text
+    color: '#E5E7EB',
     textAlign: 'center',
     width: '100%',
   },
   viewMoreBubble: {
     alignItems: 'center',
-    width: 70,
+    width: BUBBLE_SIZE,
+    marginHorizontal: 8,
   },
   viewMoreCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#374151',
+    width: BUBBLE_SIZE,
+    height: BUBBLE_SIZE,
+    borderRadius: BUBBLE_SIZE / 2,
+    backgroundColor: 'rgba(55, 65, 81, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   viewMoreText: {
     marginTop: 4,
-    fontSize: 12,
-    color: '#E5E7EB', // Lighter color for better visibility
+    fontSize: 10,
+    color: '#E5E7EB',
     textAlign: 'center',
   },
   loadingContainer: {
@@ -235,24 +303,24 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
   emptyContainer: {
-    width: '100%',
+    width: width - 32,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 10,
   },
   emptyText: {
-    color: '#E5E7EB', // Lighter color for better visibility
+    color: '#E5E7EB',
     marginBottom: 8,
   },
   addFriendButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
     backgroundColor: '#3B82F6',
     borderRadius: 20,
   },
   addFriendText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
 });

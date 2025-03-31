@@ -16,6 +16,8 @@ import FeedContainer from '../../components/feed/FeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsBubbleList from '../../components/profile/FriendsBubbleList';
 import FriendsModal from '../../components/profile/FriendsModal';
+import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
+import SidebarButton from '../../components/navigation/SidebarButton';
 import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
@@ -50,6 +52,19 @@ export default function FeedScreen() {
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: forkProgram } = useForkProgram();
+
+  // Calculate header animation values - make it disappear completely
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 60],
+    outputRange: [60, 0],
+    extrapolate: 'clamp'
+  });
+  
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 40],
+    outputRange: [1, 0],
+    extrapolate: 'clamp'
+  });
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -128,15 +143,38 @@ export default function FeedScreen() {
     { useNativeDriver: false }
   );
 
+  // Custom rendering for the feed content with friends list at the top
+  const renderHeader = () => {
+    return (
+      <View>
+        <FriendsBubbleList onViewAllClick={handleOpenFriendsModal} />
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.mainContainer}>
-        {/* Friends list in a fixed position above feed (not overlapping) */}
-        <View style={styles.friendsListWrapper}>
-          <FriendsBubbleList onViewAllClick={handleOpenFriendsModal} />
-        </View>
-        
-        {/* Then render the feed with proper spacing to avoid overlap */}
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        {/* Only the logo header animates out */}
+        <Animated.View 
+          style={[
+            styles.header,
+            { 
+              height: headerHeight,
+              opacity: headerOpacity
+            }
+          ]}
+        >
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft} />
+            <HeaderLogoWithSVG />
+            <View style={styles.headerRight}>
+              <SidebarButton />
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Feed wrapper - includes the friends list as its header */}
         <View style={styles.feedWrapper}>
           {postsLoading && !refreshing ? (
             <View style={styles.loadingContainer}>
@@ -157,10 +195,11 @@ export default function FeedScreen() {
               onScroll={handleScroll}
               scrollEventThrottle={16}
               contentContainerStyle={styles.feedContentContainer}
+              ListHeaderComponent={renderHeader}
             />
           )}
         </View>
-      </View>
+      </SafeAreaView>
       
       {/* Friends Modal */}
       {showFriendsModal && (
@@ -179,7 +218,7 @@ export default function FeedScreen() {
           userId={selectedUserId}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -188,20 +227,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#111827',
   },
-  mainContainer: {
+  safeArea: {
     flex: 1,
-    position: 'relative',
-  },
-  friendsListWrapper: {
-    width: '100%',
     backgroundColor: '#111827',
-    zIndex: 5,
-    // Fixed position at the top of the screen, not animated
-    // No position: 'absolute' so it doesn't overlap
+  },
+  header: {
+    backgroundColor: '#111827', // Unified background color
+    overflow: 'hidden',
+    // No border or separator
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    height: '100%',
+  },
+  headerLeft: {
+    width: 40,
+  },
+  headerRight: {
+    width: 40,
+    alignItems: 'flex-end',
   },
   feedWrapper: {
     flex: 1,
-    // No paddingTop needed as the FriendsBubbleList takes its natural height
+    paddingTop: 0, // No extra padding needed since friends list is part of the feed
   },
   feedContentContainer: {
     paddingBottom: 80, // Space for bottom tab bar

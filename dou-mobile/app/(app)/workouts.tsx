@@ -1,5 +1,6 @@
 // app/(app)/workouts.tsx
 import React, { useState, useEffect, useCallback } from 'react';
+import { router } from 'expo-router';
 import {
   View,
   Text,
@@ -9,15 +10,17 @@ import {
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
-  Alert,
-  Image,
-  Platform,
-  StatusBar
+  Animated,
+  Dimensions,
+  StatusBar,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../context/LanguageContext';
+import { useModal } from '../../context/ModalContext';
+
+// Import React Query hooks
 import { 
   usePrograms, 
   useToggleProgramActive,
@@ -27,169 +30,221 @@ import {
   useLogs,
   useCreateLog
 } from '../../hooks/query/useLogQuery';
-import { programService } from '../../api/services';
-import WorkoutTimeline from '../../components/workouts/WorkoutTimeline';
+import { 
+  useWorkoutTemplates
+} from '../../hooks/query/useWorkoutQuery';
+
+// Import custom components
 import ProgramCard from '../../components/workouts/ProgramCard';
-import { useQueryClient } from '@tanstack/react-query';
+import WorkoutLogCard from '../../components/workouts/WorkoutLogCard';
 
-// Interface for workout log
-interface WorkoutLog {
-  id: number;
-  name: string;
-  workout_name?: string;
-  date: string;
-  rating?: number;
-  exercise_count?: number;
-  exercises?: any[];
-  program_name?: string;
-  mood_rating?: number;
-  completed?: boolean;
-}
+// Define constants for view types
+const VIEW_TYPES = {
+  PROGRAMS: 'programs',
+  WORKOUT_HISTORY: 'workout_history',
+  TEMPLATES: 'templates'
+};
 
-// Interface for next workout
-interface Workout {
-  id: number;
-  name: string;
-  preferred_weekday?: number;
-  exercises?: any[];
-  estimated_duration?: number;
-}
+const { width, height } = Dimensions.get('window');
 
 export default function WorkoutsScreen() {
+  // Auth and language contexts
   const { user } = useAuth();
   const { t } = useLanguage();
-  const queryClient = useQueryClient();
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedLog, setSelectedLog] = useState<WorkoutLog | null>(null);
-  const [showWorkoutDetailsModal, setShowWorkoutDetailsModal] = useState(false);
-  const [showLogWorkoutModal, setShowLogWorkoutModal] = useState(false);
-  const [nextWorkout, setNextWorkout] = useState<Workout | null>(null);
-  
-  // Use React Query hooks
   const { 
-    data: workoutPlans = [], 
+    openProgramDetail, 
+    openWorkoutLogDetail 
+  } = useModal();
+  
+  // State for UI
+  const [currentView, setCurrentView] = useState(VIEW_TYPES.PROGRAMS);
+  const [viewSelectorVisible, setViewSelectorVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Use React Query hooks to fetch data
+  const { 
+    data: programs = [], 
     isLoading: programsLoading, 
-    refetch: refetchPrograms,
-    error: programsError
+    refetch: refetchPrograms 
   } = usePrograms();
   
   const {
     data: logs = [],
     isLoading: logsLoading,
-    refetch: refetchLogs,
-    error: logsError
+    refetch: refetchLogs
   } = useLogs();
   
-  const { mutateAsync: toggleProgramActive, isLoading: isTogglingProgram } = useToggleProgramActive();
-  const { mutateAsync: createLog, isLoading: isCreatingLog } = useCreateLog();
-  const { mutateAsync: forkProgram, isLoading: isForkingProgram } = useForkProgram();
-  
-  // Find active program
-  const activeProgram = workoutPlans.find(program => program.is_active);
-  
-  // Calculate next workout when active program changes
-  useEffect(() => {
-    if (activeProgram?.workouts?.length) {
-      const next = programService.getNextWorkout(activeProgram);
-      setNextWorkout(next);
-    } else {
-      setNextWorkout(null);
-    }
-  }, [activeProgram]);
+  const {
+    data: templates = [],
+    isLoading: templatesLoading,
+    refetch: refetchTemplates
+  } = useWorkoutTemplates();
 
+  // Mutations
+  const { mutateAsync: toggleProgramActive } = useToggleProgramActive();
+  const { mutateAsync: forkProgram } = useForkProgram();
+  const { mutateAsync: createLog } = useCreateLog();
+  
+  // Get data based on current view with proper filtering
+  const getCurrentData = () => {
+    switch (currentView) {
+      case VIEW_TYPES.PROGRAMS:
+        // Filter programs to only show those created by the current user
+        return programs.filter(program => program.creator_username === user?.username);
+      case VIEW_TYPES.WORKOUT_HISTORY:
+        // Filter logs to only show those for the current user
+        return logs.filter(log => log.username === user?.username);
+      case VIEW_TYPES.TEMPLATES:
+        // Filter templates to only show those created by the current user
+        return templates.filter(template => template.creator_username === user?.username);
+      default:
+        return [];
+    }
+  };
+  
+  // Get loading state based on current view
+  const isLoading = () => {
+    switch (currentView) {
+      case VIEW_TYPES.PROGRAMS:
+        return programsLoading;
+      case VIEW_TYPES.WORKOUT_HISTORY:
+        return logsLoading;
+      case VIEW_TYPES.TEMPLATES:
+        return templatesLoading;
+      default:
+        return false;
+    }
+  };
+  
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetchPrograms(),
-        refetchLogs()
-      ]);
-      
-      // Reset next workout after refresh
-      if (activeProgram?.workouts?.length) {
-        const next = programService.getNextWorkout(activeProgram);
-        setNextWorkout(next);
+      switch (currentView) {
+        case VIEW_TYPES.PROGRAMS:
+          await refetchPrograms();
+          break;
+        case VIEW_TYPES.WORKOUT_HISTORY:
+          await refetchLogs();
+          break;
+        case VIEW_TYPES.TEMPLATES:
+          await refetchTemplates();
+          break;
       }
     } catch (error) {
-      console.error('Error refreshing workout data:', error);
-      Alert.alert(
-        t('error'),
-        t('failed_to_refresh_workout_data')
-      );
+      console.error(`Error refreshing ${currentView}:`, error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchPrograms, refetchLogs, activeProgram, t]);
+  }, [currentView, refetchPrograms, refetchLogs, refetchTemplates]);
 
-  // Handle program toggle (active/inactive)
-  const handleToggleProgram = async (programId: number) => {
-    try {
-      await toggleProgramActive(programId);
-      await refetchPrograms();
-      
-      // Invalidate queries to ensure data consistency
-      queryClient.invalidateQueries(['programs']);
-      queryClient.invalidateQueries(['logs']);
-    } catch (error) {
-      console.error('Error toggling program:', error);
-      Alert.alert(
-        t('error'),
-        t('failed_to_toggle_program')
-      );
+  // Get view title
+  const getViewTitle = () => {
+    switch (currentView) {
+      case VIEW_TYPES.PROGRAMS:
+        return t('programs');
+      case VIEW_TYPES.WORKOUT_HISTORY:
+        return t('workout_history');
+      case VIEW_TYPES.TEMPLATES:
+        return t('templates');
+      default:
+        return '';
     }
   };
 
-  // Navigate to program detail view
-  const navigateToProgramDetail = (programId: number) => {
-    // TODO: Implement navigation to program detail screen
-    Alert.alert('Coming Soon', 'Program details will be available in future updates');
+  // Toggle view selector
+  const toggleViewSelector = () => {
+    setViewSelectorVisible(!viewSelectorVisible);
   };
 
-  // Navigate to all programs view
-  const navigateToAllPrograms = () => {
-    // TODO: Implement navigation to all programs screen
-    Alert.alert('Coming Soon', 'Program list will be available in future updates');
+  // Change current view
+  const changeView = (viewType) => {
+    setCurrentView(viewType);
+    setViewSelectorVisible(false);
   };
 
-  // Navigate to all logs view
-  const navigateToAllLogs = () => {
-    // TODO: Implement navigation to all logs screen
-    Alert.alert('Coming Soon', 'Workout log history will be available in future updates');
+  // Get card color based on index
+  const getCardColor = (index) => {
+    // Base colors for each view type
+    const colorVariations = {
+      [VIEW_TYPES.PROGRAMS]: [
+        '#7e22ce', // Original purple
+        '#9333ea', // Lighter purple
+        '#a855f7', // Another purple variation
+        '#6b21a8', // Darker purple
+      ],
+      [VIEW_TYPES.WORKOUT_HISTORY]: [
+        '#16a34a', // Original green
+        '#22c55e', // Lighter green
+        '#10b981', // Teal-ish green
+        '#15803d', // Darker green
+      ],
+      [VIEW_TYPES.TEMPLATES]: [
+        '#2563eb', // Original blue
+        '#3b82f6', // Lighter blue
+        '#0ea5e9', // Sky blue
+        '#1d4ed8', // Darker blue
+      ],
+    };
+    
+    // Use the index to pick a color variation
+    const colors = colorVariations[currentView];
+    return colors[index % colors.length];
   };
-
-  // Handle log workout
-  const handleLogWorkout = () => {
-    setShowLogWorkoutModal(true);
-    // TODO: Implement Log Workout Modal
-    Alert.alert('Coming Soon', 'Workout logging will be available in future updates');
+  
+  // Handle card press
+  const handleCardPress = (item) => {
+    switch (currentView) {
+      case VIEW_TYPES.PROGRAMS:
+        openProgramDetail(item);
+        break;
+      case VIEW_TYPES.WORKOUT_HISTORY:
+        openWorkoutLogDetail(item);
+        break;
+      case VIEW_TYPES.TEMPLATES:
+        // For templates, need to implement detail view
+        console.log("Template detail view not implemented yet");
+        break;
+    }
   };
-
-  // Handle workout selection
-  const handleSelectWorkout = (workout: any) => {
-    // TODO: Implement workout details view
-    Alert.alert('Coming Soon', 'Workout details will be available in future updates');
-  };
-
-  // Handle log selection
-  const handleSelectLog = (log: WorkoutLog) => {
-    setSelectedLog(log);
-    setShowWorkoutDetailsModal(true);
-    // TODO: Implement workout log details modal
-    Alert.alert('Coming Soon', 'Workout log details will be available in future updates');
-  };
-
-  // Handle create program
+  
+  // Handlers for action buttons
   const handleCreateProgram = () => {
-    // TODO: Implement program creation
-    Alert.alert('Coming Soon', 'Program creation will be available in future updates');
+    // Navigation to program creation
+    console.log("Create program button pressed");
   };
-
-  if (programsLoading || logsLoading) {
+  
+  const handleLogWorkout = () => {
+    // Navigation to log workout
+    console.log("Log workout button pressed");
+  };
+  
+  const handleCreateTemplate = () => {
+    // Navigation to template creation
+    console.log("Create template button pressed");
+  };
+  
+  const handleStartWorkout = () => {
+    // Start workout logic
+    console.log("Start workout button pressed");
+  };
+  
+  // Handle program forking
+  const handleForkProgram = async (programId) => {
+    try {
+      await forkProgram(programId);
+      refetchPrograms();
+    } catch (error) {
+      console.error("Error forking program:", error);
+    }
+  };
+  
+  // Render loading state
+  if (isLoading() && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>{t('loading_workout_data')}</Text>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Text style={styles.loadingText}>{t('loading')}</Text>
       </View>
     );
   }
@@ -197,135 +252,390 @@ export default function WorkoutsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#111827" />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#3B82F6"
-            colors={['#3B82F6']}
-          />
-        }
-      >
-        {/* Header Section */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>{t('your_fitness_journey')}</Text>
-          <Text style={styles.subtitle}>
-            {t('track_your_progress')}
-          </Text>
-        </View>
-
-        {/* Quick Action Buttons */}
-        <View style={styles.quickActionsContainer}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={navigateToAllPrograms}
+            style={styles.viewSelector}
+            onPress={toggleViewSelector}
           >
-            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(124, 58, 237, 0.2)' }]}>
-              <Ionicons name="barbell-outline" size={20} color="#A78BFA" />
-            </View>
-            <Text style={styles.quickActionText}>{t('programs')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={handleLogWorkout}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-              <Ionicons name="add-outline" size={20} color="#10B981" />
-            </View>
-            <Text style={styles.quickActionText}>{t('log_workout')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.quickActionButton}
-            onPress={navigateToAllLogs}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
-              <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
-            </View>
-            <Text style={styles.quickActionText}>{t('history')}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Active Program Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('active_program')}</Text>
-            {workoutPlans.length > 0 && (
-              <TouchableOpacity onPress={navigateToAllPrograms}>
-                <Text style={styles.sectionLink}>{t('view_all')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {activeProgram ? (
-            <ProgramCard 
-              program={activeProgram}
-              currentUser={user?.username || ''}
-              onToggleActive={handleToggleProgram}
-              onProgramSelect={navigateToProgramDetail}
-              compact={true}
+            <Text style={styles.viewTitle}>{getViewTitle()}</Text>
+            <Ionicons 
+              name={viewSelectorVisible ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color="#FFFFFF" 
             />
-          ) : (
-            <View style={styles.emptyStateCard}>
-              <Ionicons name="barbell-outline" size={40} color="#6B7280" />
-              <Text style={styles.emptyStateTitle}>{t('no_active_program')}</Text>
-              <Text style={styles.emptyStateText}>
-                {t('setup_program_prompt')}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.statsButton}
+            onPress={() => router.push('/analytics')}
+          >
+            <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* View Selector Dropdown */}
+        {viewSelectorVisible && (
+          <View style={styles.dropdown}>
+            <TouchableOpacity 
+              style={[
+                styles.dropdownItem, 
+                currentView === VIEW_TYPES.PROGRAMS && styles.activeDropdownItem
+              ]}
+              onPress={() => changeView(VIEW_TYPES.PROGRAMS)}
+            >
+              <Text style={[
+                styles.dropdownText, 
+                currentView === VIEW_TYPES.PROGRAMS && styles.activeDropdownText
+              ]}>
+                {t('programs')}
               </Text>
+              {currentView === VIEW_TYPES.PROGRAMS && (
+                <Ionicons name="checkmark" size={20} color="#7e22ce" />
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.dropdownItem, 
+                currentView === VIEW_TYPES.WORKOUT_HISTORY && styles.activeDropdownItem
+              ]}
+              onPress={() => changeView(VIEW_TYPES.WORKOUT_HISTORY)}
+            >
+              <Text style={[
+                styles.dropdownText, 
+                currentView === VIEW_TYPES.WORKOUT_HISTORY && styles.activeDropdownText
+              ]}>
+                {t('workout_history')}
+              </Text>
+              {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
+                <Ionicons name="checkmark" size={20} color="#16a34a" />
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.dropdownItem, 
+                currentView === VIEW_TYPES.TEMPLATES && styles.activeDropdownItem
+              ]}
+              onPress={() => changeView(VIEW_TYPES.TEMPLATES)}
+            >
+              <Text style={[
+                styles.dropdownText, 
+                currentView === VIEW_TYPES.TEMPLATES && styles.activeDropdownText
+              ]}>
+                {t('templates')}
+              </Text>
+              {currentView === VIEW_TYPES.TEMPLATES && (
+                <Ionicons name="checkmark" size={20} color="#2563eb" />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          {currentView === VIEW_TYPES.PROGRAMS && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#7e22ce' }]}
+              onPress={handleCreateProgram}
+            >
+              <Ionicons name="add" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
+              <Text style={styles.actionButtonText}>{t('create_program')}</Text>
+            </TouchableOpacity>
+          )}
+          
+          {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
+            <>
               <TouchableOpacity 
-                style={styles.primaryButton}
-                onPress={handleCreateProgram}
+                style={[styles.actionButton, { backgroundColor: '#16a34a', flex: 1, marginRight: 8 }]}
+                onPress={handleLogWorkout}
               >
-                <Text style={styles.buttonText}>{t('create_program')}</Text>
+                <Ionicons name="add" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
+                <Text style={styles.actionButtonText}>{t('log_workout')}</Text>
               </TouchableOpacity>
-            </View>
+              
+              <TouchableOpacity 
+                style={[styles.actionButton, { backgroundColor: '#16a34a', flex: 1 }]}
+                onPress={handleStartWorkout}
+              >
+                <Ionicons name="play" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
+                <Text style={styles.actionButtonText}>{t('start')}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          
+          {currentView === VIEW_TYPES.TEMPLATES && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#2563eb' }]}
+              onPress={handleCreateTemplate}
+            >
+              <Ionicons name="add" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
+              <Text style={styles.actionButtonText}>{t('create_template')}</Text>
+            </TouchableOpacity>
           )}
         </View>
-
-        {/* Workout Timeline Section */}
-        <View style={styles.sectionContainer}>
-          <WorkoutTimeline
-            logs={logs}
-            nextWorkout={nextWorkout}
-            logsLoading={logsLoading}
-            plansLoading={programsLoading}
-            activeProgram={activeProgram || undefined}
-            onSelectWorkout={handleSelectWorkout}
-            onSelectLog={handleSelectLog}
-            onLogWorkout={handleLogWorkout}
-          />
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity 
-            style={styles.actionButton} 
-            onPress={handleLogWorkout}
-          >
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="add" size={24} color="#FFFFFF" />
+        
+        {/* Card List */}
+        <ScrollView
+          style={styles.cardStack}
+          contentContainerStyle={styles.cardStackContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#FFFFFF"
+              colors={['#FFFFFF']}
+            />
+          }
+        >
+          {getCurrentData().length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons 
+                name={
+                  currentView === VIEW_TYPES.PROGRAMS ? "barbell-outline" :
+                  currentView === VIEW_TYPES.WORKOUT_HISTORY ? "calendar-outline" :
+                  "document-text-outline"
+                } 
+                size={60} 
+                color="#4B5563" 
+              />
+              <Text style={styles.emptyStateTitle}>
+                {currentView === VIEW_TYPES.PROGRAMS && t('no_programs')}
+                {currentView === VIEW_TYPES.WORKOUT_HISTORY && t('no_workouts')}
+                {currentView === VIEW_TYPES.TEMPLATES && t('no_templates')}
+              </Text>
+              <Text style={styles.emptyStateText}>
+                {currentView === VIEW_TYPES.PROGRAMS && t('create_your_first_program')}
+                {currentView === VIEW_TYPES.WORKOUT_HISTORY && t('log_your_first_workout')}
+                {currentView === VIEW_TYPES.TEMPLATES && t('create_your_first_template')}
+              </Text>
             </View>
-            <Text style={styles.actionButtonText}>{t('log_workout')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.secondaryAction]} 
-            onPress={handleCreateProgram}
-          >
-            <View style={[styles.actionIconContainer, styles.secondaryIconContainer]}>
-              <Ionicons name="barbell" size={24} color="#FFFFFF" />
+          ) : (
+            <View style={styles.cardsContainer}>
+              {getCurrentData().map((item, index) => (
+                <View
+                  key={`card-${item.id}`}
+                  style={styles.cardContainer}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => handleCardPress(item)}
+                    style={[
+                      styles.card,
+                      { backgroundColor: getCardColor(index) }
+                    ]}
+                  >
+                      {/* Card Header with Title and Badge */}
+                      <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        
+                        {/* Conditional badges */}
+                        {currentView === VIEW_TYPES.PROGRAMS && item.is_active && (
+                          <View style={styles.badge}>
+                            <Text style={[styles.badgeText, { color: '#7e22ce' }]}>
+                              {t('active')}
+                            </Text>
+                          </View>
+                        )}
+                        
+                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
+                          <View style={[
+                            styles.badge,
+                            item.completed ? styles.completedBadge : styles.pendingBadge
+                          ]}>
+                            <Text style={[
+                              styles.badgeText,
+                              item.completed ? { color: '#16a34a' } : { color: '#FFFFFF' }
+                            ]}>
+                              {item.completed ? t('completed') : t('in_progress')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      {/* Card Subtitle */}
+                      <Text style={styles.cardSubtitle}>
+                        {currentView === VIEW_TYPES.PROGRAMS && formatFocus(item.focus)}
+                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && formatDate(item.date)}
+                        {currentView === VIEW_TYPES.TEMPLATES && formatFocus(item.focus)}
+                      </Text>
+                      
+                      {/* Card Details */}
+                      <View style={styles.cardDetails}>
+                        <View style={styles.detailRow}>
+                          {currentView === VIEW_TYPES.PROGRAMS && (
+                            <>
+                              <Text style={styles.detailLabel}>{t('level')}</Text>
+                              <Text style={styles.detailValue}>{item.difficulty_level}</Text>
+                            </>
+                          )}
+                          
+                          {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
+                            <>
+                              <Text style={styles.detailLabel}>{t('exercises')}</Text>
+                              <Text style={styles.detailValue}>{item.exercises?.length || 0}</Text>
+                            </>
+                          )}
+                          
+                          {currentView === VIEW_TYPES.TEMPLATES && (
+                            <>
+                              <Text style={styles.detailLabel}>{t('exercises')}</Text>
+                              <Text style={styles.detailValue}>{item.exercises?.length || 0}</Text>
+                            </>
+                          )}
+                        </View>
+                        
+                        <View style={styles.detailRow}>
+                          {currentView === VIEW_TYPES.PROGRAMS && (
+                            <>
+                              <Text style={styles.detailLabel}>{t('sessions')}</Text>
+                              <Text style={styles.detailValue}>{item.sessions_per_week}x/week</Text>
+                            </>
+                          )}
+                          
+                          {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.duration && (
+                            <>
+                              <Text style={styles.detailLabel}>{t('duration')}</Text>
+                              <Text style={styles.detailValue}>{item.duration} min</Text>
+                            </>
+                          )}
+                        </View>
+                        
+                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.mood_rating && (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>{t('mood')}</Text>
+                            <Text style={styles.detailValue}>{getMoodEmoji(item.mood_rating)}</Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      {/* Card Footer */}
+                      <View style={styles.cardFooter}>
+                        <View style={styles.creatorInfo}>
+                          {currentView === VIEW_TYPES.PROGRAMS && (
+                            <>
+                              <Ionicons name="person" size={12} color="rgba(255, 255, 255, 0.7)" />
+                              <Text style={styles.creatorText}>{item.creator_username}</Text>
+                            </>
+                          )}
+                          
+                          {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.gym_name && (
+                            <>
+                              <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.7)" />
+                              <Text style={styles.creatorText}>{item.gym_name}</Text>
+                            </>
+                          )}
+                          
+                          {currentView === VIEW_TYPES.TEMPLATES && (
+                            <>
+                              <Ionicons name="person" size={12} color="rgba(255, 255, 255, 0.7)" />
+                              <Text style={styles.creatorText}>{item.creator_username}</Text>
+                            </>
+                          )}
+                        </View>
+                        
+                        {/* Conditional fork button */}
+                        {currentView === VIEW_TYPES.PROGRAMS && 
+                         item.creator_username !== user?.username && (
+                          <TouchableOpacity 
+                            style={styles.forkButton}
+                            onPress={() => handleForkProgram(item.id)}
+                          >
+                            <Ionicons name="download-outline" size={14} color="#7e22ce" />
+                            <Text style={[styles.forkText, { color: '#7e22ce' }]}>{t('fork')}</Text>
+                          </TouchableOpacity>
+                        )}
+                        
+                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && 
+                         item.username !== user?.username && (
+                          <TouchableOpacity 
+                            style={styles.forkButton}
+                            onPress={() => console.log("Fork workout log")}
+                          >
+                            <Ionicons name="download-outline" size={14} color="#16a34a" />
+                            <Text style={[styles.forkText, { color: '#16a34a' }]}>{t('fork')}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      
+                      {/* Program specific: Schedule visualization */}
+                      {currentView === VIEW_TYPES.PROGRAMS && item.workouts && (
+                        <View style={styles.scheduleRow}>
+                          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, dayIndex) => {
+                            const hasWorkout = item.workouts.some(w => 
+                              w.preferred_weekday === dayIndex
+                            );
+                            
+                            return (
+                              <View key={dayIndex} style={styles.dayItem}>
+                                <Text style={styles.dayText}>{day}</Text>
+                                <View style={[
+                                  styles.dayIndicator,
+                                  hasWorkout ? styles.dayActive : styles.dayInactive
+                                ]} />
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                      
+                      {/* Workout history specific: Exercise bubbles */}
+                      {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.exercises && item.exercises.length > 0 && (
+                        <View style={styles.exerciseRow}>
+                          {item.exercises.slice(0, 3).map((exercise, exIndex) => (
+                            <View key={exIndex} style={styles.exerciseBubble}>
+                              <Text style={styles.exerciseName} numberOfLines={1}>
+                                {exercise.name}
+                              </Text>
+                            </View>
+                          ))}
+                          {item.exercises.length > 3 && (
+                            <View style={styles.moreBubble}>
+                              <Text style={styles.moreText}>+{item.exercises.length - 3}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ))}
             </View>
-            <Text style={styles.actionButtonText}>{t('create_program')}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+          )}
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
+
+// Helper functions
+const formatFocus = (focus) => {
+  if (!focus) return '';
+  return focus
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+const getMoodEmoji = (rating) => {
+  if (!rating) return '😐';
+  if (rating >= 4.5) return '😀';
+  if (rating >= 3.5) return '🙂';
+  if (rating >= 2.5) return '😐';
+  if (rating >= 1.5) return '😕';
+  return '😞';
+};
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -337,10 +647,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#111827',
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -348,141 +654,272 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
   loadingText: {
-    marginTop: 10,
-    color: '#9CA3AF',
+    color: '#FFFFFF',
+    marginTop: 12,
+    fontSize: 16,
   },
-  headerContainer: {
-    marginBottom: 20,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1F2937',
   },
-  title: {
-    fontSize: 28,
+  viewSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 8,
+    marginRight: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    lineHeight: 24,
-  },
-  quickActionsContainer: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    justifyContent: 'space-between',
-  },
-  quickActionButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginHorizontal: 4,
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
-  },
-  quickActionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  statsButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    borderRadius: 20,
   },
-  quickActionText: {
-    fontSize: 12,
-    color: '#D1D5DB',
-    fontWeight: '500',
+  dropdown: {
+    position: 'absolute',
+    top: 70,
+    left: 16,
+    right: 16,
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    padding: 8,
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  sectionContainer: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
+  dropdownItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
+  activeDropdownItem: {
+    backgroundColor: '#374151',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#D1D5DB',
+  },
+  activeDropdownText: {
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  sectionLink: {
-    fontSize: 14,
-    color: '#3B82F6',
-    fontWeight: '500',
+  actionButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  emptyStateCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 24,
+  actionButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#374151',
+    padding: 12,
+    borderRadius: 12,
+    flex: 1,
+  },
+  actionButtonIcon: {
+    marginRight: 8,
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  cardStack: {
+    flex: 1,
+  },
+  cardStackContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  cardsContainer: {
+    marginTop: 12,
+  },
+  cardContainer: {
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  card: {
+    borderRadius: 20,
+    padding: 16,
+    minHeight: 180,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    flex: 1,
+    marginRight: 8,
+  },
+  badge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  completedBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  pendingBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cardSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: 12,
+  },
+  cardDetails: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginBottom: 16,
+  },
+  detailRow: {
+    marginRight: 24,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'auto',
+  },
+  creatorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  creatorText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginLeft: 4,
+  },
+  forkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  forkText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  dayItem: {
+    alignItems: 'center',
+  },
+  dayText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+  },
+  dayIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  dayActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  dayInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  exerciseRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  exerciseBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  exerciseName: {
+    color: '#166534',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  moreBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  moreText: {
+    color: '#166534',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    marginTop: 80,
   },
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginTop: 12,
+    marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
-    marginBottom: 16,
-  },
-  primaryButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#3B82F6',
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  secondaryAction: {
-    backgroundColor: '#7C3AED',
-  },
-  actionIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  secondaryIconContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });

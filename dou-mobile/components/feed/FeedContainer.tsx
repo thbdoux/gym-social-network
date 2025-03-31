@@ -44,6 +44,7 @@ interface FeedContainerProps {
   onPostClick?: (postId: number) => void;
   contentContainerStyle?: object;
   scrollEventThrottle?: number;
+  ListHeaderComponent?: React.ReactElement | (() => React.ReactElement) | null; // Add ListHeaderComponent prop
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
@@ -61,6 +62,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   onScroll,
   contentContainerStyle,
   scrollEventThrottle = 16,
+  ListHeaderComponent, // Add ListHeaderComponent to props
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
@@ -176,6 +178,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     <FlatList
       data={filteredPosts}
       keyExtractor={(item) => item.id.toString()}
+      ListHeaderComponent={ListHeaderComponent} // Add the ListHeaderComponent
       renderItem={({ item }) => (
         <Post
           post={item}
@@ -209,7 +212,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 
 const styles = StyleSheet.create({
   listContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 0, // No padding at the top since we'll have the FriendsBubbleList
     paddingBottom: 160, // Extra padding for bottom tab bar
   },
   loadingContainer: {

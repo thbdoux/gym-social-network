@@ -4,6 +4,18 @@ const translations = {
   en: {
     // Common UI elements
     ...personalityPathTranslations.en,
+    'analytics': 'Analytics',
+'volume': 'Volume',
+'weight_rep': 'Weight/Rep',
+'sets': 'Sets',
+'total_weight_kg': 'Total Weight (kg)',
+'average_weight_rep_kg': 'Average Weight/Rep (kg)',
+'total_sets': 'Total Sets',
+'all_exercises': 'All exercises',
+'current': 'Current',
+'monthly': 'Monthly',
+'total': 'Total',
+'not_enough_data': 'Not enough workout data to display analytics',
     "app_name": "dou",
     "login": "Login",
     "signup": "Sign Up",
