@@ -13,12 +13,15 @@ import {
   Animated,
   Dimensions,
   StatusBar,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../context/LanguageContext';
 import { useModal } from '../../context/ModalContext';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Import React Query hooks
 import { 
@@ -34,7 +37,7 @@ import {
   useWorkoutTemplates
 } from '../../hooks/query/useWorkoutQuery';
 
-// Import custom components
+// Import custom components - ACTUALLY USE THESE NOW
 import ProgramCard from '../../components/workouts/ProgramCard';
 import WorkoutLogCard from '../../components/workouts/WorkoutLogCard';
 
@@ -57,11 +60,12 @@ export default function WorkoutsScreen() {
   } = useModal();
   
   // State for UI
-  const [currentView, setCurrentView] = useState(VIEW_TYPES.PROGRAMS);
+  const [currentView, setCurrentView] = useState(VIEW_TYPES.WORKOUT_HISTORY); // Set workout history as default
   const [viewSelectorVisible, setViewSelectorVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionModalVisible, setActionModalVisible] = useState(false);
   
-  // Use React Query hooks to fetch data
+  // Use React Query hooks
   const { 
     data: programs = [], 
     isLoading: programsLoading, 
@@ -157,85 +161,81 @@ export default function WorkoutsScreen() {
     setViewSelectorVisible(!viewSelectorVisible);
   };
 
+  // Toggle action modal
+  const toggleActionModal = () => {
+    setActionModalVisible(!actionModalVisible);
+  };
+
   // Change current view
   const changeView = (viewType) => {
     setCurrentView(viewType);
     setViewSelectorVisible(false);
   };
-
-  // Get card color based on index
-  const getCardColor = (index) => {
-    // Base colors for each view type
-    const colorVariations = {
-      [VIEW_TYPES.PROGRAMS]: [
-        '#7e22ce', // Original purple
-        '#9333ea', // Lighter purple
-        '#a855f7', // Another purple variation
-        '#6b21a8', // Darker purple
-      ],
-      [VIEW_TYPES.WORKOUT_HISTORY]: [
-        '#16a34a', // Original green
-        '#22c55e', // Lighter green
-        '#10b981', // Teal-ish green
-        '#15803d', // Darker green
-      ],
-      [VIEW_TYPES.TEMPLATES]: [
-        '#2563eb', // Original blue
-        '#3b82f6', // Lighter blue
-        '#0ea5e9', // Sky blue
-        '#1d4ed8', // Darker blue
-      ],
-    };
-    
-    // Use the index to pick a color variation
-    const colors = colorVariations[currentView];
-    return colors[index % colors.length];
-  };
   
-  // Handle card press
-  const handleCardPress = (item) => {
-    switch (currentView) {
-      case VIEW_TYPES.PROGRAMS:
-        openProgramDetail(item);
-        break;
-      case VIEW_TYPES.WORKOUT_HISTORY:
-        openWorkoutLogDetail(item);
-        break;
-      case VIEW_TYPES.TEMPLATES:
-        // For templates, need to implement detail view
-        console.log("Template detail view not implemented yet");
-        break;
-    }
-  };
-  
-  // Handlers for action buttons
-  const handleCreateProgram = () => {
-    // Navigation to program creation
-    console.log("Create program button pressed");
-  };
-  
-  const handleLogWorkout = () => {
-    // Navigation to log workout
-    console.log("Log workout button pressed");
-  };
-  
-  const handleCreateTemplate = () => {
-    // Navigation to template creation
-    console.log("Create template button pressed");
-  };
-  
-  const handleStartWorkout = () => {
-    // Start workout logic
-    console.log("Start workout button pressed");
-  };
-  
-  // Handle program forking
+  // Handle fork program
   const handleForkProgram = async (programId) => {
     try {
       await forkProgram(programId);
       refetchPrograms();
     } catch (error) {
       console.error("Error forking program:", error);
+    }
+  };
+  
+  // Handle fork workout log
+  const handleForkWorkoutLog = async (log) => {
+    try {
+      console.log("Forking workout log:", log.id);
+      // Implement workout log forking logic here
+    } catch (error) {
+      console.error("Error forking workout log:", error);
+    }
+  };
+  
+  // Action handlers
+  const handleCreateProgram = () => {
+    // Navigation to program creation
+    console.log("Create program button pressed");
+    setActionModalVisible(false);
+  };
+  
+  const handleLogWorkout = () => {
+    // Navigation to log workout
+    console.log("Log workout button pressed");
+    setActionModalVisible(false);
+  };
+  
+  const handleCreateTemplate = () => {
+    // Navigation to template creation
+    console.log("Create template button pressed");
+    setActionModalVisible(false);
+  };
+  
+  // Get action modal title
+  const getActionModalTitle = () => {
+    switch (currentView) {
+      case VIEW_TYPES.PROGRAMS:
+        return t('program_options');
+      case VIEW_TYPES.WORKOUT_HISTORY:
+        return t('workout_options');
+      case VIEW_TYPES.TEMPLATES:
+        return t('template_options');
+      default:
+        return t('select_action');
+    }
+  };
+
+  // Get action gradient colors
+  const getActionGradient = () => {
+    switch (currentView) {
+      case VIEW_TYPES.PROGRAMS:
+        return ['#7e22ce', '#9333ea'];
+      case VIEW_TYPES.WORKOUT_HISTORY:
+        return ['#16a34a', '#22c55e'];
+      case VIEW_TYPES.TEMPLATES:
+        return ['#2563eb', '#3b82f6'];
+      default:
+        return ['#9333EA', '#D946EF'];
     }
   };
   
@@ -266,12 +266,22 @@ export default function WorkoutsScreen() {
               color="#FFFFFF" 
             />
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.statsButton}
-            onPress={() => router.push('/analytics')}
-          >
-            <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
+          
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={toggleActionModal}
+            >
+              <Ionicons name="add" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={() => router.push('/analytics')}
+            >
+              <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
         
         {/* View Selector Dropdown */}
@@ -333,49 +343,6 @@ export default function WorkoutsScreen() {
           </View>
         )}
         
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          {currentView === VIEW_TYPES.PROGRAMS && (
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: '#7e22ce' }]}
-              onPress={handleCreateProgram}
-            >
-              <Ionicons name="add" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>{t('create_program')}</Text>
-            </TouchableOpacity>
-          )}
-          
-          {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
-            <>
-              <TouchableOpacity 
-                style={[styles.actionButton, { backgroundColor: '#16a34a', flex: 1, marginRight: 8 }]}
-                onPress={handleLogWorkout}
-              >
-                <Ionicons name="add" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
-                <Text style={styles.actionButtonText}>{t('log_workout')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, { backgroundColor: '#16a34a', flex: 1 }]}
-                onPress={handleStartWorkout}
-              >
-                <Ionicons name="play" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
-                <Text style={styles.actionButtonText}>{t('start')}</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          
-          {currentView === VIEW_TYPES.TEMPLATES && (
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: '#2563eb' }]}
-              onPress={handleCreateTemplate}
-            >
-              <Ionicons name="add" size={22} color="#FFFFFF" style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>{t('create_template')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        
         {/* Card List */}
         <ScrollView
           style={styles.cardStack}
@@ -413,228 +380,176 @@ export default function WorkoutsScreen() {
             </View>
           ) : (
             <View style={styles.cardsContainer}>
-              {getCurrentData().map((item, index) => (
-                <View
-                  key={`card-${item.id}`}
-                  style={styles.cardContainer}
-                >
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => handleCardPress(item)}
-                    style={[
-                      styles.card,
-                      { backgroundColor: getCardColor(index) }
-                    ]}
+              {currentView === VIEW_TYPES.PROGRAMS && 
+                getCurrentData().map((program) => (
+                  <View key={`program-${program.id}`} style={styles.cardContainer}>
+                    <ProgramCard
+                      programId={program.id}
+                      program={program}
+                      currentUser={user?.username}
+                      onFork={handleForkProgram}
+                    />
+                  </View>
+                ))
+              }
+              
+              {currentView === VIEW_TYPES.WORKOUT_HISTORY && 
+                getCurrentData().map((log) => (
+                  <View key={`log-${log.id}`} style={styles.cardContainer}>
+                    <WorkoutLogCard
+                      logId={log.id}
+                      log={log}
+                      user={user?.username}
+                      onFork={handleForkWorkoutLog}
+                    />
+                  </View>
+                ))
+              }
+              
+              {currentView === VIEW_TYPES.TEMPLATES && 
+                getCurrentData().map((template, index) => (
+                  <View
+                    key={`template-${template.id}`}
+                    style={styles.cardContainer}
                   >
-                      {/* Card Header with Title and Badge */}
+                    {/* For templates, we'll use a simpler card for now */}
+                    {/* In a real app, you'd create a TemplateCard component similar to the others */}
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={[
+                        styles.templateCard,
+                        { backgroundColor: '#2563eb' }
+                      ]}
+                    >
                       <View style={styles.cardHeader}>
                         <Text style={styles.cardTitle} numberOfLines={1}>
-                          {item.name}
+                          {template.name}
                         </Text>
-                        
-                        {/* Conditional badges */}
-                        {currentView === VIEW_TYPES.PROGRAMS && item.is_active && (
-                          <View style={styles.badge}>
-                            <Text style={[styles.badgeText, { color: '#7e22ce' }]}>
-                              {t('active')}
-                            </Text>
-                          </View>
-                        )}
-                        
-                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
-                          <View style={[
-                            styles.badge,
-                            item.completed ? styles.completedBadge : styles.pendingBadge
-                          ]}>
-                            <Text style={[
-                              styles.badgeText,
-                              item.completed ? { color: '#16a34a' } : { color: '#FFFFFF' }
-                            ]}>
-                              {item.completed ? t('completed') : t('in_progress')}
-                            </Text>
-                          </View>
-                        )}
                       </View>
                       
-                      {/* Card Subtitle */}
                       <Text style={styles.cardSubtitle}>
-                        {currentView === VIEW_TYPES.PROGRAMS && formatFocus(item.focus)}
-                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && formatDate(item.date)}
-                        {currentView === VIEW_TYPES.TEMPLATES && formatFocus(item.focus)}
+                        {formatFocus(template.focus || 'general')}
                       </Text>
                       
-                      {/* Card Details */}
                       <View style={styles.cardDetails}>
                         <View style={styles.detailRow}>
-                          {currentView === VIEW_TYPES.PROGRAMS && (
-                            <>
-                              <Text style={styles.detailLabel}>{t('level')}</Text>
-                              <Text style={styles.detailValue}>{item.difficulty_level}</Text>
-                            </>
-                          )}
-                          
-                          {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
-                            <>
-                              <Text style={styles.detailLabel}>{t('exercises')}</Text>
-                              <Text style={styles.detailValue}>{item.exercises?.length || 0}</Text>
-                            </>
-                          )}
-                          
-                          {currentView === VIEW_TYPES.TEMPLATES && (
-                            <>
-                              <Text style={styles.detailLabel}>{t('exercises')}</Text>
-                              <Text style={styles.detailValue}>{item.exercises?.length || 0}</Text>
-                            </>
-                          )}
+                          <Text style={styles.detailLabel}>{t('exercises')}</Text>
+                          <Text style={styles.detailValue}>{template.exercises?.length || 0}</Text>
                         </View>
-                        
-                        <View style={styles.detailRow}>
-                          {currentView === VIEW_TYPES.PROGRAMS && (
-                            <>
-                              <Text style={styles.detailLabel}>{t('sessions')}</Text>
-                              <Text style={styles.detailValue}>{item.sessions_per_week}x/week</Text>
-                            </>
-                          )}
-                          
-                          {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.duration && (
-                            <>
-                              <Text style={styles.detailLabel}>{t('duration')}</Text>
-                              <Text style={styles.detailValue}>{item.duration} min</Text>
-                            </>
-                          )}
-                        </View>
-                        
-                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.mood_rating && (
-                          <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>{t('mood')}</Text>
-                            <Text style={styles.detailValue}>{getMoodEmoji(item.mood_rating)}</Text>
-                          </View>
-                        )}
                       </View>
                       
-                      {/* Card Footer */}
                       <View style={styles.cardFooter}>
                         <View style={styles.creatorInfo}>
-                          {currentView === VIEW_TYPES.PROGRAMS && (
-                            <>
-                              <Ionicons name="person" size={12} color="rgba(255, 255, 255, 0.7)" />
-                              <Text style={styles.creatorText}>{item.creator_username}</Text>
-                            </>
-                          )}
-                          
-                          {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.gym_name && (
-                            <>
-                              <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.7)" />
-                              <Text style={styles.creatorText}>{item.gym_name}</Text>
-                            </>
-                          )}
-                          
-                          {currentView === VIEW_TYPES.TEMPLATES && (
-                            <>
-                              <Ionicons name="person" size={12} color="rgba(255, 255, 255, 0.7)" />
-                              <Text style={styles.creatorText}>{item.creator_username}</Text>
-                            </>
-                          )}
+                          <Ionicons name="person" size={12} color="rgba(255, 255, 255, 0.7)" />
+                          <Text style={styles.creatorText}>{template.creator_username}</Text>
                         </View>
-                        
-                        {/* Conditional fork button */}
-                        {currentView === VIEW_TYPES.PROGRAMS && 
-                         item.creator_username !== user?.username && (
-                          <TouchableOpacity 
-                            style={styles.forkButton}
-                            onPress={() => handleForkProgram(item.id)}
-                          >
-                            <Ionicons name="download-outline" size={14} color="#7e22ce" />
-                            <Text style={[styles.forkText, { color: '#7e22ce' }]}>{t('fork')}</Text>
-                          </TouchableOpacity>
-                        )}
-                        
-                        {currentView === VIEW_TYPES.WORKOUT_HISTORY && 
-                         item.username !== user?.username && (
-                          <TouchableOpacity 
-                            style={styles.forkButton}
-                            onPress={() => console.log("Fork workout log")}
-                          >
-                            <Ionicons name="download-outline" size={14} color="#16a34a" />
-                            <Text style={[styles.forkText, { color: '#16a34a' }]}>{t('fork')}</Text>
-                          </TouchableOpacity>
-                        )}
                       </View>
-                      
-                      {/* Program specific: Schedule visualization */}
-                      {currentView === VIEW_TYPES.PROGRAMS && item.workouts && (
-                        <View style={styles.scheduleRow}>
-                          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, dayIndex) => {
-                            const hasWorkout = item.workouts.some(w => 
-                              w.preferred_weekday === dayIndex
-                            );
-                            
-                            return (
-                              <View key={dayIndex} style={styles.dayItem}>
-                                <Text style={styles.dayText}>{day}</Text>
-                                <View style={[
-                                  styles.dayIndicator,
-                                  hasWorkout ? styles.dayActive : styles.dayInactive
-                                ]} />
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
-                      
-                      {/* Workout history specific: Exercise bubbles */}
-                      {currentView === VIEW_TYPES.WORKOUT_HISTORY && item.exercises && item.exercises.length > 0 && (
-                        <View style={styles.exerciseRow}>
-                          {item.exercises.slice(0, 3).map((exercise, exIndex) => (
-                            <View key={exIndex} style={styles.exerciseBubble}>
-                              <Text style={styles.exerciseName} numberOfLines={1}>
-                                {exercise.name}
-                              </Text>
-                            </View>
-                          ))}
-                          {item.exercises.length > 3 && (
-                            <View style={styles.moreBubble}>
-                              <Text style={styles.moreText}>+{item.exercises.length - 3}</Text>
-                            </View>
-                          )}
-                        </View>
-                      )}
                     </TouchableOpacity>
                   </View>
-                ))}
+                ))
+              }
             </View>
           )}
         </ScrollView>
+
+        {/* Action Modal */}
+        <Modal
+          visible={actionModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setActionModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
+              
+              {/* Modal Header with Gradient */}
+              <LinearGradient
+                colors={getActionGradient()}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalHeaderGradient}
+              >
+                <Text style={styles.modalTitle}>{getActionModalTitle()}</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setActionModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </LinearGradient>
+              
+              {/* Modal Content */}
+              <View style={styles.modalContent}>
+                {/* Workout History View Options */}
+                {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
+                  <TouchableOpacity
+                    style={styles.modalOption}
+                    onPress={handleLogWorkout}
+                  >
+                    <View style={styles.modalOptionIcon}>
+                      <Ionicons name="add-circle" size={24} color="#16a34a" />
+                    </View>
+                    <View style={styles.modalOptionText}>
+                      <Text style={styles.modalOptionTitle}>{t('log_workout')}</Text>
+                      <Text style={styles.modalOptionDescription}>
+                        {t('record_completed_workout')}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Programs View Options */}
+                {currentView === VIEW_TYPES.PROGRAMS && (
+                  <TouchableOpacity
+                    style={styles.modalOption}
+                    onPress={handleCreateProgram}
+                  >
+                    <View style={styles.modalOptionIcon}>
+                      <Ionicons name="add-circle" size={24} color="#7e22ce" />
+                    </View>
+                    <View style={styles.modalOptionText}>
+                      <Text style={styles.modalOptionTitle}>{t('create_program')}</Text>
+                      <Text style={styles.modalOptionDescription}>
+                        {t('design_new_workout_program')}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Templates View Options */}
+                {currentView === VIEW_TYPES.TEMPLATES && (
+                  <TouchableOpacity
+                    style={styles.modalOption}
+                    onPress={handleCreateTemplate}
+                  >
+                    <View style={styles.modalOptionIcon}>
+                      <Ionicons name="add-circle" size={24} color="#2563eb" />
+                    </View>
+                    <View style={styles.modalOptionText}>
+                      <Text style={styles.modalOptionTitle}>{t('create_template')}</Text>
+                      <Text style={styles.modalOptionDescription}>
+                        {t('create_new_workout_template')}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
 }
 
-// Helper functions
+// Helper function for templates view
 const formatFocus = (focus) => {
   if (!focus) return '';
   return focus
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
-
-const getMoodEmoji = (rating) => {
-  if (!rating) return '😐';
-  if (rating >= 4.5) return '😀';
-  if (rating >= 3.5) return '🙂';
-  if (rating >= 2.5) return '😐';
-  if (rating >= 1.5) return '😕';
-  return '😞';
 };
 
 const styles = StyleSheet.create({
@@ -677,12 +592,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginRight: 8,
   },
-  statsButton: {
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 20,
+    marginLeft: 8,
   },
   dropdown: {
     position: 'absolute',
@@ -718,27 +638,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    flex: 1,
-  },
-  actionButtonIcon: {
-    marginRight: 8,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
   cardStack: {
     flex: 1,
   },
@@ -758,7 +657,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
-  card: {
+  // For template cards only (since we don't have a TemplateCard component yet)
+  templateCard: {
     borderRadius: 20,
     padding: 16,
     minHeight: 180,
@@ -775,22 +675,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
-  },
-  badge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  completedBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  pendingBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   cardSubtitle: {
     fontSize: 16,
@@ -830,80 +714,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     marginLeft: 4,
   },
-  forkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-  },
-  forkText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  scheduleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  dayItem: {
-    alignItems: 'center',
-  },
-  dayText: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 4,
-  },
-  dayIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  dayActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  dayInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  exerciseRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  exerciseBubble: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 10,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  exerciseName: {
-    color: '#166534',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  moreBubble: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 10,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  moreText: {
-    color: '#166534',
-    fontSize: 10,
-    fontWeight: '600',
-  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -921,5 +731,77 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+  },
+  modalBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalHeaderGradient: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalContent: {
+    padding: 20,
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    marginBottom: 10,
+  },
+  modalOptionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  modalOptionText: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  modalOptionDescription: {
+    fontSize: 13,
+    color: '#D1D5DB',
   },
 });

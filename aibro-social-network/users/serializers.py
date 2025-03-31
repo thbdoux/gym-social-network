@@ -23,13 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
     def get_current_program(self, obj):
         if obj.current_program:
             from workouts.serializers import ProgramSerializer
-            return {
-                'id': obj.current_program.id,
-                'name': obj.current_program.name,
-                'focus': obj.current_program.focus,
-                'sessions_per_week': obj.current_program.sessions_per_week,
-                'difficulty_level': obj.current_program.difficulty_level
-            }
+            return ProgramSerializer(obj.current_program).data
         return None
     class Meta:
         model = User

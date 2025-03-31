@@ -10,18 +10,26 @@ import {
   Image,
   RefreshControl,
   SafeAreaView,
-  Alert,
+  Dimensions,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LineChart } from 'react-native-chart-kit';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '../../hooks/useAuth';
-import { useCurrentUser, useFriends } from '../../hooks/query/useUserQuery';
-import { useLogout } from '../../hooks/query/useUserQuery';
-import { userService, postService } from '../../api/services';
+import { useCurrentUser, useLogout } from '../../hooks/query/useUserQuery';
+import { useGymDisplay } from '../../hooks/query/useGymQuery';
+import { useProgram } from '../../hooks/query/useProgramQuery';
+import ProgramCard from '../../components/workouts/ProgramCard';
+import { getAvatarUrl } from '../../utils/imageUtils';
+
+const screenWidth = Dimensions.get('window').width;
 
 export default function ProfileScreen() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('posts');
   const [refreshing, setRefreshing] = useState(false);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
   
   // Use React Query hooks
   const { 
@@ -31,76 +39,88 @@ export default function ProfileScreen() {
     error: profileError
   } = useCurrentUser();
   
+  // Get preferred gym info
   const {
-    data: friends = [],
-    isLoading: friendsLoading,
-    refetch: refetchFriends,
-    error: friendsError
-  } = useFriends();
+    displayText: gymDisplayText,
+    isLoading: gymLoading,
+    gym
+  } = useGymDisplay(user?.id, profile?.preferred_gym);
   
-  // Handle posts - this would typically also use a query hook
-  const [posts, setPosts] = useState<any[]>([]);
-  const [postsLoading, setPostsLoading] = useState(true);
+  // Get current program data
+  const {
+    data: programData,
+    isLoading: programLoading
+  } = useProgram(profile?.current_program?.id, {
+    enabled: !!profile?.current_program?.id
+  });
   
-  // Use the logout function
-  const logout = useLogout();
+  console.log("user profile : ", profile);
   
-  React.useEffect(() => {
-    fetchUserPosts();
-  }, [user]);
-  
-  const fetchUserPosts = async () => {
-    if (!user?.id) return;
-    
-    try {
-      setPostsLoading(true);
-      const userData = await userService.getUserById(user.id);
-      setPosts(userData.posts || []);
-    } catch (error) {
-      console.error('Error fetching user posts:', error);
-    } finally {
-      setPostsLoading(false);
-    }
-  };
+  // Session data for chart - aggregated by month
+  const sessionData = [
+    { month: 'Jan', sessions: 4 },
+    { month: 'Feb', sessions: 5 },
+    { month: 'Mar', sessions: 6 },
+    { month: 'Apr', sessions: 4 },
+    { month: 'May', sessions: 5 },
+    { month: 'Jun', sessions: 7 },
+  ];
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetchProfile(),
-        refetchFriends(),
-        fetchUserPosts()
-      ]);
+      await refetchProfile();
     } catch (error) {
       console.error('Error refreshing profile data:', error);
-      Alert.alert('Error', 'Failed to refresh profile data');
     } finally {
       setRefreshing(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: logout }
-      ]
-    );
+  // Format focus text (convert snake_case to Title Case)
+  const formatFocus = (focus) => {
+    if (!focus) return '';
+    return focus
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
-  const getInitials = (name?: string) => {
+  // Get initials for avatar placeholder
+  const getInitials = (name) => {
     if (!name) return '?';
     return name.charAt(0).toUpperCase();
   };
 
-  const isLoading = profileLoading || friendsLoading || postsLoading;
+  // Get personality-based gradient for avatar (similar to Post component)
+  const getPersonalityGradient = () => {
+    const personality = profile?.personality_type || 'default';
+    
+    switch(personality.toLowerCase()) {
+      case 'optimizer':
+        return ['#F59E0B', '#EF4444']; // Amber to Red
+      case 'diplomat':
+        return ['#10B981', '#3B82F6']; // Emerald to Blue
+      case 'mentor':
+        return ['#6366F1', '#4F46E5']; // Indigo to Dark Indigo
+      case 'versatile':
+        return ['#EC4899', '#8B5CF6']; // Pink to Purple
+      default:
+        return ['#9333EA', '#D946EF']; // Default Purple Gradient
+    }
+  };
+
+  // Weekdays for program schedule visualization
+  const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  // Combine loading states
+  const isLoading = profileLoading || (profile?.preferred_gym && gymLoading) || 
+                   (profile?.current_program?.id && programLoading);
   
   if (isLoading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+        <ActivityIndicator size="large" color="#a855f7" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
@@ -108,317 +128,217 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Image Modal */}
+      <Modal
+        visible={imageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setImageModalVisible(false)}
+            >
+              <Ionicons name="close-circle" size={30} color="#ffffff" />
+            </TouchableOpacity>
+            <Image
+              source={{ uri: getAvatarUrl(profile?.avatar, 300) }}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      </Modal>
+
+
+
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#3B82F6"
-            colors={['#3B82F6']}
+            tintColor="#a855f7"
+            colors={['#a855f7']}
           />
         }
       >
-        {/* Profile Header */}
+        {/* Profile Header with Centered Profile Picture */}
         <View style={styles.profileHeader}>
-          {profile?.avatar ? (
-            <Image
-              source={{ uri: profile.avatar }}
-              style={styles.profileAvatar}
+          <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+          
+          <View style={styles.profileHeaderContent}>
+            {/* Centered Profile picture */}
+            <TouchableOpacity 
+              style={styles.profileImageContainer}
+              onPress={() => setImageModalVisible(true)}
+            >
+              <LinearGradient
+                colors={getPersonalityGradient()}
+                style={styles.profileGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.profileImageInner}>
+                  <Image
+                    source={{ uri: getAvatarUrl(profile?.avatar, 96) }}
+                    style={styles.profileImage}
+                  />
+                </View>
+              </LinearGradient>
+              <View style={styles.onlineIndicator}></View>
+            </TouchableOpacity>
+            
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileUsername}>{profile?.username || 'User'}</Text>
+              <LinearGradient
+                colors={['#9333EA', '#D946EF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.personalityBadge}
+              >
+                <Text style={styles.personalityText}>
+                  {profile?.personality_type ? formatFocus(profile.personality_type) : 'Fitness Enthusiast'}
+                </Text>
+              </LinearGradient>
+              
+              {profile?.preferred_gym && (
+                <LinearGradient
+                  colors={['#3B82F6', '#60A5FA']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gymBadge}
+                >
+                  <Text style={styles.gymText}>
+                    {gymDisplayText}
+                  </Text>
+                </LinearGradient>
+              )}
+            </View>
+          </View>
+          
+          {/* Stats row */}
+          <View style={styles.statsRow}>
+            <LinearGradient
+              colors={['#6366F1', '#4F46E5']} 
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statCard}
+            >
+              <Text style={styles.statValue}>{profile?.friends_count || 0}</Text>
+              <Text style={styles.statLabel}>Friends</Text>
+            </LinearGradient>
+            
+            <LinearGradient
+              colors={['#EC4899', '#8B5CF6']} 
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statCard}
+            >
+              <Text style={styles.statValue}>{profile?.posts_count || 0}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
+            </LinearGradient>
+            
+            <LinearGradient
+              colors={['#F59E0B', '#EF4444']} 
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statCard}
+            >
+              <Text style={styles.statValue}>{profile?.workouts_count || 0}</Text>
+              <Text style={styles.statLabel}>Workouts</Text>
+            </LinearGradient>
+          </View>
+        </View>
+        
+        {/* Training Consistency Chart */}
+        <View style={styles.chartCard}>
+          <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+          
+          <Text style={styles.cardTitle}>Training Consistency</Text>
+          <View style={styles.chartContainer}>
+            <LineChart
+              data={{
+                labels: sessionData.map(item => item.month),
+                datasets: [
+                  {
+                    data: sessionData.map(item => item.sessions),
+                    color: (opacity = 1) => `rgba(168, 85, 247, ${opacity})`, // Purple color
+                    strokeWidth: 3
+                  }
+                ]
+              }}
+              width={screenWidth - 50} // Using more horizontal space
+              height={180} // Reduced height for thinner y-axis
+              fromZero={true}
+              yAxisInterval={1} // Interval of 1
+              yAxisSuffix=""
+              yAxisLabel=""
+              withInnerLines={false} // No grid
+              withOuterLines={true} // Outer frame
+              withHorizontalLines={true} // Only horizontal lines
+              withVerticalLines={false} // No vertical lines
+              withDots={true}
+              withShadow={false}
+              segments={7} // 0-7 range with intervals of 1
+              chartConfig={{
+                backgroundColor: '#111827',
+                backgroundGradientFrom: '#111827',
+                backgroundGradientTo: '#111827',
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
+                style: {
+                  borderRadius: 16
+                },
+                propsForDots: {
+                  r: '6',
+                  strokeWidth: '2',
+                  stroke: '#d946ef'
+                },
+                propsForHorizontalLabels: {
+                  fontSize: 12,
+                  fontWeight: 'bold'
+                },
+                propsForVerticalLabels: {
+                  fontSize: 10
+                }
+              }}
+              bezier
+              style={styles.chart}
+            />
+          </View>
+        </View>
+        
+        {/* Current Program */}
+        <View style={styles.programContainer}>
+          <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+          
+          <Text style={styles.cardTitle}>Current Program</Text>
+          
+          {profile?.current_program ? (
+            <ProgramCard
+              programId={profile.current_program.id}
+              program={profile.current_program}
+              currentUser={profile.username}
             />
           ) : (
-            <View style={styles.profileAvatarPlaceholder}>
-              <Text style={styles.profileAvatarText}>
-                {getInitials(profile?.username)}
-              </Text>
+            <View style={styles.emptyProgram}>
+              <Ionicons name="barbell-outline" size={48} color="#d1d5db" />
+              <Text style={styles.emptyProgramText}>No active program</Text>
+              <LinearGradient
+                colors={['#9333EA', '#D946EF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.emptyProgramButton}
+              >
+                <Text style={styles.emptyProgramButtonText}>Browse Programs</Text>
+              </LinearGradient>
             </View>
           )}
-          
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{profile?.username || 'User'}</Text>
-            <Text style={styles.profileEmail}>{profile?.email || ''}</Text>
-            
-            <View style={styles.profileStats}>
-              <View style={styles.profileStat}>
-                <Text style={styles.profileStatValue}>{posts.length || 0}</Text>
-                <Text style={styles.profileStatLabel}>Posts</Text>
-              </View>
-              <View style={styles.profileStat}>
-                <Text style={styles.profileStatValue}>{friends.length || 0}</Text>
-                <Text style={styles.profileStatLabel}>Friends</Text>
-              </View>
-              <View style={styles.profileStat}>
-                <Text style={styles.profileStatValue}>
-                  {profile?.training_level || 'Beginner'}
-                </Text>
-                <Text style={styles.profileStatLabel}>Level</Text>
-              </View>
-            </View>
-          </View>
         </View>
-
-        {/* Tabs Navigation */}
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === 'posts' && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab('posts')}
-          >
-            <Ionicons
-              name="grid-outline"
-              size={20}
-              color={activeTab === 'posts' ? '#3B82F6' : '#9CA3AF'}
-            />
-            <Text
-              style={[
-                styles.tabButtonText,
-                activeTab === 'posts' && styles.activeTabButtonText,
-              ]}
-            >
-              Posts
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === 'friends' && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab('friends')}
-          >
-            <Ionicons
-              name="people-outline"
-              size={20}
-              color={activeTab === 'friends' ? '#3B82F6' : '#9CA3AF'}
-            />
-            <Text
-              style={[
-                styles.tabButtonText,
-                activeTab === 'friends' && styles.activeTabButtonText,
-              ]}
-            >
-              Friends
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === 'settings' && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab('settings')}
-          >
-            <Ionicons
-              name="settings-outline"
-              size={20}
-              color={activeTab === 'settings' ? '#3B82F6' : '#9CA3AF'}
-            />
-            <Text
-              style={[
-                styles.tabButtonText,
-                activeTab === 'settings' && styles.activeTabButtonText,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Posts Tab Content */}
-        {activeTab === 'posts' && (
-          <View style={styles.tabContent}>
-            {posts.length > 0 ? (
-              <View style={styles.postsGrid}>
-                {posts.map((post) => (
-                  <TouchableOpacity key={post.id} style={styles.postCard}>
-                    {post.image ? (
-                      <Image
-                        source={{ uri: post.image }}
-                        style={styles.postImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.postPlaceholder}>
-                        <Ionicons name="document-text-outline" size={24} color="#6B7280" />
-                      </View>
-                    )}
-                    <View style={styles.postInfo}>
-                      <Text style={styles.postCaption} numberOfLines={2}>
-                        {post.content || 'No caption'}
-                      </Text>
-                      <View style={styles.postStats}>
-                        <View style={styles.postStat}>
-                          <Ionicons name="heart" size={14} color="#EF4444" />
-                          <Text style={styles.postStatValue}>{post.likes_count || 0}</Text>
-                        </View>
-                        <View style={styles.postStat}>
-                          <Ionicons name="chatbubble" size={14} color="#9CA3AF" />
-                          <Text style={styles.postStatValue}>{post.comments_count || 0}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="document-text-outline" size={48} color="#6B7280" />
-                <Text style={styles.emptyStateTitle}>No Posts Yet</Text>
-                <Text style={styles.emptyStateText}>
-                  Share your fitness journey with friends
-                </Text>
-                <TouchableOpacity style={styles.emptyStateButton}>
-                  <Text style={styles.emptyStateButtonText}>Create Post</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Friends Tab Content */}
-        {activeTab === 'friends' && (
-          <View style={styles.tabContent}>
-            {friends.length > 0 ? (
-              <View style={styles.friendsList}>
-                {friends.map((friend) => (
-                  <TouchableOpacity key={friend.id} style={styles.friendCard}>
-                    {friend.avatar ? (
-                      <Image
-                        source={{ uri: friend.avatar }}
-                        style={styles.friendAvatar}
-                      />
-                    ) : (
-                      <View style={styles.friendAvatarPlaceholder}>
-                        <Text style={styles.friendAvatarText}>
-                          {getInitials(friend.username)}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.friendInfo}>
-                      <Text style={styles.friendName}>{friend.username}</Text>
-                      <Text style={styles.friendMeta}>
-                        {friend.training_level || 'Fitness Enthusiast'}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="people-outline" size={48} color="#6B7280" />
-                <Text style={styles.emptyStateTitle}>No Friends Yet</Text>
-                <Text style={styles.emptyStateText}>
-                  Connect with other fitness enthusiasts
-                </Text>
-                <TouchableOpacity style={styles.emptyStateButton}>
-                  <Text style={styles.emptyStateButtonText}>Find Friends</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Settings Tab Content */}
-        {activeTab === 'settings' && (
-          <View style={styles.tabContent}>
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsSectionTitle}>Account</Text>
-              
-              <TouchableOpacity style={styles.settingsItem}>
-                <View style={styles.settingsItemIcon}>
-                  <Ionicons name="person-outline" size={20} color="#FFFFFF" />
-                </View>
-                <View style={styles.settingsItemContent}>
-                  <Text style={styles.settingsItemTitle}>Edit Profile</Text>
-                  <Text style={styles.settingsItemDescription}>
-                    Update your personal information
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.settingsItem}>
-                <View style={[styles.settingsItemIcon, {backgroundColor: '#7C3AED'}]}>
-                  <Ionicons name="star-outline" size={20} color="#FFFFFF" />
-                </View>
-                <View style={styles.settingsItemContent}>
-                  <Text style={styles.settingsItemTitle}>Upgrade to Premium</Text>
-                  <Text style={styles.settingsItemDescription}>
-                    Get access to advanced features
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsSectionTitle}>Preferences</Text>
-              
-              <TouchableOpacity style={styles.settingsItem}>
-                <View style={[styles.settingsItemIcon, {backgroundColor: '#10B981'}]}>
-                  <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
-                </View>
-                <View style={styles.settingsItemContent}>
-                  <Text style={styles.settingsItemTitle}>Notifications</Text>
-                  <Text style={styles.settingsItemDescription}>
-                    Manage your notification settings
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.settingsItem}>
-                <View style={[styles.settingsItemIcon, {backgroundColor: '#F59E0B'}]}>
-                  <Ionicons name="globe-outline" size={20} color="#FFFFFF" />
-                </View>
-                <View style={styles.settingsItemContent}>
-                  <Text style={styles.settingsItemTitle}>Language</Text>
-                  <Text style={styles.settingsItemDescription}>
-                    Change app language
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsSectionTitle}>Other</Text>
-              
-              <TouchableOpacity style={styles.settingsItem}>
-                <View style={[styles.settingsItemIcon, {backgroundColor: '#6B7280'}]}>
-                  <Ionicons name="help-circle-outline" size={20} color="#FFFFFF" />
-                </View>
-                <View style={styles.settingsItemContent}>
-                  <Text style={styles.settingsItemTitle}>Help & Support</Text>
-                  <Text style={styles.settingsItemDescription}>
-                    Get help and contact support
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.settingsItem} onPress={handleLogout}>
-                <View style={[styles.settingsItemIcon, {backgroundColor: '#EF4444'}]}>
-                  <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-                </View>
-                <View style={styles.settingsItemContent}>
-                  <Text style={styles.settingsItemTitle}>Logout</Text>
-                  <Text style={styles.settingsItemDescription}>
-                    Sign out of your account
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.appInfo}>
-              <Text style={styles.appVersion}>Version 1.0.0</Text>
-            </View>
-          </View>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -427,10 +347,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#111827', // Dark background like in the design
   },
   scrollContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -439,278 +360,214 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
   loadingText: {
-    marginTop: 10,
-    color: '#9CA3AF',
+    color: '#9ca3af',
+    marginTop: 12,
   },
+  blurBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 24,
+  },
+
   profileHeader: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginBottom: 24,
-    backgroundColor: '#1F2937',
-    padding: 20,
-    borderRadius: 16,
+    position: 'relative',
+    borderRadius: 24,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+    overflow: 'hidden',
   },
-  profileAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  profileHeaderContent: {
+    alignItems: 'center',
+    marginTop: 16,
     marginBottom: 16,
   },
-  profileAvatarPlaceholder: {
+  profileImageContainer: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  profileGradient: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#3B82F6',
+    padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  profileAvatarText: {
-    fontSize: 40,
+  profileImageInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 47,
+    backgroundColor: '#3B82F6',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 47,
+  },
+  profileImagePlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#a855f7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImagePlaceholderText: {
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#fff',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#4ade80', // Green for online status
+    borderWidth: 2,
+    borderColor: '#1f2937',
   },
   profileInfo: {
     alignItems: 'center',
   },
-  profileName: {
-    fontSize: 24,
+  profileUsername: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  profileEmail: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    marginBottom: 16,
-  },
-  profileStats: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  profileStat: {
-    alignItems: 'center',
-    marginHorizontal: 16,
-  },
-  profileStatValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  profileStatLabel: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    marginBottom: 16,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  tabButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  activeTabButton: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  tabButtonText: {
-    marginLeft: 6,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  activeTabButtonText: {
-    color: '#3B82F6',
-  },
-  tabContent: {
-    flex: 1,
-  },
-  postsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  postCard: {
-    width: '48%',
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  postImage: {
-    width: '100%',
-    height: 150,
-  },
-  postPlaceholder: {
-    width: '100%',
-    height: 150,
-    backgroundColor: '#1F2937',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  postInfo: {
-    padding: 12,
-  },
-  postCaption: {
-    fontSize: 14,
-    color: '#E5E7EB',
+    color: '#fff',
     marginBottom: 8,
   },
-  postStats: {
+  personalityBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 6,
+  },
+  personalityText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  gymBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 10,
+  },
+  gymText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
-  postStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  postStatValue: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
-  friendsList: {
-    
-  },
-  friendCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  friendAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 16,
-  },
-  friendAvatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  friendAvatarText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  friendInfo: {
+  statCard: {
     flex: 1,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+    marginHorizontal: 4,
   },
-  friendName: {
+  statValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
+    color: '#ffffff',
   },
-  friendMeta: {
-    fontSize: 14,
-    color: '#9CA3AF',
+  statLabel: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+    textTransform: 'uppercase',
+    fontWeight: '600',
   },
-  emptyState: {
+  chartCard: {
+    position: 'relative',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+    overflow: 'hidden',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginVertical: 16,
+    paddingHorizontal: 8,
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+  chartContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  programContainer: {
+    position: 'relative',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+    overflow: 'hidden',
+  },
+  emptyProgram: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
   },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 16,
-    marginBottom: 8,
+  emptyProgramText: {
+    fontSize: 16,
+    color: '#d1d5db',
+    marginVertical: 16,
   },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  emptyStateButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 10,
+  emptyProgramButton: {
     paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  emptyStateButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  settingsSection: {
-    marginBottom: 24,
-  },
-  settingsSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 12,
-    paddingLeft: 8,
-  },
-  settingsItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  settingsItemIcon: {
-    width: 40,
-    height: 40,
+    paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#3B82F6',
+  },
+  emptyProgramButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    padding: 20,
   },
-  settingsItemContent: {
-    flex: 1,
-  },
-  settingsItemTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  settingsItemDescription: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  appInfo: {
+  modalContent: {
+    width: '100%',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 32,
+    position: 'relative',
   },
-  appVersion: {
-    fontSize: 14,
-    color: '#6B7280',
+  modalImage: {
+    width: 300,
+    height: 300,
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#a855f7',
   },
+  closeButton: {
+    position: 'absolute',
+    top: -20,
+    right: 20,
+    zIndex: 10,
+  },
+
 });

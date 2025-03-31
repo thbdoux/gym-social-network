@@ -42,22 +42,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
     def get_workout_log_details(self, obj):
         if obj.workout_log:
             from workouts.serializers import WorkoutLogSerializer
-            # Return simplified workout log details to avoid deep nesting
-            return {
-                'id': obj.workout_log.id,
-                'name': obj.workout_log.name,  # New field from updated model
-                'date': obj.workout_log.date,
-                'completed': obj.workout_log.completed,
-                'exercises': [{
-                    'id': ex.id,
-                    'name': ex.name,
-                    'equipment': ex.equipment,
-                    'sets': [{
-                        'reps': set.reps,
-                        'weight': set.weight
-                    } for set in ex.sets.all()]
-                } for ex in obj.workout_log.exercises.all()]
-            }
+            return WorkoutLogSerializer(obj.workout_log).data
         return None
 
     def get_program_details(self, obj):
@@ -68,19 +53,8 @@ class OriginalPostSerializer(serializers.ModelSerializer):
 
     def get_workout_invite_details(self, obj):
         if obj.workout_instance:
-            # Return simplified workout instance details
-            return {
-                'id': obj.workout_instance.id,
-                'name': obj.workout_instance.name,  # New field from updated model
-                'split_method': obj.workout_instance.split_method,
-                'preferred_weekday': obj.workout_instance.preferred_weekday,
-                'planned_date': obj.planned_date,
-                'exercises': [{
-                    'id': ex.id,
-                    'name': ex.name,
-                    'equipment': ex.equipment
-                } for ex in obj.workout_instance.exercises.all()]
-            }
+            from workouts.serializers import WorkoutInstanceSerializer
+            return WorkoutInstanceSerializer(obj.workout_instance).data 
         return None
 
 
@@ -130,6 +104,7 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_shared_by(self, obj):
         if obj.is_share:
+            from users.serializers import UserSerializer
             return {
                 'username': obj.user.username,
                 'id': obj.user.id,
@@ -171,58 +146,6 @@ class PostSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
-
-# class PostCreateSerializer(serializers.ModelSerializer):
-#     program_id = serializers.IntegerField(required=False, write_only=True)
-#     workout_log_id = serializers.IntegerField(required=False, write_only=True)
-    
-#     class Meta:
-#         model = Post
-#         fields = [
-#             'id','content', 'image', 'post_type', 
-#             'program_id', 'workout_log_id'
-#         ]
-#         read_only_fields = ['id']
-    
-#     def create(self, validated_data):
-#         # Extract IDs
-#         program_id = validated_data.pop('program_id', None)
-#         workout_log_id = validated_data.pop('workout_log_id', None)
-        
-#         # Get the user from context
-#         user = self.context['request'].user
-        
-#         # Explicitly create post with only the fields we want
-#         post = Post.objects.create(
-#             user=user,
-#             content=validated_data.get('content', ''),
-#             image=validated_data.get('image'),
-#             post_type=validated_data.get('post_type', 'regular')
-#         )
-        
-#         # Link program
-#         if program_id:
-#             try:
-#                 from workouts.models import Program
-#                 program = Program.objects.get(id=program_id)
-#                 post.program = program
-#                 post.save()
-#                 print(f"Successfully linked post {post.id} to program {program_id}")
-#             except Exception as e:
-#                 print(f"Error linking program: {str(e)}")
-        
-#         # Link workout log
-#         if workout_log_id:
-#             try:
-#                 from workouts.models import WorkoutLog
-#                 workout_log = WorkoutLog.objects.get(id=workout_log_id)
-#                 post.workout_log = workout_log
-#                 post.save()
-#                 print(f"Successfully linked post {post.id} to workout log {workout_log_id}")
-#             except Exception as e:
-#                 print(f"Error linking workout log: {str(e)}")
-        
-#         return post
 
 class PostCreateSerializer(serializers.ModelSerializer):
     program_id = serializers.IntegerField(required=False, write_only=True)
