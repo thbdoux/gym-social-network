@@ -17,7 +17,9 @@ import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsBubbleList from '../../components/profile/FriendsBubbleList';
 import FriendsModal from '../../components/profile/FriendsModal';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
+import FabMenu from '../../components/feed/FabMenu';
 import SidebarButton from '../../components/navigation/SidebarButton';
+import PostCreationModal from '../../components/feed/PostCreationModal';
 import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
@@ -29,6 +31,8 @@ export default function FeedScreen() {
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [selectedPostType, setSelectedPostType] = useState<string>('regular');
   
   // Create an animated scroll value and share it with the header animation context
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -137,6 +141,26 @@ export default function FeedScreen() {
     setShowProfileModal(true);
   };
   
+  // FAB Menu handlers
+  const handleFabItemPress = (itemId: string) => {
+    setSelectedPostType(itemId);
+    setShowPostModal(true);
+  };
+  
+  // Handle post modal close
+  const handleModalClose = () => {
+    setShowPostModal(false);
+    // Reset back to regular after modal closes
+    setTimeout(() => setSelectedPostType('regular'), 300);
+  };
+  
+  // Handle post created
+  const handlePostCreated = (newPost: any) => {
+    console.log('Post created:', newPost);
+    // Refresh posts feed after creating a new post
+    refetchPosts();
+  };
+  
   // Handle scroll events to track scroll position for header animation
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -218,6 +242,17 @@ export default function FeedScreen() {
           userId={selectedUserId}
         />
       )}
+      
+      {/* Post Creation Modal */}
+      <PostCreationModal
+        visible={showPostModal}
+        onClose={handleModalClose}
+        onPostCreated={handlePostCreated}
+        initialPostType={selectedPostType}
+      />
+      
+      {/* FAB Menu - positioned correctly to avoid conflicts with bottom tab bar */}
+      <FabMenu onItemPress={handleFabItemPress} />
     </View>
   );
 }
@@ -255,7 +290,7 @@ const styles = StyleSheet.create({
     paddingTop: 0, // No extra padding needed since friends list is part of the feed
   },
   feedContentContainer: {
-    paddingBottom: 80, // Space for bottom tab bar
+    paddingBottom: 100, // More space for bottom tab bar + fab menu
   },
   loadingContainer: {
     flex: 1,

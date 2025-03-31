@@ -23,6 +23,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useCreatePost } from '../../hooks/query/usePostQuery';
 import WorkoutLogSelector from './WorkoutLogSelector';
 import ProgramSelector from './ProgramSelector';
+import ProgramCard from '../workouts/ProgramCard';
+import WorkoutLogCard from '../workouts/WorkoutLogCard';
 
 interface PostType {
   id: string;
@@ -304,14 +306,11 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
               blurOnSubmit={false}
             />
             
-            {/* Program Preview */}
+            {/* Program Preview using ProgramCard */}
             {selectedProgram && (
-              <View style={styles.attachmentPreview}>
-                <View style={styles.attachmentHeader}>
-                  <View style={styles.programIcon}>
-                    <Ionicons name="barbell" size={16} color="#A78BFA" />
-                  </View>
-                  <Text style={styles.attachmentTitle}>{selectedProgram.name}</Text>
+              <View style={styles.cardPreviewWrapper}>
+                <View style={styles.cardPreviewHeader}>
+                  <Text style={styles.cardPreviewTitle}>{t('program_preview')}</Text>
                   <TouchableOpacity 
                     style={styles.removeButton}
                     onPress={() => {
@@ -319,42 +318,23 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
                       setPostType('regular');
                     }}
                   >
-                    <Ionicons name="close" size={18} color="#9CA3AF" />
+                    <Ionicons name="close-circle" size={24} color="#9CA3AF" />
                   </TouchableOpacity>
                 </View>
-                
-                <Text style={styles.attachmentDescription} numberOfLines={2}>
-                  {selectedProgram.description || t('no_description')}
-                </Text>
-                
-                <View style={styles.programDetails}>
-                  <View style={styles.programDetail}>
-                    <Ionicons name="calendar-outline" size={14} color="#A78BFA" />
-                    <Text style={styles.programDetailText}>
-                      {selectedProgram.sessions_per_week}x {t('weekly')}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.programDetail}>
-                    <Ionicons name="barbell-outline" size={14} color="#A78BFA" />
-                    <Text style={styles.programDetailText}>
-                      {selectedProgram.workouts?.length || 0} {t('workouts')}
-                    </Text>
-                  </View>
-                </View>
+                <ProgramCard
+                  programId={selectedProgram.id}
+                  program={selectedProgram}
+                  inFeedMode={true}
+                  currentUser={user?.username}
+                />
               </View>
             )}
             
-            {/* Workout Log Preview */}
+            {/* Workout Log Preview using WorkoutLogCard */}
             {selectedWorkoutLog && (
-              <View style={styles.attachmentPreview}>
-                <View style={styles.attachmentHeader}>
-                  <View style={styles.workoutIcon}>
-                    <Ionicons name="fitness" size={16} color="#34D399" />
-                  </View>
-                  <Text style={styles.attachmentTitle}>
-                    {selectedWorkoutLog.workout_name || selectedWorkoutLog.name || t('unnamed_workout')}
-                  </Text>
+              <View style={styles.cardPreviewWrapper}>
+                <View style={styles.cardPreviewHeader}>
+                  <Text style={styles.cardPreviewTitle}>{t('workout_preview')}</Text>
                   <TouchableOpacity 
                     style={styles.removeButton}
                     onPress={() => {
@@ -362,25 +342,15 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
                       setPostType('regular');
                     }}
                   >
-                    <Ionicons name="close" size={18} color="#9CA3AF" />
+                    <Ionicons name="close-circle" size={24} color="#9CA3AF" />
                   </TouchableOpacity>
                 </View>
-                
-                <View style={styles.workoutDetails}>
-                  <View style={styles.workoutDetail}>
-                    <Ionicons name="calendar-outline" size={14} color="#34D399" />
-                    <Text style={styles.workoutDetailText}>
-                      {selectedWorkoutLog.date || t('no_date')}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.workoutDetail}>
-                    <Ionicons name="fitness-outline" size={14} color="#34D399" />
-                    <Text style={styles.workoutDetailText}>
-                      {selectedWorkoutLog.exercise_count || selectedWorkoutLog.exercises?.length || 0} {t('exercises')}
-                    </Text>
-                  </View>
-                </View>
+                <WorkoutLogCard
+                  logId={selectedWorkoutLog.id}
+                  log={selectedWorkoutLog}
+                  user={user?.username}
+                  inFeedMode={true}
+                />
               </View>
             )}
             
@@ -617,86 +587,38 @@ const styles = StyleSheet.create({
     height: 120,
     textAlignVertical: 'top',
   },
-  attachmentPreview: {
+  cardPreviewWrapper: {
     marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
     backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
   },
-  attachmentHeader: {
+  cardPreviewHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
-  programIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(167, 139, 250, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  workoutIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(52, 211, 153, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  attachmentTitle: {
-    flex: 1,
-    fontSize: 16,
+  cardPreviewTitle: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   removeButton: {
     padding: 4,
   },
-  attachmentDescription: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 12,
-  },
-  programDetails: {
-    flexDirection: 'row',
-    marginTop: 12,
-  },
-  programDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  programDetailText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
-  workoutDetails: {
-    flexDirection: 'row',
-    marginTop: 12,
-  },
-  workoutDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  workoutDetailText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
   imagePreviewContainer: {
     marginTop: 16,
     position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   imagePreview: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
   },
   removeImageButton: {
     position: 'absolute',

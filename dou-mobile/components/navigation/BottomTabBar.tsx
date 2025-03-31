@@ -226,7 +226,7 @@ const BottomTabBar: React.FC = () => {
         onTouchStart={() => setIsMenuOpen(false)}
       />
       
-      {/* Horizontal FAB Menu */}
+      {/* Horizontal FAB Menu
       <Animated.View 
         style={[styles.fabMenuContainer, menuStyle]}
         pointerEvents={isMenuOpen ? 'auto' : 'none'}
@@ -245,7 +245,7 @@ const BottomTabBar: React.FC = () => {
             </TouchableOpacity>
           ))}
         </View>
-      </Animated.View>
+      </Animated.View> */}
       
       {/* Bottom Tab Bar */}
       <View style={styles.container}>
@@ -262,11 +262,6 @@ const BottomTabBar: React.FC = () => {
             active={pathname === '/ai-coach'}
             onPress={() => navigateTo('/ai-coach')}
           />
-        </View>
-        
-        {/* Center FAB Button */}
-        <View style={styles.fabContainer}>
-          <FabButton onPress={toggleMenu} />
         </View>
         
         {/* Right side */}

@@ -15,10 +15,10 @@ export default function Index() {
     );
   }
 
-  // Redirect based on authentication status
+  // Redirect based on authentication status - use full path with group prefix
   if (isAuthenticated) {
-    return <Redirect href="/feed" />;
+    return <Redirect href="/(app)/feed" />;
   } else {
-    return <Redirect href="/login" />;
+    return <Redirect href="/(auth)/login" />;
   }
 }

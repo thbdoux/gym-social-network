@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { usePrograms, useCurrentUser } from '../../hooks/query';
+import ProgramCard from '../workouts/ProgramCard';
 
 interface ProgramSelectorProps {
   onSelect: (program: any) => void;
@@ -72,82 +73,38 @@ const ProgramSelector: React.FC<ProgramSelectorProps> = ({
   const renderProgramItem = ({ item }: { item: any }) => {
     const isSelected = selectedProgramId === item.id;
     
+    const toggleSelection = () => {
+      if (isSelected) {
+        // Deselect if already selected
+        setSelectedProgramId(null);
+      } else {
+        // Select this item
+        handleProgramSelect(item.id);
+      }
+    };
+    
     return (
       <TouchableOpacity
-        style={[
-          styles.programItem,
-          isSelected && styles.programItemSelected
-        ]}
-        onPress={() => handleProgramSelect(item.id)}
+        activeOpacity={0.7}
+        onPress={toggleSelection}
+        style={[styles.cardWrapper, isSelected && styles.selectedCardWrapper]}
       >
-        <View style={styles.programHeader}>
-          <View style={[styles.programIcon, isSelected && styles.programIconSelected]}>
-            <Ionicons 
-              name="barbell" 
-              size={16} 
-              color={isSelected ? "#FFFFFF" : "#8B5CF6"} 
-            />
-          </View>
-          
-          <View style={styles.programTitleContainer}>
-            <Text style={styles.programTitle} numberOfLines={1}>
-              {item.name}
-            </Text>
-            
-            <View style={styles.badgeContainer}>
-              <View style={styles.focusBadge}>
-                <Text style={styles.focusText}>
-                  {item.focus?.replace(/_/g, ' ')}
-                </Text>
-              </View>
-              
-              {item.forked_from && (
-                <View style={styles.forkedBadge}>
-                  <Ionicons name="git-branch" size={10} color="#D1D5DB" />
-                  <Text style={styles.forkedText}>{t('forked')}</Text>
-                </View>
-              )}
-              
-              {item.is_active && (
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeText}>{t('active')}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          
-          {isSelected && (
+        <ProgramCard
+          programId={item.id}
+          program={item}
+          inFeedMode={false}
+          currentUser={currentUser?.username}
+        />
+        {isSelected && (
+          <View style={styles.selectedOverlay}>
             <View style={styles.selectedCheckmark}>
-              <Ionicons name="checkmark-circle" size={20} color="#8B5CF6" />
-            </View>
-          )}
-        </View>
-        
-        <View style={styles.programDescription}>
-          <Text style={styles.descriptionText} numberOfLines={2}>
-            {item.description || t('no_description')}
-          </Text>
-        </View>
-        
-        <View style={styles.programStats}>
-          <View style={styles.programStat}>
-            <Ionicons name="calendar-outline" size={14} color="#8B5CF6" />
-            <View>
-              <Text style={styles.statLabel}>{t('frequency')}</Text>
-              <Text style={styles.statValue}>
-                {item.sessions_per_week}x {t('weekly')}
-              </Text>
+              <Ionicons name="checkmark-circle" size={40} color="#8B5CF6" />
             </View>
           </View>
-          
-          <View style={styles.programStat}>
-            <Ionicons name="people-outline" size={14} color="#8B5CF6" />
-            <View>
-              <Text style={styles.statLabel}>{t('workouts')}</Text>
-              <Text style={styles.statValue}>
-                {item.workouts?.length || 0}
-              </Text>
-            </View>
+        )}
+        <View style={styles.selectButton}>
+          <View style={[styles.selectIndicator, isSelected && styles.selectedIndicator]}>
+            {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
           </View>
         </View>
       </TouchableOpacity>
@@ -295,121 +252,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  programItem: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+  cardWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
-  programItemSelected: {
+  selectedCardWrapper: {
+    borderWidth: 2,
     borderColor: '#8B5CF6',
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  programHeader: {
-    flexDirection: 'row',
+  selectedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  programIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  selectedCheckmark: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: 'rgba(139, 92, 246, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  programIconSelected: {
+  selectButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+  },
+  selectIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedIndicator: {
     backgroundColor: '#8B5CF6',
-  },
-  programTitleContainer: {
-    flex: 1,
-  },
-  programTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 4,
-  },
-  focusBadge: {
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 4,
-    marginBottom: 4,
-  },
-  focusText: {
-    fontSize: 10,
-    color: '#A78BFA',
-  },
-  forkedBadge: {
-    backgroundColor: 'rgba(156, 163, 175, 0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 4,
-    marginBottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  forkedText: {
-    fontSize: 10,
-    color: '#D1D5DB',
-    marginLeft: 2,
-  },
-  activeBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 4,
-    marginBottom: 4,
-  },
-  activeText: {
-    fontSize: 10,
-    color: '#10B981',
-  },
-  selectedCheckmark: {
-    marginLeft: 8,
-  },
-  programDescription: {
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 12,
-  },
-  descriptionText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  programStats: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 12,
-    justifyContent: 'space-around',
-  },
-  programStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 4,
+    borderColor: '#FFFFFF',
   },
   footer: {
     flexDirection: 'row',

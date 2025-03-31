@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useLogs } from '../../hooks/query/useLogQuery';
+import WorkoutLogCard from '../workouts/WorkoutLogCard';
 
 interface WorkoutLog {
   id: number;
@@ -25,6 +26,7 @@ interface WorkoutLog {
   location?: string;
   gym_name?: string;
   program_name?: string;
+  completed: boolean;
 }
 
 interface WorkoutLogSelectorProps {
@@ -69,78 +71,40 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
   
   const renderWorkoutItem = ({ item }: { item: WorkoutLog }) => {
     const isSelected = selectedLogId === item.id;
-    const workoutName = item.workout_name || item.name || t('unnamed_workout');
-    const exerciseCount = item.exercise_count || item.exercises?.length || 0;
+    
+    const toggleSelection = () => {
+      if (isSelected) {
+        // Deselect if already selected
+        setSelectedLogId(null);
+      } else {
+        // Select this item
+        handleLogSelect(item);
+      }
+    };
     
     return (
       <TouchableOpacity
-        style={[
-          styles.workoutItem,
-          isSelected && styles.workoutItemSelected
-        ]}
-        onPress={() => handleLogSelect(item)}
+        activeOpacity={0.7}
+        onPress={toggleSelection}
+        style={[styles.cardWrapper, isSelected && styles.selectedCardWrapper]}
       >
-        <View style={styles.workoutHeader}>
-          <View style={[styles.workoutIcon, isSelected && styles.workoutIconSelected]}>
-            <Ionicons 
-              name="fitness" 
-              size={16} 
-              color={isSelected ? "#FFFFFF" : "#34D399"} 
-            />
-          </View>
-          
-          <View style={styles.workoutTitleContainer}>
-            <Text style={styles.workoutTitle} numberOfLines={1}>
-              {workoutName}
-            </Text>
-            
-            {item.program_name && (
-              <View style={styles.programBadge}>
-                <Text style={styles.programText}>
-                  {item.program_name}
-                </Text>
-              </View>
-            )}
-          </View>
-          
-          {isSelected && (
+        <WorkoutLogCard
+          logId={item.id}
+          log={item}
+          user=""
+          inFeedMode={false}
+          onFork={undefined}
+        />
+        {isSelected && (
+          <View style={styles.selectedOverlay}>
             <View style={styles.selectedCheckmark}>
-              <Ionicons name="checkmark-circle" size={20} color="#34D399" />
+              <Ionicons name="checkmark-circle" size={40} color="#34D399" />
             </View>
-          )}
-        </View>
-        
-        <View style={styles.workoutDetails}>
-          <View style={styles.workoutDetail}>
-            <Ionicons name="calendar-outline" size={14} color="#34D399" />
-            <Text style={styles.detailText}>{item.date}</Text>
           </View>
-          
-          <View style={styles.workoutDetail}>
-            <Ionicons name="time-outline" size={14} color="#34D399" />
-            <Text style={styles.detailText}>{item.duration || '-'} {t('mins')}</Text>
-          </View>
-          
-          <View style={styles.workoutDetail}>
-            <Ionicons name="location-outline" size={14} color="#34D399" />
-            <Text style={styles.detailText}>{item.gym_name || t('unknown_gym')}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.workoutStats}>
-          <View style={styles.workoutStat}>
-            <Text style={styles.statLabel}>{t('exercises')}</Text>
-            <Text style={styles.statValue}>{exerciseCount}</Text>
-          </View>
-          
-          <View style={styles.workoutStat}>
-            <Text style={styles.statLabel}>{t('duration')}</Text>
-            <Text style={styles.statValue}>{item.duration || '-'} {t('mins')}</Text>
-          </View>
-          
-          <View style={styles.workoutStat}>
-            <Text style={styles.statLabel}>{t('location')}</Text>
-            <Text style={styles.statValue} numberOfLines={1}>{item.gym_name || t('unknown_gym')}</Text>
+        )}
+        <View style={styles.selectButton}>
+          <View style={[styles.selectIndicator, isSelected && styles.selectedIndicator]}>
+            {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
           </View>
         </View>
       </TouchableOpacity>
@@ -288,93 +252,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  workoutItem: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+  cardWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
-  workoutItemSelected: {
+  selectedCardWrapper: {
+    borderWidth: 2,
     borderColor: '#34D399',
-    backgroundColor: 'rgba(52, 211, 153, 0.1)',
+    shadowColor: '#34D399',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  workoutHeader: {
-    flexDirection: 'row',
+  selectedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  workoutIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  selectedCheckmark: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: 'rgba(52, 211, 153, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  workoutIconSelected: {
-    backgroundColor: '#34D399',
+  selectButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
   },
-  workoutTitleContainer: {
-    flex: 1,
-  },
-  workoutTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  programBadge: {
-    backgroundColor: 'rgba(124, 58, 237, 0.2)',
+  selectIndicator: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  programText: {
-    fontSize: 10,
-    color: '#A78BFA',
-  },
-  selectedCheckmark: {
-    marginLeft: 12,
-  },
-  workoutDetails: {
-    flexDirection: 'row',
-    marginTop: 12,
-    flexWrap: 'wrap',
-  },
-  workoutDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-    marginBottom: 4,
-  },
-  detailText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
-  workoutStats: {
-    flexDirection: 'row',
-    backgroundColor: '#1F2937',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-  },
-  workoutStat: {
-    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  statLabel: {
-    fontSize: 10,
-    color: '#9CA3AF',
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginTop: 4,
+  selectedIndicator: {
+    backgroundColor: '#34D399',
+    borderColor: '#FFFFFF',
   },
   footer: {
     flexDirection: 'row',

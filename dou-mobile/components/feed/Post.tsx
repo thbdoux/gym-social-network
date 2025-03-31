@@ -101,9 +101,9 @@ const Post: React.FC<PostProps> = ({
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffHours < 24) {
-      return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+      return `${diffHours} ${t(diffHours === 1 ? 'hour_ago' : 'hours_ago')}`;
     } else if (diffDays < 7) {
-      return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+      return `${diffDays} ${t(diffDays === 1 ? 'day_ago' : 'days_ago')}`;
     } else {
       return date.toLocaleDateString();
     }
@@ -166,7 +166,7 @@ const Post: React.FC<PostProps> = ({
     switch(personality.toLowerCase()) {
       case 'optimizer':
         return ['#F59E0B', '#EF4444']; // Amber to Red
-      case 'diplomate':
+      case 'diplomat':
         return ['#10B981', '#3B82F6']; // Emerald to Blue
       case 'mentor':
         return ['#6366F1', '#4F46E5']; // Indigo to Dark Indigo
@@ -348,12 +348,12 @@ const Post: React.FC<PostProps> = ({
   
   // Mock badges based on user activity
   const mockBadges = [
-    { id: 1, name: "20-Day Streak", icon: "flame", color: ["#F59E0B", "#EF4444"] },
-    { id: 2, name: "Power Lifter", icon: "barbell", color: ["#DC2626", "#7F1D1D"] },
-    { id: 3, name: "Early Bird", icon: "sunny", color: ["#F59E0B", "#FBBF24"] },
-    { id: 4, name: "Yoga Master", icon: "body", color: ["#10B981", "#3B82F6"] },
-    { id: 5, name: "Weekend Warrior", icon: "trophy", color: ["#6366F1", "#4F46E5"] },
-    { id: 6, name: "Community Coach", icon: "people", color: ["#EC4899", "#8B5CF6"] },
+    { id: 1, name: t('20day_streak'), icon: "flame", color: ["#F59E0B", "#EF4444"] },
+    { id: 2, name: t('power_lifter'), icon: "barbell", color: ["#DC2626", "#7F1D1D"] },
+    { id: 3, name: t('early_bird'), icon: "sunny", color: ["#F59E0B", "#FBBF24"] },
+    { id: 4, name: t('yoga_master'), icon: "body", color: ["#10B981", "#3B82F6"] },
+    { id: 5, name: t('weekend_warrior'), icon: "trophy", color: ["#6366F1", "#4F46E5"] },
+    { id: 6, name: t('community_coach'), icon: "people", color: ["#EC4899", "#8B5CF6"] },
   ];
   
   // Determine which badges to show (either from post or mocked)
@@ -567,15 +567,15 @@ const Post: React.FC<PostProps> = ({
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
               <Ionicons name="bar-chart" size={14} color="#A78BFA" />
-              <Text style={styles.statText}>{stats.totalWorkouts} workouts</Text>
+              <Text style={styles.statText}>{stats.totalWorkouts} {t('workouts')}</Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="flash" size={14} color="#FBBF24" />
-              <Text style={styles.statText}>{stats.thisWeek} this week</Text>
+              <Text style={styles.statText}>{stats.thisWeek} {t('this_week')}</Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="flash" size={14} color="#F87171" />
-              <Text style={styles.statText}>{stats.streak} day streak</Text>
+              <Text style={styles.statText}>{stats.streak} {t('day_streak')}</Text>
             </View>
           </View>
         )}
@@ -642,7 +642,7 @@ const Post: React.FC<PostProps> = ({
             <View style={styles.commentInputWrapper}>
               <TextInput
                 style={styles.commentInput}
-                placeholder={t('write_a_comment')}
+                placeholder={t('write_comment')}
                 placeholderTextColor="#9CA3AF"
                 value={commentText}
                 onChangeText={setCommentText}

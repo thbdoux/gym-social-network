@@ -7,7 +7,6 @@ import BottomTabBar from '../../components/navigation/BottomTabBar';
 export default function AppLayout() {
   return (
     <View style={{ flex: 1 }}>
-      {/* This Stack manages all screens within the authenticated app group */}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -18,8 +17,6 @@ export default function AppLayout() {
           animationDuration: 200,
         }}
       />
-      
-      {/* The BottomTabBar is only included in the authenticated app layout */}
       <BottomTabBar />
     </View>
   );

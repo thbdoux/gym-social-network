@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFriends } from '../../hooks/query/useUserQuery';
+import { useLanguage } from '../../context/LanguageContext';
 import ProfilePreviewModal from './ProfilePreviewModal';
 
 // Type for friend data
@@ -39,6 +40,7 @@ const BUBBLE_SIZE = 54; // Smaller bubbles
 const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({ 
   onViewAllClick
 }) => {
+  const { t } = useLanguage();
   const [selectedUser, setSelectedUser] = useState<Friend | null>(null);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
 
@@ -89,7 +91,7 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Failed to load friends</Text>
+        <Text style={styles.errorText}>{t('error')}</Text>
       </View>
     );
   }
@@ -108,7 +110,7 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
           <View style={styles.yourStoryBubble}>
             <View style={styles.youAvatar} />
           </View>
-          <Text style={styles.name}>Your Story</Text>
+          <Text style={styles.name}>{t('your_story')}</Text>
         </TouchableOpacity>
 
         {friends.length > 0 ? (
@@ -154,17 +156,17 @@ const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({
               <View style={styles.viewMoreCircle}>
                 <Ionicons name="arrow-forward" size={16} color="#ffffff" />
               </View>
-              <Text style={styles.viewMoreText}>View All</Text>
+              <Text style={styles.viewMoreText}>{t('view_all')}</Text>
             </TouchableOpacity>
           </>
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No friends yet</Text>
+            <Text style={styles.emptyText}>{t('no_friends')}</Text>
             <TouchableOpacity 
               style={styles.addFriendButton}
               onPress={onViewAllClick}
             >
-              <Text style={styles.addFriendText}>Find Friends</Text>
+              <Text style={styles.addFriendText}>{t('find_friends')}</Text>
             </TouchableOpacity>
           </View>
         )}

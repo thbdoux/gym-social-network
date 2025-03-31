@@ -37,7 +37,7 @@ import {
   useWorkoutTemplates
 } from '../../hooks/query/useWorkoutQuery';
 
-// Import custom components - ACTUALLY USE THESE NOW
+// Import custom components
 import ProgramCard from '../../components/workouts/ProgramCard';
 import WorkoutLogCard from '../../components/workouts/WorkoutLogCard';
 
@@ -142,7 +142,7 @@ export default function WorkoutsScreen() {
     }
   }, [currentView, refetchPrograms, refetchLogs, refetchTemplates]);
 
-  // Get view title
+  // Get view title using language context
   const getViewTitle = () => {
     switch (currentView) {
       case VIEW_TYPES.PROGRAMS:
@@ -413,7 +413,6 @@ export default function WorkoutsScreen() {
                     style={styles.cardContainer}
                   >
                     {/* For templates, we'll use a simpler card for now */}
-                    {/* In a real app, you'd create a TemplateCard component similar to the others */}
                     <TouchableOpacity
                       activeOpacity={0.9}
                       style={[

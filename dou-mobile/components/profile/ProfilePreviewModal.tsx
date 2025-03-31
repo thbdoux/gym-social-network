@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
+import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../hooks/query/useGymQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
@@ -57,6 +58,9 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
   userId,
   initialUserData,
 }) => {
+  // Get translation function
+  const { t } = useLanguage();
+  
   // Fetch user data
   const {
     data: userData,
@@ -135,14 +139,14 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#a855f7" />
-              <Text style={styles.loadingText}>Loading profile...</Text>
+              <Text style={styles.loadingText}>{t('loading')}</Text>
             </View>
           ) : userError ? (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={40} color="#EF4444" />
-              <Text style={styles.errorText}>Error loading profile</Text>
+              <Text style={styles.errorText}>{t('error')}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={onClose}>
-                <Text style={styles.retryButtonText}>Close</Text>
+                <Text style={styles.retryButtonText}>{t('close')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -160,10 +164,12 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
                   </View>
                   
                   <View style={styles.profileInfo}>
-                    <Text style={styles.profileUsername}>{userData?.username || 'User'}</Text>
+                    <Text style={styles.profileUsername}>{userData?.username || t('user')}</Text>
                     <View style={styles.personalityBadge}>
                       <Text style={styles.personalityText}>
-                        {userData?.personality_type ? formatText(userData.personality_type) : 'Fitness Enthusiast'}
+                        {userData?.personality_type ? 
+                          t(userData.personality_type.toLowerCase()) : 
+                          t('fitness_enthusiast')}
                       </Text>
                     </View>
                     
@@ -181,22 +187,22 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
                 <View style={styles.statsRow}>
                   <View style={styles.statCard}>
                     <Text style={styles.statValue}>{userData?.friend_count || 0}</Text>
-                    <Text style={styles.statLabel}>Friends</Text>
+                    <Text style={styles.statLabel}>{t('friends')}</Text>
                   </View>
                   <View style={styles.statCard}>
                     <Text style={styles.statValue}>{userData?.posts?.length || 0}</Text>
-                    <Text style={styles.statLabel}>Posts</Text>
+                    <Text style={styles.statLabel}>{t('posts')}</Text>
                   </View>
                   <View style={styles.statCard}>
                     <Text style={styles.statValue}>{userData?.workout_count || 0}</Text>
-                    <Text style={styles.statLabel}>Workouts</Text>
+                    <Text style={styles.statLabel}>{t('workouts')}</Text>
                   </View>
                 </View>
               </View>
               
               {/* Training Consistency Chart */}
               <View style={styles.chartCard}>
-                <Text style={styles.cardTitle}>Training Consistency</Text>
+                <Text style={styles.cardTitle}>{t('training_consistency')}</Text>
                 <View style={styles.chartContainer}>
                   <LineChart
                     data={{
@@ -252,7 +258,7 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
               
               {/* Current Program */}
               <View style={styles.programContainer}>
-                <Text style={styles.cardTitle}>Current Program</Text>
+                <Text style={styles.cardTitle}>{t('current_program')}</Text>
                 
                 {userData?.current_program ? (
                   <ProgramCard
@@ -263,7 +269,7 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
                 ) : (
                   <View style={styles.emptyProgram}>
                     <Ionicons name="barbell-outline" size={48} color="#6b7280" />
-                    <Text style={styles.emptyProgramText}>No active program</Text>
+                    <Text style={styles.emptyProgramText}>{t('no_active_program')}</Text>
                   </View>
                 )}
               </View>

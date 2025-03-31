@@ -12,6 +12,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../context/LanguageContext';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import {
   useFriends,
@@ -54,6 +55,9 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
   onClose,
   currentUser,
 }) => {
+  // Get translation function
+  const { t } = useLanguage();
+  
   // State
   const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'discover'>('friends');
   const [searchQuery, setSearchQuery] = useState('');
@@ -370,7 +374,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
             </View>
           ) : (
             <View style={styles.pendingContainer}>
-              <Text style={styles.pendingText}>Pending</Text>
+              <Text style={styles.pendingText}>{t('pending')}</Text>
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={() => handleFriendAction('cancel', user.id)}
@@ -431,7 +435,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
             ) : (
               <>
                 <Ionicons name="person-add" size={16} color="#FFFFFF" />
-                <Text style={styles.addButtonText}>Add</Text>
+                <Text style={styles.addButtonText}>{t('add_friend')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -466,7 +470,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>{t('loading')}</Text>
         </View>
       );
     }
@@ -487,11 +491,11 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
             ListEmptyComponent={
               <EmptyState
                 icon={<Ionicons name="people" size={48} color="#6B7280" />}
-                message={searchQuery ? "No friends match your search" : "You don't have any friends yet"}
+                message={searchQuery ? t('no_friends_match_search') : t('no_friends')}
                 action={
                   !searchQuery
                     ? {
-                        label: "Find Friends",
+                        label: t('find_friends'),
                         onPress: () => setActiveTab('discover'),
                       }
                     : undefined
@@ -510,7 +514,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
               <>
                 {filteredData.received.length > 0 && (
                   <View style={styles.requestsSection}>
-                    <Text style={styles.sectionTitle}>Received Requests</Text>
+                    <Text style={styles.sectionTitle}>{t('received_requests')}</Text>
                     <FlatList
                       data={filteredData.received}
                       keyExtractor={(item) => `received-${item.id}`}
@@ -524,7 +528,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
                 
                 {filteredData.sent.length > 0 && (
                   <View style={styles.requestsSection}>
-                    <Text style={styles.sectionTitle}>Sent Requests</Text>
+                    <Text style={styles.sectionTitle}>{t('sent_requests')}</Text>
                     <FlatList
                       data={filteredData.sent}
                       keyExtractor={(item) => `sent-${item.id}`}
@@ -539,11 +543,11 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
             ) : (
               <EmptyState
                 icon={<Ionicons name="time" size={48} color="#6B7280" />}
-                message={searchQuery ? "No requests match your search" : "No pending friend requests"}
+                message={searchQuery ? t('no_requests_match_search') : t('no_friend_requests')}
                 action={
                   !searchQuery
                     ? {
-                        label: "Find Friends",
+                        label: t('find_friends'),
                         onPress: () => setActiveTab('discover'),
                       }
                     : undefined
@@ -562,7 +566,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
             ListEmptyComponent={
               <EmptyState
                 icon={<Ionicons name="search" size={48} color="#6B7280" />}
-                message={searchQuery ? "No users match your search" : "No recommendations available"}
+                message={searchQuery ? t('no_users_match_search') : t('no_recommendations')}
               />
             }
           />
@@ -585,10 +589,10 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
             {activeTab === 'friends'
-              ? 'Friends'
+              ? t('friends')
               : activeTab === 'requests'
-              ? 'Friend Requests'
-              : 'Discover Friends'}
+              ? t('friend_requests')
+              : t('discover_friends')}
           </Text>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -602,10 +606,10 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
             style={styles.searchInput}
             placeholder={
               activeTab === 'friends'
-                ? 'Search friends...'
+                ? t('search_friends')
                 : activeTab === 'requests'
-                ? 'Search requests...'
-                : 'Search people...'
+                ? t('search_requests')
+                : t('search_people')
             }
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
@@ -630,7 +634,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
                 activeTab === 'friends' && styles.activeTabText,
               ]}
             >
-              Friends
+              {t('friends')}
             </Text>
           </TouchableOpacity>
 
@@ -649,7 +653,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
                 activeTab === 'requests' && styles.activeTabText,
               ]}
             >
-              Requests
+              {t('friend_requests')}
               {(filteredData.received.length + filteredData.sent.length) > 0 && (
                 <View style={styles.badgeContainer}>
                   <Text style={styles.badgeText}>
@@ -675,7 +679,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
                 activeTab === 'discover' && styles.activeTabText,
               ]}
             >
-              Discover
+              {t('discover_friends')}
             </Text>
           </TouchableOpacity>
         </View>

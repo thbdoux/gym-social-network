@@ -18,6 +18,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../context/LanguageContext';
 import { useCurrentUser, useLogout } from '../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../hooks/query/useGymQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
@@ -28,6 +29,7 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function ProfileScreen() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
   
@@ -121,7 +123,7 @@ export default function ProfileScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#a855f7" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+        <Text style={styles.loadingText}>{t('loading_profile')}</Text>
       </View>
     );
   }
@@ -192,7 +194,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             
             <View style={styles.profileInfo}>
-              <Text style={styles.profileUsername}>{profile?.username || 'User'}</Text>
+              <Text style={styles.profileUsername}>{profile?.username || t('user')}</Text>
               <LinearGradient
                 colors={['#9333EA', '#D946EF']}
                 start={{ x: 0, y: 0 }}
@@ -200,7 +202,7 @@ export default function ProfileScreen() {
                 style={styles.personalityBadge}
               >
                 <Text style={styles.personalityText}>
-                  {profile?.personality_type ? formatFocus(profile.personality_type) : 'Fitness Enthusiast'}
+                  {profile?.personality_type ? t(profile.personality_type.toLowerCase()) : t('fitness_enthusiast')}
                 </Text>
               </LinearGradient>
               
@@ -228,7 +230,7 @@ export default function ProfileScreen() {
               style={styles.statCard}
             >
               <Text style={styles.statValue}>{profile?.friends_count || 0}</Text>
-              <Text style={styles.statLabel}>Friends</Text>
+              <Text style={styles.statLabel}>{t('friends')}</Text>
             </LinearGradient>
             
             <LinearGradient
@@ -238,7 +240,7 @@ export default function ProfileScreen() {
               style={styles.statCard}
             >
               <Text style={styles.statValue}>{profile?.posts_count || 0}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
+              <Text style={styles.statLabel}>{t('posts')}</Text>
             </LinearGradient>
             
             <LinearGradient
@@ -248,7 +250,7 @@ export default function ProfileScreen() {
               style={styles.statCard}
             >
               <Text style={styles.statValue}>{profile?.workouts_count || 0}</Text>
-              <Text style={styles.statLabel}>Workouts</Text>
+              <Text style={styles.statLabel}>{t('workouts')}</Text>
             </LinearGradient>
           </View>
         </View>
@@ -257,7 +259,7 @@ export default function ProfileScreen() {
         <View style={styles.chartCard}>
           <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
           
-          <Text style={styles.cardTitle}>Training Consistency</Text>
+          <Text style={styles.cardTitle}>{t('training_consistency')}</Text>
           <View style={styles.chartContainer}>
             <LineChart
               data={{
@@ -316,7 +318,7 @@ export default function ProfileScreen() {
         <View style={styles.programContainer}>
           <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
           
-          <Text style={styles.cardTitle}>Current Program</Text>
+          <Text style={styles.cardTitle}>{t('current_program')}</Text>
           
           {profile?.current_program ? (
             <ProgramCard
@@ -327,14 +329,14 @@ export default function ProfileScreen() {
           ) : (
             <View style={styles.emptyProgram}>
               <Ionicons name="barbell-outline" size={48} color="#d1d5db" />
-              <Text style={styles.emptyProgramText}>No active program</Text>
+              <Text style={styles.emptyProgramText}>{t('no_active_program')}</Text>
               <LinearGradient
                 colors={['#9333EA', '#D946EF']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.emptyProgramButton}
               >
-                <Text style={styles.emptyProgramButtonText}>Browse Programs</Text>
+                <Text style={styles.emptyProgramButtonText}>{t('browse_programs')}</Text>
               </LinearGradient>
             </View>
           )}
@@ -569,5 +571,4 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
   },
-
 });

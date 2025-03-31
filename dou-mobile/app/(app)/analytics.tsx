@@ -79,9 +79,9 @@ export default function AnalyticsScreen() {
     
     return Array.from(exerciseSet).map(name => ({
       id: name,
-      name: name === 'all' ? 'All Exercises' : name
+      name: name === 'all' ? t('all_exercises') : name
     }));
-  }, [logs]);
+  }, [logs, t]);
 
   // Group logs by month
   const monthlyData = useMemo(() => {
