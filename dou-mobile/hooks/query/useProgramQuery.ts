@@ -11,17 +11,41 @@ import {
     all: ['programs'],
     lists: (userId) => [...programKeys.all, 'list', { userId }],
     list: (userId, filters) => [...programKeys.lists(userId), { ...filters }],
+    userPrograms: (userId) => [...programKeys.all, 'user', userId || 'current'],
+    sharedPrograms: () => [...programKeys.all, 'shared'],
+    publicPrograms: () => [...programKeys.all, 'public'],
     details: (userId) => [...programKeys.all, 'detail', { userId }],
     detail: (userId, id) => [...programKeys.details(userId), id],
     workouts: (programId) => [...programKeys.detail(programId), 'workouts'],
     workout: (programId, workoutId) => [...programKeys.workouts(programId), workoutId],
   };
   
-  // Get all programs
+  
+  export const useUserPrograms = (userId?: number) => {
+    return useQuery({
+      queryKey: programKeys.userPrograms(userId),
+      queryFn: () => programService.getUserPrograms(userId),
+    });
+  };
+  
+  export const useSharedPrograms = () => {
+    return useQuery({
+      queryKey: programKeys.sharedPrograms(),
+      queryFn: programService.getSharedPrograms,
+    });
+  };
+  
+  export const usePublicPrograms = () => {
+    return useQuery({
+      queryKey: programKeys.publicPrograms(),
+      queryFn: programService.getPublicPrograms,
+    });
+  };
+  
   export const usePrograms = () => {
     return useQuery({
       queryKey: programKeys.lists(),
-      queryFn: programService.getPrograms,
+      queryFn: programService.getUserPrograms, // Changed to use the filtered endpoint
     });
   };
   
@@ -49,6 +73,16 @@ import {
         
         // Set individual program data
         queryClient.setQueryData(programKeys.detail(newProgram.id), newProgram);
+        
+        // Important: Invalidate queries to ensure UI is updated
+        queryClient.invalidateQueries({ queryKey: programKeys.all });
+        
+        // Also invalidate user data if program is set to active
+        if (newProgram.is_active) {
+          queryClient.invalidateQueries({ queryKey: ['users', 'current'] });
+        }
+        
+        return newProgram;
       },
     });
   };

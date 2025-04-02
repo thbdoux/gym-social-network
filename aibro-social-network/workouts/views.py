@@ -143,12 +143,10 @@ class ProgramViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Include both created programs and public programs
-        return Program.objects.filter(
-            Q(creator=self.request.user) |  # Created by user
-            Q(is_public=True) |
-            Q(shares__shared_with=self.request.user)       
-        ).prefetch_related(
+        filter_type = self.request.query_params.get('filter', 'all')
+        user_id = self.request.query_params.get('user_id')
+        
+        queryset = Program.objects.prefetch_related(
             'workout_instances',
             'workout_instances__exercises',
             'workout_instances__exercises__sets',
@@ -157,6 +155,33 @@ class ProgramViewSet(viewsets.ModelViewSet):
             likes_count=Count('likes', distinct=True),
             forks_count=Count('forks', distinct=True)
         )
+        
+        # Filter based on the requested filter type
+        if filter_type == 'created':
+            # Programs created by the specified user or current user
+            if user_id:
+                queryset = queryset.filter(creator_id=user_id)
+            else:
+                queryset = queryset.filter(creator=self.request.user)
+                
+        elif filter_type == 'shared':
+            # Programs shared with the current user
+            queryset = queryset.filter(shares__shared_with=self.request.user)
+            
+        elif filter_type == 'public':
+            # Public programs
+            queryset = queryset.filter(is_public=True)
+            
+        elif filter_type == 'all':
+            # Default: Programs created by user + shared with user + public
+            queryset = queryset.filter(
+                Q(creator=self.request.user) | 
+                Q(shares__shared_with=self.request.user) |
+                Q(is_public=True)
+            ).distinct()
+        
+        return queryset
+
     def retrieve(self, request, *args, **kwargs):
         """Custom retrieve to ensure program active status is accurate"""
         instance = self.get_object()

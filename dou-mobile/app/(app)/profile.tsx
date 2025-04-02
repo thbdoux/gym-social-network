@@ -56,8 +56,6 @@ export default function ProfileScreen() {
     enabled: !!profile?.current_program?.id
   });
   
-  console.log("user profile : ", profile);
-  
   // Session data for chart - aggregated by month
   const sessionData = [
     { month: 'Jan', sessions: 4 },

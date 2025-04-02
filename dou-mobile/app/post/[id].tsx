@@ -53,6 +53,32 @@ export default function PostDetailScreen() {
     router.push(`/post/${postId}`);
   };
 
+    // Add this function:
+  const handleProgramClick = (program: any) => {
+    console.log('Program clicked in PostDetailScreen:', program);
+    
+    let programId: number | null = null;
+    
+    if (program) {
+      if (typeof program === 'number') {
+        programId = program;
+      } else if (typeof program === 'object') {
+        programId = program.id || program.program_id || program.programId;
+        
+        if (!programId && program.program_details) {
+          programId = program.program_details.id;
+        }
+      }
+    }
+    
+    if (programId) {
+      router.push(`/program/${programId}`);
+    } else {
+      console.error('Could not extract program ID from:', program);
+      Alert.alert('Error', 'Could not open program details');
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -107,6 +133,7 @@ export default function PostDetailScreen() {
           }}
           onProfileClick={handleProfileClick}
           onPostClick={handlePostClick}
+          onProgramClick={handleProgramClick}
           detailMode={true} // Add this prop to your Post component
         />
       </ScrollView>

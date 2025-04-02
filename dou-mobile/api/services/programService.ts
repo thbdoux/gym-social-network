@@ -69,29 +69,34 @@ const programService = {
     const response = await apiClient.get(`/users/search/?q=${query}`);
     return extractData(response);
   },
+  getUserPrograms: async (userId?: number): Promise<Program[]> => {
+    // Get programs created by a specific user (or current user if no userId)
+    const url = userId 
+      ? `/workouts/programs/?filter=created&user_id=${userId}`
+      : '/workouts/programs/?filter=created';
+    const response = await apiClient.get(url);
+    return extractData(response);
+  },
+  getSharedPrograms: async (): Promise<Program[]> => {
+    // Get programs shared with current user
+    const response = await apiClient.get('/workouts/programs/?filter=shared');
+    return extractData(response);
+  },
+  getPublicPrograms: async (): Promise<Program[]> => {
+    // Get public programs
+    const response = await apiClient.get('/workouts/programs/?filter=public');
+    return extractData(response);
+  },
+  getAllPrograms: async (): Promise<Program[]> => {
+    // Get all programs relevant to the user (created, shared, public)
+    const response = await apiClient.get('/workouts/programs/?filter=all');
+    return extractData(response);
+  },
 
+  // You can update or keep your existing getPrograms method
   getPrograms: async (): Promise<Program[]> => {
-    const response = await apiClient.get('/workouts/programs/');
-    const allPrograms = extractData(response);
-    
-    // Get current user info to verify ownership
-    const currentUserResponse = await apiClient.get('/users/me/');
-    const currentUser = currentUserResponse.data;
-    
-    return allPrograms
-      .map((program: Program) => {
-        // Ensure only the owner sees their programs as active
-        if (program.is_active && program.creator_username !== currentUser.username) {
-          return { ...program, is_active: false };
-        }
-        return program;
-      })
-      .filter((plan: Program) => (
-        plan.is_owner || 
-        plan.is_public ||
-        plan.is_shared_with_me || 
-        (plan.forked_from !== null)
-      ));
+    // This now directly calls the new getUserPrograms method
+    return programService.getUserPrograms();
   },
 
   getProgramById: async (id: number): Promise<Program> => {

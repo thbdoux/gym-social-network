@@ -156,7 +156,6 @@ export default function FeedScreen() {
   
   // Handle post created
   const handlePostCreated = (newPost: any) => {
-    console.log('Post created:', newPost);
     // Refresh posts feed after creating a new post
     refetchPosts();
   };
@@ -174,6 +173,40 @@ export default function FeedScreen() {
         <FriendsBubbleList onViewAllClick={handleOpenFriendsModal} />
       </View>
     );
+  };
+
+    // Add a handler for program selection
+  const handleProgramSelect = (program: any) => {
+    console.log('Program selected:', program);
+    
+    // Get the program ID - check all possible properties where ID might be stored
+    let programId: number | null = null;
+    
+    if (program) {
+      if (typeof program === 'number') {
+        // If program is just the ID itself
+        programId = program;
+      } else if (typeof program === 'object') {
+        // Try all possible ID properties
+        programId = program.id || program.program_id || program.programId;
+        
+        // If program details is nested, try to extract from there
+        if (!programId && program.program_details) {
+          programId = program.program_details.id;
+        }
+      }
+    }
+    
+    console.log('Extracted program ID:', programId);
+    
+    if (programId) {
+      // Navigate to program details
+      console.log(`Navigating to /program/${programId}`);
+      router.push(`/program/${programId}`);
+    } else {
+      console.error('Could not extract program ID from:', program);
+      Alert.alert('Error', 'Could not open program details');
+    }
   };
 
   return (
@@ -211,6 +244,7 @@ export default function FeedScreen() {
               onComment={handleComment}
               onShare={handleShare}
               onDelete={handleDeletePost}
+              onProgramSelect={handleProgramSelect}
               onForkProgram={handleForkProgram}
               onProfileClick={handleProfileClick}
               onPostClick={handlePostClick}

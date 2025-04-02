@@ -1,4 +1,4 @@
-// components/workouts/WorkoutLogCard.tsx
+// components/workouts/WorkoutCard.tsx
 import React, { useRef, useEffect } from 'react';
 import { router } from 'expo-router';
 import { 
@@ -12,26 +12,34 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 
-interface WorkoutLogCardProps {
-  logId: number;
-  log: {
+interface WorkoutCardProps {
+  workoutId: number;
+  workout: {
     id: number;
     name: string;
-    date: string;
-    username?: string;
+    description?: string;
+    split_method?: string;
+    difficulty_level?: string;
+    estimated_duration?: number;
+    equipment_required?: string[];
+    tags?: string[];
+    is_public?: boolean;
+    exercises?: any[];
+    // Instance specific
+    preferred_weekday?: number;
+    order?: number;
     program?: number;
     program_name?: string;
+    // Additional props that might be added by services
+    workout_name?: string;
+    date?: string;
     gym_name?: string;
-    completed: boolean;
-    mood_rating?: number;
-    perceived_difficulty?: number;
-    exercises?: any[];
-    duration?: number;
-    notes?: string;
+    exercise_count?: number;
   };
+  isTemplate?: boolean;
   user: string;
-  inFeedMode?: boolean;
-  onFork?: (log: any) => Promise<void>;
+  onFork?: (workout: any) => Promise<void>;
+  onAddToProgram?: (workout: any) => void;
   // Selection mode props
   selectionMode?: boolean;
   isSelected?: boolean;
@@ -39,12 +47,13 @@ interface WorkoutLogCardProps {
   onLongPress?: () => void;
 }
 
-const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
-  logId,
-  log,
+const WorkoutCard: React.FC<WorkoutCardProps> = ({
+  workoutId,
+  workout,
+  isTemplate = true,
   user,
-  inFeedMode = false,
   onFork,
+  onAddToProgram,
   // Selection mode props
   selectionMode = false,
   isSelected = false,
@@ -52,8 +61,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   onLongPress
 }) => {
   const { t } = useLanguage();
-  const isOwner = user === log.username;
-
+  
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -119,74 +127,60 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
       })
     ]).start();
   }, [isSelected, scaleAnim]);
-
-  // Format the date
-  const formatDate = (dateString: string): string => {
-    try {
-      if (!dateString) return '';
-      // Check if date is in DD/MM/YYYY format
-      if (typeof dateString === 'string' && dateString.includes('/')) {
-        const [day, month, year] = dateString.split('/');
-        return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        });
-      }
-      // Otherwise try standard parsing
-      return new Date(dateString).toLocaleDateString(undefined, { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    } catch (e) {
-      return dateString; // If parsing fails, return the original string
+  
+  // Get workout display name
+  const workoutName = workout.workout_name || workout.name;
+  
+  // Get exercise count
+  const exerciseCount = workout.exercise_count || workout.exercises?.length || 0;
+  
+  // First 3 exercise names for display
+  const exerciseNames = workout.exercises?.slice(0, 3).map(ex => ex.name || "Exercise") || [];
+  
+  // Get weekday name if instance
+  const getWeekdayName = (day?: number): string => {
+    if (day === undefined) return '';
+    // Using hardcoded weekday names since these translations might not exist yet
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return weekdays[day];
+  };
+  
+  // Get difficulty indicator based on level
+  const getDifficultyIndicator = (level?: string): string => {
+    if (!level) return '🔥';
+    switch(level?.toLowerCase()) {
+      case 'beginner': return '🔥';
+      case 'intermediate': return '🔥🔥';
+      case 'advanced': return '🔥🔥🔥';
+      default: return '🔥';
     }
-  };
-
-  // Get mood emoji based on rating
-  const getMoodEmoji = (rating?: number): string => {
-    if (!rating) return '😐';
-    if (rating >= 4.5) return '😀';
-    if (rating >= 3.5) return '🙂';
-    if (rating >= 2.5) return '😐';
-    if (rating >= 1.5) return '😕';
-    return '😞';
-  };
-
-  // Get difficulty indicator based on rating
-  const getDifficultyIndicator = (rating?: number): string => {
-    if (!rating) return '🔥';
-    if (rating >= 8) return '🔥🔥🔥';
-    if (rating >= 5) return '🔥🔥';
-    return '🔥';
   };
 
   const handleCardPress = () => {
     if (selectionMode) {
       onSelect && onSelect();
     } else {
-      // Navigate to workout log details page instead of opening a modal
-      router.push(`/workout-log/${logId}`);
+      router.push(`/workout/${workoutId}`);
     }
   };
 
   const handleFork = (e: any) => {
     e.stopPropagation();
     if (onFork) {
-      onFork(log);
+      onFork(workout);
+    }
+  };
+  
+  const handleAddToProgram = (e: any) => {
+    e.stopPropagation();
+    if (onAddToProgram) {
+      onAddToProgram(workout);
     }
   };
   
   const handleLongPress = () => {
     onLongPress && onLongPress();
   };
-
-  // Get Exercise count
-  const exerciseCount = log.exercises?.length || 0;
-  
-  // First 3 exercise names for display
-  const exerciseNames = log.exercises?.slice(0, 3).map(ex => ex.name || "Exercise") || [];
   
   // Combine animations for wiggle effect
   const animatedStyle = {
@@ -212,9 +206,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           isSelected && styles.selectedContainer
         ]}
       >
-        {/* Completed indicator strip */}
-        {log.completed && <View style={styles.completedStrip} />}
-        
         {/* Selection indicator */}
         {selectionMode && (
           <View style={styles.selectionIndicator}>
@@ -243,47 +234,42 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
         
         {/* Main content */}
         <View style={styles.cardContent}>
-          {/* Top row with date, location and status */}
+          {/* Top row with type, difficulty and weekday if instance */}
           <View style={styles.topRow}>
-            <View style={styles.dateLocationContainer}>
-              <View style={styles.dateContainer}>
-                <Text style={styles.dateText}>{formatDate(log.date)}</Text>
-                <View style={[
-                  styles.statusDot,
-                  log.completed ? styles.completedDot : styles.pendingDot
-                ]} />
+            <View style={styles.typeContainer}>
+              <View style={styles.typeBadge}>
+                <Text style={styles.typeText}>
+                  {isTemplate ? t('template') : t('workout')}
+                </Text>
               </View>
               
-              {log.gym_name && (
-                <View style={styles.gymContainer}>
-                  <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
-                  <Text style={styles.gymText}>{log.gym_name}</Text>
+              {workout.difficulty_level && (
+                <View style={styles.difficultyContainer}>
+                  <Text style={styles.difficultyText}>
+                    {getDifficultyIndicator(workout.difficulty_level)} {t(workout.difficulty_level.toLowerCase())}
+                  </Text>
                 </View>
               )}
             </View>
             
-            {log.completed ? (
-              <View style={styles.completedBadge}>
-                <Text style={styles.completedText}>{t('completed')}</Text>
-              </View>
-            ) : (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingText}>{t('in_progress')}</Text>
+            {!isTemplate && workout.preferred_weekday !== undefined && (
+              <View style={styles.weekdayBadge}>
+                <Text style={styles.weekdayText}>{getWeekdayName(workout.preferred_weekday)}</Text>
               </View>
             )}
           </View>
           
           {/* Workout title */}
           <Text style={styles.title} numberOfLines={1}>
-            {log.name}
+            {workoutName}
           </Text>
           
-          {/* Program name if available */}
-          {log.program_name && (
+          {/* Program name if available and is instance */}
+          {!isTemplate && workout.program_name && (
             <View style={styles.programRow}>
-              <Ionicons name="barbell-outline" size={12} color="rgba(255, 255, 255, 0.7)" />
+              <Ionicons name="calendar-outline" size={12} color="rgba(255, 255, 255, 0.7)" />
               <Text style={styles.programText} numberOfLines={1}>
-                {log.program_name}
+                {workout.program_name}
               </Text>
             </View>
           )}
@@ -295,26 +281,24 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
               <Text style={styles.statValue}>{exerciseCount}</Text>
             </View>
             
-            {log.duration && (
+            {workout.estimated_duration && (
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>{t('duration')}</Text>
-                <Text style={styles.statValue}>{log.duration}m</Text>
+                <Text style={styles.statValue}>{workout.estimated_duration}m</Text>
               </View>
             )}
             
-            {log.mood_rating && (
+            {workout.equipment_required && workout.equipment_required.length > 0 && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('mood')}</Text>
-                <Text style={styles.moodValue}>{getMoodEmoji(log.mood_rating)}</Text>
+                <Text style={styles.statLabel}>{t('equipment')}</Text>
+                <Text style={styles.statValue}>{workout.equipment_required.length}</Text>
               </View>
             )}
             
-            {log.perceived_difficulty && (
+            {workout.tags && workout.tags.length > 0 && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('difficulty')}</Text>
-                <Text style={styles.difficultyValue}>
-                  {getDifficultyIndicator(log.perceived_difficulty)}
-                </Text>
+                <Text style={styles.statLabel}>Tags</Text>
+                <Text style={styles.statValue}>{workout.tags.length}</Text>
               </View>
             )}
           </View>
@@ -342,13 +326,23 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
         <View style={styles.actionsRow}>
           <View style={styles.spacer}></View>
           
-          {!isOwner && !selectionMode && (
+          {isTemplate && onAddToProgram && !selectionMode && (
             <TouchableOpacity 
-              style={styles.forkButton}
+              style={styles.actionButton}
+              onPress={handleAddToProgram}
+            >
+              <Ionicons name="add-circle-outline" size={14} color="#0c4a6e" />
+              <Text style={styles.actionText}>{t('add_to_program')}</Text>
+            </TouchableOpacity>
+          )}
+          
+          {onFork && !selectionMode && (
+            <TouchableOpacity 
+              style={styles.actionButton}
               onPress={handleFork}
             >
-              <Ionicons name="download-outline" size={14} color="#166534" />
-              <Text style={styles.forkText}>{t('fork')}</Text>
+              <Ionicons name="copy-outline" size={14} color="#0c4a6e" />
+              <Text style={styles.actionText}>{isTemplate ? t('fork_template') : t('fork')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -361,7 +355,7 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#16a34a', // Deeper green
+    backgroundColor: '#0ea5e9', // Blue color
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -374,14 +368,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  completedStrip: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: '#ffffff',
-  },
   cardContent: {
     padding: 16,
   },
@@ -391,47 +377,31 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 10,
   },
-  dateLocationContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
-  dateContainer: {
+  typeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    flex: 1,
   },
-  dateText: {
-    fontSize: 14,
+  typeBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  typeText: {
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
   },
-  gymContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  gymText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginLeft: 4,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  difficultyContainer: {
     marginLeft: 8,
   },
-  completedDot: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    elevation: 2,
+  difficultyText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
   },
-  pendingDot: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  completedBadge: {
+  weekdayBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -442,21 +412,10 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
     elevation: 1,
   },
-  pendingBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  completedText: {
-    color: '#166534',
+  weekdayText: {
+    color: '#0c4a6e',
     fontSize: 12,
     fontWeight: '700',
-  },
-  pendingText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 12,
-    fontWeight: '600',
   },
   title: {
     fontSize: 22,
@@ -499,18 +458,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  moodValue: {
-    fontSize: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  difficultyValue: {
-    fontSize: 14,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
   exerciseRow: {
     flexDirection: 'row',
     padding: 0,
@@ -529,7 +476,7 @@ const styles = StyleSheet.create({
     maxWidth: 120,
   },
   exerciseName: {
-    color: '#166534',
+    color: '#0c4a6e',
     fontSize: 10,
     fontWeight: '600',
   },
@@ -542,21 +489,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   moreText: {
-    color: '#166534',
+    color: '#0c4a6e',
     fontSize: 10,
     fontWeight: '600',
   },
   actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
+    gap: 8,
   },
   spacer: {
     flex: 1,
   },
-  forkButton: {
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -569,8 +517,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  forkText: {
-    color: '#166534',
+  actionText: {
+    color: '#0c4a6e',
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,
@@ -593,7 +541,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: '#16a34a',
+    backgroundColor: '#0ea5e9',
   },
   deleteButton: {
     position: 'absolute',
@@ -613,4 +561,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default WorkoutLogCard;
+export default WorkoutCard;

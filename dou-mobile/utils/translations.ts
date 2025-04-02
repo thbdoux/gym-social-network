@@ -190,6 +190,10 @@ const workout = {
     current_workout: 'Current Workout',
     log_set: 'Log Set',
     weight_kg: 'Weight (kg)',
+    equipment: 'Equipment',
+    tags: 'Tags',
+    mood: "Mood",
+    difficulty : "Difficulty",
   },
   fr: {
     workouts: 'Entraînements',
@@ -213,6 +217,10 @@ const workout = {
     current_workout: 'Entraînement actuel',
     log_set: 'Enregistrer une série',
     weight_kg: 'Poids (kg)',
+    equipment: 'Équipement',
+    tags: 'Tags',
+    mood: 'Humeur',
+    difficulty: 'Difficulté',
   }
 };
 
@@ -232,6 +240,43 @@ const program = {
     fork_program: 'Fork Program',
     program_forked: 'Program Forked',
     activate_program: 'Activate Program',
+    // ProgramWizard
+    create_new_program: 'Create New Program',
+    edit_program: 'Edit Program',
+    name: 'Name',
+    focus: 'Focus',
+    schedule: 'Schedule',
+    program_name_required: 'Program name is required',
+    update_program: 'Update Program',
+    
+    // Step1BasicInfo
+    program_name_question: 'What will you call your program?',
+    enter_program_name: 'Enter program name',
+    name_suggestions: 'Try one of these:',
+    program_name_help: 'A clear name helps you remember the purpose of your program.',
+    program_suggestion_1: 'Power Building 101',
+    program_suggestion_2: 'Summer Shred Program',
+    program_suggestion_3: 'Strength Foundations',
+    
+    // Step2Focus
+    program_focus_question: 'What\'s the focus of your program?',
+    select_difficulty: 'Select difficulty level',
+    strength: 'Strength',
+    hypertrophy: 'Hypertrophy',
+    endurance: 'Endurance',
+    weight_loss: 'Weight Loss',
+    strength_and_size: 'Strength & Size',
+    general_fitness: 'General Fitness',
+    
+    // Step3Schedule
+    training_days_question: 'How many days per week will you train?',
+    days_none: 'None',
+    days_singular: 'Day',
+    days_plural: 'Days',
+    selected_training_days: 'Selected training days',
+    day_per_week: 'day per week',
+    days_per_week: 'days per week',
+    training_frequency_info: 'Your weekly schedule affects how your workouts are structured and the results you can expect.',
   },
   fr: {
     programs: 'Programmes',
@@ -247,6 +292,43 @@ const program = {
     fork_program: 'Dupliquer le programme',
     program_forked: 'Programme dupliqué',
     activate_program: 'Activer le programme',
+    // ProgramWizard
+    create_new_program: 'Créer un Nouveau Programme',
+    edit_program: 'Modifier le Programme',
+    name: 'Nom',
+    focus: 'Objectif',
+    schedule: 'Calendrier',
+    program_name_required: 'Le nom du programme est requis',
+    update_program: 'Mettre à jour le Programme',
+    
+    // Step1BasicInfo
+    program_name_question: 'Comment allez-vous nommer votre programme ?',
+    enter_program_name: 'Entrez le nom du programme',
+    name_suggestions: 'Essayez l\'un de ces noms :',
+    program_name_help: 'Un nom clair vous aide à vous rappeler l\'objectif de votre programme.',
+    program_suggestion_1: 'Construction Musculaire 101',
+    program_suggestion_2: 'Programme Brûle-Graisse Été',
+    program_suggestion_3: 'Fondations de Force',
+    
+    // Step2Focus
+    program_focus_question: 'Quel est l\'objectif de votre programme ?',
+    select_difficulty: 'Sélectionnez le niveau de difficulté',
+    strength: 'Force',
+    hypertrophy: 'Hypertrophie',
+    endurance: 'Endurance',
+    weight_loss: 'Perte de Poids',
+    strength_and_size: 'Force & Volume',
+    general_fitness: 'Fitness Général',
+    
+    // Step3Schedule
+    training_days_question: 'Combien de jours par semaine vous entraînerez-vous ?',
+    days_none: 'Aucun',
+    days_singular: 'Jour',
+    days_plural: 'Jours',
+    selected_training_days: 'Jours d\'entraînement sélectionnés',
+    day_per_week: 'jour par semaine',
+    days_per_week: 'jours par semaine',
+    training_frequency_info: 'Votre calendrier hebdomadaire affecte la structure de vos entraînements et les résultats que vous pouvez attendre.',
   }
 };
 
@@ -263,6 +345,7 @@ const template = {
     template_details: 'Template Details',
     use_template: 'Use Template',
     fork_template: 'Fork Template',
+    add_to_program: 'Add to Program',
   },
   fr: {
     templates: 'Modèles',
@@ -275,6 +358,7 @@ const template = {
     template_details: 'Détails du modèle',
     use_template: 'Utiliser ce modèle',
     fork_template: 'Dupliquer le modèle',
+    add_to_program: 'Ajouter au Programme',
   }
 };
 

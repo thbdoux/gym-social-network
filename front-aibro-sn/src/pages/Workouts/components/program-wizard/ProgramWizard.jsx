@@ -16,7 +16,7 @@ const initializeFormData = (program) => {
       sessions_per_week: 3,
       difficulty_level: 'intermediate',
       estimated_completion_weeks: 8,
-      is_active: true,
+      is_active: false,
       is_public: true
     };
   }
@@ -28,7 +28,7 @@ const initializeFormData = (program) => {
     sessions_per_week: program.sessions_per_week || 3,
     difficulty_level: program.difficulty_level || 'intermediate',
     estimated_completion_weeks: program.estimated_completion_weeks || 8,
-    is_active: program.is_active ?? true,
+    is_active: program.is_active ?? false,
     is_public: program.is_public ?? true
   };
 };

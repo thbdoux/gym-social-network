@@ -240,10 +240,14 @@ const Post: React.FC<PostProps> = ({
   
   const SharedPostContent = ({ 
     originalPost, 
-    onOriginalPostClick 
+    onOriginalPostClick ,
+    onProgramClick,
+    onForkProgram,
+    currentUser,
   }: { 
     originalPost: any,
-    onOriginalPostClick?: (postId: number) => void 
+    onOriginalPostClick?: (postId: number) => void ,
+    onProgramClick?: (program: any) => void,
   }) => {
     // Get post type details for the original post
     const originalPostTypeDetails = getPostTypeDetails(originalPost.post_type);
@@ -298,6 +302,7 @@ const Post: React.FC<PostProps> = ({
             program={originalPost.program_details}
             inFeedMode={true}
             currentUser={currentUser}
+            onProgramSelect={onProgramClick}
             onFork={onForkProgram}
           />
         )}
@@ -549,6 +554,9 @@ const Post: React.FC<PostProps> = ({
             <SharedPostContent 
               originalPost={post.original_post_details} 
               onOriginalPostClick={handleOriginalPostClick}
+              onProgramClick={onProgramClick}
+              onForkProgram={onForkProgram}     // Pass the handler here
+              currentUser={currentUser}
             />
           )}
           

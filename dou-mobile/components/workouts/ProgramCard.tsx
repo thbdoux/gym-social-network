@@ -1,6 +1,14 @@
 // components/workouts/ProgramCard.tsx
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { router } from 'expo-router';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Animated,
+  Easing
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useModal } from '../../context/ModalContext';
@@ -24,6 +32,12 @@ interface ProgramCardProps {
   currentUser?: string;
   onProgramSelect?: (program: any) => void;
   onFork?: (programId: number) => Promise<any>;
+  onToggleActive?: (programId: number) => Promise<any>; // New prop for toggling active state
+  // Selection mode props
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
+  onLongPress?: () => void;
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({
@@ -31,11 +45,82 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   program,
   inFeedMode = false,
   currentUser,
-  onFork
+  onFork,
+  onProgramSelect,
+  onToggleActive, 
+  selectionMode = false,
+  isSelected = false,
+  onSelect,
+  onLongPress
 }) => {
   const { t } = useLanguage();
-  const { openProgramDetail } = useModal();
   const isOwner = currentUser === program.creator_username;
+
+  // Animation for selection mode
+  const wiggleAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  // Start wiggle animation when entering selection mode
+  useEffect(() => {
+    if (selectionMode) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(wiggleAnim, {
+            toValue: 1,
+            duration: 100,
+            useNativeDriver: true,
+            easing: Easing.linear
+          }),
+          Animated.timing(wiggleAnim, {
+            toValue: -1,
+            duration: 200,
+            useNativeDriver: true,
+            easing: Easing.linear
+          }),
+          Animated.timing(wiggleAnim, {
+            toValue: 0,
+            duration: 100,
+            useNativeDriver: true,
+            easing: Easing.linear
+          })
+        ])
+      ).start();
+      
+      // Also add a small "pop" scale animation when first entering selection mode
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true
+        })
+      ]).start();
+    } else {
+      // Stop animation when exiting selection mode
+      wiggleAnim.stopAnimation();
+      wiggleAnim.setValue(0);
+    }
+  }, [selectionMode, wiggleAnim, scaleAnim]);
+  
+  // Animation for selection/deselection
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: isSelected ? 0.95 : 0.98,
+        duration: 100,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true
+      })
+    ]).start();
+  }, [isSelected, scaleAnim]);
 
   // Get weekdays for program schedule visualization
   const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -49,7 +134,15 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   };
 
   const handleCardPress = () => {
-    openProgramDetail(program);
+    if (selectionMode) {
+      onSelect && onSelect();
+    } else if (onProgramSelect) {
+      // Use the callback if provided
+      onProgramSelect(program);
+    } else {
+      // Fall back to direct navigation
+      router.push(`/program/${programId}`);
+    }
   };
 
   const handleFork = (e: any) => {
@@ -58,86 +151,171 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
       onFork(programId);
     }
   };
+  
+  const handleLongPress = () => {
+    onLongPress && onLongPress();
+  };
+  
+  // New handler for toggling active state
+  const handleToggleActive = (e: any) => {
+    e.stopPropagation(); // Prevent the card's onPress from firing
+    if (onToggleActive) {
+      onToggleActive(programId);
+    }
+  };
+
+  // Combine animations for wiggle effect
+  const animatedStyle = {
+    transform: [
+      { rotate: wiggleAnim.interpolate({
+          inputRange: [-1, 1],
+          outputRange: ['-1deg', '1deg']
+        })
+      },
+      { scale: scaleAnim }
+    ]
+  };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={handleCardPress}
-      style={styles.container}
-    >
-      {/* Main content */}
-      <View style={styles.cardContent}>
-        {/* Title and badges row */}
-        <View style={styles.topRow}>
-          <Text style={styles.title} numberOfLines={1}>
-            {program.name}
-          </Text>
-          
-          {program.is_active && (
-            <View style={styles.activeBadge}>
-              <Text style={styles.badgeText}>{t('active')}</Text>
+    <Animated.View style={[animatedStyle]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={handleCardPress}
+        onLongPress={handleLongPress}
+        delayLongPress={200}
+        style={[
+          styles.container,
+          isSelected && styles.selectedContainer
+        ]}
+      >
+        {/* Selection indicator */}
+        {selectionMode && (
+          <View style={styles.selectionIndicator}>
+            <View style={[
+              styles.checkbox,
+              isSelected && styles.checkboxSelected
+            ]}>
+              {isSelected && (
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+              )}
             </View>
-          )}
-        </View>
-        
-        {/* Focus area (goal) */}
-        <View style={styles.focusRow}>
-          <Text style={styles.focusText}>
-            {formatFocus(program.focus)}
-          </Text>
-        </View>
-        
-        {/* Info row */}
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>{t('level')}</Text>
-            <Text style={styles.infoValue}>{program.difficulty_level}</Text>
           </View>
-          
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>{t('sessions')}</Text>
-            <Text style={styles.infoValue}>{program.sessions_per_week}x</Text>
-          </View>
-        </View>
-      </View>
-      
-      {/* Weekly schedule visualization */}
-      <View style={styles.scheduleRow}>
-        {WEEKDAYS.map((day, index) => {
-          const hasWorkout = program.workouts?.some(w => 
-            w.preferred_weekday === index
-          );
-          
-          return (
-            <View key={index} style={styles.dayItem}>
-              <Text style={styles.dayText}>{day}</Text>
-              <View style={[
-                styles.dayIndicator,
-                hasWorkout ? styles.dayActive : styles.dayInactive
-              ]} />
-            </View>
-          );
-        })}
-      </View>
-      
-      {/* Actions */}
-      <View style={styles.actionsRow}>
-        <View style={styles.creatorInfo}>
-          <Ionicons name="person" size={12} color="#9CA3AF" />
-          <Text style={styles.creatorText}>{program.creator_username}</Text>
-        </View>
+        )}
         
-        {!isOwner && (
+        {/* Delete button (X) that appears when in selection mode */}
+        {selectionMode && (
           <TouchableOpacity 
-            style={styles.forkButton}
-            onPress={handleFork}
+            style={styles.deleteButton}
+            onPress={onSelect}
           >
-            <Ionicons name="download-outline" size={14} color="#FFFFFF" />
-            <Text style={styles.forkText}>{t('fork')}</Text>
+            <View style={styles.deleteCircle}>
+              <Ionicons name="close" size={16} color="#FFFFFF" />
+            </View>
           </TouchableOpacity>
         )}
-      </View>
-    </TouchableOpacity>
+        
+        {/* Main content */}
+        <View style={styles.cardContent}>
+          {/* Title and badges row */}
+          <View style={styles.topRow}>
+            <Text style={styles.title} numberOfLines={1}>
+              {program.name}
+            </Text>
+            
+            {isOwner ? (
+              // For owner: show touchable badge that can toggle active state
+              <TouchableOpacity 
+                style={[
+                  styles.activeBadge,
+                  program.is_active ? styles.activeBadgeActive : styles.activeBadgeInactive
+                ]}
+                onPress={handleToggleActive}
+                activeOpacity={0.7}
+              >
+                <View style={styles.statusIndicator}>
+                  <Ionicons 
+                    name={program.is_active ? "checkmark-circle" : "ellipse-outline"} 
+                    size={12} 
+                    color={program.is_active ? "#10B981" : "#6B7280"} 
+                    style={{marginRight: 4}} 
+                  />
+                </View>
+                <Text style={[
+                  styles.badgeText,
+                  program.is_active ? styles.badgeTextActive : styles.badgeTextInactive
+                ]}>
+                  {program.is_active ? t('active') : t('inactive')}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              // For non-owner: show only if active, not touchable
+              program.is_active && (
+                <View style={styles.activeBadge}>
+                  <Text style={styles.badgeText}>{t('active')}</Text>
+                </View>
+              )
+            )}
+          </View>
+          
+          {/* Focus area (goal) */}
+          <View style={styles.focusRow}>
+            <Text style={styles.focusText}>
+              {formatFocus(program.focus)}
+            </Text>
+          </View>
+          
+          {/* Info row */}
+          <View style={styles.infoRow}>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>{t('level')}</Text>
+              <Text style={styles.infoValue}>{program.difficulty_level}</Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>{t('sessions')}</Text>
+              <Text style={styles.infoValue}>{program.sessions_per_week}x</Text>
+            </View>
+          </View>
+        </View>
+        
+        {/* Weekly schedule visualization */}
+        <View style={styles.scheduleRow}>
+          {WEEKDAYS.map((day, index) => {
+            const hasWorkout = program.workouts?.some(w => 
+              w.preferred_weekday === index
+            );
+            
+            return (
+              <View key={index} style={styles.dayItem}>
+                <Text style={styles.dayText}>{day}</Text>
+                <View style={[
+                  styles.dayIndicator,
+                  hasWorkout ? styles.dayActive : styles.dayInactive
+                ]} />
+              </View>
+            );
+          })}
+        </View>
+        
+        {/* Actions */}
+        <View style={styles.actionsRow}>
+          <View style={styles.creatorInfo}>
+            <Ionicons name="person" size={12} color="#9CA3AF" />
+            <Text style={styles.creatorText}>{program.creator_username}</Text>
+          </View>
+          
+          {!isOwner && !selectionMode && (
+            <TouchableOpacity 
+              style={styles.forkButton}
+              onPress={handleFork}
+            >
+              <Ionicons name="download-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.forkText}>{t('fork')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
@@ -152,6 +330,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+    position: 'relative', // For the selection indicator
+  },
+  selectedContainer: {
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   cardContent: {
     padding: 16,
@@ -173,7 +356,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   activeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -182,11 +366,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1,
     elevation: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  activeBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  activeBadgeInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   badgeText: {
     color: '#7e22ce',
     fontSize: 12,
     fontWeight: '700',
+  },
+  badgeTextActive: {
+    color: '#7e22ce',
+  },
+  badgeTextInactive: {
+    color: '#6B7280',
   },
   focusRow: {
     marginBottom: 12,
@@ -266,7 +467,7 @@ const styles = StyleSheet.create({
   forkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 16,
@@ -277,43 +478,47 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   forkText: {
-    color: '#7e22ce',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,
   },
-  workoutBubbles: {
+  // Selection mode styles
+  selectionIndicator: {
     position: 'absolute',
-    top: 25,
-    left: -20,
-    width: 60,
+    top: 10,
+    left: 10,
+    zIndex: 10,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  workoutBubble: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 10,
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    marginTop: 2,
-    maxWidth: 60,
+  checkboxSelected: {
+    backgroundColor: '#7e22ce',
   },
-  workoutName: {
-    color: '#7e22ce',
-    fontSize: 8,
-    fontWeight: '600',
+  deleteButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    zIndex: 10,
   },
-  moreBubble: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 10,
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    marginTop: 2,
+  deleteCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#111827',
   },
-  moreText: {
-    color: '#7e22ce',
-    fontSize: 8,
-    fontWeight: '600',
-  }
 });
 
 export default ProgramCard;

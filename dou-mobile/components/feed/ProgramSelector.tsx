@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-import { usePrograms, useCurrentUser } from '../../hooks/query';
+import { useUserPrograms, useCurrentUser } from '../../hooks/query';
 import ProgramCard from '../workouts/ProgramCard';
 
 interface ProgramSelectorProps {
@@ -37,7 +37,7 @@ const ProgramSelector: React.FC<ProgramSelectorProps> = ({
     data: allPrograms = [], 
     isLoading: programsLoading, 
     error: programsError 
-  } = usePrograms();
+  } = useUserPrograms();
   
   const { 
     data: currentUser, 
