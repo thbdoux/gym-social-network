@@ -616,13 +616,220 @@ const fitness = {
   }
 };
 
-// Merge all translations
+
+// Add this new section to your translations.ts file
+
+// Template wizard-related translations
+const template_wizard = {
+  en: {
+    // General wizard translations
+    create_new_workout: "Create New Workout",
+    edit_workout_template: "Edit Workout Template",
+    update_template: "Update Template",
+    
+    // Step 1 - Workout Name translations
+    workout_name_question: "What type of workout would you like to create?",
+    select_category: "Select Category",
+    select_workout: "Select Workout",
+    upper_body: "Upper Body",
+    lower_body: "Lower Body",
+    full_body: "Full Body",
+    push: "Push",
+    pull: "Pull",
+    custom: "Custom",
+    enter_workout_name: "Enter workout name",
+    select_category_prompt: "Select a category to see workout options",
+    selected_workout: "Selected workout",
+    workout_name_help: "Choose a descriptive name that helps you quickly identify this workout.",
+    workout_name_required: "Please enter a workout name",
+    
+    // Workout name suggestions
+    upper_body_strength: "Upper Body Strength",
+    chest_and_triceps: "Chest & Triceps",
+    back_and_biceps: "Back & Biceps",
+    shoulder_focused: "Shoulder Focused",
+    leg_day: "Leg Day",
+    quad_focused: "Quad Focused",
+    hamstring_and_glutes: "Hamstrings & Glutes",
+    calf_training: "Calf Training",
+    full_body_workout: "Full Body Workout",
+    full_body_hiit: "Full Body HIIT",
+    beginner_full_body: "Beginner Full Body",
+    strength_circuit: "Strength Circuit",
+    push_day: "Push Day",
+    chest_focused_push: "Chest Focused Push",
+    shoulder_focused_push: "Shoulder Focused Push",
+    tricep_focused_push: "Tricep Focused Push",
+    pull_day: "Pull Day",
+    back_focused_pull: "Back Focused Pull",
+    bicep_focused_pull: "Bicep Focused Pull",
+    back_and_core: "Back & Core",
+    
+    // Step 2 - Exercises translations
+    add_exercises: "Add Exercises",
+    no_exercises_yet: "No exercises added yet",
+    tap_to_add_exercises: "Tap the button below to add exercises",
+    add_exercise: "Add Exercise",
+    exercise: "Exercise",
+    edit: "Edit",
+    remove: "Remove",
+    
+    // Exercise modal translations
+    select_exercise: "Select Exercise",
+    search_exercises: "Search exercises",
+    all: "All",
+    no_matching_exercises: "No matching exercises found",
+    no_exercises_in_category: "No exercises in this category",
+    add_custom_exercise: "Add custom exercise",
+    add_custom_exercise_with_name: "Add '{{name}}' as custom exercise",
+    enter_exercise_name: "Enter Exercise Name",
+    enter_custom_exercise_name: "Please enter a name for your custom exercise",
+
+    
+    // Configure exercise translations
+    configure_exercise: "Configure Exercise",
+    edit_exercise: "Edit Exercise",
+    exercise_name: "Exercise Name",
+    sets: "Sets",
+    add_set: "Add Set",
+    set: "Set",
+    reps: "Reps",
+    exercise_notes_placeholder: "Add form cues, setup notes, or any additional instructions",
+    save_exercise: "Save Exercise",
+    
+    // Validation & confirmation
+    exercise_name_required: "Exercise name is required",
+    at_least_one_set_required: "At least one set is required",
+    at_least_one_exercise: "Please add at least one exercise",
+    remove_exercise: "Remove Exercise",
+    remove_exercise_confirmation: "Are you sure you want to remove this exercise?",
+    
+    // Other terms
+    optional: "optional",
+    // Simplified first step
+    workout_suggestions: "Workout Suggestions",
+    cardio_session: "Cardio Session",
+    hiit_workout: "HIIT Workout",
+    custom_workout: "Custom Workout",
+    
+    // Exercise configuration improvements
+    enabled: "Enabled",
+    disabled: "Disabled",
+    rest_time: "Rest Time",
+    
+    // Instructions
+    reorder_exercise_instruction: "Long press to reorder exercise",
+    tap_to_edit_instruction: "Tap on exercise to edit",
+
+  },
+  fr: {
+    // General wizard translations
+    create_new_workout: "Créer un Nouvel Entraînement",
+    edit_workout_template: "Modifier le Modèle d'Entraînement",
+    update_template: "Mettre à jour le Modèle",
+    
+    // Step 1 - Workout Name translations
+    workout_name_question: "Quel type d'entraînement souhaitez-vous créer ?",
+    select_category: "Sélectionner une Catégorie",
+    select_workout: "Sélectionner un Entraînement",
+    upper_body: "Haut du Corps",
+    lower_body: "Bas du Corps",
+    full_body: "Corps Entier",
+    push: "Poussée",
+    pull: "Tirage",
+    custom: "Personnalisé",
+    enter_workout_name: "Entrez le nom de l'entraînement",
+    select_category_prompt: "Sélectionnez une catégorie pour voir les options d'entraînement",
+    selected_workout: "Entraînement sélectionné",
+    workout_name_help: "Choisissez un nom descriptif qui vous aide à identifier rapidement cet entraînement.",
+    workout_name_required: "Veuillez entrer un nom d'entraînement",
+    // Simplified first step
+    workout_suggestions: "Suggestions d'Entraînement",
+    cardio_session: "Séance Cardio",
+    hiit_workout: "Entraînement HIIT",
+    custom_workout: "Entraînement Personnalisé",
+    
+    // Exercise configuration improvements
+    enabled: "Activé",
+    disabled: "Désactivé",
+    rest_time: "Temps de Repos",
+    
+    // Instructions
+    reorder_exercise_instruction: "Appui long pour réorganiser l'exercice",
+    tap_to_edit_instruction: "Appuyez sur l'exercice pour le modifier",
+    
+    // Workout name suggestions
+    upper_body_strength: "Force Haut du Corps",
+    chest_and_triceps: "Pectoraux & Triceps",
+    back_and_biceps: "Dos & Biceps",
+    shoulder_focused: "Focus Épaules",
+    leg_day: "Jour des Jambes",
+    quad_focused: "Focus Quadriceps",
+    hamstring_and_glutes: "Ischio-jambiers & Fessiers",
+    calf_training: "Entraînement Mollets",
+    full_body_workout: "Entraînement Corps Entier",
+    full_body_hiit: "HIIT Corps Entier",
+    beginner_full_body: "Corps Entier Débutant",
+    strength_circuit: "Circuit de Force",
+    push_day: "Jour de Poussée",
+    chest_focused_push: "Poussée Focus Pectoraux",
+    shoulder_focused_push: "Poussée Focus Épaules",
+    tricep_focused_push: "Poussée Focus Triceps",
+    pull_day: "Jour de Tirage",
+    back_focused_pull: "Tirage Focus Dos",
+    bicep_focused_pull: "Tirage Focus Biceps",
+    back_and_core: "Dos & Abdominaux",
+    
+    // Step 2 - Exercises translations
+    add_exercises: "Ajouter des Exercices",
+    no_exercises_yet: "Aucun exercice ajouté",
+    tap_to_add_exercises: "Appuyez sur le bouton ci-dessous pour ajouter des exercices",
+    add_exercise: "Ajouter un Exercice",
+    exercise: "Exercice",
+    edit: "Modifier",
+    remove: "Supprimer",
+    
+    // Exercise modal translations
+    select_exercise: "Sélectionner un Exercice",
+    search_exercises: "Rechercher des exercices",
+    all: "Tous",
+    no_matching_exercises: "Aucun exercice correspondant trouvé",
+    no_exercises_in_category: "Aucun exercice dans cette catégorie",
+    add_custom_exercise: "Ajouter un exercice personnalisé",
+    add_custom_exercise_with_name: "Ajouter '{{name}}' comme exercice personnalisé",
+    enter_exercise_name: "Entrez le Nom de l'Exercice",
+    enter_custom_exercise_name: "Veuillez entrer un nom pour votre exercice personnalisé",
+    
+    // Configure exercise translations
+    configure_exercise: "Configurer l'Exercice",
+    edit_exercise: "Modifier l'Exercice",
+    exercise_name: "Nom de l'Exercice",
+    sets: "Séries",
+    add_set: "Ajouter une Série",
+    set: "Série",
+    reps: "Répétitions",
+    exercise_notes_placeholder: "Ajoutez des conseils de forme, des notes d'installation ou d'autres instructions",
+    save_exercise: "Enregistrer l'Exercice",
+    
+    // Validation & confirmation
+    exercise_name_required: "Le nom de l'exercice est requis",
+    at_least_one_set_required: "Au moins une série est requise",
+    at_least_one_exercise: "Veuillez ajouter au moins un exercice",
+    remove_exercise: "Supprimer l'Exercice",
+    remove_exercise_confirmation: "Êtes-vous sûr de vouloir supprimer cet exercice ?",
+    
+    // Other terms
+    optional: "optionnel"
+  }
+};
+
 const translations: Translations = {
   en: {
     ...common.en,
     ...workout.en,
     ...program.en,
     ...template.en,
+    ...template_wizard.en,  // Add this line
     ...analytics.en,
     ...profile.en,
     ...social.en,
@@ -635,6 +842,7 @@ const translations: Translations = {
     ...workout.fr,
     ...program.fr,
     ...template.fr,
+    ...template_wizard.fr,  // Add this line
     ...analytics.fr,
     ...profile.fr,
     ...social.fr,

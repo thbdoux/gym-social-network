@@ -156,11 +156,25 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
     }
   };
 
+  // Inside the WorkoutCard component in WorkoutCard.tsx
   const handleCardPress = () => {
     if (selectionMode) {
       onSelect && onSelect();
     } else {
-      router.push(`/workout/${workoutId}`);
+      if (isTemplate) {
+        // Template path - go to workout template detail
+        router.push(`/workout/${workoutId}`);
+      } else {
+        // Instance path - go to program workout detail
+        // We need both the program ID and workout ID
+        if (workout.program) {
+          router.push(`/program-workout/${workout.program}/${workoutId}`);
+        } else {
+          // Fallback if program ID is missing
+          console.warn("Program ID missing for workout instance", workoutId);
+          router.push(`/workout/${workoutId}`);
+        }
+      }
     }
   };
 

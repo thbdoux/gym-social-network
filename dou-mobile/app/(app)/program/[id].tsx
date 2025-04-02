@@ -41,7 +41,6 @@ import WorkoutCard from '../../../components/workouts/WorkoutCard';
 
 export default function ProgramDetailScreen() {
   // Get program ID from route params
-  // const { id } = useLocalSearchParams();
   const params = useLocalSearchParams();
   console.log("All route params:", params);
   
@@ -66,6 +65,7 @@ export default function ProgramDetailScreen() {
   }
   
   console.log("Final programId after parsing:", programId);
+  
   // State
   const [editMode, setEditMode] = useState(false);
   const [selectedWeekday, setSelectedWeekday] = useState<number | null>(null);
@@ -78,6 +78,11 @@ export default function ProgramDetailScreen() {
   const [programSessionsPerWeek, setProgramSessionsPerWeek] = useState(0);
   const [programEstimatedWeeks, setProgramEstimatedWeeks] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Selection mode state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedWorkouts, setSelectedWorkouts] = useState<number[]>([]);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -309,6 +314,81 @@ export default function ProgramDetailScreen() {
     scrollY.setValue(offsetY);
   };
   
+  // Selection mode handlers
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      // Exit selection mode
+      setSelectionMode(false);
+      setSelectedWorkouts([]);
+    } else {
+      // Enter selection mode
+      setSelectionMode(true);
+    }
+  };
+  
+  // Handle long press on workout card
+  const handleWorkoutLongPress = (workoutId: number) => {
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedWorkouts([workoutId]);
+    }
+  };
+  
+  // Toggle workout selection
+  const toggleWorkoutSelection = (workoutId: number) => {
+    if (selectedWorkouts.includes(workoutId)) {
+      // Deselect workout
+      setSelectedWorkouts(selectedWorkouts.filter(id => id !== workoutId));
+    } else {
+      // Select workout
+      setSelectedWorkouts([...selectedWorkouts, workoutId]);
+    }
+  };
+  
+  // Select all workouts
+  const selectAllWorkouts = () => {
+    const allIds = filteredWorkouts.map(workout => workout.id);
+    setSelectedWorkouts(allIds);
+  };
+  
+  // Deselect all workouts
+  const deselectAllWorkouts = () => {
+    setSelectedWorkouts([]);
+  };
+  
+  // Confirm delete
+  const confirmDelete = () => {
+    setDeleteConfirmVisible(true);
+  };
+  
+  // Cancel delete
+  const cancelDelete = () => {
+    setDeleteConfirmVisible(false);
+  };
+  
+  // Handle delete selected workouts
+  const handleDeleteSelectedWorkouts = async () => {
+    try {
+      // Delete selected workouts
+      for (const workoutId of selectedWorkouts) {
+        await removeWorkoutFromProgram({
+          programId,
+          workoutId
+        });
+      }
+      await refetch();
+      
+      // Exit selection mode and close confirmation
+      setDeleteConfirmVisible(false);
+      setSelectionMode(false);
+      setSelectedWorkouts([]);
+    } catch (error) {
+      console.error('Failed to delete workouts:', error);
+      Alert.alert(t('error'), t('failed_to_remove_workouts'));
+      setDeleteConfirmVisible(false);
+    }
+  };
+  
   // Render loading state
   if (isLoading) {
     return (
@@ -353,7 +433,7 @@ export default function ProgramDetailScreen() {
             </TouchableOpacity>
             
             <View style={styles.headerActions}>
-              {isCreator && !editMode && (
+              {isCreator && !editMode && !selectionMode && (
                 <>
                   <TouchableOpacity 
                     style={styles.headerAction}
@@ -382,7 +462,7 @@ export default function ProgramDetailScreen() {
                 </>
               )}
               
-              {!isCreator && (
+              {!isCreator && !selectionMode && (
                 <TouchableOpacity 
                   style={styles.forkButton}
                   onPress={handleFork}
@@ -408,6 +488,15 @@ export default function ProgramDetailScreen() {
                     <Text style={styles.saveButtonText}>{t('save')}</Text>
                   </TouchableOpacity>
                 </>
+              )}
+              
+              {selectionMode && (
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={toggleSelectionMode}
+                >
+                  <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+                </TouchableOpacity>
               )}
             </View>
           </View>
@@ -600,34 +689,87 @@ export default function ProgramDetailScreen() {
         {/* Workouts Section */}
         <View style={styles.workoutsSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {selectedWeekday !== null 
-                ? `${t('workouts')} - ${
-                    ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][selectedWeekday]
-                  }`
-                : t('all_workouts')}
-            </Text>
-            
-            <View style={styles.workoutActions}>
-              {selectedWeekday !== null && (
-                <TouchableOpacity
-                  style={styles.clearFilterButton}
-                  onPress={() => setSelectedWeekday(null)}
+            {selectionMode ? (
+              // Selection mode header
+              <View style={styles.selectionHeader}>
+                <TouchableOpacity 
+                  style={styles.cancelSelectionButton}
+                  onPress={toggleSelectionMode}
                 >
-                  <Text style={styles.clearFilterText}>{t('show_all')}</Text>
+                  <Text style={styles.cancelSelectionText}>{t('cancel')}</Text>
                 </TouchableOpacity>
-              )}
-              
-              {isCreator && !editMode && (
-                <TouchableOpacity
-                  style={styles.addWorkoutButton}
-                  onPress={handleAddWorkoutClick}
-                >
-                  <Ionicons name="add" size={18} color="#7e22ce" />
-                  <Text style={styles.addWorkoutText}>{t('add_workout')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                
+                <Text style={styles.selectionCount}>
+                  {selectedWorkouts.length} {t('selected')}
+                </Text>
+                
+                <View style={styles.selectionActions}>
+                  {selectedWorkouts.length > 0 && (
+                    <TouchableOpacity 
+                      style={styles.deleteButton}
+                      onPress={confirmDelete}
+                    >
+                      <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                  
+                  {selectedWorkouts.length === 0 ? (
+                    <TouchableOpacity 
+                      style={styles.selectAllButton}
+                      onPress={selectAllWorkouts}
+                    >
+                      <Text style={styles.selectAllText}>{t('select_all')}</Text>
+                    </TouchableOpacity>
+                  ) : selectedWorkouts.length < filteredWorkouts.length ? (
+                    <TouchableOpacity 
+                      style={styles.selectAllButton}
+                      onPress={selectAllWorkouts}
+                    >
+                      <Text style={styles.selectAllText}>{t('select_all')}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity 
+                      style={styles.selectAllButton}
+                      onPress={deselectAllWorkouts}
+                    >
+                      <Text style={styles.selectAllText}>{t('deselect_all')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ) : (
+              // Normal header
+              <>
+                <Text style={styles.sectionTitle}>
+                  {selectedWeekday !== null 
+                    ? `${t('workouts')} - ${
+                        ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][selectedWeekday]
+                      }`
+                    : t('all_workouts')}
+                </Text>
+                
+                <View style={styles.workoutActions}>
+                  {selectedWeekday !== null && (
+                    <TouchableOpacity
+                      style={styles.clearFilterButton}
+                      onPress={() => setSelectedWeekday(null)}
+                    >
+                      <Text style={styles.clearFilterText}>{t('show_all')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  
+                  {isCreator && !editMode && (
+                    <TouchableOpacity
+                      style={styles.addWorkoutButton}
+                      onPress={handleAddWorkoutClick}
+                    >
+                      <Ionicons name="add" size={18} color="#7e22ce" />
+                      <Text style={styles.addWorkoutText}>{t('add_workout')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
           </View>
           
           {/* Workouts List */}
@@ -640,16 +782,12 @@ export default function ProgramDetailScreen() {
                     workout={workout}
                     isTemplate={false}
                     user={user?.username}
+                    // Selection mode props
+                    selectionMode={selectionMode}
+                    isSelected={selectedWorkouts.includes(workout.id)}
+                    onSelect={() => toggleWorkoutSelection(workout.id)}
+                    onLongPress={() => handleWorkoutLongPress(workout.id)}
                   />
-                  
-                  {isCreator && !editMode && (
-                    <TouchableOpacity
-                      style={styles.removeWorkoutButton}
-                      onPress={() => handleRemoveWorkout(workout.id)}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  )}
                 </View>
               ))}
             </View>
@@ -661,7 +799,7 @@ export default function ProgramDetailScreen() {
                   : t('no_workouts_in_program')}
               </Text>
               
-              {isCreator && !editMode && (
+              {isCreator && !editMode && !selectionMode && (
                 <TouchableOpacity
                   style={styles.emptyStateButton}
                   onPress={handleAddWorkoutClick}
@@ -791,18 +929,17 @@ export default function ProgramDetailScreen() {
             <ScrollView style={styles.templatesList}>
               {filteredTemplates.length > 0 ? (
                 filteredTemplates.map((template) => (
-                  <TouchableOpacity 
-                    key={template.id}
-                    onPress={() => handleAddWorkout(template.id)}
-                    activeOpacity={0.9}
-                  >
+                  <View key={template.id}>
+                    {/* Use selection mode to override default navigation */}
                     <WorkoutCard
                       workoutId={template.id}
                       workout={template}
                       isTemplate={true}
                       user={user?.username}
+                      selectionMode={true}
+                      onSelect={() => handleAddWorkout(template.id)}
                     />
-                  </TouchableOpacity>
+                  </View>
                 ))
               ) : (
                 <View style={styles.emptyTemplates}>
@@ -814,6 +951,60 @@ export default function ProgramDetailScreen() {
                 </View>
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
+            
+            <LinearGradient
+              colors={['#EF4444', '#DC2626']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
+              <Text style={styles.modalTitle}>{t('confirm_delete')}</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={cancelDelete}
+              >
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </LinearGradient>
+            
+            <View style={styles.deleteConfirmContent}>
+              <Text style={styles.deleteConfirmText}>
+                {t('delete_confirm_message', { 
+                  count: selectedWorkouts.length,
+                  type: selectedWorkouts.length === 1 ? t('workout') : t('workouts')
+                })}
+              </Text>
+              
+              <View style={styles.deleteButtons}>
+                <TouchableOpacity 
+                  style={styles.cancelDeleteButton}
+                  onPress={cancelDelete}
+                >
+                  <Text style={styles.cancelDeleteText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.confirmDeleteButton}
+                  onPress={handleDeleteSelectedWorkouts}
+                >
+                  <Text style={styles.confirmDeleteText}>{t('delete')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1196,18 +1387,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     position: 'relative',
   },
-  removeWorkoutButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(239, 68, 68, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
   emptyState: {
     backgroundColor: 'rgba(31, 41, 55, 0.4)',
     borderRadius: 12,
@@ -1345,5 +1524,85 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  
+  // Selection mode styles
+  selectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  cancelSelectionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  cancelSelectionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+  selectionCount: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  selectAllButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  selectAllText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  
+  // Delete confirmation styles
+  deleteConfirmContent: {
+    padding: 20,
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+  },
+  deleteConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  deleteButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelDeleteButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  cancelDeleteText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+    alignItems: 'center',
+  },
+  confirmDeleteText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
 });

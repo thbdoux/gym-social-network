@@ -26,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // Import Program Wizard
 import ProgramWizard, { ProgramFormData } from '../../components/workouts/ProgramWizard';
+import WorkoutTemplateWizard, { WorkoutTemplateFormData } from '../../components/workouts/WorkoutTemplateWizard';
 import { useQueryClient } from '@tanstack/react-query';
 import { programKeys } from '../../hooks/query/useProgramQuery';
 
@@ -45,7 +46,8 @@ import {
 } from '../../hooks/query/useLogQuery';
 import { 
   useWorkoutTemplates,
-  useDeleteWorkoutTemplate // Add delete template hook
+  useDeleteWorkoutTemplate, // Add delete template hook
+  useCreateWorkoutTemplate
 } from '../../hooks/query/useWorkoutQuery';
 
 // Import custom components
@@ -67,10 +69,6 @@ export default function WorkoutsScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { 
-    // openProgramDetail, 
-    openWorkoutLogDetail 
-  } = useModal();
   
   // State for UI
   const [currentView, setCurrentView] = useState(VIEW_TYPES.WORKOUT_HISTORY); // Set workout history as default
@@ -80,7 +78,7 @@ export default function WorkoutsScreen() {
   
   // State for Program Wizard
   const [programWizardVisible, setProgramWizardVisible] = useState(false);
-  
+  const [workoutTemplateWizardVisible, setWorkoutTemplateWizardVisible] = useState(false);
   // Selection mode state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
@@ -113,7 +111,7 @@ export default function WorkoutsScreen() {
   const { mutateAsync: deleteProgram } = useDeleteProgram();
   const { mutateAsync: deleteLog } = useDeleteLog();
   const { mutateAsync: deleteWorkoutTemplate } = useDeleteWorkoutTemplate();
-  
+  const { mutateAsync: createWorkoutTemplate } = useCreateWorkoutTemplate();
   // Get data based on current view with proper filtering
   const getCurrentData = () => {
     switch (currentView) {
@@ -251,6 +249,11 @@ export default function WorkoutsScreen() {
     setProgramWizardVisible(true);
     setActionModalVisible(false);
   };
+
+  const handleCreateTemplate = () => {
+    setWorkoutTemplateWizardVisible(true);
+    setActionModalVisible(false);
+  };
   
   // Handle program wizard submission
   const handleProgramSubmit = async (formData: ProgramFormData) => {
@@ -267,21 +270,36 @@ export default function WorkoutsScreen() {
       console.error("Error creating program:", error);
     }
   };
+
+  const handleWorkoutTemplateSubmit = async (formData: WorkoutTemplateFormData) => {
+    try {
+      await createWorkoutTemplate(formData);
+      setWorkoutTemplateWizardVisible(false);
+      
+      await refetchTemplates();
+      
+      if (currentView !== VIEW_TYPES.TEMPLATES) {
+        setCurrentView(VIEW_TYPES.TEMPLATES);
+      }
+    } catch (error) {
+      console.error("Error creating workout template:", error);
+    }
+  };
   
   // Handle program wizard close
   const handleProgramWizardClose = () => {
     setProgramWizardVisible(false);
   };
   
+  const handleWorkoutTemplateWizardClose = () => {
+    setWorkoutTemplateWizardVisible(false);
+  };
+
   const handleLogWorkout = () => {
     // Navigation to log workout
     setActionModalVisible(false);
   };
   
-  const handleCreateTemplate = () => {
-    // Navigation to template creation
-    setActionModalVisible(false);
-  };
   
   // Get action modal title
   const getActionModalTitle = () => {
@@ -751,7 +769,12 @@ export default function WorkoutsScreen() {
           onClose={handleProgramWizardClose}
           visible={programWizardVisible}
         />
-        
+        <WorkoutTemplateWizard
+          template={null}  // No existing template, creating new
+          onSubmit={handleWorkoutTemplateSubmit}
+          onClose={handleWorkoutTemplateWizardClose}
+          visible={workoutTemplateWizardVisible}
+        />
         {/* Delete Confirmation Modal */}
         <Modal
           visible={deleteConfirmVisible}

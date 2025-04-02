@@ -43,7 +43,6 @@ export default function PostDetailScreen() {
 
   // Add profile click handler
   const handleProfileClick = (userId: number) => {
-    console.log('Profile clicked in PostDetailScreen, userId:', userId);
     setSelectedUserId(userId);
     setShowProfileModal(true);
   };
@@ -55,8 +54,6 @@ export default function PostDetailScreen() {
 
     // Add this function:
   const handleProgramClick = (program: any) => {
-    console.log('Program clicked in PostDetailScreen:', program);
-    
     let programId: number | null = null;
     
     if (program) {

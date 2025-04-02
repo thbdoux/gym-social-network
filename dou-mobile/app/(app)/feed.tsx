@@ -177,7 +177,6 @@ export default function FeedScreen() {
 
     // Add a handler for program selection
   const handleProgramSelect = (program: any) => {
-    console.log('Program selected:', program);
     
     // Get the program ID - check all possible properties where ID might be stored
     let programId: number | null = null;
@@ -196,12 +195,7 @@ export default function FeedScreen() {
         }
       }
     }
-    
-    console.log('Extracted program ID:', programId);
-    
     if (programId) {
-      // Navigate to program details
-      console.log(`Navigating to /program/${programId}`);
       router.push(`/program/${programId}`);
     } else {
       console.error('Could not extract program ID from:', program);

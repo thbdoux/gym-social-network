@@ -152,8 +152,6 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-
-
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         refreshControl={
@@ -165,12 +163,12 @@ export default function ProfileScreen() {
           />
         }
       >
-        {/* Profile Header with Centered Profile Picture */}
+        {/* Profile Header with Left-aligned Profile Picture */}
         <View style={styles.profileHeader}>
           <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
           
           <View style={styles.profileHeaderContent}>
-            {/* Centered Profile picture */}
+            {/* Left side - Profile picture */}
             <TouchableOpacity 
               style={styles.profileImageContainer}
               onPress={() => setImageModalVisible(true)}
@@ -183,7 +181,7 @@ export default function ProfileScreen() {
               >
                 <View style={styles.profileImageInner}>
                   <Image
-                    source={{ uri: getAvatarUrl(profile?.avatar, 96) }}
+                    source={{ uri: getAvatarUrl(profile?.avatar, 80) }}
                     style={styles.profileImage}
                   />
                 </View>
@@ -191,65 +189,56 @@ export default function ProfileScreen() {
               <View style={styles.onlineIndicator}></View>
             </TouchableOpacity>
             
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileUsername}>{profile?.username || t('user')}</Text>
-              <LinearGradient
-                colors={['#9333EA', '#D946EF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.personalityBadge}
-              >
-                <Text style={styles.personalityText}>
-                  {profile?.personality_type ? t(profile.personality_type.toLowerCase()) : t('fitness_enthusiast')}
-                </Text>
-              </LinearGradient>
+            {/* Right side - Profile info and stats */}
+            <View style={styles.profileRightContent}>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileUsername}>{profile?.username || t('user')}</Text>
+                
+                <View style={styles.badgesContainer}>
+                  <LinearGradient
+                    colors={['#9333EA', '#D946EF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.personalityBadge}
+                  >
+                    <Text style={styles.personalityText}>
+                      {profile?.personality_type ? t(profile.personality_type.toLowerCase()) : t('fitness_enthusiast')}
+                    </Text>
+                  </LinearGradient>
+                  
+                  {profile?.preferred_gym && (
+                    <LinearGradient
+                      colors={['#3B82F6', '#60A5FA']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.gymBadge}
+                    >
+                      <Text style={styles.gymText}>
+                        {gymDisplayText}
+                      </Text>
+                    </LinearGradient>
+                  )}
+                </View>
+              </View>
               
-              {profile?.preferred_gym && (
-                <LinearGradient
-                  colors={['#3B82F6', '#60A5FA']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.gymBadge}
-                >
-                  <Text style={styles.gymText}>
-                    {gymDisplayText}
-                  </Text>
-                </LinearGradient>
-              )}
+              {/* Stats side by side */}
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{profile?.friends_count || 0}</Text>
+                  <Text style={styles.statLabel}>{t('friends')}</Text>
+                </View>
+                
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{profile?.posts_count || 0}</Text>
+                  <Text style={styles.statLabel}>{t('posts')}</Text>
+                </View>
+                
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{profile?.workouts_count || 0}</Text>
+                  <Text style={styles.statLabel}>{t('workouts')}</Text>
+                </View>
+              </View>
             </View>
-          </View>
-          
-          {/* Stats row */}
-          <View style={styles.statsRow}>
-            <LinearGradient
-              colors={['#6366F1', '#4F46E5']} 
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.statCard}
-            >
-              <Text style={styles.statValue}>{profile?.friends_count || 0}</Text>
-              <Text style={styles.statLabel}>{t('friends')}</Text>
-            </LinearGradient>
-            
-            <LinearGradient
-              colors={['#EC4899', '#8B5CF6']} 
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.statCard}
-            >
-              <Text style={styles.statValue}>{profile?.posts_count || 0}</Text>
-              <Text style={styles.statLabel}>{t('posts')}</Text>
-            </LinearGradient>
-            
-            <LinearGradient
-              colors={['#F59E0B', '#EF4444']} 
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.statCard}
-            >
-              <Text style={styles.statValue}>{profile?.workouts_count || 0}</Text>
-              <Text style={styles.statLabel}>{t('workouts')}</Text>
-            </LinearGradient>
           </View>
         </View>
         
@@ -350,7 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827', // Dark background like in the design
   },
   scrollContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingBottom: 24,
   },
   loadingContainer: {
@@ -375,26 +364,26 @@ const styles = StyleSheet.create({
   profileHeader: {
     position: 'relative',
     borderRadius: 24,
-    padding: 16,
-    marginTop: 16,
-    marginBottom: 16,
+    padding: 8,
+    marginTop: 8,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },
   profileHeaderContent: {
+    flexDirection: 'row', // Changed to row layout
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 16,
+    marginVertical: 8, // Reduced margin
   },
   profileImageContainer: {
     position: 'relative',
-    marginBottom: 12,
+    marginRight: 16, // Add margin to the right
   },
   profileGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80, // Smaller profile picture
+    height: 80,
+    borderRadius: 40,
     padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
@@ -402,7 +391,7 @@ const styles = StyleSheet.create({
   profileImageInner: {
     width: '100%',
     height: '100%',
-    borderRadius: 47,
+    borderRadius: 37, 
     backgroundColor: '#3B82F6',
     overflow: 'hidden',
     justifyContent: 'center',
@@ -411,101 +400,92 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 47,
-  },
-  profileImagePlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#a855f7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileImagePlaceholderText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
+    borderRadius: 37,
   },
   onlineIndicator: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16, // Smaller indicator
+    height: 16,
+    borderRadius: 8,
     backgroundColor: '#4ade80', // Green for online status
     borderWidth: 2,
     borderColor: '#1f2937',
   },
+  profileRightContent: {
+    flex: 1, // Take up remaining space
+  },
   profileInfo: {
-    alignItems: 'center',
+    alignItems: 'flex-start', // Left align
+    marginBottom: 1,
   },
   profileUsername: {
-    fontSize: 22,
+    fontSize: 24, // Smaller font size
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 8, // Reduced margin
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   personalityBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 6,
+    paddingHorizontal: 12, // Smaller padding
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+    marginTop: 4,
   },
   personalityText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 12, // Smaller text
     fontWeight: '600',
   },
   gymBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
   },
   gymText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 8, // Reduced margin
   },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 14,
+  statItem: {
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginRight: 16, // Space between stat items
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 14, // Smaller font size for stats
     fontWeight: 'bold',
     color: '#ffffff',
   },
   statLabel: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
+    fontSize: 11, // Smaller font size for labels
+    color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   chartCard: {
     position: 'relative',
     borderRadius: 24,
-    padding: 16,
+    padding: 8,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
-    marginVertical: 16,
+    marginVertical: 4,
     paddingHorizontal: 8,
   },
   chart: {
@@ -519,7 +499,7 @@ const styles = StyleSheet.create({
   programContainer: {
     position: 'relative',
     borderRadius: 24,
-    padding: 16,
+    padding: 8,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',

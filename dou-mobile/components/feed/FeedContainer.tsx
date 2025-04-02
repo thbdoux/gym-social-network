@@ -212,7 +212,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 
 const styles = StyleSheet.create({
   listContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 0, // No padding at the top since we'll have the FriendsBubbleList
     paddingBottom: 160, // Extra padding for bottom tab bar
   },
