@@ -15,7 +15,8 @@ import {
   StatusBar,
   Platform,
   Modal,
-  Alert
+  Alert,
+  FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,12 +28,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Import Program Wizard
 import ProgramWizard, { ProgramFormData } from '../../components/workouts/ProgramWizard';
 import WorkoutTemplateWizard, { WorkoutTemplateFormData } from '../../components/workouts/WorkoutTemplateWizard';
+import WorkoutLogWizard, { WorkoutLogFormData } from '../../components/workouts/WorkoutLogWizard';
 import { useQueryClient } from '@tanstack/react-query';
 import { programKeys } from '../../hooks/query/useProgramQuery';
 
 
 // Import React Query hooks
 import { 
+  useProgram,
   useUserPrograms, 
   useToggleProgramActive,
   useForkProgram,
@@ -46,6 +49,7 @@ import {
 } from '../../hooks/query/useLogQuery';
 import { 
   useWorkoutTemplates,
+  useWorkoutTemplate,
   useDeleteWorkoutTemplate, // Add delete template hook
   useCreateWorkoutTemplate
 } from '../../hooks/query/useWorkoutQuery';
@@ -83,6 +87,25 @@ export default function WorkoutsScreen() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
+  const [logWorkoutModalVisible, setLogWorkoutModalVisible] = useState(false);
+  const [workoutLogWizardVisible, setWorkoutLogWizardVisible] = useState(false);
+  const [logFromProgram, setLogFromProgram] = useState(false);
+  const [logFromTemplate, setLogFromTemplate] = useState(false);
+  const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null);
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<number | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  
+  // New state for program and template selection modals
+  const [programSelectionModalVisible, setProgramSelectionModalVisible] = useState(false);
+  const [templateSelectionModalVisible, setTemplateSelectionModalVisible] = useState(false);
+
+  // For selected program/template data
+  const { data: selectedProgram } = useProgram(selectedProgramId);
+  const { data: selectedTemplate } = useWorkoutTemplate(selectedTemplateId);
+  
+  // For active program data
+  const { data: activeProgram } = useProgram(user?.current_program?.id);
   
   // Use React Query hooks
   const { 
@@ -296,8 +319,87 @@ export default function WorkoutsScreen() {
   };
 
   const handleLogWorkout = () => {
-    // Navigation to log workout
     setActionModalVisible(false);
+    setLogWorkoutModalVisible(true);
+  };
+
+  // UPDATED: Handle log from program option - show program selection modal
+  const handleLogFromProgram = () => {
+    if (!user?.current_program?.id) {
+      // If no active program, show alert
+      Alert.alert(
+        t('no_active_program'),
+        t('no_active_program_message'),
+        [{ text: t('ok') }]
+      );
+      return;
+    }
+    
+    setLogWorkoutModalVisible(false);
+    setProgramSelectionModalVisible(true);
+  };
+
+  // UPDATED: Handle log from template option - show template selection modal
+  const handleLogFromTemplate = () => {
+    setLogWorkoutModalVisible(false);
+    setTemplateSelectionModalVisible(true);
+  };
+  
+  // Handle log from scratch option - no changes needed
+  const handleLogFromScratch = () => {
+    setLogWorkoutModalVisible(false);
+    setLogFromProgram(false);
+    setLogFromTemplate(false);
+    setSelectedProgramId(null);
+    setSelectedTemplateId(null);
+    setWorkoutLogWizardVisible(true);
+  };
+
+  // ADDED: Handle program workout selection
+  const handleProgramWorkoutSelected = (workout) => {
+    setProgramSelectionModalVisible(false);
+    setLogFromProgram(true);
+    setLogFromTemplate(false);
+    setSelectedProgramId(user?.current_program?.id);
+    setSelectedWorkoutId(workout.id);
+    // Now open the WorkoutLogWizard with the selected program workout
+    setWorkoutLogWizardVisible(true);
+  };
+
+  // ADDED: Handle template selection
+  const handleTemplateSelected = (template) => {
+    setTemplateSelectionModalVisible(false);
+    setLogFromProgram(false);
+    setLogFromTemplate(true);
+    setSelectedTemplateId(template.id);
+    // Now open the WorkoutLogWizard with the selected template
+    setWorkoutLogWizardVisible(true);
+  };
+
+  // Handle workout log wizard submit
+  const handleWorkoutLogSubmit = async (formData) => {
+    try {
+      await createLog(formData);
+      setWorkoutLogWizardVisible(false);
+      setSelectedProgramId(null);
+      setSelectedTemplateId(null);
+      
+      await refetchLogs();
+      
+      if (currentView !== VIEW_TYPES.WORKOUT_HISTORY) {
+        setCurrentView(VIEW_TYPES.WORKOUT_HISTORY);
+      }
+    } catch (error) {
+      console.error("Error creating workout log:", error);
+    }
+  };
+
+  // Handle workout log wizard close
+  const handleWorkoutLogWizardClose = () => {
+    setWorkoutLogWizardVisible(false);
+    setSelectedProgramId(null);
+    setSelectedTemplateId(null);
+    setSelectedWorkoutId(null);
   };
   
   
@@ -704,22 +806,43 @@ export default function WorkoutsScreen() {
               
               {/* Modal Content */}
               <View style={styles.modalContent}>
-                {/* Workout History View Options */}
+                {/* Modal Content for Workout History View Options */}
                 {currentView === VIEW_TYPES.WORKOUT_HISTORY && (
-                  <TouchableOpacity
-                    style={styles.modalOption}
-                    onPress={handleLogWorkout}
-                  >
-                    <View style={styles.modalOptionIcon}>
-                      <Ionicons name="add-circle" size={24} color="#16a34a" />
-                    </View>
-                    <View style={styles.modalOptionText}>
-                      <Text style={styles.modalOptionTitle}>{t('log_workout')}</Text>
-                      <Text style={styles.modalOptionDescription}>
-                        {t('record_completed_workout')}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity
+                      style={styles.modalOption}
+                      onPress={() => {
+                        setActionModalVisible(false);
+                        // This will be implemented later
+                        Alert.alert(t('coming_soon'), t('feature_coming_soon'));
+                      }}
+                    >
+                      <View style={styles.modalOptionIcon}>
+                        <Ionicons name="play-circle" size={24} color="#16a34a" />
+                      </View>
+                      <View style={styles.modalOptionText}>
+                        <Text style={styles.modalOptionTitle}>{t('start_workout')}</Text>
+                        <Text style={styles.modalOptionDescription}>
+                          {t('start_new_workout_session')}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.modalOption}
+                      onPress={handleLogWorkout}
+                    >
+                      <View style={styles.modalOptionIcon}>
+                        <Ionicons name="add-circle" size={24} color="#16a34a" />
+                      </View>
+                      <View style={styles.modalOptionText}>
+                        <Text style={styles.modalOptionTitle}>{t('log_workout')}</Text>
+                        <Text style={styles.modalOptionDescription}>
+                          {t('record_completed_workout')}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </>
                 )}
                 
                 {/* Programs View Options */}
@@ -761,6 +884,232 @@ export default function WorkoutsScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Log Workout Modal */}
+        <Modal
+          visible={logWorkoutModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setLogWorkoutModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
+              
+              <LinearGradient
+                colors={['#16a34a', '#22c55e']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalHeaderGradient}
+              >
+                <Text style={styles.modalTitle}>{t('log_workout_method')}</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setLogWorkoutModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </LinearGradient>
+              
+              <View style={styles.modalContent}>
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={handleLogFromProgram}
+                >
+                  <View style={styles.modalOptionIcon}>
+                    <Ionicons name="albums-outline" size={24} color="#16a34a" />
+                  </View>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>{t('from_program')}</Text>
+                    <Text style={styles.modalOptionDescription}>
+                      {t('log_from_current_program')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={handleLogFromTemplate}
+                >
+                  <View style={styles.modalOptionIcon}>
+                    <Ionicons name="document-text-outline" size={24} color="#16a34a" />
+                  </View>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>{t('from_template')}</Text>
+                    <Text style={styles.modalOptionDescription}>
+                      {t('log_from_workout_template')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={handleLogFromScratch}
+                >
+                  <View style={styles.modalOptionIcon}>
+                    <Ionicons name="create-outline" size={24} color="#16a34a" />
+                  </View>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>{t('from_scratch')}</Text>
+                    <Text style={styles.modalOptionDescription}>
+                      {t('create_new_workout_log')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        
+        {/* NEW: Program Selection Modal */}
+        <Modal
+          visible={programSelectionModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setProgramSelectionModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, styles.selectionModalContainer]}>
+              <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
+              
+              <LinearGradient
+                colors={['#16a34a', '#22c55e']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalHeaderGradient}
+              >
+                <Text style={styles.modalTitle}>{t('select_program_workout')}</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setProgramSelectionModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </LinearGradient>
+              
+              <View style={styles.selectionModalContent}>
+                {programsLoading ? (
+                  <ActivityIndicator size="large" color="#16a34a" />
+                ) : activeProgram?.workouts?.length ? (
+                  <FlatList
+                    data={activeProgram.workouts}
+                    keyExtractor={(item) => `program-workout-${item.id}`}
+                    renderItem={({ item }) => (
+                      <View style={styles.selectionItem}>
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          style={styles.selectionCardWrapper}
+                          onPress={() => handleProgramWorkoutSelected(item)}
+                        >
+                          <View style={styles.selectionOverlay}>
+                            <Text style={styles.selectionText}>{t('select')}</Text>
+                          </View>
+                          <WorkoutCard
+                            workoutId={item.id}
+                            workout={{
+                              ...item,
+                              program: activeProgram.id,
+                              program_name: activeProgram.name
+                            }}
+                            isTemplate={false}
+                            user={user?.username}
+                            selectionMode={false}
+                            pointerEvents="none"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.selectionList}
+                  />
+                ) : (
+                  <View style={styles.emptySelectionState}>
+                    <Ionicons name="barbell-outline" size={40} color="#4B5563" />
+                    <Text style={styles.emptyStateTitle}>
+                      {t('no_program_workouts')}
+                    </Text>
+                    <Text style={styles.emptyStateText}>
+                      {t('add_workouts_to_program')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+        
+        {/* NEW: Template Selection Modal */}
+        <Modal
+          visible={templateSelectionModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setTemplateSelectionModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, styles.selectionModalContainer]}>
+              <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
+              
+              <LinearGradient
+                colors={['#16a34a', '#22c55e']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalHeaderGradient}
+              >
+                <Text style={styles.modalTitle}>{t('select_template')}</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setTemplateSelectionModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </LinearGradient>
+              
+              <View style={styles.selectionModalContent}>
+                {templatesLoading ? (
+                  <ActivityIndicator size="large" color="#16a34a" />
+                ) : templates.length ? (
+                  <FlatList
+                    data={templates}
+                    keyExtractor={(item) => `template-${item.id}`}
+                    renderItem={({ item }) => (
+                      <View style={styles.selectionItem}>
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          style={styles.selectionCardWrapper}
+                          onPress={() => handleTemplateSelected(item)}
+                        >
+                          <View style={styles.selectionOverlay}>
+                            <Text style={styles.selectionText}>{t('select')}</Text>
+                          </View>
+                          <WorkoutCard
+                            workoutId={item.id}
+                            workout={item}
+                            isTemplate={true}
+                            user={user?.username}
+                            selectionMode={false}
+                            pointerEvents="none"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.selectionList}
+                  />
+                ) : (
+                  <View style={styles.emptySelectionState}>
+                    <Ionicons name="document-text-outline" size={40} color="#4B5563" />
+                    <Text style={styles.emptyStateTitle}>
+                      {t('no_templates')}
+                    </Text>
+                    <Text style={styles.emptyStateText}>
+                      {t('create_your_first_template')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
         
         {/* Program Wizard Modal */}
         <ProgramWizard
@@ -774,6 +1123,17 @@ export default function WorkoutsScreen() {
           onSubmit={handleWorkoutTemplateSubmit}
           onClose={handleWorkoutTemplateWizardClose}
           visible={workoutTemplateWizardVisible}
+        />
+        <WorkoutLogWizard
+          logFromProgram={logFromProgram}
+          logFromTemplate={logFromTemplate}
+          programWorkout={selectedProgram ? selectedProgram.workouts?.find(w => w.id === selectedWorkoutId) : null}
+          template={selectedTemplate}
+          onSubmit={handleWorkoutLogSubmit}
+          onClose={handleWorkoutLogWizardClose}
+          visible={workoutLogWizardVisible}
+          onProgramSelected={(programId) => setSelectedProgramId(programId)}
+          onTemplateSelected={(templateId) => setSelectedTemplateId(templateId)}
         />
         {/* Delete Confirmation Modal */}
         <Modal
@@ -1118,4 +1478,50 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
+  // New styles for selection modals
+  selectionModalContainer: {
+    maxHeight: '80%',
+  },
+  selectionModalContent: {
+    padding: 16,
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+    maxHeight: '100%',
+  },
+  selectionList: {
+    paddingBottom: 16,
+  },
+  selectionItem: {
+    marginBottom: 12,
+  },
+  selectionCardWrapper: {
+    position: 'relative',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  selectionOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    zIndex: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectionText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  emptySelectionState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  }
 });

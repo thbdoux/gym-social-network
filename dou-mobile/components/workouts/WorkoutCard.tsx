@@ -141,7 +141,7 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
   const getWeekdayName = (day?: number): string => {
     if (day === undefined) return '';
     // Using hardcoded weekday names since these translations might not exist yet
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekdays = [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')];
     return weekdays[day];
   };
   

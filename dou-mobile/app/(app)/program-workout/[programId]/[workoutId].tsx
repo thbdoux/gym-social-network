@@ -121,7 +121,7 @@ export default function ProgramWorkoutDetailScreen() {
   // Get weekday name
   const getWeekdayName = (day?: number): string => {
     if (day === undefined) return '';
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekdays = [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')];
     return weekdays[day];
   };
   
@@ -139,18 +139,31 @@ export default function ProgramWorkoutDetailScreen() {
   // Handle saving workout edits
   const handleSaveWorkout = async () => {
     try {
+      // Create the update data object with all required fields
+      const updates = {
+        name: workoutName,
+        description: workoutDescription,
+        estimated_duration: workoutDuration,
+        difficulty_level: workoutDifficulty,
+        focus: workoutFocus,
+        preferred_weekday: preferredWeekday,
+        // Add the missing required fields from the existing workout
+        split_method: workout.split_method,
+        order: workout.order,
+        program: programId
+      };
+  
+      // Important: Include the existing exercises to prevent them from being deleted
+      if (workout && workout.exercises) {
+        updates.exercises = workout.exercises;
+      }
+  
       await updateProgramWorkout({
         programId,
         workoutId,
-        updates: {
-          name: workoutName,
-          description: workoutDescription,
-          estimated_duration: workoutDuration,
-          difficulty_level: workoutDifficulty,
-          focus: workoutFocus,
-          preferred_weekday: preferredWeekday
-        }
+        updates
       });
+      
       setEditMode(false);
       await refetchWorkout();
     } catch (error) {
@@ -480,7 +493,7 @@ export default function ProgramWorkoutDetailScreen() {
               <Text style={styles.detailLabel}>{t('scheduled_day')}</Text>
               {editMode ? (
                 <View style={styles.weekdayOptions}>
-                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+                  {[t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')].map((day, index) => (
                     <TouchableOpacity
                       key={day}
                       style={[

@@ -274,17 +274,40 @@ export default function WorkoutLogDetailScreen() {
   // Handle saving log edits
   const handleSaveLog = async () => {
     try {
+      // Format the date properly to ISO format
+      let formattedDate = logDate;
+      
+      // Check if the date is in DD/MM/YYYY format and convert it
+      if (typeof logDate === 'string' && logDate.includes('/')) {
+        const [day, month, year] = logDate.split('/');
+        // Create a date object and convert to ISO string
+        const dateObj = new Date(`${year}-${month}-${day}T12:00:00Z`);
+        formattedDate = dateObj.toISOString();
+      } else if (typeof logDate === 'string' && !logDate.includes('T')) {
+        // If it's just a date without time, add the time portion
+        formattedDate = `${logDate}T12:00:00Z`;
+      }
+      
+      // Create the update data object
+      const updateData = {
+        name: logName,
+        notes: logNotes,
+        date: formattedDate,
+        duration: logDuration,
+        mood_rating: logMoodRating,
+        perceived_difficulty: logDifficulty
+      };
+  
+      // Important: Include the existing exercises to prevent them from being deleted
+      if (log && log.exercises) {
+        updateData.exercises = log.exercises;
+      }
+      
       await updateLog({
         id: logId,
-        logData: {
-          name: logName,
-          notes: logNotes,
-          date: logDate,
-          duration: logDuration,
-          mood_rating: logMoodRating,
-          perceived_difficulty: logDifficulty
-        }
+        logData: updateData
       });
+      
       setEditMode(false);
       await refetch();
     } catch (error) {

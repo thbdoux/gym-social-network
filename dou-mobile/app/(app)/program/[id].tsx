@@ -501,10 +501,27 @@ export default function ProgramDetailScreen() {
             </View>
           </View>
           
-          {/* Program Title */}
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {program.name}
-          </Text>
+          {/* Program Title and Status */}
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {program.name}
+            </Text>
+            
+            {program.is_active && (
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>{t('active')}</Text>
+              </View>
+            )}
+          </View>
+          
+          {/* Program Meta Info (small text under title) */}
+          <View style={styles.programMetaInfo}>
+            <Text style={styles.programMetaText}>
+              <Ionicons name="person" size={10} color="rgba(255, 255, 255, 0.8)" /> {program.creator_username} • 
+              {formatFocus(program.focus)} • 
+              {program.difficulty_level}
+            </Text>
+          </View>
         </LinearGradient>
       </View>
       
@@ -515,135 +532,25 @@ export default function ProgramDetailScreen() {
         onScroll={handleScroll}
         contentContainerStyle={{ paddingTop: 20 }}
       >
-        {/* Program Details Card */}
-        <View style={styles.programDetailsCard}>
-          {/* Creator and Active Status */}
-          <View style={styles.creatorContainer}>
-            <View style={styles.creatorInfo}>
-              <Ionicons name="person" size={16} color="rgba(255, 255, 255, 0.8)" />
-              <Text style={styles.creatorName}>{program.creator_username}</Text>
-            </View>
-            
-            {program.is_active && (
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>{t('active')}</Text>
-              </View>
+        {/* Program Description (if exists) */}
+        {(editMode || program.description) && (
+          <View style={styles.descriptionContainer}>
+            <Text style={styles.descriptionLabel}>{t('description')}</Text>
+            {editMode ? (
+              <TextInput
+                style={styles.descriptionInput}
+                value={programDescription}
+                onChangeText={setProgramDescription}
+                placeholder={t('program_description')}
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                multiline
+                numberOfLines={3}
+              />
+            ) : (
+              <Text style={styles.descriptionText}>{program.description}</Text>
             )}
           </View>
-          
-          {/* Program Details Grid */}
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('focus')}</Text>
-              {editMode ? (
-                <View style={styles.pickerContainer}>
-                  <TouchableOpacity 
-                    style={styles.focusOption}
-                    onPress={() => setProgramFocus('strength')}
-                  >
-                    <View style={[styles.focusIndicator, programFocus === 'strength' && styles.selectedFocusIndicator]} />
-                    <Text style={styles.focusText}>{t('strength')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.focusOption}
-                    onPress={() => setProgramFocus('hypertrophy')}
-                  >
-                    <View style={[styles.focusIndicator, programFocus === 'hypertrophy' && styles.selectedFocusIndicator]} />
-                    <Text style={styles.focusText}>{t('hypertrophy')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.focusOption}
-                    onPress={() => setProgramFocus('strength_hypertrophy')}
-                  >
-                    <View style={[styles.focusIndicator, programFocus === 'strength_hypertrophy' && styles.selectedFocusIndicator]} />
-                    <Text style={styles.focusText}>{t('strength_hypertrophy')}</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <Text style={styles.detailValue}>{formatFocus(program.focus)}</Text>
-              )}
-            </View>
-            
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('level')}</Text>
-              {editMode ? (
-                <View style={styles.pickerContainer}>
-                  <TouchableOpacity 
-                    style={styles.levelOption}
-                    onPress={() => setProgramDifficulty('beginner')}
-                  >
-                    <View style={[styles.levelIndicator, programDifficulty === 'beginner' && styles.selectedLevelIndicator]} />
-                    <Text style={styles.levelText}>{t('beginner')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.levelOption}
-                    onPress={() => setProgramDifficulty('intermediate')}
-                  >
-                    <View style={[styles.levelIndicator, programDifficulty === 'intermediate' && styles.selectedLevelIndicator]} />
-                    <Text style={styles.levelText}>{t('intermediate')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.levelOption}
-                    onPress={() => setProgramDifficulty('advanced')}
-                  >
-                    <View style={[styles.levelIndicator, programDifficulty === 'advanced' && styles.selectedLevelIndicator]} />
-                    <Text style={styles.levelText}>{t('advanced')}</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <Text style={styles.detailValue}>{program.difficulty_level}</Text>
-              )}
-            </View>
-            
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('sessions')}</Text>
-              {editMode ? (
-                <TextInput
-                  style={styles.detailInput}
-                  value={programSessionsPerWeek.toString()}
-                  onChangeText={(text) => setProgramSessionsPerWeek(parseInt(text) || 0)}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={styles.detailValue}>{program.sessions_per_week}x {t('per_week')}</Text>
-              )}
-            </View>
-            
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('duration')}</Text>
-              {editMode ? (
-                <TextInput
-                  style={styles.detailInput}
-                  value={programEstimatedWeeks.toString()}
-                  onChangeText={(text) => setProgramEstimatedWeeks(parseInt(text) || 0)}
-                  keyboardType="number-pad"
-                />
-              ) : (
-                <Text style={styles.detailValue}>{program.estimated_completion_weeks} {t('weeks')}</Text>
-              )}
-            </View>
-          </View>
-          
-          {/* Program Description */}
-          {(editMode || program.description) && (
-            <View style={styles.descriptionContainer}>
-              <Text style={styles.descriptionLabel}>{t('description')}</Text>
-              {editMode ? (
-                <TextInput
-                  style={styles.descriptionInput}
-                  value={programDescription}
-                  onChangeText={setProgramDescription}
-                  placeholder={t('program_description')}
-                  placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                  multiline
-                  numberOfLines={3}
-                />
-              ) : (
-                <Text style={styles.descriptionText}>{program.description}</Text>
-              )}
-            </View>
-          )}
-        </View>
+        )}
         
         {/* Weekly Schedule */}
         <View style={styles.scheduleSection}>
@@ -651,7 +558,7 @@ export default function ProgramDetailScreen() {
           
           {/* Compact Schedule Preview */}
           <View style={styles.compactSchedule}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+            {[t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'),t('sun')].map((day, index) => {
               const hasWorkout = program.workouts?.some(w => w.preferred_weekday === index);
               const isSelected = selectedWeekday === index;
               
@@ -742,8 +649,8 @@ export default function ProgramDetailScreen() {
               <>
                 <Text style={styles.sectionTitle}>
                   {selectedWeekday !== null 
-                    ? `${t('workouts')} - ${
-                        ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][selectedWeekday]
+                    ? `${
+                        [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')][selectedWeekday]
                       }`
                     : t('all_workouts')}
                 </Text>
@@ -842,7 +749,7 @@ export default function ProgramDetailScreen() {
             </LinearGradient>
             
             <View style={styles.daySelector}>
-              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+              {[t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')].map((day, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.daySelectorItem}
@@ -891,7 +798,7 @@ export default function ProgramDetailScreen() {
               <Text style={styles.modalTitle}>
                 {selectedWeekday !== null
                   ? `${t('select_template')} - ${
-                      ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][selectedWeekday]
+                    [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')][selectedWeekday]
                     }`
                   : t('select_template')}
               </Text>
@@ -1051,13 +958,13 @@ const styles = StyleSheet.create({
   },
   fixedHeader: {
     padding: 16,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   headerControls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   backButton: {
     padding: 8,
@@ -1120,11 +1027,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  
+  // Header Title Container (new style for inline title and active status)
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 4,
+    flex: 1,
   },
   headerTitleInput: {
     fontSize: 24,
@@ -1134,35 +1049,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 8,
     padding: 8,
-  },
-  
-  // Content Styles
-  contentContainer: {
-    flex: 1,
-    backgroundColor: '#111827',
-  },
-  
-  // Program Details Card
-  programDetailsCard: {
-    backgroundColor: 'rgba(31, 41, 55, 0.6)',
-    borderRadius: 16,
-    padding: 16,
-    margin: 16,
-    marginTop: 0,
-  },
-  creatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  creatorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  creatorName: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginLeft: 6,
   },
   activeBadge: {
     backgroundColor: 'rgba(34, 197, 94, 0.2)',
@@ -1178,85 +1064,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#22c55e',
   },
-  detailsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  detailBox: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    padding: 12,
-    margin: 4,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+  
+  // Program Meta Info (new style for small text under title)
+  programMetaInfo: {
     marginBottom: 4,
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  programMetaText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
-  detailInput: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    padding: 4,
+  
+  // Content Styles
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#111827',
   },
-  pickerContainer: {
-    flexDirection: 'column',
-  },
-  focusOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 2,
-  },
-  focusIndicator: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    marginRight: 8,
-  },
-  selectedFocusIndicator: {
-    backgroundColor: '#7e22ce',
-  },
-  focusText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  levelOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 2,
-  },
-  levelIndicator: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    marginRight: 8,
-  },
-  selectedLevelIndicator: {
-    backgroundColor: '#7e22ce',
-  },
-  levelText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
+  
+  // Description Container (moved from program details card)
   descriptionContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
+    backgroundColor: 'rgba(31, 41, 55, 0.6)',
+    borderRadius: 16,
+    padding: 16,
+    margin: 16,
+    marginTop: 0,
   },
   descriptionLabel: {
     fontSize: 12,
