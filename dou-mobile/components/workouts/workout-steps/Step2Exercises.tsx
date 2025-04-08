@@ -50,6 +50,13 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
   const [draggedExerciseIndex, setDraggedExerciseIndex] = useState<number | null>(null);
   const [restTimeEnabled, setRestTimeEnabled] = useState(true);
   
+  // New state variables for supersets
+  const [pairingMode, setPairingMode] = useState<boolean>(false);
+  const [pairingSourceIndex, setPairingSourceIndex] = useState<number | null>(null);
+  const [currentExerciseIsSuperset, setCurrentExerciseIsSuperset] = useState(false);
+  const [currentSupersetRestTime, setCurrentSupersetRestTime] = useState(90);
+  const [currentSupersetWithExercise, setCurrentSupersetWithExercise] = useState<number | null>(null);
+  
   // Pan responder for drag and drop functionality
   const pan = useRef(new Animated.ValueXY()).current;
   const panResponder = useRef(
@@ -98,6 +105,9 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
       setCurrentExerciseSets([{...DEFAULT_SET}]);
       setCurrentExerciseNotes('');
       setRestTimeEnabled(true);
+      setCurrentExerciseIsSuperset(false);
+      setCurrentSupersetWithExercise(null);
+      setCurrentSupersetRestTime(90);
     }
   }, [exerciseModalVisible, editExerciseIndex]);
   
@@ -112,10 +122,15 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
       // Check if rest time is enabled for this exercise
       const hasRestTime = exercise.sets.some(set => set.rest_time > 0);
       setRestTimeEnabled(hasRestTime);
+      
+      // Set superset data
+      setCurrentExerciseIsSuperset(!!exercise.is_superset);
+      setCurrentSupersetWithExercise(exercise.superset_with || null);
+      setCurrentSupersetRestTime(exercise.superset_rest_time || 90);
     }
   }, [editExerciseIndex, formData.exercises]);
   
-  // Add this useEffect after your other useEffect hooks
+  // Add keyboard event listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -137,6 +152,7 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
       keyboardDidHideListener.remove();
     };
   }, []);
+
   // Handle adding a new exercise
   const handleAddExercise = () => {
     setEditExerciseIndex(null);
@@ -213,18 +229,35 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
       name: currentExerciseName,
       sets: setsWithOrder,
       notes: currentExerciseNotes.trim() || undefined,
-      equipment: '' // Default empty equipment if needed
-      // order will be assigned based on index when updating the exercises array
+      equipment: '', // Default empty equipment if needed
+      is_superset: currentExerciseIsSuperset,
+      superset_with: currentSupersetWithExercise,
+      superset_rest_time: currentExerciseIsSuperset ? currentSupersetRestTime : undefined
     };
     
     const updatedExercises = [...formData.exercises];
     
     if (editExerciseIndex !== null) {
       // Update existing exercise
+      const previousExercise = updatedExercises[editExerciseIndex];
+      const hadSuperset = previousExercise.is_superset && previousExercise.superset_with !== null;
+      const oldSupersetWith = previousExercise.superset_with;
+      
       updatedExercises[editExerciseIndex] = {
         ...newExercise,
         order: updatedExercises[editExerciseIndex]?.order ?? editExerciseIndex
       };
+      
+      // If this exercise was previously in a superset but no longer is,
+      // we need to update the paired exercise as well
+      if (hadSuperset && !currentExerciseIsSuperset && oldSupersetWith !== null) {
+        const pairedIndex = updatedExercises.findIndex(ex => ex.order === oldSupersetWith);
+        if (pairedIndex !== -1) {
+          updatedExercises[pairedIndex].is_superset = false;
+          updatedExercises[pairedIndex].superset_with = null;
+          updatedExercises[pairedIndex].superset_rest_time = undefined;
+        }
+      }
     } else {
       // Add new exercise
       updatedExercises.push({
@@ -256,7 +289,42 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
           style: 'destructive',
           onPress: () => {
             const updatedExercises = [...formData.exercises];
+            const exerciseToRemove = updatedExercises[index];
+            
+            // If this is part of a superset, update the paired exercise
+            if (exerciseToRemove.is_superset && exerciseToRemove.superset_with !== null) {
+              const pairedIndex = updatedExercises.findIndex(
+                ex => ex.order === exerciseToRemove.superset_with
+              );
+              
+              if (pairedIndex !== -1) {
+                updatedExercises[pairedIndex].is_superset = false;
+                updatedExercises[pairedIndex].superset_with = null;
+                updatedExercises[pairedIndex].superset_rest_time = undefined;
+              }
+            }
+            
+            // Remove the exercise
             updatedExercises.splice(index, 1);
+            
+            // Update order values for remaining exercises
+            updatedExercises.forEach((exercise, idx) => {
+              exercise.order = idx;
+              
+              // If this exercise was in a superset with the removed exercise,
+              // update its superset_with value
+              if (exercise.superset_with !== null) {
+                if (exercise.superset_with === exerciseToRemove.order) {
+                  exercise.is_superset = false;
+                  exercise.superset_with = null;
+                  exercise.superset_rest_time = undefined;
+                } else if (exercise.superset_with > exerciseToRemove.order) {
+                  // Decrement superset_with value for exercises paired with exercises after the removed one
+                  exercise.superset_with--;
+                }
+              }
+            });
+            
             updateFormData({ exercises: updatedExercises });
           }
         }
@@ -264,7 +332,7 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
     );
   };
   
-  // Updated handleMoveExercise function to update order when reordering
+  // Updated handleMoveExercise function to maintain superset relationships
   const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
     if (
       (direction === 'up' && index === 0) ||
@@ -276,14 +344,44 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
     const updatedExercises = [...formData.exercises];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     
+    // Save superset relationships before swapping
+    const exercise = updatedExercises[index];
+    const targetExercise = updatedExercises[targetIndex];
+    
+    // Get the superset information before swapping
+    const exerciseOrder = exercise.order;
+    const targetOrder = targetExercise.order;
+    const exerciseSuperset = exercise.superset_with;
+    const targetSuperset = targetExercise.superset_with;
+    
     // Swap positions
     [updatedExercises[index], updatedExercises[targetIndex]] = 
     [updatedExercises[targetIndex], updatedExercises[index]];
     
-    // Update order values to match new positions
-    updatedExercises.forEach((exercise, idx) => {
-      exercise.order = idx;
-    });
+    // Update order values
+    updatedExercises[index].order = exerciseOrder;
+    updatedExercises[targetIndex].order = targetOrder;
+    
+    // Update superset relationships
+    if (exerciseSuperset !== null && exerciseSuperset !== undefined) {
+      // Find exercises that have this exercise as their superset pair
+      for (const ex of updatedExercises) {
+        if (ex.superset_with === exerciseOrder) {
+          // Update to point to the new order
+          ex.superset_with = targetOrder;
+        }
+      }
+    }
+    
+    if (targetSuperset !== null && targetSuperset !== undefined) {
+      // Find exercises that have target exercise as their superset pair
+      for (const ex of updatedExercises) {
+        if (ex.superset_with === targetOrder) {
+          // Update to point to the new order
+          ex.superset_with = exerciseOrder;
+        }
+      }
+    }
     
     updateFormData({ exercises: updatedExercises });
   };
@@ -291,6 +389,97 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
   // Start dragging an exercise
   const handleStartDrag = (index: number) => {
     setDraggedExerciseIndex(index);
+  };
+  
+  // Superset functions
+  
+  // Function to start pairing an exercise
+  const handleStartPairing = (index: number) => {
+    setPairingMode(true);
+    setPairingSourceIndex(index);
+  };
+
+  // Function to cancel pairing mode
+  const handleCancelPairing = () => {
+    setPairingMode(false);
+    setPairingSourceIndex(null);
+  };
+
+  // Function to pair exercises as a superset
+  const handlePairExercises = (targetIndex: number) => {
+    if (pairingSourceIndex === null || pairingSourceIndex === targetIndex) {
+      return;
+    }
+
+    const updatedExercises = [...formData.exercises];
+    const sourceExercise = updatedExercises[pairingSourceIndex];
+    const targetExercise = updatedExercises[targetIndex];
+
+    // Set up the superset relationship
+    sourceExercise.superset_with = targetExercise.order;
+    sourceExercise.is_superset = true;
+    targetExercise.superset_with = sourceExercise.order;
+    targetExercise.is_superset = true;
+
+    // Add default superset rest time
+    sourceExercise.superset_rest_time = 90;  // Default 90 seconds
+    targetExercise.superset_rest_time = 90;
+
+    updateFormData({ exercises: updatedExercises });
+    setPairingMode(false);
+    setPairingSourceIndex(null);
+  };
+
+  // Function to remove a superset pairing
+  const handleRemoveSuperset = (index: number) => {
+    const updatedExercises = [...formData.exercises];
+    const exercise = updatedExercises[index];
+    
+    if (exercise.superset_with !== null && exercise.superset_with !== undefined) {
+      // Find the paired exercise
+      const pairedIndex = updatedExercises.findIndex(ex => ex.order === exercise.superset_with);
+      
+      if (pairedIndex !== -1) {
+        // Remove the superset relationship from the paired exercise
+        updatedExercises[pairedIndex].superset_with = null;
+        updatedExercises[pairedIndex].is_superset = false;
+        updatedExercises[pairedIndex].superset_rest_time = undefined;
+      }
+      
+      // Remove the superset relationship from this exercise
+      exercise.superset_with = null;
+      exercise.is_superset = false;
+      exercise.superset_rest_time = undefined;
+      
+      updateFormData({ exercises: updatedExercises });
+    }
+  };
+
+  // Function to get the paired exercise name for display
+  const getPairedExerciseName = (exercise: Exercise): string | null => {
+    if (!exercise.superset_with && exercise.superset_with !== 0) return null;
+    
+    const pairedExercise = formData.exercises.find(ex => ex.order === exercise.superset_with);
+    return pairedExercise ? pairedExercise.name : null;
+  };
+
+  // Function to update superset rest time
+  const handleUpdateSupersetRestTime = (index: number, restTime: number) => {
+    const updatedExercises = [...formData.exercises];
+    const exercise = updatedExercises[index];
+    
+    if (exercise.is_superset && exercise.superset_with !== null && exercise.superset_with !== undefined) {
+      // Update rest time for this exercise
+      exercise.superset_rest_time = restTime;
+      
+      // Find the paired exercise and update its rest time too
+      const pairedIndex = updatedExercises.findIndex(ex => ex.order === exercise.superset_with);
+      if (pairedIndex !== -1) {
+        updatedExercises[pairedIndex].superset_rest_time = restTime;
+      }
+      
+      updateFormData({ exercises: updatedExercises });
+    }
   };
   
   // Format rest time for display
@@ -319,6 +508,18 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
         <Text style={styles.errorText}>{errors.exercises}</Text>
       )}
       
+      {/* Pairing mode indicator */}
+      {pairingMode && (
+        <View style={styles.pairingModeIndicator}>
+          <Ionicons name="link" size={16} color="#0ea5e9" />
+          <Text style={styles.pairingModeText}>{t('select_exercise_to_pair')}</Text>
+          <TouchableOpacity onPress={handleCancelPairing} style={styles.cancelPairingButton}>
+            <Ionicons name="close-circle" size={16} color="#EF4444" />
+            <Text style={styles.cancelPairingText}>{t('cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
       {/* Exercise list */}
       <ScrollView 
         style={styles.exercisesList}
@@ -338,7 +539,8 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.25,
                   shadowRadius: 3.84,
-                }
+                },
+                exercise.is_superset && styles.supersetCard
               ]}
               {...(draggedExerciseIndex === index ? panResponder.panHandlers : {})}
             >
@@ -348,7 +550,15 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
                 onLongPress={() => handleStartDrag(index)}
                 delayLongPress={200}
               >
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
+                <View style={styles.exerciseNameContainer}>
+                  {exercise.is_superset && (
+                    <View style={styles.supersetBadge}>
+                      <Ionicons name="link" size={12} color="#0ea5e9" />
+                      <Text style={styles.supersetBadgeText}>{t('superset')}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                </View>
                 <Text style={styles.setCount}>
                   {exercise.sets.length} {exercise.sets.length === 1 ? t('set') : t('sets')}
                 </Text>
@@ -383,46 +593,101 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
                 )}
               </View>
               
+              {/* Superset info */}
+              {exercise.is_superset && exercise.superset_with !== null && (
+                <View style={styles.supersetContainer}>
+                  <Text style={styles.supersetPairText}>
+                    {t('paired_with')}: {getPairedExerciseName(exercise)}
+                  </Text>
+                  <Text style={styles.supersetRestText}>
+                    {t('superset_rest')}: {formatRestTime(exercise.superset_rest_time || 90)}
+                  </Text>
+                </View>
+              )}
+              
               {/* Controls */}
               <View style={styles.exerciseControls}>
-                <TouchableOpacity
-                  style={styles.controlButton}
-                  onPress={() => handleEditExercise(index)}
-                >
-                  <Ionicons name="create-outline" size={16} color="#0ea5e9" />
-                  <Text style={styles.controlText}>{t('edit')}</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={styles.controlButton}
-                  onPress={() => handleRemoveExercise(index)}
-                >
-                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                  <Text style={[styles.controlText, styles.removeText]}>{t('remove')}</Text>
-                </TouchableOpacity>
-                
-                <View style={styles.orderControls}>
-                  <TouchableOpacity
-                    style={[
-                      styles.orderButton,
-                      index === 0 && styles.orderButtonDisabled
-                    ]}
-                    onPress={() => handleMoveExercise(index, 'up')}
-                    disabled={index === 0}
-                  >
-                    <Ionicons name="chevron-up" size={16} color={index === 0 ? "#6B7280" : "#0ea5e9"} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.orderButton,
-                      index === formData.exercises.length - 1 && styles.orderButtonDisabled
-                    ]}
-                    onPress={() => handleMoveExercise(index, 'down')}
-                    disabled={index === formData.exercises.length - 1}
-                  >
-                    <Ionicons name="chevron-down" size={16} color={index === formData.exercises.length - 1 ? "#6B7280" : "#0ea5e9"} />
-                  </TouchableOpacity>
-                </View>
+                {pairingMode ? (
+                  pairingSourceIndex !== index ? (
+                    // Target exercise for pairing
+                    <TouchableOpacity
+                      style={styles.pairButton}
+                      onPress={() => handlePairExercises(index)}
+                    >
+                      <Ionicons name="link" size={16} color="#0ea5e9" />
+                      <Text style={styles.controlText}>{t('pair_as_superset')}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    // Source exercise (cancel pairing)
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={handleCancelPairing}
+                    >
+                      <Ionicons name="close-circle" size={16} color="#EF4444" />
+                      <Text style={[styles.controlText, styles.removeText]}>{t('cancel')}</Text>
+                    </TouchableOpacity>
+                  )
+                ) : (
+                  // Regular controls
+                  <>
+                    <TouchableOpacity
+                      style={styles.controlButton}
+                      onPress={() => handleEditExercise(index)}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#0ea5e9" />
+                      <Text style={styles.controlText}>{t('edit')}</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.controlButton}
+                      onPress={() => handleRemoveExercise(index)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                      <Text style={[styles.controlText, styles.removeText]}>{t('remove')}</Text>
+                    </TouchableOpacity>
+                    
+                    {exercise.is_superset ? (
+                      <TouchableOpacity
+                        style={styles.controlButton}
+                        onPress={() => handleRemoveSuperset(index)}
+                      >
+                        <Ionicons name="link-off" size={16} color="#EF4444" />
+                        <Text style={[styles.controlText, styles.removeText]}>{t('remove_superset')}</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.controlButton}
+                        onPress={() => handleStartPairing(index)}
+                      >
+                        <Ionicons name="link" size={16} color="#0ea5e9" />
+                        <Text style={styles.controlText}>{t('make_superset')}</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    <View style={styles.orderControls}>
+                      <TouchableOpacity
+                        style={[
+                          styles.orderButton,
+                          index === 0 && styles.orderButtonDisabled
+                        ]}
+                        onPress={() => handleMoveExercise(index, 'up')}
+                        disabled={index === 0}
+                      >
+                        <Ionicons name="chevron-up" size={16} color={index === 0 ? "#6B7280" : "#0ea5e9"} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.orderButton,
+                          index === formData.exercises.length - 1 && styles.orderButtonDisabled
+                        ]}
+                        onPress={() => handleMoveExercise(index, 'down')}
+                        disabled={index === formData.exercises.length - 1}
+                      >
+                        <Ionicons name="chevron-down" size={16} color={index === formData.exercises.length - 1 ? "#6B7280" : "#0ea5e9"} />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             </Animated.View>
           ))
@@ -622,6 +887,33 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
                 />
               </View>
               
+              {/* Superset information if applicable */}
+              {currentExerciseIsSuperset && currentSupersetWithExercise !== null && (
+                <View style={styles.supersetInfoSection}>
+                  <Text style={styles.exerciseEditLabel}>{t('superset_info')}</Text>
+                  <View style={styles.supersetInfoContent}>
+                    <Ionicons name="link" size={16} color="#0ea5e9" style={{ marginRight: 8 }} />
+                    <Text style={styles.supersetInfoText}>
+                      {t('paired_with')}: {getPairedExerciseName({
+                        order: editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.order : 0,
+                        superset_with: currentSupersetWithExercise
+                      } as Exercise)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.supersetRestTimeSection}>
+                    <Text style={styles.exerciseEditLabel}>{t('superset_rest_time')} (s)</Text>
+                    <TextInput
+                      style={styles.supersetRestTimeInput}
+                      value={currentSupersetRestTime.toString()}
+                      onChangeText={(text) => setCurrentSupersetRestTime(parseInt(text) || 90)}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                    />
+                  </View>
+                </View>
+              )}
+              
               {/* Rest time toggle */}
               <View style={styles.restTimeToggleContainer}>
                 <Text style={styles.exerciseEditLabel}>{t('rest_time')}</Text>
@@ -794,16 +1086,41 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
   },
+  supersetCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#0ea5e9',
+  },
   exerciseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
+  exerciseNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  supersetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  supersetBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#0ea5e9',
+    marginLeft: 2,
+  },
   exerciseName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    flex: 1,
   },
   setCount: {
     fontSize: 12,
@@ -841,6 +1158,50 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: '#9CA3AF',
   },
+  // Superset info styles
+  supersetContainer: {
+    marginTop: 4,
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  supersetPairText: {
+    fontSize: 13,
+    color: '#E5E7EB',
+    marginBottom: 4,
+  },
+  supersetRestText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  pairingModeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  pairingModeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#0ea5e9',
+    marginLeft: 8,
+  },
+  cancelPairingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  cancelPairingText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#EF4444',
+    marginLeft: 4,
+  },
   exerciseControls: {
     flexDirection: 'row',
     borderTopWidth: 1,
@@ -877,6 +1238,22 @@ const styles = StyleSheet.create({
   },
   orderButtonDisabled: {
     opacity: 0.5,
+  },
+  pairButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
   },
   emptyState: {
     backgroundColor: '#1F2937',
@@ -1067,6 +1444,37 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     color: '#FFFFFF',
+  },
+  
+  // Superset info in edit modal
+  supersetInfoSection: {
+    marginBottom: 16,
+    backgroundColor: 'rgba(14, 165, 233, 0.05)',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0ea5e9',
+  },
+  supersetInfoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  supersetInfoText: {
+    fontSize: 14,
+    color: '#E5E7EB',
+    flex: 1,
+  },
+  supersetRestTimeSection: {
+    marginTop: 4,
+  },
+  supersetRestTimeInput: {
+    backgroundColor: '#1F2937',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: '#FFFFFF',
+    fontSize: 14,
   },
   
   // Rest time toggle

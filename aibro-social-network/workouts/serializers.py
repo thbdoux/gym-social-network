@@ -15,11 +15,25 @@ class SetTemplateSerializer(serializers.ModelSerializer):
 
 class ExerciseTemplateSerializer(serializers.ModelSerializer):
     sets = SetTemplateSerializer(many=True, read_only=True)
+    superset_paired_exercise = serializers.SerializerMethodField()
     
     class Meta:
         model = ExerciseTemplate
-        fields = ['id', 'name', 'equipment', 'notes', 'order', 'sets']
+        fields = ['id', 'name', 'equipment', 'notes', 'order', 'sets', 'superset_with', 'superset_paired_exercise',  'is_superset']
         read_only_fields = ['id']
+    
+    def get_superset_paired_exercise(self, obj):
+        if obj.superset_with is not None:
+            try:
+                paired_exercise = obj.workout.exercises.get(order=obj.superset_with)
+                return {
+                    'id': paired_exercise.id,
+                    'name': paired_exercise.name,
+                    'order': paired_exercise.order
+                }
+            except ExerciseTemplate.DoesNotExist:
+                return None
+        return None
 
 class WorkoutTemplateSerializer(serializers.ModelSerializer):
     exercises = ExerciseTemplateSerializer(many=True, read_only=True)
@@ -48,14 +62,28 @@ class SetInstanceSerializer(serializers.ModelSerializer):
 class ExerciseInstanceSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)  # Allow passing ID for updates
     sets = SetInstanceSerializer(many=True)
+    superset_paired_exercise = serializers.SerializerMethodField()
     
     class Meta:
         model = ExerciseInstance
         fields = [
             'id', 'name', 'equipment', 'notes', 'order',
-            'sets', 'based_on_template'
+            'sets', 'based_on_template', 'superset_with', 'superset_paired_exercise',  'is_superset'
         ]
         read_only_fields = []  # Allow updating all fields
+    
+    def get_superset_paired_exercise(self, obj):
+        if obj.superset_with is not None:
+            try:
+                paired_exercise = obj.workout.exercises.get(order=obj.superset_with)
+                return {
+                    'id': paired_exercise.id,
+                    'name': paired_exercise.name,
+                    'order': paired_exercise.order
+                }
+            except ExerciseInstance.DoesNotExist:
+                return None
+        return None
 
 class WorkoutInstanceSerializer(serializers.ModelSerializer):
     exercises = ExerciseInstanceSerializer(many=True)
@@ -189,19 +217,32 @@ class SetLogSerializer(serializers.ModelSerializer):
             'based_on_instance_id'
         ]
         read_only_fields = ['based_on_instance_id']
-
 class ExerciseLogSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)  
     sets = SetLogSerializer(many=True)
     based_on_instance_id = serializers.IntegerField(source='based_on_instance.id', read_only=True)
+    superset_paired_exercise = serializers.SerializerMethodField()
     
     class Meta:
         model = ExerciseLog
         fields = [
             'id', 'name', 'equipment', 'notes', 'order',
-            'sets', 'based_on_instance_id'
+            'sets', 'based_on_instance_id', 'superset_with', 'superset_paired_exercise', 'is_superset'
         ]
         read_only_fields = ['based_on_instance_id']
+    
+    def get_superset_paired_exercise(self, obj):
+        if obj.superset_with is not None:
+            try:
+                paired_exercise = obj.workout.exercises.get(order=obj.superset_with)
+                return {
+                    'id': paired_exercise.id,
+                    'name': paired_exercise.name,
+                    'order': paired_exercise.order
+                }
+            except ExerciseLog.DoesNotExist:
+                return None
+        return None
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     exercises = ExerciseLogSerializer(many=True, read_only=True)

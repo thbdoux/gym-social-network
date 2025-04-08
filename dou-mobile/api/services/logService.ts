@@ -7,6 +7,10 @@ interface Exercise {
   name: string;
   equipment?: string;
   notes?: string;
+  order?: number;
+  superset_with?: number | null;
+  is_superset?: boolean;
+  superset_rest_time?: number;
   sets: Array<{
     id?: number;
     reps: number;

@@ -7,6 +7,10 @@ class BaseExercise(models.Model):
     equipment = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     order = models.PositiveIntegerField()
+    superset_with = models.PositiveIntegerField(null=True, blank=True, 
+                                               help_text="ID of paired exercise in superset")
+
+    is_superset = models.BooleanField(default=False, help_text="Whether this exercise is part of a superset")
 
     class Meta:
         abstract = True

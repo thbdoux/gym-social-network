@@ -29,6 +29,10 @@ export type Exercise = {
   sets: ExerciseSet[];
   notes?: string;
   order?: number;
+  equipment?: string;
+  superset_with?: number | null;
+  is_superset?: boolean; 
+  superset_rest_time?: number;
 };
 
 // Define form data type
@@ -157,9 +161,22 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
       
       if (!formData.estimated_duration || formData.estimated_duration === 0) {
         const totalSets = formData.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
-        const averageRestTime = formData.exercises.reduce((total, exercise) => {
-          const exerciseRestTime = exercise.sets.reduce((sum, set) => sum + (set.rest_time || 60), 0);
-          return total + (exerciseRestTime / exercise.sets.length);
+        
+        // For supersets, we need to consider the superset rest time instead of individual exercise rest times
+        const averageRestTime = formData.exercises.reduce((total, exercise, index) => {
+          if (exercise.is_superset && exercise.superset_with !== null) {
+            // For exercises in a superset, we only count the superset rest time once
+            // and we only add it if this is the first exercise in the superset
+            const pairedIndex = formData.exercises.findIndex(ex => ex.order === exercise.superset_with);
+            if (index < pairedIndex && exercise.superset_rest_time) {
+              return total + exercise.superset_rest_time;
+            }
+            return total;
+          } else {
+            // For regular exercises, add the average rest time per set
+            const exerciseRestTime = exercise.sets.reduce((sum, set) => sum + (set.rest_time || 60), 0);
+            return total + (exerciseRestTime / exercise.sets.length);
+          }
         }, 0) / (formData.exercises.length || 1);
         
         // Rough estimation: 45 seconds per set + average rest time between sets
@@ -286,7 +303,7 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
           >
             {currentStep === steps.length - 1 ? (
               <View style={styles.buttonContent}>
-                <Ionicons name="save-outline" width={18} height={18} color="#FFFFFF" />
+                <Ionicons name="save-outline" size={18} color="#FFFFFF" />
                 <Text style={styles.nextButtonText}>
                   {template ? t('update_template') : t('create_template')}
                 </Text>

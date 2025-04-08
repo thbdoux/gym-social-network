@@ -22,6 +22,9 @@ interface Exercise {
   equipment?: string;
   notes?: string;
   order: number;
+  superset_with?: number | null;
+  is_superset?: boolean;
+  superset_rest_time?: number;
   sets: Set[];
 }
 
@@ -160,6 +163,8 @@ const workoutService = {
       equipment: exercise.equipment || '',
       notes: exercise.notes || '',
       order: exercise.order,
+      superset_with: exercise.superset_with || null,
+      is_superset: !!exercise.is_superset,
       sets: exercise.sets.map((set, idx) => ({
         reps: parseInt(String(set.reps)) || 0,
         weight: parseFloat(String(set.weight)) || 0,
@@ -176,6 +181,8 @@ const workoutService = {
       equipment: exercise.equipment || '',
       notes: exercise.notes || '',
       order: exercise.order,
+      superset_with: exercise.superset_with || null,
+      is_superset: !!exercise.is_superset,
       sets: exercise.sets.map((set, idx) => ({
         reps: parseInt(String(set.reps)) || 0,
         weight: parseFloat(String(set.weight)) || 0,

@@ -176,9 +176,23 @@ export default function WorkoutDetailScreen() {
   // Render a single exercise
   const renderExercise = (exercise: any, index: number) => {
     const isExpanded = selectedExerciseIndex === index;
+    const isSuperset = exercise.is_superset;
+    const pairedExerciseName = exercise.superset_paired_exercise?.name;
     
     return (
-      <View key={index} style={styles.exerciseContainer}>
+      <View key={index} style={[
+        styles.exerciseContainer,
+        isSuperset && styles.supersetContainer
+      ]}>
+        {/* Superset badge */}
+        {isSuperset && (
+          <View style={styles.supersetBadge}>
+            <Ionicons name="git-branch-outline" size={14} color="#FFFFFF" />
+            <Text style={styles.supersetBadgeText}>{t('superset')}</Text>
+          </View>
+        )}
+        
+        {/* Exercise Header */}
         <TouchableOpacity
           style={[
             styles.exerciseHeader,
@@ -187,7 +201,17 @@ export default function WorkoutDetailScreen() {
           onPress={() => handleExerciseSelect(index)}
           disabled={editMode}
         >
-          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          <View style={styles.exerciseNameSection}>
+            <Text style={styles.exerciseName}>{exercise.name}</Text>
+            
+            {/* Show paired exercise if this is a superset */}
+            {isSuperset && pairedExerciseName && (
+              <View style={styles.supersetPair}>
+                <Ionicons name="swap-horizontal" size={14} color="#9CA3AF" />
+                <Text style={styles.supersetPairText}>{pairedExerciseName}</Text>
+              </View>
+            )}
+          </View>
           
           <View style={styles.exerciseHeaderRight}>
             {exercise.sets?.length > 0 && (
@@ -207,6 +231,18 @@ export default function WorkoutDetailScreen() {
         {/* Exercise sets - visible when expanded */}
         {isExpanded && exercise.sets && (
           <View style={styles.setsContainer}>
+            {/* Superset rest time */}
+            {isSuperset && exercise.superset_rest_time > 0 && (
+              <View style={styles.supersetRestTimeInfo}>
+                <Text style={styles.supersetRestTimeLabel}>
+                  {t('superset_rest')}:
+                </Text>
+                <Text style={styles.supersetRestTimeValue}>
+                  {formatRestTime(exercise.superset_rest_time)}
+                </Text>
+              </View>
+            )}
+            
             {/* Sets header */}
             <View style={styles.setsHeader}>
               <Text style={styles.setsHeaderText}>{t('set')}</Text>
@@ -930,5 +966,61 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+
+  supersetContainer: {
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.3)',
+    backgroundColor: 'rgba(7, 89, 133, 0.1)',
+  },
+  supersetBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 12,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  supersetBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 3,
+  },
+  exerciseNameSection: {
+    flex: 1,
+  },
+  supersetPair: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  supersetPairText: {
+    fontSize: 12,
+    color: COLORS.text.secondary,
+    marginLeft: 4,
+    fontStyle: 'italic',
+  },
+  supersetRestTimeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    padding: 8,
+    marginBottom: 12,
+    borderRadius: 8,
+  },
+  supersetRestTimeLabel: {
+    fontSize: 12,
+    color: COLORS.text.secondary,
+    marginRight: 4,
+  },
+  supersetRestTimeValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
 });
