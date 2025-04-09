@@ -2,7 +2,6 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
-import BottomTabBar from '../../components/navigation/BottomTabBar';
 
 export default function AppLayout() {
   return (
@@ -18,9 +17,6 @@ export default function AppLayout() {
           animationDuration: 200,
         }}
       />
-      
-      {/* The BottomTabBar is only included in the authenticated app layout */}
-      <BottomTabBar />
     </View>
   );
 }

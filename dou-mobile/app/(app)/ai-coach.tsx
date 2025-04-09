@@ -59,9 +59,9 @@ const AICoachScreen = () => {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <Text style={styles.heroTitle}>{t('ai_coach_title', 'Your Personal AI Fitness Coach')}</Text>
+          <Text style={styles.heroTitle}>{t('ai_coach_title')}</Text>
           <Text style={styles.heroSubtitle}>
-            {t('ai_coach_subtitle', 'Get personalized workout plans, nutrition advice, and real-time feedback.')}
+            {t('ai_coach_subtitle')}
           </Text>
           
           {/* Coach avatar */}
@@ -74,7 +74,7 @@ const AICoachScreen = () => {
 
         {/* Feature Cards */}
         <View style={styles.featuresContainer}>
-          <Text style={styles.sectionTitle}>{t('features', 'Features')}</Text>
+          <Text style={styles.sectionTitle}>{t('features')}</Text>
           
           {coachFeatures.map((feature) => (
             <TouchableOpacity
@@ -97,11 +97,11 @@ const AICoachScreen = () => {
 
         {/* Recent Activity */}
         <View style={styles.activityContainer}>
-          <Text style={styles.sectionTitle}>{t('recent_activity', 'Recent Activity')}</Text>
+          <Text style={styles.sectionTitle}>{t('recent_activity')}</Text>
           <View style={styles.emptyState}>
             <Ionicons name="fitness-outline" size={48} color="#4B5563" />
             <Text style={styles.emptyStateText}>
-              {t('no_recent_activity', 'No recent AI coach activity. Try a feature above to get started!')}
+              {t('no_recent_activity')}
             </Text>
           </View>
         </View>
@@ -109,7 +109,7 @@ const AICoachScreen = () => {
         {/* Get Started Button */}
         <TouchableOpacity style={styles.getStartedButton} activeOpacity={0.8}>
           <Text style={styles.getStartedButtonText}>
-            {t('get_started', 'Get Started')}
+            {t('get_started')}
           </Text>
         </TouchableOpacity>
       </ScrollView>
