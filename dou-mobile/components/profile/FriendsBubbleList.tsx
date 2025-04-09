@@ -35,7 +35,7 @@ interface FriendsBubbleListProps {
 }
 
 const { width } = Dimensions.get('window');
-const BUBBLE_SIZE = 54; // Smaller bubbles
+const BUBBLE_SIZE =60; // Smaller bubbles
 
 const FriendsBubbleList: React.FC<FriendsBubbleListProps> = ({ 
   onViewAllClick

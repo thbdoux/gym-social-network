@@ -1,5 +1,5 @@
 // app/(app)/workouts.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { router } from 'expo-router';
 import {
   View,
@@ -16,12 +16,12 @@ import {
   Platform,
   Modal,
   Alert,
-  FlatList
+  FlatList,
+  PanResponder
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../context/LanguageContext';
-import { useModal } from '../../context/ModalContext';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -66,6 +66,13 @@ const VIEW_TYPES = {
   TEMPLATES: 'templates'
 };
 
+// Define order of views for swiping
+const VIEW_ORDER = [
+  VIEW_TYPES.PROGRAMS,
+  VIEW_TYPES.WORKOUT_HISTORY, 
+  VIEW_TYPES.TEMPLATES
+];
+
 const { width, height } = Dimensions.get('window');
 
 export default function WorkoutsScreen() {
@@ -75,7 +82,9 @@ export default function WorkoutsScreen() {
   const { t } = useLanguage();
   
   // State for UI
+  const currentViewRef = useRef(VIEW_TYPES.WORKOUT_HISTORY); 
   const [currentView, setCurrentView] = useState(VIEW_TYPES.WORKOUT_HISTORY); // Set workout history as default
+  
   const [viewSelectorVisible, setViewSelectorVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [actionModalVisible, setActionModalVisible] = useState(false);
@@ -126,6 +135,141 @@ export default function WorkoutsScreen() {
     refetch: refetchTemplates
   } = useWorkoutTemplates();
 
+  // Animation values for swipe transitions
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    currentViewRef.current = currentView;
+  }, [currentView]);
+  
+  // Update the PanResponder logic to call the correct functions
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !refreshing && !selectionMode,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Only handle horizontal movements greater than 10px
+        return !refreshing && !selectionMode && Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderGrant: () => {
+        // When gesture starts
+        swipeAnim.setValue(0);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        // Update animation value as user swipes
+        swipeAnim.setValue(gestureState.dx);
+        
+        // Adjust opacity based on swipe distance
+        const opacityValue = 1 - Math.min(Math.abs(gestureState.dx) / (width * 0.5), 0.5);
+        contentOpacity.setValue(opacityValue);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        // Determine if swipe was significant enough to change view
+        const swipeThreshold = width * 0.25; // 25% of screen width
+        
+        if (gestureState.dx > swipeThreshold) {
+          // Swipe right - go to previous view
+          navigateToPreviousView();
+        } else if (gestureState.dx < -swipeThreshold) {
+          // Swipe left - go to next view
+          navigateToNextView();
+        } else {
+          // Not enough to trigger a view change, return to center
+          Animated.parallel([
+            Animated.spring(swipeAnim, {
+              toValue: 0,
+              useNativeDriver: true,
+              friction: 8,
+              tension: 40
+            }),
+            Animated.timing(contentOpacity, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true
+            })
+          ]).start();
+        }
+      }
+    })
+  ).current;
+  
+  // Function to navigate to the next view in the circular order
+  const navigateToNextView = () => {
+    
+    const current = currentViewRef.current;
+    const currentIndex = VIEW_ORDER.indexOf(current);
+    
+    // Calculate next index with wraparound (circular navigation)
+    const nextIndex = (currentIndex + 1) % VIEW_ORDER.length;
+    const nextView = VIEW_ORDER[nextIndex];
+    
+    // Animate out current view (moves left)
+    Animated.timing(swipeAnim, {
+      toValue: -width, // Move left when going to next
+      duration: 100,
+      useNativeDriver: true
+    }).start(() => {
+      setCurrentView(nextView);
+      currentViewRef.current = nextView;
+      // Reset animation values
+      swipeAnim.setValue(width); // Start from right
+      contentOpacity.setValue(0.5);
+      
+      // Animate in new view
+      Animated.parallel([
+        Animated.spring(swipeAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true
+        })
+      ]).start();
+    });
+  };
+
+  // Function to navigate to the previous view in the circular order
+  const navigateToPreviousView = () => {
+    
+    const current = currentViewRef.current;
+    const currentIndex = VIEW_ORDER.indexOf(current);
+    // Calculate previous index with wraparound (circular navigation)
+    const prevIndex = (currentIndex - 1 + VIEW_ORDER.length) % VIEW_ORDER.length;
+    const prevView = VIEW_ORDER[prevIndex];
+    
+    // Animate out current view (moves right)
+    Animated.timing(swipeAnim, {
+      toValue: width, // Move right when going to previous
+      duration: 100,
+      useNativeDriver: true
+    }).start(() => {
+      // Change view - THIS UPDATES THE STATE!
+      setCurrentView(prevView);
+      currentViewRef.current = prevView;
+      // Reset animation values
+      swipeAnim.setValue(-width); // Start from left
+      contentOpacity.setValue(0.5);
+      
+      // Animate in new view
+      Animated.parallel([
+        Animated.spring(swipeAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true
+        })
+      ]).start();
+    });
+  };
   // Mutations
   const { mutateAsync: toggleProgramActive } = useToggleProgramActive();
   const { mutateAsync: forkProgram } = useForkProgram();
@@ -211,9 +355,64 @@ export default function WorkoutsScreen() {
 
   // Change current view
   const changeView = (viewType) => {
-    setCurrentView(viewType);
+    if (viewType === currentViewRef.current) {
+      setViewSelectorVisible(false);
+      return;
+    }
+    
+    // Get indices for animation direction
+    const currentIndex = VIEW_ORDER.indexOf(currentViewRef.current);
+    const targetIndex = VIEW_ORDER.indexOf(viewType);
+    
+    // Determine best animation direction (clockwise or counterclockwise)
+    let clockwise = true;
+    if (targetIndex < currentIndex) {
+      if (currentIndex - targetIndex > VIEW_ORDER.length / 2) {
+        clockwise = true;
+      } else {
+        clockwise = false;
+      }
+    } else {
+      if (targetIndex - currentIndex > VIEW_ORDER.length / 2) {
+        clockwise = false;
+      } else {
+        clockwise = true;
+      }
+    }
+    
+    const direction = clockwise ? -1 : 1;
+    
+    // Animate out current view
+    Animated.timing(swipeAnim, {
+      toValue: width * direction,
+      duration: 100,
+      useNativeDriver: true
+    }).start(() => {
+      // Update both the state and the ref
+      setCurrentView(viewType);
+      currentViewRef.current = viewType;
+      
+      // Reset animation values
+      swipeAnim.setValue(width * -direction);
+      contentOpacity.setValue(0.5);
+      
+      // Animate in new view
+      Animated.parallel([
+        Animated.spring(swipeAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true
+        })
+      ]).start();
+    });
+    
     setViewSelectorVisible(false);
-    // Exit selection mode when changing views
     setSelectionMode(false);
     setSelectedItems([]);
   };
@@ -683,99 +882,131 @@ export default function WorkoutsScreen() {
           </View>
         )}
         
-        {/* Card List */}
-        <ScrollView
-          style={styles.cardStack}
-          contentContainerStyle={styles.cardStackContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#FFFFFF"
-              colors={['#FFFFFF']}
+        {/* Swipe Indicator */}
+        <View style={styles.swipeIndicatorContainer}>
+          {VIEW_ORDER.map((viewType, index) => (
+            <View 
+              key={viewType} 
+              style={[
+                styles.swipeIndicator, 
+                currentView === viewType && styles.activeSwipeIndicator,
+                { backgroundColor: currentView === viewType ? 
+                  (viewType === VIEW_TYPES.PROGRAMS ? '#7e22ce' : 
+                   viewType === VIEW_TYPES.WORKOUT_HISTORY ? '#16a34a' : '#2563eb')
+                  : '#4B5563' 
+                }
+              ]}
             />
-          }
+          ))}
+        </View>
+        
+        {/* Card List with Animation & Swipe Handler */}
+        <Animated.View 
+          style={[
+            styles.cardStack,
+            {
+              transform: [{ translateX: swipeAnim }],
+              opacity: contentOpacity
+            }
+          ]}
+          {...panResponder.panHandlers}
         >
-          {getCurrentData().length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons 
-                name={
-                  currentView === VIEW_TYPES.PROGRAMS ? "barbell-outline" :
-                  currentView === VIEW_TYPES.WORKOUT_HISTORY ? "calendar-outline" :
-                  "document-text-outline"
-                } 
-                size={60} 
-                color="#4B5563" 
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.cardStackContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor="#FFFFFF"
+                colors={['#FFFFFF']}
               />
-              <Text style={styles.emptyStateTitle}>
-                {currentView === VIEW_TYPES.PROGRAMS && t('no_programs')}
-                {currentView === VIEW_TYPES.WORKOUT_HISTORY && t('no_workouts')}
-                {currentView === VIEW_TYPES.TEMPLATES && t('no_templates')}
-              </Text>
-              <Text style={styles.emptyStateText}>
-                {currentView === VIEW_TYPES.PROGRAMS && t('create_your_first_program')}
-                {currentView === VIEW_TYPES.WORKOUT_HISTORY && t('log_your_first_workout')}
-                {currentView === VIEW_TYPES.TEMPLATES && t('create_your_first_template')}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.cardsContainer}>
-              {currentView === VIEW_TYPES.PROGRAMS && 
-                getCurrentData().map((program) => (
-                  <View key={`program-${program.id}`} style={styles.cardContainer}>
-                    <ProgramCard
-                      programId={program.id}
-                      program={program}
-                      currentUser={user?.username}
-                      onFork={handleForkProgram}
-                      onToggleActive={handleToggleActiveProgram}
-                      selectionMode={selectionMode}
-                      isSelected={selectedItems.includes(program.id)}
-                      onSelect={() => toggleItemSelection(program.id)}
-                      onLongPress={() => handleLongPress(program.id)}
-                    />
-                  </View>
-                ))
-              }
-              
-              {currentView === VIEW_TYPES.WORKOUT_HISTORY && 
-                getCurrentData().map((log) => (
-                  <View key={`log-${log.id}`} style={styles.cardContainer}>
-                    <WorkoutLogCard
-                      logId={log.id}
-                      log={log}
-                      user={user?.username}
-                      onFork={handleForkWorkoutLog}
-                      selectionMode={selectionMode}
-                      isSelected={selectedItems.includes(log.id)}
-                      onSelect={() => toggleItemSelection(log.id)}
-                      onLongPress={() => handleLongPress(log.id)}
-                    />
-                  </View>
-                ))
-              }
-              
-              {currentView === VIEW_TYPES.TEMPLATES && 
-                getCurrentData().map((template) => (
-                  <View key={`template-${template.id}`} style={styles.cardContainer}>
-                    <WorkoutCard
-                      workoutId={template.id}
-                      workout={template}
-                      isTemplate={true}
-                      user={user?.username}
-                      onFork={handleForkTemplate}
-                      onAddToProgram={handleAddTemplateToProgram}
-                      selectionMode={selectionMode}
-                      isSelected={selectedItems.includes(template.id)}
-                      onSelect={() => toggleItemSelection(template.id)}
-                      onLongPress={() => handleLongPress(template.id)}
-                    />
-                  </View>
-                ))
-              }
-            </View>
-          )}
-        </ScrollView>
+            }
+            // Disable horizontal scrolling since we're using PanResponder
+            horizontal={false}
+            showsHorizontalScrollIndicator={false}
+          >
+            {getCurrentData().length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons 
+                  name={
+                    currentView === VIEW_TYPES.PROGRAMS ? "barbell-outline" :
+                    currentView === VIEW_TYPES.WORKOUT_HISTORY ? "calendar-outline" :
+                    "document-text-outline"
+                  } 
+                  size={60} 
+                  color="#4B5563" 
+                />
+                <Text style={styles.emptyStateTitle}>
+                  {currentView === VIEW_TYPES.PROGRAMS && t('no_programs')}
+                  {currentView === VIEW_TYPES.WORKOUT_HISTORY && t('no_workouts')}
+                  {currentView === VIEW_TYPES.TEMPLATES && t('no_templates')}
+                </Text>
+                <Text style={styles.emptyStateText}>
+                  {currentView === VIEW_TYPES.PROGRAMS && t('create_your_first_program')}
+                  {currentView === VIEW_TYPES.WORKOUT_HISTORY && t('log_your_first_workout')}
+                  {currentView === VIEW_TYPES.TEMPLATES && t('create_your_first_template')}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.cardsContainer}>
+                {currentView === VIEW_TYPES.PROGRAMS && 
+                  getCurrentData().map((program) => (
+                    <View key={`program-${program.id}`} style={styles.cardContainer}>
+                      <ProgramCard
+                        programId={program.id}
+                        program={program}
+                        currentUser={user?.username}
+                        onFork={handleForkProgram}
+                        onToggleActive={handleToggleActiveProgram}
+                        selectionMode={selectionMode}
+                        isSelected={selectedItems.includes(program.id)}
+                        onSelect={() => toggleItemSelection(program.id)}
+                        onLongPress={() => handleLongPress(program.id)}
+                      />
+                    </View>
+                  ))
+                }
+                
+                {currentView === VIEW_TYPES.WORKOUT_HISTORY && 
+                  getCurrentData().map((log) => (
+                    <View key={`log-${log.id}`} style={styles.cardContainer}>
+                      <WorkoutLogCard
+                        logId={log.id}
+                        log={log}
+                        user={user?.username}
+                        onFork={handleForkWorkoutLog}
+                        selectionMode={selectionMode}
+                        isSelected={selectedItems.includes(log.id)}
+                        onSelect={() => toggleItemSelection(log.id)}
+                        onLongPress={() => handleLongPress(log.id)}
+                      />
+                    </View>
+                  ))
+                }
+                
+                {currentView === VIEW_TYPES.TEMPLATES && 
+                  getCurrentData().map((template) => (
+                    <View key={`template-${template.id}`} style={styles.cardContainer}>
+                      <WorkoutCard
+                        workoutId={template.id}
+                        workout={template}
+                        isTemplate={true}
+                        user={user?.username}
+                        onFork={handleForkTemplate}
+                        onAddToProgram={handleAddTemplateToProgram}
+                        selectionMode={selectionMode}
+                        isSelected={selectedItems.includes(template.id)}
+                        onSelect={() => toggleItemSelection(template.id)}
+                        onLongPress={() => handleLongPress(template.id)}
+                      />
+                    </View>
+                  ))
+                }
+              </View>
+            )}
+          </ScrollView>
+        </Animated.View>
 
         {/* Action Modal */}
         <Modal
@@ -1298,6 +1529,9 @@ const styles = StyleSheet.create({
   cardStack: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
   cardStackContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -1331,6 +1565,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  // Swipe indicator styles
+  swipeIndicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  swipeIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+    opacity: 0.5,
+  },
+  activeSwipeIndicator: {
+    width: 16,
+    opacity: 1,
   },
   modalOverlay: {
     flex: 1,
