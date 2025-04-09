@@ -498,14 +498,15 @@ export default function WorkoutDetailScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#111827" />
       
-      {/* Compact Header */}
+      {/* Redesigned Header */}
       <LinearGradient
         colors={[COLORS.primary, COLORS.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <View style={styles.headerControls}>
+        {/* Top Row: Back button, Title, Template badge, Options */}
+        <View style={styles.headerTopRow}>
           <TouchableOpacity 
             style={styles.backButton} 
             onPress={() => router.back()}
@@ -513,113 +514,152 @@ export default function WorkoutDetailScreen() {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
-          <View style={styles.headerActions}>
-            {isCreator && !editMode && (
-              <WorkoutOptionsMenu
-                isCreator={isCreator}
-                onDeleteWorkout={handleDeleteWorkout}
-                onEditInfo={() => {
-                  setEditMode(true);
-                  setEditInfoMode(true);
-                  setEditExercisesMode(false);
-                }}
-                onEditExercises={() => {
-                  setEditMode(true);
-                  setEditInfoMode(false);
-                  setEditExercisesMode(true);
-                }}
+          <View style={styles.titleContainer}>
+            {editInfoMode ? (
+              <TextInput
+                style={styles.headerTitleInput}
+                value={workoutName}
+                onChangeText={setWorkoutName}
+                placeholder={t('workout_name')}
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
               />
-            )}
-            
-            {editMode && (
-              <>
-                <TouchableOpacity 
-                  style={styles.cancelButton}
-                  onPress={handleCancelEdit}
-                >
-                  <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.saveButton}
-                  onPress={handleSaveWorkout}
-                >
-                  <Text style={styles.saveButtonText}>{t('save')}</Text>
-                </TouchableOpacity>
-              </>
+            ) : (
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {workout.name}
+              </Text>
             )}
           </View>
+          
+          {isCreator && !editMode ? (
+            <WorkoutOptionsMenu
+              isCreator={isCreator}
+              onDeleteWorkout={handleDeleteWorkout}
+              onEditInfo={() => {
+                setEditMode(true);
+                setEditInfoMode(true);
+                setEditExercisesMode(false);
+              }}
+              onEditExercises={() => {
+                setEditMode(true);
+                setEditInfoMode(false);
+                setEditExercisesMode(true);
+              }}
+            />
+          ) : editMode ? (
+            <View style={styles.editActions}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={handleCancelEdit}
+              >
+                <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.saveButton}
+                onPress={handleSaveWorkout}
+              >
+                <Text style={styles.saveButtonText}>{t('save')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
         
-        {/* Workout Title (editable in edit info mode) */}
-        {editInfoMode ? (
-          <TextInput
-            style={styles.headerTitleInput}
-            value={workoutName}
-            onChangeText={setWorkoutName}
-            placeholder={t('workout_name')}
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
-          />
-        ) : (
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {workout.name}
-          </Text>
-        )}
-        
-        {/* Type badge & creator info with inline details */}
-        <View style={styles.infoRow}>
+        {/* Creator info row */}
+        <View style={styles.creatorRow}>
+          <View style={styles.creatorInfo}>
+            <Ionicons name="person" size={14} color={COLORS.text.secondary} />
+            <Text style={styles.creatorText}>{workout.creator_username}</Text>
+          </View>
           <View style={styles.typeBadge}>
             <Text style={styles.typeBadgeText}>
               {isTemplate ? t('template') : t('workout')}
             </Text>
           </View>
-          
-          <View style={styles.creatorInfo}>
-            <Ionicons name="person" size={14} color={COLORS.text.secondary} />
-            <Text style={styles.creatorText}>{workout.creator_username}</Text>
-          </View>
         </View>
         
-        {/* Compact workout details in a single row */}
-        <View style={styles.compactDetailsRow}>
-          <View style={styles.compactDetailItem}>
+        {/* Workout Info Row */}
+        <View style={styles.workoutInfoRow}>
+          {/* Focus */}
+          <View style={styles.workoutInfoItem}>
             <Ionicons name="barbell-outline" size={14} color={COLORS.text.secondary} />
-            <Text style={styles.compactDetailText}>
-              {formatFocus(workout.focus)}
-            </Text>
+            {editInfoMode ? (
+              <TextInput
+                style={styles.infoInput}
+                value={workoutFocus}
+                onChangeText={setWorkoutFocus}
+                placeholder={t('focus')}
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+              />
+            ) : (
+              <Text style={styles.infoText}>
+                {formatFocus(workout.focus)}
+              </Text>
+            )}
           </View>
           
-          <View style={styles.compactDetailDivider} />
-          
-          <View style={styles.compactDetailItem}>
+          {/* Duration */}
+          <View style={styles.workoutInfoItem}>
             <Ionicons name="time-outline" size={14} color={COLORS.text.secondary} />
-            <Text style={styles.compactDetailText}>
-              {workout.estimated_duration} {t('min')}
-            </Text>
+            {editInfoMode ? (
+              <TextInput
+                style={styles.infoInput}
+                value={workoutDuration.toString()}
+                onChangeText={(text) => setWorkoutDuration(parseInt(text) || 0)}
+                keyboardType="number-pad"
+                placeholder={t('duration')}
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+              />
+            ) : (
+              <Text style={styles.infoText}>
+                {workout.estimated_duration} {t('min')}
+              </Text>
+            )}
           </View>
           
-          <View style={styles.compactDetailDivider} />
-          
-          <View style={styles.compactDetailItem}>
-            <Text style={styles.compactDetailText}>
+          {/* Difficulty */}
+          <View style={styles.workoutInfoItem}>
+            <Text style={styles.infoIcon}>
               {getDifficultyIndicator(workout.difficulty_level)}
             </Text>
+            {editInfoMode ? (
+              <View style={styles.difficultySelector}>
+                {['beginner', 'intermediate', 'advanced'].map((level) => (
+                  <TouchableOpacity
+                    key={level}
+                    style={[
+                      styles.difficultyOption,
+                      workoutDifficulty === level && styles.difficultyOptionSelected
+                    ]}
+                    onPress={() => setWorkoutDifficulty(level)}
+                  >
+                    <Text style={[
+                      styles.difficultyOptionText,
+                      workoutDifficulty === level && styles.difficultyOptionTextSelected
+                    ]}>
+                      {t(level)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.infoText}>
+                {t(workout.difficulty_level || 'beginner')}
+              </Text>
+            )}
           </View>
           
+          {/* Weekday for scheduled workouts */}
           {!isTemplate && workout.preferred_weekday !== undefined && (
-            <>
-              <View style={styles.compactDetailDivider} />
-              <View style={styles.compactDetailItem}>
-                <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
-                <Text style={styles.compactDetailText}>
-                  {getWeekdayName(workout.preferred_weekday)}
-                </Text>
-              </View>
-            </>
+            <View style={styles.workoutInfoItem}>
+              <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
+              <Text style={styles.infoText}>
+                {getWeekdayName(workout.preferred_weekday)}
+              </Text>
+            </View>
           )}
         </View>
         
-        {/* Description (editable in edit info mode) - only if available */}
+        {/* Description - only if available or in edit mode */}
         {(editInfoMode || workout.description) && (
           <View style={styles.descriptionContainer}>
             {editInfoMode ? (
@@ -845,6 +885,168 @@ export default function WorkoutDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    padding: 16,
+    paddingBottom: 12,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginRight: 8,
+  },
+  headerTitleInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+    padding: 6,
+    marginRight: 8,
+  },
+  typeBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  editActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  saveButton: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  saveButtonText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  creatorRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  creatorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 12,
+  },
+  creatorText: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    marginLeft: 4,
+  },
+  workoutInfoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  workoutInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+    marginLeft: 4,
+  },
+  infoIcon: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+  },
+  infoInput: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 6,
+    padding: 4,
+    paddingHorizontal: 8,
+    marginLeft: 4,
+    minWidth: 80,
+  },
+  difficultySelector: {
+    flexDirection: 'row',
+    marginLeft: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  difficultyOption: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  difficultyOptionSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  difficultyOptionText: {
+    fontSize: 12,
+    color: COLORS.text.secondary,
+  },
+  difficultyOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  descriptionContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 4,
+  },
+  descriptionText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    lineHeight: 18,
+  },
+  descriptionInput: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    padding: 8,
+    textAlignVertical: 'top',
+    minHeight: 50,
+  },
+  // Keep all other styles..
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -875,22 +1077,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
   },
-  // Redesigned compact header styles
-  header: {
-    padding: 16,
-    paddingBottom: 12,
-  },
+
   headerControls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
+
   backButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -900,70 +1094,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  saveButton: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 6,
-  },
-  headerTitleInput: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 8,
-  },
+  
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
-  },
-  typeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    marginRight: 10,
-  },
-  typeBadgeText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  creatorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  creatorText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    marginLeft: 4,
   },
   // Compact details row
   compactDetailsRow: {
@@ -989,31 +1124,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     marginHorizontal: 6,
   },
-  descriptionContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 4,
-  },
-  descriptionText: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    lineHeight: 18,
-  },
-  descriptionInput: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    padding: 8,
-    textAlignVertical: 'top',
-    minHeight: 50,
-  },
   // Content styles
   contentContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
-    padding: 16,
+    padding: 0,
   },
   pairingModeIndicator: {
     flexDirection: 'row',
@@ -1055,6 +1170,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    padding: 12,
   },
   exerciseControls: {
     flexDirection: 'row',
@@ -1063,6 +1179,7 @@ const styles = StyleSheet.create({
   exerciseCount: {
     fontSize: 14,
     color: COLORS.text.secondary,
+    padding:12,
   },
   exercisesList: {
     marginBottom: 16,

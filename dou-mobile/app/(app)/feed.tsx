@@ -9,12 +9,12 @@ import {
   SafeAreaView,
   Alert,
   Animated,
+  ImageBackground,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useHeaderAnimation } from '../../context/HeaderAnimationContext';
 import FeedContainer from '../../components/feed/FeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
-import FriendsBubbleList from '../../components/profile/FriendsBubbleList';
 import FriendsModal from '../../components/profile/FriendsModal';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
 import FabMenu from '../../components/feed/FabMenu';
@@ -166,16 +166,59 @@ export default function FeedScreen() {
     { useNativeDriver: false }
   );
 
-  // Custom rendering for the feed content with friends list at the top
+  // Custom rendering for the feed content with welcome message at the top
   const renderHeader = () => {
+    // Determine personality type from user object (with fallback)
+    const personalityType = user?.personalityType || 'versatile';
+    
+    // Define messages and background images for each personality type
+    let message = '';
+    let backgroundImage;
+    
+    switch (personalityType) {
+      case 'optimizer':
+        message = "Ready to maximize your day, efficiency seeker?";
+        backgroundImage = require('../../assets/images/bob.jpg');
+        break;
+      case 'versatile':
+        message = "Welcome back! What would you like to explore today?";
+        backgroundImage = require('../../assets/images/bob.jpg');
+        break;
+      case 'diplomate':
+        message = "Your community is waiting to connect with you!";
+        backgroundImage = require('../../assets/images/bob.jpg');
+        break;
+      case 'mentor':
+        message = "Ready to inspire and guide others today?";
+        backgroundImage = require('../../assets/images/bob.jpg');
+        break;
+      default:
+        message = "Welcome back! Let's discover what's new.";
+        backgroundImage = require('../../assets/images/bob.jpg');
+        break;
+    }
+    
     return (
-      <View>
-        <FriendsBubbleList onViewAllClick={handleOpenFriendsModal} />
+      <View style={styles.welcomeContainer}>
+        <ImageBackground
+          source={backgroundImage}
+          style={styles.welcomeBackground}
+          imageStyle={styles.welcomeBackgroundImage}
+        >
+          <View style={styles.welcomeOverlay}>
+            <Text style={styles.welcomeText}>
+              {message}
+            </Text>
+            <Text style={styles.welcomeUsername}>
+              {user?.displayName || user?.username || 'Friend'}
+            </Text>
+          </View>
+        </ImageBackground>
       </View>
     );
   };
 
-    // Add a handler for program selection
+  // Add a handler for program selection
   const handleProgramSelect = (program: any) => {
     
     // Get the program ID - check all possible properties where ID might be stored
@@ -225,7 +268,7 @@ export default function FeedScreen() {
           </View>
         </Animated.View>
 
-        {/* Feed wrapper - includes the friends list as its header */}
+        {/* Feed wrapper - includes the welcome message as its header */}
         <View style={styles.feedWrapper}>
           {postsLoading && !refreshing ? (
             <View style={styles.loadingContainer}>
@@ -328,5 +371,48 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: '#9CA3AF',
+  },
+  // New styles for welcome message
+  welcomeContainer: {
+    marginHorizontal: 0,
+    marginVertical: 0,
+    borderRadius: 0,
+    overflow: 'hidden',
+    elevation: 3, // For Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  welcomeBackground: {
+    minHeight: 140,
+    borderRadius: 0,
+  },
+  welcomeBackgroundImage: {
+    borderRadius: 0,
+  },
+  welcomeOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.4)', // Dark overlay for text readability
+    padding: 20,
+    minHeight: 140,
+    justifyContent: 'center',
+    borderRadius: 0,
+  },
+  welcomeText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: {width: -1, height: 1},
+    textShadowRadius: 10
+  },
+  welcomeUsername: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: {width: -1, height: 1},
+    textShadowRadius: 10
   },
 });

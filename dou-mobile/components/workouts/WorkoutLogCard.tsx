@@ -240,27 +240,31 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             </View>
           </TouchableOpacity>
         )}
-        
+                
         {/* Main content */}
         <View style={styles.cardContent}>
-          {/* Top row with date, location and status */}
-          <View style={styles.topRow}>
-            <View style={styles.dateLocationContainer}>
-              <View style={styles.dateContainer}>
-                <Text style={styles.dateText}>{formatDate(log.date)}</Text>
-                <View style={[
-                  styles.statusDot,
-                  log.completed ? styles.completedDot : styles.pendingDot
-                ]} />
-              </View>
-              
-              {log.gym_name && (
-                <View style={styles.gymContainer}>
-                  <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
-                  <Text style={styles.gymText}>{log.gym_name}</Text>
-                </View>
-              )}
+          {/* Top row with workout log badge and fork button */}
+          <View style={styles.badgeActionRow}>
+            <View style={styles.workoutLogBadge}>
+              <Text style={styles.workoutLogBadgeText}>{t('workout_log')}</Text>
             </View>
+            
+            {!isOwner && !selectionMode && (
+              <TouchableOpacity 
+                style={styles.forkButton}
+                onPress={handleFork}
+              >
+                <Ionicons name="download-outline" size={14} color="#166534" />
+                <Text style={styles.forkText}>{t('fork')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {/* Title and completed/pending status container */}
+          <View style={styles.titleStatusContainer}>
+            <Text style={styles.title} numberOfLines={1}>
+              {log.name}
+            </Text>
             
             {log.completed ? (
               <View style={styles.completedBadge}>
@@ -273,10 +277,24 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             )}
           </View>
           
-          {/* Workout title */}
-          <Text style={styles.title} numberOfLines={1}>
-            {log.name}
-          </Text>
+          {/* Date and location container */}
+          <View style={styles.dateLocationRow}>
+            <View style={styles.dateContainer}>
+              <Ionicons name="calendar-outline" size={12} color="rgba(255, 255, 255, 0.8)" />
+              <Text style={styles.dateText}>{formatDate(log.date)}</Text>
+              <View style={[
+                styles.statusDot,
+                log.completed ? styles.completedDot : styles.pendingDot
+              ]} />
+            </View>
+            
+            {log.gym_name && (
+              <View style={styles.gymContainer}>
+                <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
+                <Text style={styles.gymText}>{log.gym_name}</Text>
+              </View>
+            )}
+          </View>
           
           {/* Program name if available */}
           {log.program_name && (
@@ -319,7 +337,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             )}
           </View>
         </View>
-        
+
         {/* Exercise bubbles */}
         {exerciseCount > 0 && (
           <View style={styles.exerciseRow}>
@@ -338,20 +356,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           </View>
         )}
         
-        {/* Bottom actions row */}
-        <View style={styles.actionsRow}>
-          <View style={styles.spacer}></View>
-          
-          {!isOwner && !selectionMode && (
-            <TouchableOpacity 
-              style={styles.forkButton}
-              onPress={handleFork}
-            >
-              <Ionicons name="download-outline" size={14} color="#166534" />
-              <Text style={styles.forkText}>{t('fork')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -385,32 +389,84 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 16,
   },
-  topRow: {
+
+  badgeActionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 10,
   },
-  dateLocationContainer: {
+
+  // Updated styles
+  workoutLogBadge: {
+    backgroundColor: 'rgba(60, 200, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  workoutLogBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  forkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  forkText: {
+    color: '#166534',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  titleStatusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  dateLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginRight: 16,
   },
   dateText: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
+    marginLeft: 4,
   },
   gymContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   gymText: {
-    fontSize: 12,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
     marginLeft: 4,
   },
@@ -419,17 +475,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginLeft: 8,
-  },
-  completedDot: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    elevation: 2,
-  },
-  pendingDot: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   completedBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -448,6 +493,29 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 12,
   },
+
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  dateLocationContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+
+  completedDot: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  pendingDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
   completedText: {
     color: '#166534',
     fontSize: 12,
@@ -458,15 +526,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
+
   programRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -551,29 +611,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 0,
   },
   spacer: {
     flex: 1,
-  },
-  forkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  forkText: {
-    color: '#166534',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
   },
   // Selection mode styles
   selectionIndicator: {

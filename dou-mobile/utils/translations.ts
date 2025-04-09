@@ -179,8 +179,8 @@ const post_creation = {
         weekly: 'weekly',
         unnamed_workout: 'Unnamed workout',
         no_date: 'No date',
-        exercises: 'exercises',
-        workouts: 'workouts',
+        exercises: 'Exercises',
+        workouts: 'Workouts',
         select_workout_log: 'Select Workout Log',
         search_workouts : 'Search',
         search_program : 'Search',
@@ -211,8 +211,8 @@ const post_creation = {
         weekly: 'par semaine',
         unnamed_workout: 'Entraînement sans nom',
         no_date: 'Pas de date',
-        exercises: 'exercices',
-        workouts: 'entraînements',
+        exercises: 'Exercices',
+        workouts: 'Entraînements',
         select_workout_log: 'Sélectionner un entraînement',
         search_workouts : 'Rechercher',
         search_program : 'Rechercher',
@@ -462,6 +462,8 @@ const template = {
     editing_workout_info: 'Editing Workout Information...',
     tap_exercises_to_edit: 'Tap exercises to edit',
     add_notes_here: 'Add notes here',
+    fork: 'Download',
+    completed: "Completed",
   },
   fr: {
     templates: 'Modèles',
@@ -489,6 +491,8 @@ const template = {
     editing_workout_info: "Edition des informations d'entraînement...",
     tap_exercises_to_edit: 'Cliquer sur les exercices pour éditer',
     add_notes_here: 'Ajouter des notes',
+    fork: "Télécharger",
+    completed: "Terminé",
   }
 };
 

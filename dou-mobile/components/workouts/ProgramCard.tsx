@@ -218,9 +218,14 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
         <View style={styles.cardContent}>
           {/* Title and badges row */}
           <View style={styles.topRow}>
-            <Text style={styles.title} numberOfLines={1}>
-              {program.name}
-            </Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.programBadge}>
+                <Text style={styles.programBadgeText}>{t('program')}</Text>
+              </View>
+              <Text style={styles.title} numberOfLines={1}>
+                {program.name}
+              </Text>
+            </View>
             
             {isOwner ? (
               // For owner: show touchable badge that can toggle active state
@@ -345,11 +350,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
+  // Add these styles to your StyleSheet definition
+  titleContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  programBadge: {
+    backgroundColor: 'rgba(200, 0, 240, 0.7)', // Slightly darker purple
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  programBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
   title: {
     fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
-    flex: 1,
     marginRight: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
@@ -519,6 +541,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#111827',
   },
+  
 });
 
 export default ProgramCard;

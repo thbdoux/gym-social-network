@@ -11,7 +11,8 @@ import {
   StatusBar,
   Platform,
   Alert,
-  TextInput
+  TextInput,
+  Keyboard
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -22,6 +23,13 @@ import { useAuth } from '../../../../hooks/useAuth';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { useProgramWorkout, useUpdateProgramWorkout, useRemoveWorkoutFromProgram } from '../../../../hooks/query/useProgramQuery';
 import { useProgram } from '../../../../hooks/query/useProgramQuery';
+
+// Shared components
+import ExerciseSelector from '../../../../components/workouts/ExerciseSelector';
+import ExerciseConfigurator, { Exercise, ExerciseSet } from '../../../../components/workouts/ExerciseConfigurator';
+import ExerciseCard from '../../../../components/workouts/ExerciseCard';
+import WorkoutOptionsMenu from '../../../../components/workouts/WorkoutOptionsMenu';
+import { SupersetManager } from '../../../../components/workouts/utils/SupersetManager';
 
 // Colors - using the same color scheme as the workout template page for consistency
 const COLORS = {
@@ -43,7 +51,6 @@ const COLORS = {
 export default function ProgramWorkoutDetailScreen() {
   // Get IDs from route params
   const params = useLocalSearchParams();
-  console.log("Program workout route params:", params);
   
   // Extract IDs with fallbacks
   const rawProgramId = params.programId;
@@ -74,17 +81,26 @@ export default function ProgramWorkoutDetailScreen() {
                 typeof firstId === 'number' ? firstId : 0;
   }
   
-  console.log("Parsed programId:", programId, "workoutId:", workoutId);
-  
-  // State
-  const [editMode, setEditMode] = useState(false);
-  const [selectedExerciseIndex, setSelectedExerciseIndex] = useState<number | null>(null);
+  // State for workout details
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDescription, setWorkoutDescription] = useState('');
   const [workoutDuration, setWorkoutDuration] = useState(0);
   const [workoutDifficulty, setWorkoutDifficulty] = useState('beginner');
   const [workoutFocus, setWorkoutFocus] = useState('');
   const [preferredWeekday, setPreferredWeekday] = useState(0);
+  
+  // State for edit modes
+  const [editMode, setEditMode] = useState(false);
+  const [editInfoMode, setEditInfoMode] = useState(false);
+  const [editExercisesMode, setEditExercisesMode] = useState(false);
+  
+  // State for exercise management
+  const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
+  const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
+  const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null);
+  const [pairingMode, setPairingMode] = useState(false);
+  const [pairingSourceIndex, setPairingSourceIndex] = useState<number | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   // Hooks
   const { user } = useAuth();
@@ -106,6 +122,27 @@ export default function ProgramWorkoutDetailScreen() {
     }
   }, [workout]);
   
+  // Add keyboard event listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+  
   // Check if current user is the program creator
   const isCreator = program?.creator_username === user?.username;
   
@@ -121,7 +158,7 @@ export default function ProgramWorkoutDetailScreen() {
   // Get weekday name
   const getWeekdayName = (day?: number): string => {
     if (day === undefined) return '';
-    const weekdays = [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')];
+    const weekdays = [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'), t('sunday')];
     return weekdays[day];
   };
   
@@ -165,6 +202,8 @@ export default function ProgramWorkoutDetailScreen() {
       });
       
       setEditMode(false);
+      setEditInfoMode(false);
+      setEditExercisesMode(false);
       await refetchWorkout();
     } catch (error) {
       console.error('Failed to update program workout:', error);
@@ -184,6 +223,10 @@ export default function ProgramWorkoutDetailScreen() {
       setPreferredWeekday(workout.preferred_weekday || 0);
     }
     setEditMode(false);
+    setEditInfoMode(false);
+    setEditExercisesMode(false);
+    setPairingMode(false);
+    setPairingSourceIndex(null);
   };
   
   // Handle removing the workout from program
@@ -213,78 +256,380 @@ export default function ProgramWorkoutDetailScreen() {
     );
   };
   
-  // Handle exercise selection
-  const handleExerciseSelect = (index: number) => {
-    if (selectedExerciseIndex === index) {
-      setSelectedExerciseIndex(null); // Toggle off if already selected
+  // Handle editing an exercise
+  const handleEditExercise = (index) => {
+    const exercise = workout.exercises[index];
+    setCurrentExercise({...exercise});
+    setExerciseConfiguratorVisible(true);
+  };
+  
+  // Handle saving an exercise (new or edited)
+  const handleSaveExercise = (exercise) => {
+    // Create a copy of the current workout exercises
+    const updatedExercises = [...workout.exercises];
+    
+    if (currentExercise?.id) {
+      // Update existing exercise
+      const index = updatedExercises.findIndex(ex => ex.id === currentExercise.id);
+      if (index !== -1) {
+        updatedExercises[index] = {
+          ...exercise,
+          id: currentExercise.id,
+          order: currentExercise.order
+        };
+      }
     } else {
-      setSelectedExerciseIndex(index);
+      // Add new exercise
+      updatedExercises.push({
+        ...exercise,
+        id: Date.now(), // Temporary ID for the UI
+        order: updatedExercises.length
+      });
+    }
+    
+    // Update the workout with the new exercises
+    const updates = {
+      ...workout,
+      exercises: updatedExercises
+    };
+    
+    updateProgramWorkout({
+      programId,
+      workoutId,
+      updates
+    }).then(() => {
+      setExerciseConfiguratorVisible(false);
+      setCurrentExercise(null);
+      refetchWorkout();
+    }).catch(error => {
+      console.error('Failed to update exercise:', error);
+      Alert.alert(t('error'), t('failed_to_update_exercise'));
+    });
+  };
+  
+  // Handle adding a set to an exercise
+  const handleAddSet = (exercise) => {
+    // Create a new set based on the last set or with default values
+    const lastSet = exercise.sets.length > 0 ? {...exercise.sets[exercise.sets.length - 1]} : { reps: 8, weight: 0, rest_time: 60 };
+    const newSets = [...exercise.sets, lastSet];
+    
+    // Create a copy of the exercises array
+    const updatedExercises = [...workout.exercises];
+    const index = updatedExercises.findIndex(ex => ex.id === exercise.id);
+    
+    if (index !== -1) {
+      // Update the exercise with the new set
+      updatedExercises[index] = {
+        ...exercise,
+        sets: newSets
+      };
+      
+      // Update the workout
+      const updates = {
+        ...workout,
+        exercises: updatedExercises
+      };
+      
+      updateProgramWorkout({
+        programId,
+        workoutId,
+        updates
+      }).then(() => {
+        refetchWorkout();
+      }).catch(error => {
+        console.error('Failed to add set:', error);
+        Alert.alert(t('error'), t('failed_to_add_set'));
+      });
     }
   };
   
-  // Render a single exercise
-  const renderExercise = (exercise: any, index: number) => {
-    const isExpanded = selectedExerciseIndex === index;
+  // Handle removing a set from an exercise
+  const handleRemoveSet = (exercise, setIndex) => {
+    if (exercise.sets.length <= 1) {
+      Alert.alert(t('error'), t('exercise_needs_at_least_one_set'));
+      return;
+    }
     
-    return (
-      <View key={index} style={styles.exerciseContainer}>
-        <TouchableOpacity
-          style={[
-            styles.exerciseHeader,
-            isExpanded && styles.exerciseHeaderExpanded
-          ]}
-          onPress={() => handleExerciseSelect(index)}
-          disabled={editMode}
-        >
-          <Text style={styles.exerciseName}>{exercise.name}</Text>
-          
-          <View style={styles.exerciseHeaderRight}>
-            {exercise.sets?.length > 0 && (
-              <View style={styles.setCountBadge}>
-                <Text style={styles.setCountText}>{exercise.sets.length} {t('sets')}</Text>
-              </View>
-            )}
+    const newSets = exercise.sets.filter((_, index) => index !== setIndex);
+    
+    // Create a copy of the exercises array
+    const updatedExercises = [...workout.exercises];
+    const index = updatedExercises.findIndex(ex => ex.id === exercise.id);
+    
+    if (index !== -1) {
+      // Update the exercise with the new sets
+      updatedExercises[index] = {
+        ...exercise,
+        sets: newSets
+      };
+      
+      // Update the workout
+      const updates = {
+        ...workout,
+        exercises: updatedExercises
+      };
+      
+      updateProgramWorkout({
+        programId,
+        workoutId,
+        updates
+      }).then(() => {
+        refetchWorkout();
+      }).catch(error => {
+        console.error('Failed to remove set:', error);
+        Alert.alert(t('error'), t('failed_to_remove_set'));
+      });
+    }
+  };
+  
+  // Handle updating a set's values
+  const handleUpdateSet = (exercise, setIndex, field, value) => {
+    const newSets = [...exercise.sets];
+    newSets[setIndex] = {
+      ...newSets[setIndex],
+      [field]: value
+    };
+    
+    // Create a copy of the exercises array
+    const updatedExercises = [...workout.exercises];
+    const index = updatedExercises.findIndex(ex => ex.id === exercise.id);
+    
+    if (index !== -1) {
+      // Update the exercise with the modified sets
+      updatedExercises[index] = {
+        ...exercise,
+        sets: newSets
+      };
+      
+      // Update the workout
+      const updates = {
+        ...workout,
+        exercises: updatedExercises
+      };
+      
+      updateProgramWorkout({
+        programId,
+        workoutId,
+        updates
+      }).then(() => {
+        refetchWorkout();
+      }).catch(error => {
+        console.error('Failed to update set:', error);
+        Alert.alert(t('error'), t('failed_to_update_set'));
+      });
+    }
+  };
+  
+  // Handle deleting an exercise
+  const handleDeleteExercise = (exerciseId) => {
+    Alert.alert(
+      t('delete_exercise'),
+      t('confirm_delete_exercise'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { 
+          text: t('delete'), 
+          style: 'destructive',
+          onPress: () => {
+            // Filter out the exercise to delete
+            const updatedExercises = workout.exercises.filter(ex => ex.id !== exerciseId);
             
-            <Ionicons 
-              name={isExpanded ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color={COLORS.text.secondary} 
-            />
-          </View>
-        </TouchableOpacity>
-        
-        {/* Exercise sets - visible when expanded */}
-        {isExpanded && exercise.sets && (
-          <View style={styles.setsContainer}>
-            {/* Sets header */}
-            <View style={styles.setsHeader}>
-              <Text style={styles.setsHeaderText}>{t('set')}</Text>
-              <Text style={styles.setsHeaderText}>{t('reps')}</Text>
-              <Text style={styles.setsHeaderText}>{t('weight')} (kg)</Text>
-              <Text style={styles.setsHeaderText}>{t('rest')} (s)</Text>
-            </View>
+            // Update exercise order values
+            updatedExercises.forEach((ex, idx) => {
+              ex.order = idx;
+            });
             
-            {/* Sets list */}
-            {exercise.sets.map((set: any, setIndex: number) => (
-              <View key={setIndex} style={styles.setRow}>
-                <Text style={styles.setNumber}>{setIndex + 1}</Text>
-                <Text style={styles.setValue}>{set.reps || '-'}</Text>
-                <Text style={styles.setValue}>{set.weight || '-'}</Text>
-                <Text style={styles.setValue}>{set.rest_time || '-'}</Text>
-              </View>
-            ))}
+            // Update the workout
+            const updates = {
+              ...workout,
+              exercises: updatedExercises
+            };
             
-            {/* Exercise notes if present */}
-            {exercise.notes && (
-              <View style={styles.exerciseNotes}>
-                <Text style={styles.exerciseNotesLabel}>{t('notes')}:</Text>
-                <Text style={styles.exerciseNotesText}>{exercise.notes}</Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+            updateProgramWorkout({
+              programId,
+              workoutId,
+              updates
+            }).then(() => {
+              refetchWorkout();
+            }).catch(error => {
+              console.error('Failed to delete exercise:', error);
+              Alert.alert(t('error'), t('failed_to_delete_exercise'));
+            });
+          }
+        }
+      ]
     );
+  };
+  
+  // Start superset pairing mode
+  const handleStartPairing = (index) => {
+    setPairingMode(true);
+    setPairingSourceIndex(index);
+  };
+  
+  // Cancel pairing mode
+  const handleCancelPairing = () => {
+    setPairingMode(false);
+    setPairingSourceIndex(null);
+  };
+  
+  // Pair exercises as superset
+  const handlePairExercises = (targetIndex) => {
+    if (pairingSourceIndex === null || pairingSourceIndex === targetIndex) {
+      return;
+    }
+    
+    // Create a copy of the exercises array
+    const updatedExercises = SupersetManager.createSuperset(
+      workout.exercises,
+      pairingSourceIndex,
+      targetIndex,
+      90
+    );
+    
+    // Update the workout
+    const updates = {
+      ...workout,
+      exercises: updatedExercises
+    };
+    
+    updateProgramWorkout({
+      programId,
+      workoutId,
+      updates
+    }).then(() => {
+      setPairingMode(false);
+      setPairingSourceIndex(null);
+      refetchWorkout();
+    }).catch(error => {
+      console.error('Failed to create superset:', error);
+      Alert.alert(t('error'), t('failed_to_create_superset'));
+    });
+  };
+  
+  // Remove superset pairing
+  const handleRemoveSuperset = (index) => {
+    // Create a copy of the exercises array
+    const updatedExercises = SupersetManager.removeSuperset(
+      workout.exercises,
+      index
+    );
+    
+    // Update the workout
+    const updates = {
+      ...workout,
+      exercises: updatedExercises
+    };
+    
+    updateProgramWorkout({
+      programId,
+      workoutId,
+      updates
+    }).then(() => {
+      refetchWorkout();
+    }).catch(error => {
+      console.error('Failed to remove superset:', error);
+      Alert.alert(t('error'), t('failed_to_remove_superset'));
+    });
+  };
+  
+  // Handle moving an exercise up or down
+  const handleMoveExercise = (index, direction) => {
+    if (
+      (direction === 'up' && index === 0) ||
+      (direction === 'down' && index === workout.exercises.length - 1)
+    ) {
+      return;
+    }
+    
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    // Use the SupersetManager to reorder exercises while maintaining superset relationships
+    const updatedExercises = SupersetManager.reorderExercises(
+      workout.exercises,
+      index,
+      targetIndex
+    );
+    
+    // Update the workout
+    const updates = {
+      ...workout,
+      exercises: updatedExercises
+    };
+    
+    updateProgramWorkout({
+      programId,
+      workoutId,
+      updates
+    }).then(() => {
+      refetchWorkout();
+    }).catch(error => {
+      console.error('Failed to move exercise:', error);
+      Alert.alert(t('error'), t('failed_to_move_exercise'));
+    });
+  };
+  
+  // Update exercise notes
+  const handleUpdateExerciseNotes = (exercise, notes) => {
+    // Create a copy of the exercises array
+    const updatedExercises = [...workout.exercises];
+    const index = updatedExercises.findIndex(ex => ex.id === exercise.id);
+    
+    if (index !== -1) {
+      // Update the exercise notes
+      updatedExercises[index] = {
+        ...exercise,
+        notes
+      };
+      
+      // Update the workout
+      const updates = {
+        ...workout,
+        exercises: updatedExercises
+      };
+      
+      updateProgramWorkout({
+        programId,
+        workoutId,
+        updates
+      }).then(() => {
+        refetchWorkout();
+      }).catch(error => {
+        console.error('Failed to update notes:', error);
+        Alert.alert(t('error'), t('failed_to_update_notes'));
+      });
+    }
+  };
+  
+  // Update superset rest time
+  const handleUpdateSupersetRestTime = (exercise, time) => {
+    if (!exercise.is_superset || exercise.superset_with === null) {
+      return;
+    }
+    
+    // Create a copy of the exercises array
+    const updatedExercises = SupersetManager.updateSupersetRestTime(
+      workout.exercises,
+      workout.exercises.findIndex(ex => ex.id === exercise.id),
+      time
+    );
+    
+    // Update the workout
+    const updates = {
+      ...workout,
+      exercises: updatedExercises
+    };
+    
+    updateProgramWorkout({
+      programId,
+      workoutId,
+      updates
+    }).then(() => {
+      refetchWorkout();
+    }).catch(error => {
+      console.error('Failed to update superset rest time:', error);
+      Alert.alert(t('error'), t('failed_to_update_rest_time'));
+    });
   };
   
   // Calculate loading state
@@ -300,7 +645,7 @@ export default function ProgramWorkoutDetailScreen() {
     );
   }
   
-  // Render error state if workout not found
+  // Render error state if workout or program not found
   if (!workout || !program) {
     return (
       <View style={styles.errorContainer}>
@@ -334,21 +679,20 @@ export default function ProgramWorkoutDetailScreen() {
           
           <View style={styles.headerActions}>
             {isCreator && !editMode && (
-              <>
-                <TouchableOpacity 
-                  style={styles.headerAction}
-                  onPress={() => setEditMode(true)}
-                >
-                  <Ionicons name="create-outline" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.headerAction}
-                  onPress={handleRemoveWorkout}
-                >
-                  <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-              </>
+              <WorkoutOptionsMenu
+                isCreator={isCreator}
+                onDeleteWorkout={handleRemoveWorkout}
+                onEditInfo={() => {
+                  setEditMode(true);
+                  setEditInfoMode(true);
+                  setEditExercisesMode(false);
+                }}
+                onEditExercises={() => {
+                  setEditMode(true);
+                  setEditInfoMode(false);
+                  setEditExercisesMode(true);
+                }}
+              />
             )}
             
             {editMode && (
@@ -371,8 +715,8 @@ export default function ProgramWorkoutDetailScreen() {
           </View>
         </View>
         
-        {/* Workout Title (editable in edit mode) */}
-        {editMode ? (
+        {/* Workout Title (editable in edit info mode) */}
+        {editInfoMode ? (
           <TextInput
             style={styles.headerTitleInput}
             value={workoutName}
@@ -405,7 +749,7 @@ export default function ProgramWorkoutDetailScreen() {
             {/* Focus */}
             <View style={styles.detailBox}>
               <Text style={styles.detailLabel}>{t('focus')}</Text>
-              {editMode ? (
+              {editInfoMode ? (
                 <View style={styles.focusOptions}>
                   {['strength', 'hypertrophy', 'cardio', 'endurance'].map((focus) => (
                     <TouchableOpacity
@@ -437,7 +781,7 @@ export default function ProgramWorkoutDetailScreen() {
             {/* Duration */}
             <View style={styles.detailBox}>
               <Text style={styles.detailLabel}>{t('duration')}</Text>
-              {editMode ? (
+              {editInfoMode ? (
                 <TextInput
                   style={styles.detailInput}
                   value={workoutDuration.toString()}
@@ -459,7 +803,7 @@ export default function ProgramWorkoutDetailScreen() {
             {/* Difficulty */}
             <View style={styles.detailBox}>
               <Text style={styles.detailLabel}>{t('difficulty')}</Text>
-              {editMode ? (
+              {editInfoMode ? (
                 <View style={styles.difficultyOptions}>
                   {['beginner', 'intermediate', 'advanced'].map((level) => (
                     <TouchableOpacity
@@ -491,7 +835,7 @@ export default function ProgramWorkoutDetailScreen() {
             {/* Weekday - Instance-specific field */}
             <View style={styles.detailBox}>
               <Text style={styles.detailLabel}>{t('scheduled_day')}</Text>
-              {editMode ? (
+              {editInfoMode ? (
                 <View style={styles.weekdayOptions}>
                   {[t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')].map((day, index) => (
                     <TouchableOpacity
@@ -524,11 +868,11 @@ export default function ProgramWorkoutDetailScreen() {
           </View>
         </View>
         
-        {/* Description (editable in edit mode) */}
-        {(editMode || workout.description) && (
+        {/* Description (editable in edit info mode) */}
+        {(editInfoMode || workout.description) && (
           <View style={styles.descriptionContainer}>
             <Text style={styles.descriptionLabel}>{t('description')}</Text>
-            {editMode ? (
+            {editInfoMode ? (
               <TextInput
                 style={styles.descriptionInput}
                 value={workoutDescription}
@@ -547,6 +891,18 @@ export default function ProgramWorkoutDetailScreen() {
       
       {/* Exercise List */}
       <ScrollView style={styles.contentContainer}>
+        {/* Pairing mode indicator */}
+        {pairingMode && (
+          <View style={styles.pairingModeIndicator}>
+            <Ionicons name="link" size={16} color="#0ea5e9" />
+            <Text style={styles.pairingModeText}>{t('select_exercise_to_pair')}</Text>
+            <TouchableOpacity onPress={handleCancelPairing} style={styles.cancelPairingButton}>
+              <Ionicons name="close-circle" size={16} color="#EF4444" />
+              <Text style={styles.cancelPairingText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <View style={styles.exercisesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t('exercises')}</Text>
@@ -557,47 +913,59 @@ export default function ProgramWorkoutDetailScreen() {
           
           {workout.exercises && workout.exercises.length > 0 ? (
             <View style={styles.exercisesList}>
-              {workout.exercises.map((exercise, index) => renderExercise(exercise, index))}
+              {workout.exercises.map((exercise, index) => {
+                // Find paired exercise name if this is a superset
+                const pairedExerciseName = exercise.is_superset && exercise.superset_with !== null
+                  ? workout.exercises.find(ex => ex.order === exercise.superset_with)?.name
+                  : null;
+                
+                return (
+                  <ExerciseCard
+                    key={index}
+                    exercise={exercise}
+                    pairedExerciseName={pairedExerciseName}
+                    showAllSets={true} // Always show detailed view
+                    editMode={editExercisesMode}
+                    isFirst={index === 0}
+                    isLast={index === workout.exercises.length - 1}
+                    pairingMode={pairingMode && pairingSourceIndex !== index}
+                    exerciseIndex={index}
+                    onEdit={() => handleEditExercise(index)}
+                    onDelete={() => handleDeleteExercise(exercise.id)}
+                    onMakeSuperset={() => handleStartPairing(index)}
+                    onRemoveSuperset={() => handleRemoveSuperset(index)}
+                    onMoveUp={() => handleMoveExercise(index, 'up')}
+                    onMoveDown={() => handleMoveExercise(index, 'down')}
+                    onAddSet={() => handleAddSet(exercise)}
+                    onRemoveSet={(setIndex) => handleRemoveSet(exercise, setIndex)}
+                    onUpdateSet={(setIndex, field, value) => 
+                      handleUpdateSet(exercise, setIndex, field, value)
+                    }
+                    onUpdateNotes={(notes) => handleUpdateExerciseNotes(exercise, notes)}
+                    onUpdateSupersetRestTime={(time) => handleUpdateSupersetRestTime(exercise, time)}
+                    onSelect={pairingMode ? () => handlePairExercises(index) : undefined}
+                  />
+                );
+              })}
             </View>
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
               <Text style={styles.emptyStateText}>{t('no_exercises')}</Text>
+              {editExercisesMode && (
+                <TouchableOpacity
+                  style={styles.emptyStateAddButton}
+                  onPress={() => {
+                    setCurrentExercise(null);
+                    setExerciseSelectorVisible(true);
+                  }}
+                >
+                  <Ionicons name="add-circle" size={20} color={COLORS.success} />
+                  <Text style={styles.emptyStateAddText}>{t('add_your_first_exercise')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
-        </View>
-        
-        {/* Program Info Section */}
-        <View style={styles.programSection}>
-          <Text style={styles.sectionTitle}>{t('program_info')}</Text>
-          <TouchableOpacity 
-            style={styles.programCard}
-            onPress={() => router.push(`/program/${programId}`)}
-          >
-            <Text style={styles.programTitle}>{program.name}</Text>
-            
-            <View style={styles.programDetails}>
-              <View style={styles.programDetailItem}>
-                <Text style={styles.programDetailLabel}>{t('focus')}</Text>
-                <Text style={styles.programDetailValue}>{formatFocus(program.focus)}</Text>
-              </View>
-              
-              <View style={styles.programDetailItem}>
-                <Text style={styles.programDetailLabel}>{t('level')}</Text>
-                <Text style={styles.programDetailValue}>{program.difficulty_level}</Text>
-              </View>
-              
-              <View style={styles.programDetailItem}>
-                <Text style={styles.programDetailLabel}>{t('creator')}</Text>
-                <Text style={styles.programDetailValue}>{program.creator_username}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.goToProgramButton}>
-              <Text style={styles.goToProgramText}>{t('view_program')}</Text>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.text.secondary} />
-            </View>
-          </TouchableOpacity>
         </View>
         
         {/* Tags Section (if any) */}
@@ -618,14 +986,67 @@ export default function ProgramWorkoutDetailScreen() {
         <View style={styles.bottomPadding} />
       </ScrollView>
       
+      {/* Floating Add Exercise Button (only in edit exercises mode) */}
+      {editExercisesMode && (
+        <TouchableOpacity
+          style={[
+            styles.floatingAddButton,
+            keyboardVisible && { bottom: 80 } // Move up when keyboard is visible
+          ]}
+          onPress={() => {
+            setCurrentExercise(null);
+            setExerciseSelectorVisible(true);
+          }}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
+      
       {/* Edit mode reminder (if in edit mode) */}
       {editMode && (
         <View style={styles.editModeReminder}>
           <Text style={styles.editModeText}>
-            {t('exercise_edit_note')}
+            {editInfoMode 
+              ? t('editing_workout_info')
+              : t('tap_exercises_to_edit')}
           </Text>
         </View>
       )}
+      
+      {/* Exercise Selector Modal */}
+      <ExerciseSelector
+        visible={exerciseSelectorVisible}
+        onClose={() => setExerciseSelectorVisible(false)}
+        onSelectExercise={(exerciseName) => {
+          setExerciseSelectorVisible(false);
+          setCurrentExercise({
+            name: exerciseName,
+            sets: [{reps: 10, weight: 0, rest_time: 60}],
+            is_superset: false,
+            superset_with: null
+          });
+          setExerciseConfiguratorVisible(true);
+        }}
+      />
+      
+      {/* Exercise Configurator Modal */}
+      <ExerciseConfigurator
+        visible={exerciseConfiguratorVisible}
+        onClose={() => setExerciseConfiguratorVisible(false)}
+        onSave={handleSaveExercise}
+        exerciseName={currentExercise?.name || ''}
+        initialSets={currentExercise?.sets || []}
+        initialNotes={currentExercise?.notes || ''}
+        isSuperset={currentExercise?.is_superset || false}
+        supersetWith={currentExercise?.superset_with || null}
+        supersetRestTime={currentExercise?.superset_rest_time || 90}
+        supersetPairedExerciseName={
+          currentExercise?.is_superset && currentExercise?.superset_with !== null
+            ? workout?.exercises.find(ex => ex.order === currentExercise.superset_with)?.name || null
+            : null
+        }
+        isEdit={!!currentExercise?.id}
+      />
     </SafeAreaView>
   );
 }
@@ -685,15 +1106,6 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  headerAction: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    marginLeft: 8,
   },
   saveButton: {
     backgroundColor: COLORS.success,
@@ -895,9 +1307,37 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
+    padding: 16,
+  },
+  pairingModeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  pairingModeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#0ea5e9',
+    marginLeft: 8,
+  },
+  cancelPairingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  cancelPairingText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#EF4444',
+    marginLeft: 4,
   },
   exercisesSection: {
-    padding: 16,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -917,98 +1357,6 @@ const styles = StyleSheet.create({
   exercisesList: {
     marginBottom: 16,
   },
-  exerciseContainer: {
-    marginBottom: 12,
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-  },
-  exerciseHeaderExpanded: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  exerciseHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  setCountBadge: {
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginRight: 10,
-  },
-  setCountText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-  },
-  setsContainer: {
-    padding: 16,
-    paddingTop: 8,
-  },
-  setsHeader: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  setsHeaderText: {
-    fontSize: 12,
-    color: COLORS.text.tertiary,
-    fontWeight: '500',
-    textAlign: 'center',
-    flex: 1,
-  },
-  setRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  setNumber: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-  setValue: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 14,
-    color: COLORS.text.primary,
-  },
-  exerciseNotes: {
-    marginTop: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 10,
-  },
-  exerciseNotesLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-    marginBottom: 4,
-  },
-  exerciseNotesText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    fontStyle: 'italic',
-  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1021,59 +1369,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text.tertiary,
     marginTop: 16,
-  },
-  // Program section
-  programSection: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  programCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-  },
-  programTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 12,
   },
-  programDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  programDetailItem: {
-    width: '50%',
-    marginBottom: 8,
-  },
-  programDetailLabel: {
-    fontSize: 12,
-    color: COLORS.text.tertiary,
-    marginBottom: 2,
-  },
-  programDetailValue: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    fontWeight: '600',
-  },
-  goToProgramButton: {
+  emptyStateAddButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 8,
+    marginTop: 8,
   },
-  goToProgramText: {
+  emptyStateAddText: {
     fontSize: 14,
-    color: COLORS.text.secondary,
-    fontWeight: '600',
-    marginRight: 4,
+    color: COLORS.success,
+    marginLeft: 8,
   },
   tagsSection: {
-    paddingHorizontal: 16,
     marginBottom: 16,
   },
   tagsContainer: {
@@ -1094,7 +1406,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
   },
   bottomPadding: {
-    height: 40,
+    height: 80,
   },
   // Edit mode reminder
   editModeReminder: {
@@ -1108,5 +1420,22 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  // Floating add button
+  floatingAddButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0ea5e9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });

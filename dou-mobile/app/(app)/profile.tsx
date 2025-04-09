@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827', // Dark background like in the design
   },
   scrollContainer: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 10,
     paddingBottom: 24,
   },
   loadingContainer: {
@@ -363,10 +363,10 @@ const styles = StyleSheet.create({
 
   profileHeader: {
     position: 'relative',
-    borderRadius: 24,
+    borderRadius: 12,
     padding: 8,
     marginTop: 8,
-    marginBottom: 12,
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
@@ -474,10 +474,10 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     position: 'relative',
-    borderRadius: 24,
+    borderRadius: 0,
     padding: 8,
-    marginBottom: 16,
-    borderWidth: 1,
+    marginBottom: 0,
+    borderWidth: 0,
     borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },
@@ -493,15 +493,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   chartContainer: {
-    alignItems: 'center',
+    // alignItems: 'center',
     justifyContent: 'center',
   },
   programContainer: {
     position: 'relative',
-    borderRadius: 24,
+    borderRadius: 0,
     padding: 8,
-    marginBottom: 16,
-    borderWidth: 1,
+    marginBottom: 0,
+    borderWidth: 0,
     borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },

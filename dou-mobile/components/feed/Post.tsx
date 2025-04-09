@@ -374,13 +374,6 @@ const Post: React.FC<PostProps> = ({
       })
     : [mockBadges[0], mockBadges[Math.floor(Math.random() * (mockBadges.length - 1)) + 1]];
   
-  // Get stats for the activity stats bar
-  const stats = {
-    totalWorkouts: post.stats?.totalWorkouts || 0,
-    thisWeek: post.stats?.thisWeek || 0,
-    streak: userStreak || 0
-  };
-  
   // Get personality-based gradient for avatar
   const avatarGradientColors = getPersonalityGradient();
   
@@ -445,6 +438,19 @@ const Post: React.FC<PostProps> = ({
             <View style={styles.authorInfo}>
               <View style={styles.authorNameRow}>
                 <Text style={styles.authorName}>{post.user_username}</Text>
+                
+                {/* Post Type Badge */}
+                {post.post_type && post.post_type !== 'regular' && (
+                  <LinearGradient
+                    colors={postTypeDetails.colors.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.postTypeBadge}
+                  >
+                    <Ionicons name={postTypeDetails.icon} size={12} color="#FFFFFF" />
+                    <Text style={styles.postTypeBadgeText}>{postTypeDetails.label}</Text>
+                  </LinearGradient>
+                )}
                 
                 {post.is_share && (
                   <Text style={styles.sharedLabel}>{t('shared_a_post')}</Text>
@@ -570,23 +576,7 @@ const Post: React.FC<PostProps> = ({
           )}
         </View>
         
-        {/* Activity Stats Bar - Only show for workout related posts */}
-        {isWorkoutRelated && (
-          <View style={styles.statsBar}>
-            <View style={styles.statItem}>
-              <Ionicons name="bar-chart" size={14} color="#A78BFA" />
-              <Text style={styles.statText}>{stats.totalWorkouts} {t('workouts')}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="flash" size={14} color="#FBBF24" />
-              <Text style={styles.statText}>{stats.thisWeek} {t('this_week')}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="flash" size={14} color="#F87171" />
-              <Text style={styles.statText}>{stats.streak} {t('day_streak')}</Text>
-            </View>
-          </View>
-        )}
+        {/* Activity Stats Bar - REMOVED as requested */}
         
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
@@ -732,12 +722,12 @@ const Post: React.FC<PostProps> = ({
 
 const styles = StyleSheet.create({
   postWrapper: {
-    marginBottom: 16,
+    marginBottom: 6,
     position: 'relative',
   },
   container: {
     backgroundColor: 'rgba(17, 24, 39, 0.9)', // More transparent background for blur effect
-    borderRadius: 24,
+    borderRadius: 0,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
@@ -761,7 +751,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   gradientLine: {
-    height: 2,
+    height: 0,
     width: '100%',
   },
   header: {
@@ -838,6 +828,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginRight: 8,
   },
+  // New post type badge styles
+  postTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  postTypeBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   sharedLabel: {
     fontSize: 14,
     color: '#9CA3AF',
@@ -913,36 +918,16 @@ const styles = StyleSheet.create({
     marginBottom: 8, // Reduced margin between text and cards
   },
   programCardContainer: {
-    marginTop: 8, // Reduced margin between text and program card
+    marginTop: 0, // Reduced margin between text and program card
   },
   workoutLogContainer: {
-    marginTop: 8, // Reduced margin between text and workout log
+    marginTop: 0, // Reduced margin between text and workout log
   },
   postImage: {
     width: '100%',
     height: 250,
     borderRadius: 16,
     marginTop: 8, // Reduced margin
-  },
-  statsBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statText: {
-    fontSize: 12,
-    color: '#D1D5DB',
-    marginLeft: 6,
   },
   sharedPostContainer: {
     backgroundColor: 'rgba(31, 41, 55, 0.8)',

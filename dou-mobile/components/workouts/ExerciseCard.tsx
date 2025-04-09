@@ -1,4 +1,4 @@
-// components/workouts/ExerciseCard.tsx
+// components/workouts/ExerciseCard.tsx - Modified component
 import React, { useState } from 'react';
 import {
   View,
@@ -74,15 +74,16 @@ const ExerciseCard = ({
       styles.container,
       exercise.is_superset && styles.supersetContainer
     ]}>
-      {/* Superset badge */}
+      {/* Superset indicator with label */}
       {exercise.is_superset && (
-        <View style={styles.supersetBadge}>
-          <Ionicons name="git-branch-outline" size={14} color="#FFFFFF" />
-          <Text style={styles.supersetBadgeText}>{t('superset')}</Text>
-        </View>
+        <>
+          <View style={styles.supersetLabelContainer}>
+            <Text style={styles.supersetLabel}>{t('superset')}</Text>
+          </View>
+        </>
       )}
       
-      {/* Exercise Header */}
+      {/* Exercise Header with new layout */}
       <TouchableOpacity 
         style={styles.header}
         onPress={() => !showAllSets && setExpanded(!expanded)}
@@ -102,14 +103,24 @@ const ExerciseCard = ({
             {/* Paired exercise info */}
             {exercise.is_superset && pairedExerciseName && (
               <View style={styles.pairedInfo}>
-                <Ionicons name="swap-horizontal" size={14} color="#9CA3AF" />
-                <Text style={styles.pairedText}>{pairedExerciseName}</Text>
+                <Ionicons name="git-branch-outline" size={14} color="#0ea5e9" />
+                <Text style={styles.pairedText}>
+                  <Text style={styles.pairedWithText}>{t('paired_with')}: </Text>
+                  {pairedExerciseName}
+                </Text>
               </View>
             )}
           </View>
         </View>
         
         <View style={styles.headerRight}>
+          {/* Superset badge moved here */}
+          {exercise.is_superset && (
+            <View style={styles.supersetBadge}>
+              <Ionicons name="git-branch-outline" size={14} color="#FFFFFF" />
+            </View>
+          )}
+          
           {!showAllSets && (
             <View style={styles.setCountBadge}>
               <Text style={styles.setCountText}>
@@ -118,11 +129,13 @@ const ExerciseCard = ({
             </View>
           )}
           
+          {/* Chevron for expansion/collapse */}
           {!showAllSets && !pairingMode && (
             <Ionicons 
               name={expanded ? "chevron-up" : "chevron-down"} 
-              size={18} 
+              size={20} 
               color="rgba(255, 255, 255, 0.7)" 
+              style={styles.expandIcon}
             />
           )}
         </View>
@@ -342,29 +355,52 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     overflow: 'hidden',
+    position: 'relative',
   },
   supersetContainer: {
-    borderLeftWidth: 3,
+    backgroundColor: '#1F2937', // Lighter background for supersets
+    borderLeftWidth: 4,
     borderLeftColor: '#0ea5e9',
-    backgroundColor: 'rgba(7, 89, 133, 0.1)',
   },
-  supersetBadge: {
+  // New superset indicator with visible bracket
+  supersetIndicator: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: '#0ea5e9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    left: 0,
+    top: 0,
+    height: '100%',
+    width: 20,
     zIndex: 1,
   },
-  supersetBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
+  supersetLabelContainer: {
+    position: 'absolute',
+    left: 4, 
+    top: 0,
+    backgroundColor: '#0ea5e9',
+    borderBottomRightRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    zIndex: 2,
+  },
+  supersetLabel: {
     color: '#FFFFFF',
-    marginLeft: 3,
+    fontSize: 8,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  supersetLine: {
+    width: 4,
+    backgroundColor: '#0ea5e9',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+  },
+  // Modified badge to be smaller and just show the icon
+  supersetBadge: {
+    backgroundColor: '#0ea5e9',
+    padding: 4,
+    borderRadius: 12,
+    marginRight: 8,
   },
   header: {
     flexDirection: 'row',
@@ -408,8 +444,12 @@ const styles = StyleSheet.create({
   },
   pairedText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#0ea5e9',
     marginLeft: 4,
+  },
+  pairedWithText: {
+    fontSize: 12,
+    color: '#9CA3AF',
     fontStyle: 'italic',
   },
   headerRight: {
@@ -421,12 +461,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
-    marginRight: 10,
+    marginRight: 8,
   },
   setCountText: {
     fontSize: 12,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.7)',
+  },
+  expandIcon: {
+    padding: 4, // Make the tap target larger
   },
   setSummary: {
     flexDirection: 'row',
@@ -449,6 +492,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#E5E7EB',
   },
+  // Keep all other styles the same
   details: {
     padding: 12,
   },
@@ -613,12 +657,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     margin: 12,
     borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0ea5e9',
+  },
+  pairButtonIconContainer: {
+    position: 'relative',
+    marginRight: 8,
+  },
+  pairButtonLine: {
+    position: 'absolute',
+    left: 8,
+    top: -15,
+    width: 2,
+    height: 15,
+    backgroundColor: '#0ea5e9',
   },
   pairButtonText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#0ea5e9',
-    marginLeft: 8,
   },
 });
 
