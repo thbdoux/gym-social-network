@@ -7,7 +7,8 @@ import { handleApiError } from './utils/errorHandler';
  * Configure the base API client with common settings
  */
 const apiClient = axios.create({
-  baseURL: 'http://172.20.10.2:8000/api', // You'll need to change this for production/dev
+  // baseURL: 'http://172.20.10.2:8000/api', 
+  baseURL: 'http://192.168.1.26:8000/api',
   headers: {
     'Content-Type': 'application/json',
   },

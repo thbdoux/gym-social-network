@@ -34,7 +34,6 @@ import {
 import ExerciseSelector from '../../../components/workouts/ExerciseSelector';
 import ExerciseConfigurator, { Exercise, ExerciseSet } from '../../../components/workouts/ExerciseConfigurator';
 import ExerciseCard from '../../../components/workouts/ExerciseCard';
-import WorkoutOptionsMenu from '../../../components/workouts/WorkoutOptionsMenu';
 import { SupersetManager } from '../../../components/workouts/utils/SupersetManager';
 
 // Colors
@@ -82,9 +81,7 @@ export default function WorkoutDetailScreen() {
   const [workoutDifficulty, setWorkoutDifficulty] = useState('beginner');
   const [workoutFocus, setWorkoutFocus] = useState('');
   
-  // State for edit modes
-  const [editMode, setEditMode] = useState(false);
-  const [editInfoMode, setEditInfoMode] = useState(false);
+  // State for exercise edit mode
   const [editExercisesMode, setEditExercisesMode] = useState(false);
   
   // State for exercise management
@@ -112,7 +109,6 @@ export default function WorkoutDetailScreen() {
       setWorkoutDescription(workout.description || '');
       setWorkoutDuration(workout.estimated_duration || 0);
       setWorkoutDifficulty(workout.difficulty_level || 'beginner');
-      setWorkoutFocus(workout.focus || '');
     }
   }, [workout]);
   
@@ -141,15 +137,6 @@ export default function WorkoutDetailScreen() {
   const isCreator = workout?.creator_username === user?.username;
   const isTemplate = !workout?.preferred_weekday; // If it has preferred_weekday, it's an instance
   
-  // Format focus text (convert snake_case to Title Case)
-  const formatFocus = (focus?: string): string => {
-    if (!focus) return '';
-    return focus
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-  
   // Get weekday name
   const getWeekdayName = (day?: number): string => {
     if (day === undefined) return '';
@@ -168,44 +155,192 @@ export default function WorkoutDetailScreen() {
     }
   };
   
-  // Handle saving workout edits
-  const handleSaveWorkout = async () => {
+  // Handle options menu
+  const handleOptionsMenu = () => {
+    Alert.alert(
+      t('workout_options'),
+      t('select_an_option'),
+      [
+        {
+          text: t('edit_workout_info'),
+          onPress: () => handleEditWorkoutInfo()
+        },
+        {
+          text: t('edit_exercises'),
+          onPress: () => setEditExercisesMode(true)
+        },
+        {
+          text: t('delete_workout'),
+          style: 'destructive',
+          onPress: handleDeleteWorkout
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Handle editing workout info
+  const handleEditWorkoutInfo = () => {
+    Alert.alert(
+      t('edit_workout_info'),
+      t('select_field_to_edit'),
+      [
+        {
+          text: t('name'),
+          onPress: () => handleEditWorkoutName()
+        },
+        {
+          text: t('description'),
+          onPress: () => handleEditWorkoutDescription()
+        },
+        {
+          text: t('duration'),
+          onPress: () => handleEditWorkoutDuration()
+        },
+        {
+          text: t('difficulty'),
+          onPress: () => handleEditWorkoutDifficulty()
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Handle editing workout name
+  const handleEditWorkoutName = () => {
+    Alert.prompt(
+      t('edit_name'),
+      t('enter_new_workout_name'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (name) => {
+            if (name && name.trim() !== '') {
+              setWorkoutName(name);
+              handleSaveWorkoutField('name', name);
+            }
+          }
+        }
+      ],
+      'plain-text',
+      workoutName
+    );
+  };
+
+  // Handle editing workout description
+  const handleEditWorkoutDescription = () => {
+    Alert.prompt(
+      t('edit_description'),
+      t('enter_new_workout_description'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (description) => {
+            setWorkoutDescription(description || '');
+            handleSaveWorkoutField('description', description || '');
+          }
+        }
+      ],
+      'plain-text',
+      workoutDescription
+    );
+  };
+
+  // Handle editing workout duration
+  const handleEditWorkoutDuration = () => {
+    Alert.prompt(
+      t('edit_duration'),
+      t('enter_duration_in_minutes'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (durationText) => {
+            const duration = parseInt(durationText || '0', 10);
+            setWorkoutDuration(duration);
+            handleSaveWorkoutField('estimated_duration', duration);
+          }
+        }
+      ],
+      'plain-text',
+      workoutDuration.toString(),
+      'numeric'
+    );
+  };
+
+  // Handle editing workout difficulty
+  const handleEditWorkoutDifficulty = () => {
+    Alert.alert(
+      t('edit_difficulty'),
+      t('select_difficulty_level'),
+      [
+        {
+          text: t('beginner'),
+          onPress: () => {
+            setWorkoutDifficulty('beginner');
+            handleSaveWorkoutField('difficulty_level', 'beginner');
+          }
+        },
+        {
+          text: t('intermediate'),
+          onPress: () => {
+            setWorkoutDifficulty('intermediate');
+            handleSaveWorkoutField('difficulty_level', 'intermediate');
+          }
+        },
+        {
+          text: t('advanced'),
+          onPress: () => {
+            setWorkoutDifficulty('advanced');
+            handleSaveWorkoutField('difficulty_level', 'advanced');
+          }
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Handle saving individual workout field
+  const handleSaveWorkoutField = async (field, value) => {
     try {
+      const updates = { [field]: value };
       await updateWorkout({
         id: workoutId,
-        updates: {
-          name: workoutName,
-          description: workoutDescription,
-          estimated_duration: workoutDuration,
-          difficulty_level: workoutDifficulty,
-          focus: workoutFocus
-        }
+        updates
       });
-      setEditMode(false);
-      setEditInfoMode(false);
-      setEditExercisesMode(false);
       await refetch();
     } catch (error) {
-      console.error('Failed to update workout:', error);
+      console.error(`Failed to update workout ${field}:`, error);
       Alert.alert(t('error'), t('failed_to_update_workout'));
     }
   };
   
-  // Handle canceling edit mode
-  const handleCancelEdit = () => {
-    // Reset form to original values
-    if (workout) {
-      setWorkoutName(workout.name);
-      setWorkoutDescription(workout.description || '');
-      setWorkoutDuration(workout.estimated_duration || 0);
-      setWorkoutDifficulty(workout.difficulty_level || 'beginner');
-      setWorkoutFocus(workout.focus || '');
-    }
-    setEditMode(false);
-    setEditInfoMode(false);
+  // Handle saving workout edits (for exercise editing mode)
+  const handleDoneEditingExercises = async () => {
     setEditExercisesMode(false);
     setPairingMode(false);
     setPairingSourceIndex(null);
+    await refetch();
   };
   
   // Handle deleting the workout
@@ -498,14 +633,14 @@ export default function WorkoutDetailScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#111827" />
       
-      {/* Redesigned Header */}
+      {/* Header */}
       <LinearGradient
         colors={[COLORS.primary, COLORS.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        {/* Top Row: Back button, Title, Template badge, Options */}
+        {/* Top Row: Back button, Title, Options */}
         <View style={styles.headerTopRow}>
           <TouchableOpacity 
             style={styles.backButton} 
@@ -515,53 +650,28 @@ export default function WorkoutDetailScreen() {
           </TouchableOpacity>
           
           <View style={styles.titleContainer}>
-            {editInfoMode ? (
-              <TextInput
-                style={styles.headerTitleInput}
-                value={workoutName}
-                onChangeText={setWorkoutName}
-                placeholder={t('workout_name')}
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-              />
-            ) : (
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {workout.name}
-              </Text>
-            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {workout.name}
+            </Text>
           </View>
           
-          {isCreator && !editMode ? (
-            <WorkoutOptionsMenu
-              isCreator={isCreator}
-              onDeleteWorkout={handleDeleteWorkout}
-              onEditInfo={() => {
-                setEditMode(true);
-                setEditInfoMode(true);
-                setEditExercisesMode(false);
-              }}
-              onEditExercises={() => {
-                setEditMode(true);
-                setEditInfoMode(false);
-                setEditExercisesMode(true);
-              }}
-            />
-          ) : editMode ? (
-            <View style={styles.editActions}>
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={handleCancelEdit}
-              >
-                <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.saveButton}
-                onPress={handleSaveWorkout}
-              >
-                <Text style={styles.saveButtonText}>{t('save')}</Text>
-              </TouchableOpacity>
-            </View>
+          {isCreator ? (
+            <TouchableOpacity 
+              style={styles.optionsButton}
+              onPress={handleOptionsMenu}
+            >
+              <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           ) : null}
+
+          {editExercisesMode && (
+            <TouchableOpacity 
+              style={styles.doneButton}
+              onPress={handleDoneEditingExercises}
+            >
+              <Text style={styles.doneButtonText}>{t('done')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
         
         {/* Creator info row */}
@@ -579,41 +689,13 @@ export default function WorkoutDetailScreen() {
         
         {/* Workout Info Row */}
         <View style={styles.workoutInfoRow}>
-          {/* Focus */}
-          <View style={styles.workoutInfoItem}>
-            <Ionicons name="barbell-outline" size={14} color={COLORS.text.secondary} />
-            {editInfoMode ? (
-              <TextInput
-                style={styles.infoInput}
-                value={workoutFocus}
-                onChangeText={setWorkoutFocus}
-                placeholder={t('focus')}
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-              />
-            ) : (
-              <Text style={styles.infoText}>
-                {formatFocus(workout.focus)}
-              </Text>
-            )}
-          </View>
           
           {/* Duration */}
           <View style={styles.workoutInfoItem}>
             <Ionicons name="time-outline" size={14} color={COLORS.text.secondary} />
-            {editInfoMode ? (
-              <TextInput
-                style={styles.infoInput}
-                value={workoutDuration.toString()}
-                onChangeText={(text) => setWorkoutDuration(parseInt(text) || 0)}
-                keyboardType="number-pad"
-                placeholder={t('duration')}
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-              />
-            ) : (
-              <Text style={styles.infoText}>
-                {workout.estimated_duration} {t('min')}
-              </Text>
-            )}
+            <Text style={styles.infoText}>
+              {workout.estimated_duration} {t('min')}
+            </Text>
           </View>
           
           {/* Difficulty */}
@@ -621,31 +703,9 @@ export default function WorkoutDetailScreen() {
             <Text style={styles.infoIcon}>
               {getDifficultyIndicator(workout.difficulty_level)}
             </Text>
-            {editInfoMode ? (
-              <View style={styles.difficultySelector}>
-                {['beginner', 'intermediate', 'advanced'].map((level) => (
-                  <TouchableOpacity
-                    key={level}
-                    style={[
-                      styles.difficultyOption,
-                      workoutDifficulty === level && styles.difficultyOptionSelected
-                    ]}
-                    onPress={() => setWorkoutDifficulty(level)}
-                  >
-                    <Text style={[
-                      styles.difficultyOptionText,
-                      workoutDifficulty === level && styles.difficultyOptionTextSelected
-                    ]}>
-                      {t(level)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.infoText}>
-                {t(workout.difficulty_level || 'beginner')}
-              </Text>
-            )}
+            <Text style={styles.infoText}>
+              {t(workout.difficulty_level || 'beginner')}
+            </Text>
           </View>
           
           {/* Weekday for scheduled workouts */}
@@ -659,24 +719,12 @@ export default function WorkoutDetailScreen() {
           )}
         </View>
         
-        {/* Description - only if available or in edit mode */}
-        {(editInfoMode || workout.description) && (
+        {/* Description - only if available */}
+        {workout.description && (
           <View style={styles.descriptionContainer}>
-            {editInfoMode ? (
-              <TextInput
-                style={styles.descriptionInput}
-                value={workoutDescription}
-                onChangeText={setWorkoutDescription}
-                placeholder={t('workout_description')}
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                multiline
-                numberOfLines={2}
-              />
-            ) : (
-              <Text style={styles.descriptionText} numberOfLines={2}>
-                {workout.description}
-              </Text>
-            )}
+            <Text style={styles.descriptionText} numberOfLines={2}>
+              {workout.description}
+            </Text>
           </View>
         )}
       </LinearGradient>
@@ -835,13 +883,11 @@ export default function WorkoutDetailScreen() {
         </TouchableOpacity>
       )}
       
-      {/* Edit mode reminder (if in edit mode) */}
-      {editMode && (
+      {/* Edit mode reminder (if in edit exercises mode) */}
+      {editExercisesMode && (
         <View style={styles.editModeReminder}>
           <Text style={styles.editModeText}>
-            {editInfoMode 
-              ? t('editing_workout_info')
-              : t('tap_exercises_to_edit')}
+            {t('tap_exercises_to_edit')}
           </Text>
         </View>
       )}
@@ -911,15 +957,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginRight: 8,
   },
-  headerTitleInput: {
-    flex: 1,
-    fontSize: 20,
+  optionsButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  doneButton: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  doneButtonText: {
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 6,
-    marginRight: 8,
   },
   typeBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -931,33 +983,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  editActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  cancelButtonText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  saveButton: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  saveButtonText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   creatorRow: {
     flexDirection: 'row',
@@ -994,38 +1019,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text.secondary,
   },
-  infoInput: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 6,
-    padding: 4,
-    paddingHorizontal: 8,
-    marginLeft: 4,
-    minWidth: 80,
-  },
-  difficultySelector: {
-    flexDirection: 'row',
-    marginLeft: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  difficultyOption: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  difficultyOptionSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  difficultyOptionText: {
-    fontSize: 12,
-    color: COLORS.text.secondary,
-  },
-  difficultyOptionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
   descriptionContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 8,
@@ -1036,15 +1029,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#FFFFFF',
     lineHeight: 18,
-  },
-  descriptionInput: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    padding: 8,
-    textAlignVertical: 'top',
-    minHeight: 50,
   },
   // Keep all other styles..
   safeArea: {
@@ -1077,54 +1061,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
   },
-
-  headerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
   backButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  // Compact details row
-  compactDetailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
-  compactDetailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 4,
-  },
-  compactDetailText: {
-    fontSize: 13,
-    color: COLORS.text.secondary,
-    marginLeft: 4,
-  },
-  compactDetailDivider: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    marginHorizontal: 6,
-  },
-  // Content styles
   contentContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -1137,7 +1078,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    marginBottom: 12,
+    margin: 12,
   },
   pairingModeText: {
     flex: 1,

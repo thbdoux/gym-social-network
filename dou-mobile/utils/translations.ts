@@ -57,6 +57,12 @@ const common = {
     confirm_delete: "Delete",
     delete_confirm_message: "Do you really want to delete this workout?",
     search_programs:"Search in programs",
+    welcome_message_optimizer: "Ready to crush new records,",
+    welcome_message_diplomate: "Ready to connect with your friends,",
+    welcome_message_mentor: "Ready to inspire others,",
+    welcome_message_versatile: "Ready to master new skills,",
+    welcome_message_default: "Ready to crush new records,",
+    
   },
   fr: {
     loading: 'Chargement...',
@@ -101,7 +107,12 @@ const common = {
     deselect_all: "Désélectionner tout",
     confirm_delete: "Supprimer",
     delete_confirm_message: "Voulez-vous vraiment supprimer cet entraînement?",
-    search_programs: "Rechercher dans les programmes"
+    search_programs: "Rechercher dans les programmes",
+    welcome_message_optimizer: "Prête à battre des records,",
+    welcome_message_diplomate: "Prêt à se dépasser,",
+    welcome_message_mentor: "Prêt à inspirer le monde,",
+    welcome_message_versatile: "Prêt à explorer,",
+    welcome_message_default: "Prêt à battre des records,",
   }
 };
 
@@ -229,6 +240,7 @@ const workout = {
     no_workouts: 'No Workouts',
     log_your_first_workout: 'Log your first workout',
     workout_options: 'Workout Options',
+    select_an_option: 'Choose something to update:',
     exercises: 'Exercises',
     sets: 'Sets',
     reps: 'Reps',
@@ -264,7 +276,21 @@ const workout = {
     total_reps: "Total Repetitions",
     avg_weight_per_rep: "Average Weight per repetition",
     avg_per_rep: "Average per repetition",
-
+    save_workout: "Save",
+    workout_feedback: "Workout Feedback",
+    date: 'Date',
+    enter_date_format: 'Take care of choosing the right date format',
+    notes : 'Notes',
+    how_was_your_workout: "How was your workout?",
+    enter_workout_notes: "about the workout",
+    easy: "Easy",
+    medium: "Medium",
+    heard: "Hard",
+    excellent: "Excellent",
+    good: "Good",
+    neutral:"Neutral",
+    poor: "Poor",
+    terrible: "Terrible",
   },
   fr: {
     workouts: 'Entraînements',
@@ -275,12 +301,17 @@ const workout = {
     no_workouts: 'Aucun entraînement',
     log_your_first_workout: 'Enregistrez votre premier entraînement',
     workout_options: 'Options d\'entraînement',
+    select_an_option: 'Que voulez-vous modifier?',
     exercises: 'Exercices',
     sets: 'Séries',
     reps: 'Répétitions',
     weight: 'Poids',
     duration: 'Durée',
     rest: 'Repos',
+    date: 'Date',
+    enter_date_format: 'Attention à bien respecter le bon format de date',
+    notes: 'Notes',
+    enter_workout_notes: "à propos de l'entraînement",
     workout_completed: 'Entraînement terminé',
     start_workout: 'Commencer l\'entraînement',
     finish_workout: 'Terminer l\'entraînement',
@@ -291,6 +322,15 @@ const workout = {
     equipment: 'Équipement',
     tags: 'Tags',
     mood: 'Humeur',
+    easy: "Facile",
+    medium: "Moyen",
+    heard: "Difficile",
+    excellent: "Excellent",
+    good: "Bien",
+    neutral:"Normalement",
+    poor: "Bof",
+    terrible: "Terrible",
+    how_was_your_workout: "Comment s'est passé l'entraînement?",
     difficulty: 'Difficulté',
     start_new_workout_session: "Démarrer un entraînement dès maintenant",
     log_workout_method: "Enregistrer mon entraînement",
@@ -310,6 +350,8 @@ const workout = {
     total_reps: "Répétitions (total)",
     avg_weight_per_rep: "Poids moyen par répétition",
     avg_per_rep: "Moyenne par répétition",
+    save_workout: "Enregistrer",
+    workout_feedback: "Ressenti sur l'entraînement",
   }
 };
 
@@ -344,6 +386,9 @@ const program = {
     level: "Level",
     sessions: "Sessions",
     description: "Description",
+    select_program_workout: "Select a workout",
+    select: "Select",
+    weekday: "Weekday",
     
     // Step1BasicInfo
     program_name_question: 'What will you call your program?',
@@ -363,7 +408,18 @@ const program = {
     weight_loss: 'Weight Loss',
     strength_and_size: 'Strength & Size',
     general_fitness: 'General Fitness',
-    
+    select_weekday: "Weekday",
+    choose_preferred_weekday: "Choose your preferred weekday for this workout",
+    edit_name: "Workout Name",
+    edit_description: "Workout Description",
+    edit_duration: "Workout Duration",
+    edit_difficulty: "Difficulty",
+    select_difficulty_level: "Select the difficulty level",
+    enter_duration_in_minutes: "Enter Duration (in minutes)",
+    enter_new_workout_name: "Enter a new workout name",
+    enter_new_workout_description: "Enter a new workout description",
+    done: "Apply",
+    select_field_to_edit: "Select a field to edit",
     // Step3Schedule
     training_days_question: 'How many days per week will you train?',
     days_none: 'None',
@@ -403,6 +459,11 @@ const program = {
     level: "Niveau",
     sessions: "Sessions",
     description: "Description",
+    select_program_workout: "Sélectionner un entraînement",
+    select: "Sélectionner",
+    weekday: "Jour de la semaine",
+    select_weekday: "Jour de la semaine",
+    choose_preferred_weekday: "Sélectionnez votre jour préféré pour cet entraînement",
     // Step1BasicInfo
     program_name_question: 'Comment allez-vous nommer votre programme ?',
     enter_program_name: 'Entrez le nom du programme',
@@ -421,6 +482,17 @@ const program = {
     weight_loss: 'Perte de Poids',
     strength_and_size: 'Force & Volume',
     general_fitness: 'Fitness Général',
+
+    select_field_to_edit: "Sélectionner un champ à éditer",
+    edit_name: "Nom de l'entaînement",
+    edit_description: "Description de l'entaînement",
+    edit_duration: "Durée de l'entaînement",
+    edit_difficulty: "Difficulté",
+    select_difficulty_level: "Sélectionner le niveau de difficulté",
+    enter_duration_in_minutes: "Entrer une durée (en minutes)",
+    enter_new_workout_name: "Entrer un nouveau nom pour l'entraînement",
+    enter_new_workout_description: "Entrer une nouvelle description pour l'entraînement",
+    done: "Appliquer",
     
     // Step3Schedule
     training_days_question: 'Combien de jours par semaine vous entraînerez-vous ?',
@@ -464,6 +536,7 @@ const template = {
     add_notes_here: 'Add notes here',
     fork: 'Download',
     completed: "Completed",
+    remove_workout: "Remove Workout",
   },
   fr: {
     templates: 'Modèles',
@@ -484,8 +557,8 @@ const template = {
     paired_with: 'avec',
     superset_rest: 'Repos Superset',
     remove_superset : 'Supprimer Superset',
-    edit_workout_info : 'Modifier - Informations',
-    edit_exercises : 'Modifier - Exercices',
+    edit_workout_info : 'Détails de l\'entraînement',
+    edit_exercises : 'Exercices',
     delete_workout: 'Supprimer',
     workout_description: 'Description',
     editing_workout_info: "Edition des informations d'entraînement...",
@@ -493,6 +566,7 @@ const template = {
     add_notes_here: 'Ajouter des notes',
     fork: "Télécharger",
     completed: "Terminé",
+    remove_workout: "Supprimer",
   }
 };
 

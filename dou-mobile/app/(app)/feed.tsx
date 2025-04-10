@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useHeaderAnimation } from '../../context/HeaderAnimationContext';
+import { useLanguage } from '../../context/LanguageContext';
 import FeedContainer from '../../components/feed/FeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsModal from '../../components/profile/FriendsModal';
@@ -27,6 +28,7 @@ import { usePostsFeed } from '../../hooks/query/usePostQuery';
 export default function FeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -169,31 +171,34 @@ export default function FeedScreen() {
   // Custom rendering for the feed content with welcome message at the top
   const renderHeader = () => {
     // Determine personality type from user object (with fallback)
-    const personalityType = user?.personalityType || 'versatile';
-    
+    const personalityType = user?.personality_type || 'versatile';
+    console.log(user)
     // Define messages and background images for each personality type
     let message = '';
     let backgroundImage;
     
     switch (personalityType) {
       case 'optimizer':
-        message = "Ready to maximize your day, efficiency seeker?";
-        backgroundImage = require('../../assets/images/bob.jpg');
+        message = t('welcome_message_optimizer');
+        backgroundImage = require('../../assets/images/optimizer-hawk/feed.png');
         break;
       case 'versatile':
-        message = "Welcome back! What would you like to explore today?";
-        backgroundImage = require('../../assets/images/bob.jpg');
+        message = t('welcome_message_versatile');
+        backgroundImage = require('../../assets/images/versatile-fox/feed.png');
         break;
       case 'diplomate':
-        message = "Your community is waiting to connect with you!";
-        backgroundImage = require('../../assets/images/bob.jpg');
+        // message = "Your community is waiting to connect with you!";
+        message = t('welcome_message_diplomate');
+        backgroundImage = require('../../assets/images/diplomate-monkey/feed.png');
         break;
       case 'mentor':
-        message = "Ready to inspire and guide others today?";
-        backgroundImage = require('../../assets/images/bob.jpg');
+        // message = "Ready to inspire and guide others today?";
+        message = t('welcome_message_mentor');
+        backgroundImage = require('../../assets/images/mentor-elephant/feed.png');
         break;
       default:
-        message = "Welcome back! Let's discover what's new.";
+        // message = "Welcome back! Let's discover what's new.";
+        message = t('welcome_message_default');
         backgroundImage = require('../../assets/images/bob.jpg');
         break;
     }
@@ -205,14 +210,12 @@ export default function FeedScreen() {
           style={styles.welcomeBackground}
           imageStyle={styles.welcomeBackgroundImage}
         >
-          <View style={styles.welcomeOverlay}>
             <Text style={styles.welcomeText}>
               {message}
             </Text>
             <Text style={styles.welcomeUsername}>
-              {user?.displayName || user?.username || 'Friend'}
+              {user?.displayName || user?.username || 'Friend'}?
             </Text>
-          </View>
         </ImageBackground>
       </View>
     );
@@ -391,27 +394,23 @@ const styles = StyleSheet.create({
   welcomeBackgroundImage: {
     borderRadius: 0,
   },
-  welcomeOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.4)', // Dark overlay for text readability
-    padding: 20,
-    minHeight: 140,
-    justifyContent: 'center',
-    borderRadius: 0,
-  },
   welcomeText: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 4,
+    marginTop: 32,
+    paddingLeft: 16,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: {width: -1, height: 1},
     textShadowRadius: 10
   },
   welcomeUsername: {
-    fontSize: 22,
+    fontSize: 45,
+    paddingLeft: 15,
     fontWeight: '700',
     color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: 'rgba(0, 0, 0, 2)',
     textShadowOffset: {width: -1, height: 1},
     textShadowRadius: 10
   },

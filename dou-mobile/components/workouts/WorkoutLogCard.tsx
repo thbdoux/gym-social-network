@@ -316,7 +316,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             {log.duration && (
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>{t('duration')}</Text>
-                <Text style={styles.statValue}>{log.duration}m</Text>
+                <Text style={styles.statValue}>{`${log.duration}m`}</Text>
               </View>
             )}
             
@@ -350,7 +350,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             ))}
             {exerciseCount > 3 && (
               <View style={styles.moreBubble}>
-                <Text style={styles.moreText}>+{exerciseCount - 3}</Text>
+                <Text style={styles.moreText}>{`+${exerciseCount - 3}`}</Text>
               </View>
             )}
           </View>

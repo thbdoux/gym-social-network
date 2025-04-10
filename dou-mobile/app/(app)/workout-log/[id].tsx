@@ -11,9 +11,8 @@ import {
   StatusBar,
   Platform,
   Alert,
-  Animated,
-  Dimensions,
-  TextInput
+  TextInput,
+  Keyboard
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -28,8 +27,11 @@ import {
   useDeleteLog,
 } from '../../../hooks/query/useLogQuery';
 
-// Get window dimensions
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Shared components
+import ExerciseSelector from '../../../components/workouts/ExerciseSelector';
+import ExerciseConfigurator, { Exercise, ExerciseSet } from '../../../components/workouts/ExerciseConfigurator';
+import ExerciseCard from '../../../components/workouts/ExerciseCard';
+import { SupersetManager } from '../../../components/workouts/utils/SupersetManager';
 
 // Updated green color scheme
 const COLORS = {
@@ -64,10 +66,7 @@ export default function WorkoutLogDetailScreen() {
   const { id } = useLocalSearchParams();
   const logId = typeof id === 'string' ? parseInt(id, 10) : 0;
   
-  // State
-  const [editMode, setEditMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('exercises');
-  const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
+  // State for workout log details
   const [logName, setLogName] = useState('');
   const [logNotes, setLogNotes] = useState('');
   const [logDate, setLogDate] = useState('');
@@ -75,12 +74,15 @@ export default function WorkoutLogDetailScreen() {
   const [logMoodRating, setLogMoodRating] = useState(0);
   const [logDifficulty, setLogDifficulty] = useState(0);
   
-  // Animations
-  const [animatedValues] = useState(() => ({
-    tabIndicator: new Animated.Value(0),
-    barScale: new Animated.Value(1),
-    contentFade: new Animated.Value(1)
-  }));
+  // State for edit modes
+  const [editExercisesMode, setEditExercisesMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('exercises');
+  
+  // State for exercise management
+  const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
+  const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
+  const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   // Hooks
   const { user } = useAuth();
@@ -101,14 +103,26 @@ export default function WorkoutLogDetailScreen() {
     }
   }, [log]);
   
-  // Animate tab indicator
+  // Add keyboard event listeners
   useEffect(() => {
-    Animated.timing(animatedValues.tabIndicator, {
-      toValue: activeTab === 'exercises' ? 0 : 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [activeTab]);
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
   
   // Check if current user is the log creator
   const isCreator = log?.username === user?.username;
@@ -261,43 +275,251 @@ export default function WorkoutLogDetailScreen() {
   const getExerciseColor = (index: number): string => {
     return EXERCISE_COLORS[index % EXERCISE_COLORS.length];
   };
-  
-  // Get color with opacity
-  const getColorWithOpacity = (color: string, opacity: number): string => {
-    // Check if the color is in hex format (#rrggbb)
-    if (color.startsWith('#') && color.length === 7) {
-      return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
-    }
-    return color; // Return as is if not in expected format
+
+  // Handle options menu - similar to workout page
+  const handleOptionsMenu = () => {
+    Alert.alert(
+      t('workout_options'),
+      t('select_an_option'),
+      [
+        {
+          text: t('edit_workout_info'),
+          onPress: () => handleEditWorkoutInfo()
+        },
+        {
+          text: t('edit_exercises'),
+          onPress: () => setEditExercisesMode(true)
+        },
+        {
+          text: t('remove_workout'),
+          style: 'destructive',
+          onPress: handleDeleteLog
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
   };
-  
-  // Handle saving log edits
-  const handleSaveLog = async () => {
+
+  // Handle editing workout info
+  const handleEditWorkoutInfo = () => {
+    Alert.alert(
+      t('edit_workout_info'),
+      t('select_field_to_edit'),
+      [
+        {
+          text: t('name'),
+          onPress: () => handleEditWorkoutName()
+        },
+        {
+          text: t('date'),
+          onPress: () => handleEditWorkoutDate()
+        },
+        {
+          text: t('duration'),
+          onPress: () => handleEditWorkoutDuration()
+        },
+        {
+          text: t('notes'),
+          onPress: () => handleEditWorkoutNotes()
+        },
+        {
+          text: t('mood'),
+          onPress: () => handleEditWorkoutMood()
+        },
+        {
+          text: t('edit_difficulty'),
+          onPress: () => handleEditWorkoutDifficulty()
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Handle editing workout name
+  const handleEditWorkoutName = () => {
+    Alert.prompt(
+      t('edit_name'),
+      t('enter_new_workout_name'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (name) => {
+            if (name && name.trim() !== '') {
+              setLogName(name);
+              handleSaveWorkoutField('name', name);
+            }
+          }
+        }
+      ],
+      'plain-text',
+      logName
+    );
+  };
+
+  // Handle editing workout date
+  const handleEditWorkoutDate = () => {
+    Alert.prompt(
+      t('date'),
+      t('enter_date_format'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (date) => {
+            if (date && date.trim() !== '') {
+              setLogDate(date);
+              handleSaveWorkoutField('date', date);
+            }
+          }
+        }
+      ],
+      'plain-text',
+      logDate
+    );
+  };
+
+  // Handle editing workout duration
+  const handleEditWorkoutDuration = () => {
+    Alert.prompt(
+      t('edit_duration'),
+      t('enter_duration_in_minutes'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (durationText) => {
+            const duration = parseInt(durationText || '0', 10);
+            setLogDuration(duration);
+            handleSaveWorkoutField('duration', duration);
+          }
+        }
+      ],
+      'plain-text',
+      logDuration.toString(),
+      'numeric'
+    );
+  };
+
+  // Handle editing workout notes
+  const handleEditWorkoutNotes = () => {
+    Alert.prompt(
+      t('notes'),
+      t('enter_workout_notes'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (notes) => {
+            setLogNotes(notes || '');
+            handleSaveWorkoutField('notes', notes || '');
+          }
+        }
+      ],
+      'plain-text',
+      logNotes
+    );
+  };
+
+  // Handle editing workout mood
+  const handleEditWorkoutMood = () => {
+    const moodOptions = [
+      { emoji: '😀', value: 5, label: t('excellent') },
+      { emoji: '🙂', value: 4, label: t('good') },
+      { emoji: '😐', value: 3, label: t('neutral') },
+      { emoji: '😕', value: 2, label: t('poor') },
+      { emoji: '😞', value: 1, label: t('terrible') }
+    ];
+    
+    const alertOptions = moodOptions.map(option => ({
+      text: `${option.emoji} ${option.label}`,
+      onPress: () => {
+        setLogMoodRating(option.value);
+        handleSaveWorkoutField('mood', option.value);
+      }
+    }));
+    
+    // Add cancel option
+    alertOptions.push({
+      text: t('cancel'),
+      style: 'cancel'
+    });
+    
+    Alert.alert(
+      t('mood'),
+      t('how_was_your_workout'),
+      alertOptions
+    );
+  };
+
+  // Handle editing workout difficulty
+  const handleEditWorkoutDifficulty = () => {
+    const difficultyOptions = [
+      { emoji: '🔥', value: 3, label: t('easy') },
+      { emoji: '🔥🔥', value: 5, label: t('medium') },
+      { emoji: '🔥🔥🔥', value: 8, label: t('hard') }
+    ];
+    
+    const alertOptions = difficultyOptions.map(option => ({
+      text: `${option.emoji} ${option.label}`,
+      onPress: () => {
+        setLogDifficulty(option.value);
+        handleSaveWorkoutField('perceived_difficulty', option.value);
+      }
+    }));
+    
+    // Add cancel option
+    alertOptions.push({
+      text: t('cancel'),
+      style: 'cancel'
+    });
+    
+    Alert.alert(
+      t('select_difficulty'),
+      t('how_was_your_workout'),
+      alertOptions
+    );
+  };
+
+  // Handle saving individual workout field
+  const handleSaveWorkoutField = async (field, value) => {
     try {
-      // Format the date properly to ISO format
-      let formattedDate = logDate;
-      
-      // Check if the date is in DD/MM/YYYY format and convert it
-      if (typeof logDate === 'string' && logDate.includes('/')) {
-        const [day, month, year] = logDate.split('/');
-        // Create a date object and convert to ISO string
-        const dateObj = new Date(`${year}-${month}-${day}T12:00:00Z`);
-        formattedDate = dateObj.toISOString();
-      } else if (typeof logDate === 'string' && !logDate.includes('T')) {
-        // If it's just a date without time, add the time portion
-        formattedDate = `${logDate}T12:00:00Z`;
+      // Format date properly if saving a date field
+      let formattedValue = value;
+      if (field === 'date') {
+        // Check if the date is in DD/MM/YYYY format and convert it
+        if (typeof value === 'string' && value.includes('/')) {
+          const [day, month, year] = value.split('/');
+          // Create a date object and convert to ISO string
+          const dateObj = new Date(`${year}-${month}-${day}T12:00:00Z`);
+          formattedValue = dateObj.toISOString();
+        } else if (typeof value === 'string' && !value.includes('T')) {
+          // If it's just a date without time, add the time portion
+          formattedValue = `${value}T12:00:00Z`;
+        }
       }
       
-      // Create the update data object
-      const updateData = {
-        name: logName,
-        notes: logNotes,
-        date: formattedDate,
-        duration: logDuration,
-        mood_rating: logMoodRating,
-        perceived_difficulty: logDifficulty
-      };
-  
+      // Create update data with the single field
+      const updateData = { [field]: formattedValue };
+      
       // Important: Include the existing exercises to prevent them from being deleted
       if (log && log.exercises) {
         updateData.exercises = log.exercises;
@@ -308,26 +530,17 @@ export default function WorkoutLogDetailScreen() {
         logData: updateData
       });
       
-      setEditMode(false);
       await refetch();
     } catch (error) {
-      console.error('Failed to update log:', error);
+      console.error(`Failed to update log ${field}:`, error);
       Alert.alert(t('error'), t('failed_to_update_log'));
     }
   };
   
-  // Handle canceling edit mode
-  const handleCancelEdit = () => {
-    // Reset form to original values
-    if (log) {
-      setLogName(log.name);
-      setLogNotes(log.notes || '');
-      setLogDate(log.date);
-      setLogDuration(log.duration || 0);
-      setLogMoodRating(log.mood_rating || 0);
-      setLogDifficulty(log.perceived_difficulty || 0);
-    }
-    setEditMode(false);
+  // Handle saving exercise edits (for exercise editing mode)
+  const handleDoneEditingExercises = async () => {
+    setEditExercisesMode(false);
+    await refetch();
   };
   
   // Handle deleting the log
@@ -354,156 +567,164 @@ export default function WorkoutLogDetailScreen() {
     );
   };
   
-  // Render the exercise visualization with sets
-  const renderExerciseVisualization = () => {
-    if (!log?.exercises || log.exercises.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Ionicons name="barbell-outline" size={48} color={COLORS.text.secondary} />
-          <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
-        </View>
-      );
-    }
+  // Handle updating a set
+  const handleUpdateSet = (exercise, setIndex, field, value) => {
+    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
     
-    const exercise = log.exercises[selectedExerciseIndex];
-    const exerciseColor = getExerciseColor(selectedExerciseIndex);
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
     
-    if (!exercise.sets || exercise.sets.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>{t('no_sets_recorded')}</Text>
-        </View>
-      );
-    }
+    // Update the specific set
+    updatedExercises[exerciseIndex].sets[setIndex][field] = value;
     
-    return (
-      <Animated.View style={[styles.visualizationContainer, { opacity: animatedValues.contentFade }]}>
-        {/* Sets visualization */}
-        <ScrollView style={styles.setsScrollView} showsVerticalScrollIndicator={false}>
-          {/* Legends at the top */}
-          <View style={styles.legendContainer}>
-            <Text style={styles.legendText}>{t('reps')}</Text>
-            <Text style={styles.legendText}>{t('weight')} (kg)</Text>
-          </View>
-          
-          {/* Sets */}
-          {exercise.sets.map((set, idx) => (
-            <Animated.View 
-              key={idx} 
-              style={[styles.setContainer, { opacity: animatedValues.contentFade }]}
-            >
-              {/* Left side - Reps visualization */}
-              <View style={styles.repsSection}>
-                <Text style={styles.repCountText}>{set.reps || 0}</Text>
-                <View style={styles.repDotsContainer}>
-                  {Array.from({ length: Math.min(set.reps || 0, 10) }).map((_, i) => (
-                    <View 
-                      key={i}
-                      style={[
-                        styles.repDot,
-                        { 
-                          backgroundColor: exerciseColor,
-                          opacity: 0.7 + ((i / Math.min(set.reps || 1, 10)) * 0.3) 
-                        }
-                      ]}
-                    />
-                  ))}
-                </View>
-              </View>
-              
-              {/* Center - Set number */}
-              <View style={styles.setNumberSection}>
-                <View style={[styles.setNumberBadge, { backgroundColor: getColorWithOpacity(exerciseColor, 0.2) }]}>
-                  <Text style={[styles.setNumberText, { color: exerciseColor }]}>
-                    {t('set')} {idx + 1}
-                  </Text>
-                </View>
-              </View>
-              
-              {/* Right side - Weight bar */}
-              <View style={styles.weightSection}>
-                <Animated.View 
-                  style={[
-                    styles.weightBarContainer,
-                    { transform: [{ scaleX: animatedValues.barScale }] }
-                  ]}
-                >
-                  <View style={styles.weightBarBackground}>
-                    <View 
-                      style={[
-                        styles.weightBar,
-                        { 
-                          width: `${((set.weight || 0) / workoutStats.maxWeight) * 100}%`,
-                          backgroundColor: exerciseColor 
-                        }
-                      ]}
-                    />
-                  </View>
-                </Animated.View>
-                <Text style={styles.weightText}>{set.weight || 0}</Text>
-              </View>
-            </Animated.View>
-          ))}
-          
-          {/* Notes if available */}
-          {exercise.note && (
-            <View style={styles.noteContainer}>
-              <Text style={styles.noteText}>{exercise.note}</Text>
-            </View>
-          )}
-        </ScrollView>
-      </Animated.View>
-    );
+    // Prepare the update data
+    const updateData = {
+      ...log,
+      exercises: updatedExercises
+    };
+    
+    // Update the log
+    updateLog({
+      id: logId,
+      logData: updateData
+    }).then(() => {
+      refetch();
+    });
   };
   
-  // Render exercise selector buttons
-  const renderExerciseSelector = () => {
-    if (!log?.exercises || log.exercises.length === 0) {
-      return null;
+  // Handle adding a set
+  const handleAddSet = (exercise) => {
+    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
+    
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+    
+    // Get last set for reference or create default
+    const lastSet = exercise.sets.length > 0 
+      ? {...exercise.sets[exercise.sets.length - 1]} 
+      : { reps: 10, weight: 0, rest_time: 60 };
+    
+    // Add the new set
+    updatedExercises[exerciseIndex].sets.push(lastSet);
+    
+    // Prepare the update data
+    const updateData = {
+      ...log,
+      exercises: updatedExercises
+    };
+    
+    // Update the log
+    updateLog({
+      id: logId,
+      logData: updateData
+    }).then(() => {
+      refetch();
+    });
+  };
+  
+  // Handle removing a set
+  const handleRemoveSet = (exercise, setIndex) => {
+    if (exercise.sets.length <= 1) {
+      Alert.alert(t('error'), t('exercise_needs_at_least_one_set'));
+      return;
     }
     
-    return (
-      <View style={styles.exerciseSelectorContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.exerciseSelectorScroll}
-          contentContainerStyle={styles.exerciseSelectorContent}
-        >
-          {log.exercises.map((exercise, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.exerciseButton,
-                selectedExerciseIndex === index && [
-                  styles.exerciseButtonSelected,
-                  { borderColor: getExerciseColor(index) }
-                ]
-              ]}
-              onPress={() => setSelectedExerciseIndex(index)}
-            >
-              <Text 
-                style={[
-                  styles.exerciseButtonText,
-                  selectedExerciseIndex === index && {
-                    color: COLORS.text.primary,
-                    fontWeight: '700'
-                  }
-                ]}
-                numberOfLines={1}
-              >
-                {exercise.name}
-              </Text>
-              {exercise.muscleGroup && (
-                <Text style={styles.exerciseMuscleGroup}>
-                  {exercise.muscleGroup}
-                </Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-    );
+    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
+    
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+    
+    // Remove the set
+    updatedExercises[exerciseIndex].sets.splice(setIndex, 1);
+    
+    // Prepare the update data
+    const updateData = {
+      ...log,
+      exercises: updatedExercises
+    };
+    
+    // Update the log
+    updateLog({
+      id: logId,
+      logData: updateData
+    }).then(() => {
+      refetch();
+    });
+  };
+  
+  // Handle editing an exercise
+  const handleEditExercise = (index) => {
+    const exercise = log.exercises[index];
+    setCurrentExercise({...exercise});
+    setExerciseConfiguratorVisible(true);
+  };
+  
+  // Handle updating exercise notes
+  const handleUpdateExerciseNotes = (exercise, notes) => {
+    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
+    
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+    
+    // Update the notes
+    updatedExercises[exerciseIndex].notes = notes;
+    
+    // Prepare the update data
+    const updateData = {
+      ...log,
+      exercises: updatedExercises
+    };
+    
+    // Update the log
+    updateLog({
+      id: logId,
+      logData: updateData
+    }).then(() => {
+      refetch();
+    });
+  };
+  
+  // Handle saving an exercise (edited)
+  const handleSaveExercise = (exercise) => {
+    if (currentExercise?.id) {
+      const exerciseIndex = log.exercises.findIndex(e => e.id === currentExercise.id);
+      if (exerciseIndex === -1) {
+        setExerciseConfiguratorVisible(false);
+        setCurrentExercise(null);
+        return;
+      }
+      
+      // Create a deep copy of the exercises array
+      const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+      
+      // Update the exercise
+      updatedExercises[exerciseIndex] = {
+        ...exercise,
+        id: currentExercise.id,
+        order: currentExercise.order
+      };
+      
+      // Prepare the update data
+      const updateData = {
+        ...log,
+        exercises: updatedExercises
+      };
+      
+      // Update the log
+      updateLog({
+        id: logId,
+        logData: updateData
+      }).then(() => {
+        refetch();
+      });
+    }
+    
+    setExerciseConfiguratorVisible(false);
+    setCurrentExercise(null);
   };
   
   // Render advanced stats content
@@ -622,12 +843,6 @@ export default function WorkoutLogDetailScreen() {
   
   // Render tab navigation
   const renderTabNavigation = () => {
-    // Calculate the translateX for the tab indicator
-    const translateX = animatedValues.tabIndicator.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, SCREEN_WIDTH / 2]
-    });
-    
     return (
       <View style={styles.tabNavigationContainer}>
         <TouchableOpacity
@@ -636,7 +851,7 @@ export default function WorkoutLogDetailScreen() {
             activeTab === 'exercises' && styles.tabButtonActive
           ]}
           onPress={() => setActiveTab('exercises')}
-          disabled={editMode}
+          disabled={editExercisesMode}
         >
           <Ionicons 
             name="barbell-outline" 
@@ -659,7 +874,7 @@ export default function WorkoutLogDetailScreen() {
             activeTab === 'stats' && styles.tabButtonActive
           ]}
           onPress={() => setActiveTab('stats')}
-          disabled={editMode}
+          disabled={editExercisesMode}
         >
           <Ionicons 
             name="stats-chart" 
@@ -675,18 +890,6 @@ export default function WorkoutLogDetailScreen() {
             {t('advanced_stats')}
           </Text>
         </TouchableOpacity>
-        
-        {/* Animated tab indicator */}
-        <Animated.View 
-          style={[
-            styles.tabIndicator,
-            { 
-              backgroundColor: COLORS.primary,
-              transform: [{ translateX }],
-              width: SCREEN_WIDTH / 4 // Half of a tab width for a more subtle indicator
-            }
-          ]} 
-        />
       </View>
     );
   };
@@ -720,12 +923,13 @@ export default function WorkoutLogDetailScreen() {
       
       {/* Header */}
       <LinearGradient
-        colors={['#16a34a', '#10b981']}
+        colors={[COLORS.primary, COLORS.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <View style={styles.headerControls}>
+        {/* Top Row: Back button, Title, Options */}
+        <View style={styles.headerTopRow}>
           <TouchableOpacity 
             style={styles.backButton} 
             onPress={() => router.back()}
@@ -733,232 +937,170 @@ export default function WorkoutLogDetailScreen() {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
-          <View style={styles.headerActions}>
-            {isCreator && !editMode && (
-              <>
-                <TouchableOpacity 
-                  style={styles.headerAction}
-                  onPress={() => setEditMode(true)}
-                >
-                  <Ionicons name="create-outline" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.headerAction}
-                  onPress={handleDeleteLog}
-                >
-                  <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-              </>
-            )}
-            
-            {editMode && (
-              <>
-                <TouchableOpacity 
-                  style={styles.cancelButton}
-                  onPress={handleCancelEdit}
-                >
-                  <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.saveButton}
-                  onPress={handleSaveLog}
-                >
-                  <Text style={styles.saveButtonText}>{t('save')}</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-        
-        {/* Workout Title (editable in edit mode) */}
-        {editMode ? (
-          <TextInput
-            style={styles.headerTitleInput}
-            value={logName}
-            onChangeText={setLogName}
-            placeholder={t('workout_name')}
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
-          />
-        ) : (
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {log.name}
-          </Text>
-        )}
-        
-        {/* Workout Details */}
-        <View style={styles.workoutDetailsContainer}>
-          {/* Date and completion status */}
-          <View style={styles.workoutDetailsRow}>
-            <View style={styles.workoutDetailItem}>
-              <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
-              {editMode ? (
-                <TextInput
-                  style={styles.detailInput}
-                  value={logDate}
-                  onChangeText={setLogDate}
-                  placeholder="DD/MM/YYYY"
-                  placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                />
-              ) : (
-                <Text style={styles.workoutDetailText}>{formatDate(log.date)}</Text>
-              )}
-            </View>
-            
-            <View style={[
-              styles.statusBadge,
-              log.completed ? styles.completedBadge : styles.pendingBadge
-            ]}>
-              <Ionicons 
-                name={log.completed ? "checkmark-circle" : "time"} 
-                size={12} 
-                color="#FFFFFF"
-              />
-              <Text style={styles.statusText}>
-                {log.completed ? t('completed') : t('in_progress')}
-              </Text>
-            </View>
+          <View style={styles.titleContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {log.name}
+            </Text>
           </View>
           
-          {/* Additional workout details */}
-          <View style={styles.workoutDetailsRow}>
-            {(log.gym_name || editMode) && (
-              <View style={styles.workoutDetailItem}>
-                <Ionicons name="location-outline" size={14} color={COLORS.text.secondary} />
-                <Text style={styles.workoutDetailText}>{log.gym_name}</Text>
-              </View>
-            )}
-            
-            <View style={styles.workoutDetailItem}>
-              <Ionicons name="time-outline" size={14} color={COLORS.text.secondary} />
-              {editMode ? (
-                <TextInput
-                  style={styles.detailInput}
-                  value={logDuration.toString()}
-                  onChangeText={(text) => setLogDuration(parseInt(text) || 0)}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                />
-              ) : (
-                <Text style={styles.workoutDetailText}>{log.duration}m</Text>
-              )}
-            </View>
-            
-            {/* Mood rating */}
-            <View style={styles.workoutDetailItem}>
-              {editMode ? (
-                <View style={styles.ratingContainer}>
-                  <Text style={styles.ratingLabel}>{t('mood')}</Text>
-                  {[1, 2, 3, 4, 5].map((rating) => (
-                    <TouchableOpacity
-                      key={rating}
-                      style={[
-                        styles.ratingOption,
-                        logMoodRating === rating && styles.ratingOptionSelected
-                      ]}
-                      onPress={() => setLogMoodRating(rating)}
-                    >
-                      <Text>{getMoodEmoji(rating)}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.workoutDetailEmoji}>
-                  {getMoodEmoji(log.mood_rating)}
-                </Text>
-              )}
-            </View>
-            
-            {/* Difficulty rating */}
-            <View style={styles.workoutDetailItem}>
-              {editMode ? (
-                <View style={styles.ratingContainer}>
-                  <Text style={styles.ratingLabel}>{t('difficulty')}</Text>
-                  {[1, 5, 10].map((rating) => (
-                    <TouchableOpacity
-                      key={rating}
-                      style={[
-                        styles.ratingOption,
-                        logDifficulty === rating && styles.ratingOptionSelected
-                      ]}
-                      onPress={() => setLogDifficulty(rating)}
-                    >
-                      <Text>{getDifficultyIndicator(rating)}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.workoutDetailEmoji}>
-                  {getDifficultyIndicator(log.perceived_difficulty)}
-                </Text>
-              )}
-            </View>
+          {isCreator && !editExercisesMode ? (
+            <TouchableOpacity 
+              style={styles.optionsButton}
+              onPress={handleOptionsMenu}
+            >
+              <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : editExercisesMode ? (
+            <TouchableOpacity 
+              style={styles.doneButton}
+              onPress={handleDoneEditingExercises}
+            >
+              <Text style={styles.doneButtonText}>{t('done')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        
+        {/* User info row */}
+        <View style={styles.creatorRow}>
+          <View style={styles.creatorInfo}>
+            <Ionicons name="person" size={14} color={COLORS.text.secondary} />
+            <Text style={styles.creatorText}>{log.username}</Text>
+          </View>
+          <View style={styles.statusBadge}>
+            <Ionicons 
+              name={log.completed ? "checkmark-circle" : "time"} 
+              size={12} 
+              color="#FFFFFF"
+            />
+            <Text style={styles.statusText}>
+              {log.completed ? t('completed') : t('in_progress')}
+            </Text>
           </View>
         </View>
         
-        {/* Notes (editable in edit mode) */}
-        {(editMode || log.notes) && (
+        {/* Workout Info Row */}
+        <View style={styles.workoutInfoRow}>
+          {/* Date */}
+          <View style={styles.workoutInfoItem}>
+            <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
+            <Text style={styles.infoText}>{formatDate(log.date)}</Text>
+          </View>
+          
+          {/* Gym */}
+          {log.gym_name && (
+            <View style={styles.workoutInfoItem}>
+              <Ionicons name="location-outline" size={14} color={COLORS.text.secondary} />
+              <Text style={styles.infoText}>{log.gym_name}</Text>
+            </View>
+          )}
+          
+          {/* Duration */}
+          <View style={styles.workoutInfoItem}>
+            <Ionicons name="time-outline" size={14} color={COLORS.text.secondary} />
+            <Text style={styles.infoText}>{log.duration}m</Text>
+          </View>
+          
+          {/* Mood rating */}
+          <View style={styles.workoutInfoItem}>
+            <Text style={styles.infoIcon}>{getMoodEmoji(log.mood_rating)}</Text>
+            <Text style={styles.infoText}>{t('mood')}</Text>
+          </View>
+          
+          {/* Difficulty rating */}
+          <View style={styles.workoutInfoItem}>
+            <Text style={styles.infoIcon}>{getDifficultyIndicator(log.perceived_difficulty)}</Text>
+            <Text style={styles.infoText}>{t('difficulty')}</Text>
+          </View>
+        </View>
+        
+        {/* Notes - only if available */}
+        {log.notes && (
           <View style={styles.notesContainer}>
-            <Text style={styles.notesLabel}>{t('notes')}</Text>
-            {editMode ? (
-              <TextInput
-                style={styles.notesInput}
-                value={logNotes}
-                onChangeText={setLogNotes}
-                placeholder={t('workout_notes')}
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                multiline
-                numberOfLines={3}
-              />
-            ) : (
-              <Text style={styles.notesText}>{log.notes}</Text>
-            )}
+            <Text style={styles.notesText} numberOfLines={3}>
+              {log.notes}
+            </Text>
           </View>
         )}
       </LinearGradient>
       
-      {!editMode && (
-        <>
-          {/* Tab Navigation */}
-          {renderTabNavigation()}
-          
-          {/* Tab Content */}
-          <View style={styles.tabContentContainer}>
-            {activeTab === 'exercises' ? (
-              <View style={styles.exercisesTabContent}>
-                {/* Exercise selector */}
-                {renderExerciseSelector()}
-                
-                {/* Exercise visualization */}
-                {renderExerciseVisualization()}
+      {/* Tab Navigation (only show when not in edit mode) */}
+      {!editExercisesMode && renderTabNavigation()}
+      
+      {/* Main Content Area */}
+      <View style={styles.contentContainer}>
+        {activeTab === 'exercises' ? (
+          /* Exercises Tab */
+          <ScrollView style={styles.exercisesContainer}>
+            {/* Exercises Section */}
+            <View style={styles.exercisesSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{t('exercises')}</Text>
+                <View style={styles.exerciseControls}>
+                  <Text style={styles.exerciseCount}>
+                    {log.exercises?.length || 0} {t('total')}
+                  </Text>
+                </View>
               </View>
-            ) : (
-              <View style={styles.statsTabContent}>
-                {/* Advanced stats */}
-                {renderAdvancedStats()}
-              </View>
-            )}
-          </View>
-        </>
+              
+              {/* Exercise List */}
+              {log.exercises && log.exercises.length > 0 ? (
+                <View style={styles.exercisesList}>
+                  {log.exercises.map((exercise, index) => (
+                    <ExerciseCard
+                      key={index}
+                      exercise={exercise}
+                      showAllSets={true} // Always show detailed view in workout log detail
+                      editMode={editExercisesMode}
+                      isFirst={index === 0}
+                      isLast={index === log.exercises.length - 1}
+                      exerciseIndex={index}
+                      onEdit={() => handleEditExercise(index)}
+                      onAddSet={() => handleAddSet(exercise)}
+                      onRemoveSet={(setIndex) => handleRemoveSet(exercise, setIndex)}
+                      onUpdateSet={(setIndex, field, value) => 
+                        handleUpdateSet(exercise, setIndex, field, value)
+                      }
+                      onUpdateNotes={(notes) => handleUpdateExerciseNotes(exercise, notes)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
+                  <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Bottom padding */}
+            <View style={styles.bottomPadding} />
+          </ScrollView>
+        ) : (
+          /* Statistics Tab */
+          renderAdvancedStats()
+        )}
+      </View>
+      
+      {/* Edit mode reminder (if in edit mode) */}
+      {editExercisesMode && (
+        <View style={styles.editModeReminder}>
+          <Text style={styles.editModeText}>
+            {t('tap_exercises_to_edit')}
+          </Text>
+        </View>
       )}
       
-      {/* Edit form (shown only in edit mode) */}
-      {editMode && (
-        <ScrollView style={styles.editFormContainer}>
-          <View style={styles.editFormSection}>
-            <Text style={styles.editFormSectionTitle}>{t('workout_info')}</Text>
-            <Text style={styles.editFormHelp}>
-              {t('edit_workout_help')}
-            </Text>
-            
-            {/* Note that we can't edit exercises directly - would need a more complex form */}
-            <Text style={styles.editFormNote}>
-              {t('exercise_edit_note')}
-            </Text>
-          </View>
-        </ScrollView>
+      {/* Exercise Configurator Modal */}
+      {currentExercise && (
+        <ExerciseConfigurator
+          visible={exerciseConfiguratorVisible}
+          onClose={() => setExerciseConfiguratorVisible(false)}
+          onSave={handleSaveExercise}
+          exerciseName={currentExercise?.name || ''}
+          initialSets={currentExercise?.sets || []}
+          initialNotes={currentExercise?.notes || ''}
+          isEdit={!!currentExercise?.id}
+        />
       )}
     </SafeAreaView>
   );
@@ -995,17 +1137,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
   },
-  // Header styles
-  header: {
-    padding: 16,
-    paddingBottom: 20,
-  },
-  headerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
   backButton: {
     padding: 8,
     borderRadius: 20,
@@ -1016,81 +1147,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  headerActions: {
+  
+  // Header styles
+  header: {
+    padding: 16,
+    paddingBottom: 12,
+  },
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  headerAction: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     marginLeft: 8,
-  },
-  saveButton: {
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 8,
+    marginRight: 8,
   },
-  headerTitleInput: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
+  optionsButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
-  workoutDetailsContainer: {
-    marginBottom: 16,
+  doneButton: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  workoutDetailsRow: {
+  doneButtonText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  creatorRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
     marginBottom: 8,
   },
-  workoutDetailItem: {
+  creatorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
-    marginBottom: 4,
+    paddingRight: 12,
   },
-  workoutDetailText: {
+  creatorText: {
     fontSize: 14,
-    color: '#FFFFFF',
-    marginLeft: 6,
-  },
-  workoutDetailEmoji: {
-    fontSize: 16,
-    marginLeft: 6,
+    color: COLORS.text.secondary,
+    marginLeft: 4,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -1098,17 +1208,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
-    marginRight: 16,
-  },
-  completedBadge: {
     backgroundColor: 'rgba(22, 101, 52, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(22, 101, 52, 0.3)',
-  },
-  pendingBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   statusText: {
     fontSize: 12,
@@ -1116,69 +1218,46 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     color: '#FFFFFF',
   },
-  notesContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    padding: 12,
+  workoutInfoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  notesLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginBottom: 4,
-  },
-  notesText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    lineHeight: 20,
-  },
-  notesInput: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    padding: 8,
-    textAlignVertical: 'top',
-    minHeight: 80,
-  },
-  detailInput: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 6,
-    minWidth: 50,
-  },
-  ratingContainer: {
+  workoutInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 4,
-    marginLeft: 6,
+    marginRight: 16,
+    marginBottom: 4,
   },
-  ratingLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+  infoText: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+    marginLeft: 4,
+  },
+  infoIcon: {
+    fontSize: 14,
     marginRight: 4,
   },
-  ratingOption: {
-    padding: 4,
-    borderRadius: 4,
-    marginHorizontal: 2,
+  notesContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 4,
   },
-  ratingOptionSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  notesText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    lineHeight: 18,
   },
-  // Tab navigation styles
+  
+  // Tab Navigation Styles
   tabNavigationContainer: {
     flexDirection: 'row',
     height: 50,
     backgroundColor: COLORS.card,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    position: 'relative',
   },
   tabButton: {
     flex: 1,
@@ -1187,7 +1266,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabButtonActive: {
-    backgroundColor: 'rgba(22, 163, 74, 0.05)',
+    backgroundColor: 'rgba(74, 222, 128, 0.05)',
   },
   tabButtonText: {
     fontSize: 14,
@@ -1195,166 +1274,75 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     marginLeft: 6,
   },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    height: 3,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-  },
-  // Tab content container
-  tabContentContainer: {
+  
+  // Content Container Styles
+  contentContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  exercisesTabContent: {
+  exercisesContainer: {
     flex: 1,
+    padding: 0,
   },
-  statsTabContent: {
-    flex: 1,
+  exercisesSection: {
+    marginBottom: 16,
   },
-  // Exercise selector styles
-  exerciseSelectorContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 10,
-    backgroundColor: COLORS.card,
-  },
-  exerciseSelectorScroll: {
-    maxHeight: 60,
-  },
-  exerciseSelectorContent: {
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  exerciseButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
-    minWidth: 100,
-  },
-  exerciseButtonSelected: {
-    backgroundColor: 'rgba(22, 163, 74, 0.1)',
-  },
-  exerciseButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-  },
-  exerciseMuscleGroup: {
-    fontSize: 10,
-    color: COLORS.text.tertiary,
-    marginTop: 2,
-  },
-  // Exercise visualization styles
-  visualizationContainer: {
-    flex: 1,
-    paddingVertical: 12,
-  },
-  setsScrollView: {
-    flex: 1,
-  },
-  legendContainer: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 8,
+    marginTop: 4,
   },
-  legendText: {
-    fontSize: 10,
-    color: COLORS.text.tertiary,
-    fontWeight: '500',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
-  setContainer: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    marginHorizontal: 16,
-  },
-  repsSection: {
-    flex: 5,
+  exerciseControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
   },
-  repCountText: {
+  exerciseCount: {
     fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-    marginRight: 8,
+    color: COLORS.text.secondary,
   },
-  repDotsContainer: {
-    flexDirection: 'row-reverse',
-    gap: 2,
+  exercisesList: {
+    padding: 16,
+    paddingTop: 8,
   },
-  repDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
-  setNumberSection: {
-    flex: 2,
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  setNumberBadge: {
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    borderRadius: 8,
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  setNumberText: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  weightSection: {
-    flex: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  weightBarContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
-  weightBarBackground: {
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  weightBar: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  weightText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-    width: 30,
-    textAlign: 'right',
-  },
-  noteContainer: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 24,
+    backgroundColor: COLORS.card,
+    margin: 16,
     borderRadius: 12,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: COLORS.text.tertiary,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  bottomPadding: {
+    height: 40,
+  },
+  
+  // Edit mode reminder
+  editModeReminder: {
     padding: 12,
-    marginTop: 10,
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
-  noteText: {
+  editModeText: {
     fontSize: 12,
-    fontStyle: 'italic',
     color: COLORS.text.secondary,
-    lineHeight: 18,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
+  
   // Stats styles
   statsContainer: {
     flex: 1,
@@ -1470,48 +1458,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text.secondary,
-  },
-  // Empty state styles
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: COLORS.text.tertiary,
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  // Edit form styles
-  editFormContainer: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: 16,
-  },
-  editFormSection: {
-    marginBottom: 24,
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: 16,
-  },
-  editFormSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-    marginBottom: 12,
-  },
-  editFormHelp: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  editFormNote: {
-    fontSize: 12,
-    color: COLORS.text.tertiary,
-    fontStyle: 'italic',
-    lineHeight: 18,
   },
 });

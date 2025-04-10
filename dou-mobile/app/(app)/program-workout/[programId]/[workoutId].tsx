@@ -28,7 +28,6 @@ import { useProgram } from '../../../../hooks/query/useProgramQuery';
 import ExerciseSelector from '../../../../components/workouts/ExerciseSelector';
 import ExerciseConfigurator, { Exercise, ExerciseSet } from '../../../../components/workouts/ExerciseConfigurator';
 import ExerciseCard from '../../../../components/workouts/ExerciseCard';
-import WorkoutOptionsMenu from '../../../../components/workouts/WorkoutOptionsMenu';
 import { SupersetManager } from '../../../../components/workouts/utils/SupersetManager';
 
 // Colors - using the same color scheme as the workout template page for consistency
@@ -86,12 +85,9 @@ export default function ProgramWorkoutDetailScreen() {
   const [workoutDescription, setWorkoutDescription] = useState('');
   const [workoutDuration, setWorkoutDuration] = useState(0);
   const [workoutDifficulty, setWorkoutDifficulty] = useState('beginner');
-  const [workoutFocus, setWorkoutFocus] = useState('');
   const [preferredWeekday, setPreferredWeekday] = useState(0);
   
   // State for edit modes
-  const [editMode, setEditMode] = useState(false);
-  const [editInfoMode, setEditInfoMode] = useState(false);
   const [editExercisesMode, setEditExercisesMode] = useState(false);
   
   // State for exercise management
@@ -117,7 +113,6 @@ export default function ProgramWorkoutDetailScreen() {
       setWorkoutDescription(workout.description || '');
       setWorkoutDuration(workout.estimated_duration || 0);
       setWorkoutDifficulty(workout.difficulty_level || 'beginner');
-      setWorkoutFocus(workout.focus || '');
       setPreferredWeekday(workout.preferred_weekday || 0);
     }
   }, [workout]);
@@ -146,15 +141,6 @@ export default function ProgramWorkoutDetailScreen() {
   // Check if current user is the program creator
   const isCreator = program?.creator_username === user?.username;
   
-  // Format focus text (convert snake_case to Title Case)
-  const formatFocus = (focus?: string): string => {
-    if (!focus) return '';
-    return focus
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-  
   // Get weekday name
   const getWeekdayName = (day?: number): string => {
     if (day === undefined) return '';
@@ -173,60 +159,250 @@ export default function ProgramWorkoutDetailScreen() {
     }
   };
   
-  // Handle saving workout edits
-  const handleSaveWorkout = async () => {
+  // Handle options menu - similar to workout page
+  const handleOptionsMenu = () => {
+    Alert.alert(
+      t('workout_options'),
+      t('select_an_option'),
+      [
+        {
+          text: t('edit_workout_info'),
+          onPress: () => handleEditWorkoutInfo()
+        },
+        {
+          text: t('edit_exercises'),
+          onPress: () => setEditExercisesMode(true)
+        },
+        {
+          text: t('remove_workout'),
+          style: 'destructive',
+          onPress: handleRemoveWorkout
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Handle editing workout info
+  const handleEditWorkoutInfo = () => {
+    Alert.alert(
+      t('edit_workout_info'),
+      t('select_field_to_edit'),
+      [
+        {
+          text: t('name'),
+          onPress: () => handleEditWorkoutName()
+        },
+        {
+          text: t('description'),
+          onPress: () => handleEditWorkoutDescription()
+        },
+        {
+          text: t('duration'),
+          onPress: () => handleEditWorkoutDuration()
+        },
+        {
+          text: t('difficulty'),
+          onPress: () => handleEditWorkoutDifficulty()
+        },
+        {
+          text: t('weekday'),
+          onPress: () => handleEditWorkoutWeekday()
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Handle editing workout name
+  const handleEditWorkoutName = () => {
+    Alert.prompt(
+      t('edit_name'),
+      t('enter_new_workout_name'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (name) => {
+            if (name && name.trim() !== '') {
+              setWorkoutName(name);
+              handleSaveWorkoutField('name', name);
+            }
+          }
+        }
+      ],
+      'plain-text',
+      workoutName
+    );
+  };
+
+  // Handle editing workout description
+  const handleEditWorkoutDescription = () => {
+    Alert.prompt(
+      t('edit_description'),
+      t('enter_new_workout_description'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (description) => {
+            setWorkoutDescription(description || '');
+            handleSaveWorkoutField('description', description || '');
+          }
+        }
+      ],
+      'plain-text',
+      workoutDescription
+    );
+  };
+
+  // Handle editing workout duration
+  const handleEditWorkoutDuration = () => {
+    Alert.prompt(
+      t('edit_duration'),
+      t('enter_duration_in_minutes'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('save'),
+          onPress: (durationText) => {
+            const duration = parseInt(durationText || '0', 10);
+            setWorkoutDuration(duration);
+            handleSaveWorkoutField('estimated_duration', duration);
+          }
+        }
+      ],
+      'plain-text',
+      workoutDuration.toString(),
+      'numeric'
+    );
+  };
+
+  // Handle editing workout difficulty
+  const handleEditWorkoutDifficulty = () => {
+    Alert.alert(
+      t('edit_difficulty'),
+      t('select_difficulty_level'),
+      [
+        {
+          text: t('beginner'),
+          onPress: () => {
+            setWorkoutDifficulty('beginner');
+            handleSaveWorkoutField('difficulty_level', 'beginner');
+          }
+        },
+        {
+          text: t('intermediate'),
+          onPress: () => {
+            setWorkoutDifficulty('intermediate');
+            handleSaveWorkoutField('difficulty_level', 'intermediate');
+          }
+        },
+        {
+          text: t('advanced'),
+          onPress: () => {
+            setWorkoutDifficulty('advanced');
+            handleSaveWorkoutField('difficulty_level', 'advanced');
+          }
+        },
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Handle editing weekday
+  const handleEditWorkoutWeekday = () => {
+    const weekdays = [
+      t('monday'), 
+      t('tuesday'), 
+      t('wednesday'), 
+      t('thursday'), 
+      t('friday'), 
+      t('saturday'), 
+      t('sunday')
+    ];
+    
+    const options = weekdays.map((day, index) => ({
+      text: day,
+      onPress: () => {
+        setPreferredWeekday(index);
+        handleSaveWorkoutField('preferred_weekday', index);
+      }
+    }));
+    
+    // Add cancel option
+    options.push({
+      text: t('cancel'),
+      style: 'cancel'
+    });
+    
+    Alert.alert(
+      t('select_weekday'),
+      t('choose_preferred_weekday'),
+      options
+    );
+  };
+
+  // Handle saving individual workout field
+  const handleSaveWorkoutField = async (field, value) => {
     try {
-      // Create the update data object with all required fields
-      const updates = {
-        name: workoutName,
-        description: workoutDescription,
-        estimated_duration: workoutDuration,
-        difficulty_level: workoutDifficulty,
-        focus: workoutFocus,
-        preferred_weekday: preferredWeekday,
-        // Add the missing required fields from the existing workout
+      // Create update object based on current workout data to ensure all required fields are included
+      const updates = { 
+        // Include current workout data first
+        name: workout.name,
+        description: workout.description || '',
+        estimated_duration: workout.estimated_duration || 0,
+        difficulty_level: workout.difficulty_level || 'beginner',
+        preferred_weekday: workout.preferred_weekday || 0,
         split_method: workout.split_method,
         order: workout.order,
-        program: programId
+        program: programId,
+        // Then add our updated field
+        [field]: value
       };
-  
+      
       // Important: Include the existing exercises to prevent them from being deleted
       if (workout && workout.exercises) {
         updates.exercises = workout.exercises;
       }
-  
+      
       await updateProgramWorkout({
         programId,
         workoutId,
         updates
       });
       
-      setEditMode(false);
-      setEditInfoMode(false);
-      setEditExercisesMode(false);
       await refetchWorkout();
     } catch (error) {
-      console.error('Failed to update program workout:', error);
+      console.error(`Failed to update workout ${field}:`, error);
       Alert.alert(t('error'), t('failed_to_update_workout'));
     }
   };
   
-  // Handle canceling edit mode
-  const handleCancelEdit = () => {
-    // Reset form to original values
-    if (workout) {
-      setWorkoutName(workout.name);
-      setWorkoutDescription(workout.description || '');
-      setWorkoutDuration(workout.estimated_duration || 0);
-      setWorkoutDifficulty(workout.difficulty_level || 'beginner');
-      setWorkoutFocus(workout.focus || '');
-      setPreferredWeekday(workout.preferred_weekday || 0);
-    }
-    setEditMode(false);
-    setEditInfoMode(false);
+  // Handle saving workout edits (for exercise editing mode)
+  const handleDoneEditingExercises = async () => {
     setEditExercisesMode(false);
     setPairingMode(false);
     setPairingSourceIndex(null);
+    await refetchWorkout();
   };
   
   // Handle removing the workout from program
@@ -661,233 +837,89 @@ export default function ProgramWorkoutDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#111827" />
-      
-      {/* Header */}
-      <LinearGradient
-        colors={[COLORS.primary, COLORS.secondary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <View style={styles.headerControls}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          <View style={styles.headerActions}>
-            {isCreator && !editMode && (
-              <WorkoutOptionsMenu
-                isCreator={isCreator}
-                onDeleteWorkout={handleRemoveWorkout}
-                onEditInfo={() => {
-                  setEditMode(true);
-                  setEditInfoMode(true);
-                  setEditExercisesMode(false);
-                }}
-                onEditExercises={() => {
-                  setEditMode(true);
-                  setEditInfoMode(false);
-                  setEditExercisesMode(true);
-                }}
-              />
-            )}
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
+        >
+          {/* Top row with back button, title and actions */}
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity 
+              style={styles.backButton} 
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
             
-            {editMode && (
-              <>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {workout.name}
+            </Text>
+            
+            <View style={styles.headerActions}>
+              {isCreator && !editExercisesMode && (
                 <TouchableOpacity 
-                  style={styles.cancelButton}
-                  onPress={handleCancelEdit}
+                  style={styles.optionsButton}
+                  onPress={handleOptionsMenu}
                 >
-                  <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+                  <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
-                
+              )}
+              
+              {editExercisesMode && (
                 <TouchableOpacity 
-                  style={styles.saveButton}
-                  onPress={handleSaveWorkout}
+                  style={styles.doneButton}
+                  onPress={handleDoneEditingExercises}
                 >
-                  <Text style={styles.saveButtonText}>{t('save')}</Text>
+                  <Text style={styles.doneButtonText}>{t('done')}</Text>
                 </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-        
-        {/* Workout Title (editable in edit info mode) */}
-        {editInfoMode ? (
-          <TextInput
-            style={styles.headerTitleInput}
-            value={workoutName}
-            onChangeText={setWorkoutName}
-            placeholder={t('workout_name')}
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
-          />
-        ) : (
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {workout.name}
-          </Text>
-        )}
-        
-        {/* Type badge & program info */}
-        <View style={styles.typeBadgeRow}>
-          <View style={styles.typeBadge}>
-            <Text style={styles.typeBadgeText}>{t('workout')}</Text>
+              )}
+            </View>
           </View>
           
-          <View style={styles.programInfo}>
-            <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
-            <Text style={styles.programText}>{program.name}</Text>
+          {/* Program info row */}
+          <View style={styles.programInfoRow}>
+            <View style={styles.typeBadge}>
+              <Text style={styles.typeBadgeText}>{t('workout')}</Text>
+            </View>
+            
+            <View style={styles.programInfo}>
+              <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
+              <Text style={styles.programText}>{program.name}</Text>
+            </View>
           </View>
-        </View>
-        
-        {/* Workout Details (in 2 columns) */}
-        <View style={styles.detailsGrid}>
-          {/* Left Column */}
-          <View style={styles.detailsColumn}>
-            {/* Focus */}
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('focus')}</Text>
-              {editInfoMode ? (
-                <View style={styles.focusOptions}>
-                  {['strength', 'hypertrophy', 'cardio', 'endurance'].map((focus) => (
-                    <TouchableOpacity
-                      key={focus}
-                      style={[
-                        styles.focusOption,
-                        workoutFocus === focus && styles.focusOptionSelected
-                      ]}
-                      onPress={() => setWorkoutFocus(focus)}
-                    >
-                      <Text 
-                        style={[
-                          styles.focusOptionText,
-                          workoutFocus === focus && styles.focusOptionTextSelected
-                        ]}
-                      >
-                        {t(focus)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.detailValue}>
-                  {formatFocus(workout.focus)}
-                </Text>
-              )}
+          
+          {/* Compact workout details */}
+          <View style={styles.workoutInfoRow}>
+            {/* Difficulty */}
+            <View style={styles.infoItem}>
+              <Text style={styles.infoIcon}>{getDifficultyIndicator(workout.difficulty_level)}</Text>
+              <Text style={styles.infoText}>{t(workout.difficulty_level)}</Text>
             </View>
             
             {/* Duration */}
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('duration')}</Text>
-              {editInfoMode ? (
-                <TextInput
-                  style={styles.detailInput}
-                  value={workoutDuration.toString()}
-                  onChangeText={(text) => setWorkoutDuration(parseInt(text) || 0)}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                />
-              ) : (
-                <Text style={styles.detailValue}>
-                  {workout.estimated_duration} {t('minutes')}
-                </Text>
-              )}
+            <View style={styles.infoItem}>
+              <Ionicons name="time-outline" size={16} color={COLORS.text.secondary} />
+              <Text style={styles.infoText}>{workout.estimated_duration} {t('min')}</Text>
+            </View>
+            
+            {/* Weekday */}
+            <View style={styles.infoItem}>
+              <Ionicons name="calendar-outline" size={16} color={COLORS.text.secondary} />
+              <Text style={styles.infoText}>{getWeekdayName(workout.preferred_weekday)}</Text>
             </View>
           </View>
           
-          {/* Right Column */}
-          <View style={styles.detailsColumn}>
-            {/* Difficulty */}
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('difficulty')}</Text>
-              {editInfoMode ? (
-                <View style={styles.difficultyOptions}>
-                  {['beginner', 'intermediate', 'advanced'].map((level) => (
-                    <TouchableOpacity
-                      key={level}
-                      style={[
-                        styles.difficultyOption,
-                        workoutDifficulty === level && styles.difficultyOptionSelected
-                      ]}
-                      onPress={() => setWorkoutDifficulty(level)}
-                    >
-                      <Text 
-                        style={[
-                          styles.difficultyOptionText,
-                          workoutDifficulty === level && styles.difficultyOptionTextSelected
-                        ]}
-                      >
-                        {getDifficultyIndicator(level)} {t(level)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.detailValue}>
-                  {getDifficultyIndicator(workout.difficulty_level)} {t(workout.difficulty_level)}
-                </Text>
-              )}
+          {/* Description (shown only if it exists) */}
+          {workout.description && (
+            <View style={styles.descriptionContainer}>
+              <Text style={styles.descriptionLabel}>{t('description')}</Text>
+              <Text style={styles.descriptionText} numberOfLines={2}>
+                {workout.description}
+              </Text>
             </View>
-            
-            {/* Weekday - Instance-specific field */}
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>{t('scheduled_day')}</Text>
-              {editInfoMode ? (
-                <View style={styles.weekdayOptions}>
-                  {[t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')].map((day, index) => (
-                    <TouchableOpacity
-                      key={day}
-                      style={[
-                        styles.weekdayOption,
-                        preferredWeekday === index && styles.weekdayOptionSelected
-                      ]}
-                      onPress={() => setPreferredWeekday(index)}
-                    >
-                      <Text 
-                        style={[
-                          styles.weekdayOptionText,
-                          preferredWeekday === index && styles.weekdayOptionTextSelected
-                        ]}
-                      >
-                        {day}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.weekdayBadge}>
-                  <Text style={styles.weekdayBadgeText}>
-                    {getWeekdayName(workout.preferred_weekday)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-        
-        {/* Description (editable in edit info mode) */}
-        {(editInfoMode || workout.description) && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionLabel}>{t('description')}</Text>
-            {editInfoMode ? (
-              <TextInput
-                style={styles.descriptionInput}
-                value={workoutDescription}
-                onChangeText={setWorkoutDescription}
-                placeholder={t('workout_description')}
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                multiline
-                numberOfLines={3}
-              />
-            ) : (
-              <Text style={styles.descriptionText}>{workout.description}</Text>
-            )}
-          </View>
-        )}
-      </LinearGradient>
+          )}
+        </LinearGradient>
       
       {/* Exercise List */}
       <ScrollView style={styles.contentContainer}>
@@ -1002,13 +1034,11 @@ export default function ProgramWorkoutDetailScreen() {
         </TouchableOpacity>
       )}
       
-      {/* Edit mode reminder (if in edit mode) */}
-      {editMode && (
+      {/* Edit mode reminder (if in edit exercises mode) */}
+      {editExercisesMode && (
         <View style={styles.editModeReminder}>
           <Text style={styles.editModeText}>
-            {editInfoMode 
-              ? t('editing_workout_info')
-              : t('tap_exercises_to_edit')}
+            {t('tap_exercises_to_edit')}
           </Text>
         </View>
       )}
@@ -1052,6 +1082,115 @@ export default function ProgramWorkoutDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    padding: 12,
+    paddingBottom: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 10,
+    marginRight: 5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionsButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  doneButton: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  doneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  programInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  typeBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginRight: 10,
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+  },
+  programInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  programText: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  workoutInfoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+    marginHorizontal: 6,
+    minWidth: '45%',
+  },
+  infoIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  infoText: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+    marginLeft: 6,
+  },
+  descriptionContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 12,
+    padding: 10,
+  },
+  descriptionLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginBottom: 4,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    lineHeight: 20,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -1082,228 +1221,18 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
   },
-  // Header styles
-  header: {
-    padding: 16,
-    paddingBottom: 20,
-  },
-  headerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
+  
   backButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  saveButton: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  headerTitleInput: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 8,
   },
   typeBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
-  typeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    marginRight: 10,
-  },
-  typeBadgeText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '600',
-  },
-  programInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  programText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  detailsGrid: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  detailsColumn: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  detailBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  detailInput: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    padding: 4,
-  },
-  focusOptions: {
-    marginTop: 8,
-  },
-  focusOption: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    marginBottom: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  focusOptionSelected: {
-    backgroundColor: 'rgba(14, 165, 233, 0.3)',
-  },
-  focusOptionText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-  },
-  focusOptionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  difficultyOptions: {
-    marginTop: 8,
-  },
-  difficultyOption: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    marginBottom: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  difficultyOptionSelected: {
-    backgroundColor: 'rgba(14, 165, 233, 0.3)',
-  },
-  difficultyOptionText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-  },
-  difficultyOptionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  weekdayOptions: {
-    marginTop: 8,
-  },
-  weekdayOption: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    marginBottom: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  weekdayOptionSelected: {
-    backgroundColor: 'rgba(14, 165, 233, 0.3)',
-  },
-  weekdayOptionText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-  },
-  weekdayOptionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  weekdayBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  weekdayBadgeText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  descriptionContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    padding: 12,
-  },
-  descriptionLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginBottom: 4,
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    lineHeight: 20,
-  },
-  descriptionInput: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    padding: 8,
-    textAlignVertical: 'top',
-    minHeight: 80,
-  },
-  // Content styles
+
   contentContainer: {
     flex: 1,
     backgroundColor: COLORS.background,

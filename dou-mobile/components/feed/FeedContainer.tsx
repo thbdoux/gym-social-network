@@ -44,7 +44,7 @@ interface FeedContainerProps {
   onPostClick?: (postId: number) => void;
   contentContainerStyle?: object;
   scrollEventThrottle?: number;
-  ListHeaderComponent?: React.ReactElement | (() => React.ReactElement) | null; // Add ListHeaderComponent prop
+  ListHeaderComponent?: React.ReactElement | (() => React.ReactElement) | null;
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
@@ -62,7 +62,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   onScroll,
   contentContainerStyle,
   scrollEventThrottle = 16,
-  ListHeaderComponent, // Add ListHeaderComponent to props
+  ListHeaderComponent,
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
@@ -102,33 +102,42 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     return userData;
   }, [allUsers]);
   
-  // Create a set of friend usernames
+  // Create a set of friend usernames - fixed to prevent recreation
   const friendUsernames = useMemo(() => {
-    if (!friends || friends.length === 0) return new Set<string>();
-    
     const usernameSet = new Set<string>();
-    friends.forEach(friend => {
-      if (friend.friend?.username) {
-        usernameSet.add(friend.friend.username);
-      } else if (friend.username) {
-        usernameSet.add(friend.username);
-      }
-    });
+    
+    if (friends && friends.length > 0) {
+      friends.forEach(friend => {
+        if (friend.friend?.username) {
+          usernameSet.add(friend.friend.username);
+        } else if (friend.username) {
+          usernameSet.add(friend.username);
+        }
+      });
+    }
+    
+    // Always add current user to the set
+    if (currentUser) {
+      usernameSet.add(currentUser);
+    }
     
     return usernameSet;
-  }, [friends]);
+  }, [friends, currentUser]);
   
   // Filter posts to only show friends' posts and current user's posts
+  // Fixed to prevent infinite update loop
   useEffect(() => {
-    if (posts && posts.length > 0 && !friendsLoading) {
-      const friendPosts = posts.filter(post => 
-        friendUsernames.has(post.user_username) || post.user_username === currentUser
-      );
-      setFilteredPosts(friendPosts.length > 0 ? friendPosts : posts);
-    } else {
-      setFilteredPosts([]);
-    }
-  }, [posts, friendUsernames, currentUser, friendsLoading]);
+    // Skip effect if data isn't loaded yet
+    if (postsLoading || friendsLoading) return;
+    
+    const filtered = posts.filter(post => 
+      post && post.user_username && friendUsernames.has(post.user_username)
+    );
+    
+    // Only update state if the filtered posts have actually changed
+    setFilteredPosts(filtered.length > 0 ? filtered : posts);
+    
+  }, [posts, friendUsernames, postsLoading, friendsLoading]);
   
   // Handle manual refresh
   const handleRefresh = async () => {
@@ -178,7 +187,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     <FlatList
       data={filteredPosts}
       keyExtractor={(item) => item.id.toString()}
-      ListHeaderComponent={ListHeaderComponent} // Add the ListHeaderComponent
+      ListHeaderComponent={ListHeaderComponent}
       renderItem={({ item }) => (
         <Post
           post={item}
@@ -213,8 +222,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 0,
-    paddingTop: 0, // No padding at the top since we'll have the FriendsBubbleList
-    paddingBottom: 160, // Extra padding for bottom tab bar
+    paddingTop: 0,
+    paddingBottom: 160,
   },
   loadingContainer: {
     flex: 1,
