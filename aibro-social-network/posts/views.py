@@ -238,3 +238,20 @@ class PostViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # This is called by create() method
         serializer.save(user=self.request.user)
+
+# Add these imports if not present
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_posts_count(request):
+    """Get the count of posts for the current user"""
+    # Use direct query to avoid related_name issues
+    from posts.models import Post
+    count = Post.objects.filter(
+        user=request.user
+    ).count()
+    print(count)
+    return Response({"count": count})

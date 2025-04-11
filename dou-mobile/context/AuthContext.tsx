@@ -1,10 +1,11 @@
 // context/AuthContext.tsx
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import userService from '../api/services/userService';
 import { useQueryClient } from '@tanstack/react-query';
 import { userKeys } from '../hooks/query/useUserQuery';
+import { authEvents } from '../api/utils/authEvents';
 
 interface User {
   id: number;
@@ -34,6 +35,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
 
+  // Define a reusable logout function
+  const handleLogout = useCallback(async () => {
+    try {
+      // STEP 1: Clear token
+      await SecureStore.deleteItemAsync('token');
+      
+      // STEP 2: Clear all cached queries
+      // First remove specific query categories
+      const allQueryKeys = [
+        userKeys.all,
+        ['posts'], 
+        ['programs'],
+        ['workouts'],
+        ['logs'],
+        ['gyms'],
+        ['profilePreviews']
+      ];
+      
+      // Remove each query key specifically
+      allQueryKeys.forEach(key => {
+        queryClient.removeQueries({ queryKey: key, exact: false });
+      });
+      
+      // STEP 3: Perform complete cache purge
+      queryClient.clear();
+      
+      // STEP 4: Reset query cache
+      queryClient.resetQueries();
+      
+      // STEP 5: Update authentication state
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // STEP 6: Add a small delay to ensure cache operations complete
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // STEP 7: Navigate to login
+      router.replace('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still try to navigate to login in case of error
+      router.replace('/login');
+    }
+  }, [queryClient]);
+
   // Load user data on mount or token change
   useEffect(() => {
     const loadUser = async () => {
@@ -52,6 +98,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             
             // Also clear any cached data
             queryClient.clear();
+            
+            // Redirect to login screen
+            router.replace('/login');
           }
         }
       } catch (error) {
@@ -63,6 +112,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     loadUser();
   }, [queryClient]);
+
+  // Listen for auth events
+  useEffect(() => {
+    const unsubscribe = authEvents.subscribe((eventType) => {
+      if (eventType === 'tokenExpired') {
+        console.log('Token expired event received, logging out...');
+        handleLogout();
+      }
+    });
+    
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [handleLogout]);
 
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
@@ -109,49 +171,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = async () => {
-    try {
-      // STEP 1: Clear token
-      await SecureStore.deleteItemAsync('token');
-      
-      // STEP 2: Clear all cached queries
-      // First remove specific query categories
-      const allQueryKeys = [
-        userKeys.all,
-        ['posts'], 
-        ['programs'],
-        ['workouts'],
-        ['logs'],
-        ['gyms'],
-        ['profilePreviews']
-      ];
-      
-      // Remove each query key specifically
-      allQueryKeys.forEach(key => {
-        queryClient.removeQueries({ queryKey: key, exact: false });
-      });
-      
-      // STEP 3: Perform complete cache purge
-      queryClient.clear();
-      
-      // STEP 4: Reset query cache
-      queryClient.resetQueries();
-      
-      // STEP 5: Update authentication state
-      setUser(null);
-      setIsAuthenticated(false);
-      
-      // STEP 6: Add a small delay to ensure cache operations complete
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // STEP 7: Navigate to login
-      router.replace('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still try to navigate to login in case of error
-      router.replace('/login');
-    }
-  };
+  const logout = handleLogout;
 
   return (
     <AuthContext.Provider 

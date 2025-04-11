@@ -269,3 +269,34 @@ class UserProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Add these imports if not present
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_friends_count(request):
+    """Get the count of friends for the current user"""
+    count = request.user.friends.count()
+    return Response({"count": count})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_counts(request):
+    """Get all counts in a single request (more efficient)"""
+    user = request.user
+    
+    # Get counts
+    friends_count = user.friends.count()
+    posts_count = user.posts.count()
+    workouts_count = user.workout_logs.count()
+    
+    return Response({
+        "friends_count": friends_count,
+        "posts_count": posts_count,
+        "workouts_count": workouts_count
+    })

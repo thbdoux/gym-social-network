@@ -58,6 +58,8 @@ export default function FeedScreen() {
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: forkProgram } = useForkProgram();
+  // Add editPost mutation
+  // const { mutateAsync: editPost } = useEditPost();
 
   // Calculate header animation values - make it disappear completely
   const headerHeight = scrollY.interpolate({
@@ -117,9 +119,21 @@ export default function FeedScreen() {
   const handleDeletePost = async (postId: number) => {
     try {
       await deletePost(postId);
+      await refetchPosts(); // Refresh posts after deletion
     } catch (err) {
       console.error('Error deleting post:', err);
       Alert.alert('Error', 'Failed to delete post');
+    }
+  };
+  
+  // Add edit post handler
+  const handleEditPost = async (post: any, newContent: string) => {
+    try {
+      // await editPost({ postId: post.id, content: newContent });
+      await refetchPosts(); // Refresh posts after edit
+    } catch (err) {
+      console.error('Error editing post:', err);
+      Alert.alert('Error', 'Failed to edit post');
     }
   };
   
@@ -137,10 +151,15 @@ export default function FeedScreen() {
     setShowFriendsModal(true);
   };
   
-  // Handle profile click
+  // Handle profile click - opens modal
   const handleProfileClick = (userId: number) => {
     setSelectedUserId(userId);
     setShowProfileModal(true);
+  };
+  
+  // New handler to navigate to user profile page
+  const handleNavigateToProfile = (userId: number) => {
+    router.push(`/user/${userId}`);
   };
   
   // FAB Menu handlers
@@ -172,7 +191,7 @@ export default function FeedScreen() {
   const renderHeader = () => {
     // Determine personality type from user object (with fallback)
     const personalityType = user?.personality_type || 'versatile';
-    console.log(user)
+    
     // Define messages and background images for each personality type
     let message = '';
     let backgroundImage;
@@ -187,17 +206,14 @@ export default function FeedScreen() {
         backgroundImage = require('../../assets/images/versatile-fox/feed.png');
         break;
       case 'diplomate':
-        // message = "Your community is waiting to connect with you!";
         message = t('welcome_message_diplomate');
         backgroundImage = require('../../assets/images/diplomate-monkey/feed.png');
         break;
       case 'mentor':
-        // message = "Ready to inspire and guide others today?";
         message = t('welcome_message_mentor');
         backgroundImage = require('../../assets/images/mentor-elephant/feed.png');
         break;
       default:
-        // message = "Welcome back! Let's discover what's new.";
         message = t('welcome_message_default');
         backgroundImage = require('../../assets/images/bob.jpg');
         break;
@@ -223,7 +239,6 @@ export default function FeedScreen() {
 
   // Add a handler for program selection
   const handleProgramSelect = (program: any) => {
-    
     // Get the program ID - check all possible properties where ID might be stored
     let programId: number | null = null;
     
@@ -284,9 +299,11 @@ export default function FeedScreen() {
               onComment={handleComment}
               onShare={handleShare}
               onDelete={handleDeletePost}
+              onEdit={handleEditPost}
               onProgramSelect={handleProgramSelect}
               onForkProgram={handleForkProgram}
               onProfileClick={handleProfileClick}
+              onNavigateToProfile={handleNavigateToProfile}
               onPostClick={handlePostClick}
               refreshing={refreshing}
               onRefresh={handleRefresh}

@@ -1,3 +1,4 @@
+// components/profile/ProfilePreviewModal.tsx
 import React from 'react';
 import {
   View,
@@ -14,6 +15,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../hooks/query/useGymQuery';
@@ -33,7 +36,10 @@ interface UserData {
   workout_count?: number;
   current_streak?: number;
   friend_count?: number;
+  posts_count?: number;
   posts?: any[];
+  workouts_count?: number;
+  friends_count?: number;
   preferred_gym?: number;
   preferred_gym_details?: {
     name: string;
@@ -111,6 +117,24 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
     if (!name) return '?';
     return name.charAt(0).toUpperCase();
   };
+  
+  // Get personality-based gradient for avatar
+  const getPersonalityGradient = () => {
+    const personality = userData?.personality_type || 'default';
+    
+    switch(personality.toLowerCase()) {
+      case 'optimizer':
+        return ['#F59E0B', '#EF4444']; // Amber to Red
+      case 'diplomat':
+        return ['#10B981', '#3B82F6']; // Emerald to Blue
+      case 'mentor':
+        return ['#6366F1', '#4F46E5']; // Indigo to Dark Indigo
+      case 'versatile':
+        return ['#EC4899', '#8B5CF6']; // Pink to Purple
+      default:
+        return ['#9333EA', '#D946EF']; // Default Purple Gradient
+    }
+  };
 
   // Weekdays for program schedule visualization
   const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -151,57 +175,92 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
             </View>
           ) : (
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-              {/* Profile Header with Centered Profile Picture */}
+              {/* Profile Header with Left-aligned Profile Picture */}
               <View style={styles.profileHeader}>
+                <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+                
                 <View style={styles.profileHeaderContent}>
-                  {/* Centered Profile picture */}
+                  {/* Left side - Profile picture */}
                   <View style={styles.profileImageContainer}>
-                    <Image
-                      source={{ uri: getAvatarUrl(userData?.avatar, 96) }}
-                      style={styles.profileImage}
-                    />
+                    <LinearGradient
+                      colors={getPersonalityGradient()}
+                      style={styles.profileGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={styles.profileImageInner}>
+                        <Image
+                          source={{ uri: getAvatarUrl(userData?.avatar, 80) }}
+                          style={styles.profileImage}
+                        />
+                      </View>
+                    </LinearGradient>
                     <View style={styles.onlineIndicator}></View>
                   </View>
                   
-                  <View style={styles.profileInfo}>
-                    <Text style={styles.profileUsername}>{userData?.username || t('user')}</Text>
-                    <View style={styles.personalityBadge}>
-                      <Text style={styles.personalityText}>
-                        {userData?.personality_type ? 
-                          t(userData.personality_type.toLowerCase()) : 
-                          t('fitness_enthusiast')}
-                      </Text>
+                  {/* Right side - Profile info and stats */}
+                  <View style={styles.profileRightContent}>
+                    <View style={styles.profileInfo}>
+                      <Text style={styles.profileUsername}>{userData?.username || t('user')}</Text>
+                      
+                      <View style={styles.badgesContainer}>
+                        <LinearGradient
+                          colors={['#9333EA', '#D946EF']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.personalityBadge}
+                        >
+                          <Text style={styles.personalityText}>
+                            {userData?.personality_type ? t(userData.personality_type.toLowerCase()) : t('fitness_enthusiast')}
+                          </Text>
+                        </LinearGradient>
+                        
+                        {userData?.preferred_gym && (
+                          <LinearGradient
+                            colors={['#3B82F6', '#60A5FA']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.gymBadge}
+                          >
+                            <Text style={styles.gymText}>
+                              {gymDisplayText}
+                            </Text>
+                          </LinearGradient>
+                        )}
+                      </View>
                     </View>
                     
-                    {userData?.preferred_gym && (
-                      <View style={styles.gymBadge}>
-                        <Text style={styles.gymText}>
-                          {gymDisplayText}
+                    {/* Stats side by side */}
+                    <View style={styles.statsRow}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>
+                          {userData?.friends_count || userData?.friend_count || 0}
                         </Text>
+                        <Text style={styles.statLabel}>{t('friends')}</Text>
                       </View>
-                    )}
-                  </View>
-                </View>
-                
-                {/* Stats row */}
-                <View style={styles.statsRow}>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{userData?.friend_count || 0}</Text>
-                    <Text style={styles.statLabel}>{t('friends')}</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{userData?.posts?.length || 0}</Text>
-                    <Text style={styles.statLabel}>{t('posts')}</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{userData?.workout_count || 0}</Text>
-                    <Text style={styles.statLabel}>{t('workouts')}</Text>
+                      
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>
+                          {userData?.posts_count || (userData?.posts?.length) || 0}
+                        </Text>
+                        <Text style={styles.statLabel}>{t('posts')}</Text>
+                      </View>
+                      
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>
+                          {userData?.workouts_count || userData?.workout_count || 0}
+                        </Text>
+                        <Text style={styles.statLabel}>{t('workouts')}</Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
               </View>
               
               {/* Training Consistency Chart */}
               <View style={styles.chartCard}>
+                <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+                
                 <Text style={styles.cardTitle}>{t('training_consistency')}</Text>
                 <View style={styles.chartContainer}>
                   <LineChart
@@ -215,8 +274,8 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
                         }
                       ]
                     }}
-                    width={screenWidth - 84}
-                    height={220}
+                    width={screenWidth - 50} // Using more horizontal space
+                    height={180} // Reduced height for thinner y-axis
                     fromZero={true}
                     yAxisInterval={1} // Interval of 1
                     yAxisSuffix=""
@@ -229,9 +288,9 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
                     withShadow={false}
                     segments={7} // 0-7 range with intervals of 1
                     chartConfig={{
-                      backgroundColor: '#1f2937',
-                      backgroundGradientFrom: '#1f2937',
-                      backgroundGradientTo: '#1f2937',
+                      backgroundColor: '#080f19',
+                      backgroundGradientFrom: '#080f19',
+                      backgroundGradientTo: '#080f19',
                       decimalPlaces: 0,
                       color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
                       labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
@@ -239,12 +298,13 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
                         borderRadius: 16
                       },
                       propsForDots: {
-                        r: '5',
+                        r: '6',
                         strokeWidth: '2',
                         stroke: '#d946ef'
                       },
                       propsForHorizontalLabels: {
-                        fontSize: 10
+                        fontSize: 12,
+                        fontWeight: 'bold'
                       },
                       propsForVerticalLabels: {
                         fontSize: 10
@@ -258,6 +318,8 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
               
               {/* Current Program */}
               <View style={styles.programContainer}>
+                <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+                
                 <Text style={styles.cardTitle}>{t('current_program')}</Text>
                 
                 {userData?.current_program ? (
@@ -268,7 +330,7 @@ const ProfilePreviewModal: React.FC<ProfilePreviewModalProps> = ({
                   />
                 ) : (
                   <View style={styles.emptyProgram}>
-                    <Ionicons name="barbell-outline" size={48} color="#6b7280" />
+                    <Ionicons name="barbell-outline" size={48} color="#d1d5db" />
                     <Text style={styles.emptyProgramText}>{t('no_active_program')}</Text>
                   </View>
                 )}
@@ -288,7 +350,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     marginTop: Platform.OS === 'ios' ? 50 : 10,
@@ -311,7 +373,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingBottom: 24,
   },
   loadingContainer: {
@@ -344,151 +406,156 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '500',
   },
-  profileHeader: {
-    backgroundColor: '#1f2937',
+  blurBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 24,
-    padding: 16,
-    marginTop: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+  },
+  profileHeader: {
+    position: 'relative',
+    borderRadius: 12,
+    padding: 8,
+    marginTop: 8,
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+    overflow: 'hidden',
   },
   profileHeaderContent: {
+    flexDirection: 'row', // Changed to row layout
     alignItems: 'center',
-    marginBottom: 16,
+    marginVertical: 8, // Reduced margin
   },
   profileImageContainer: {
     position: 'relative',
-    marginBottom: 12,
+    marginRight: 16, // Add margin to the right
   },
-  profileImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 2,
-    borderColor: '#a855f7',
-  },
-  profileImagePlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#a855f7',
+  profileGradient: {
+    width: 80, // Smaller profile picture
+    height: 80,
+    borderRadius: 40,
+    padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#a855f7',
   },
-  profileImagePlaceholderText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
+  profileImageInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 37, 
+    backgroundColor: '#3B82F6',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 37,
   },
   onlineIndicator: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16, // Smaller indicator
+    height: 16,
+    borderRadius: 8,
     backgroundColor: '#4ade80', // Green for online status
     borderWidth: 2,
     borderColor: '#1f2937',
   },
+  profileRightContent: {
+    flex: 1, // Take up remaining space
+  },
   profileInfo: {
-    alignItems: 'center',
+    alignItems: 'flex-start', // Left align
+    marginBottom: 1,
   },
   profileUsername: {
-    fontSize: 20,
+    fontSize: 24, // Smaller font size
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: 8, // Reduced margin
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   personalityBadge: {
-    backgroundColor: '#4b286b',
-    paddingHorizontal: 12,
+    paddingHorizontal: 12, // Smaller padding
     paddingVertical: 4,
-    borderRadius: 16,
+    borderRadius: 12,
+    marginRight: 6,
     marginTop: 4,
   },
   personalityText: {
-    color: '#d9bfff',
-    fontSize: 12,
+    color: '#ffffff',
+    fontSize: 12, // Smaller text
     fontWeight: '600',
   },
   gymBadge: {
-    backgroundColor: '#344154',
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 16,
-    marginTop: 8,
+    borderRadius: 12,
+    marginTop: 4,
   },
   gymText: {
-    color: '#9ca3af',
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: '500',
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 8, // Reduced margin
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#374151',
-    borderRadius: 12,
-    padding: 12,
+  statItem: {
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginRight: 16, // Space between stat items
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 14, // Smaller font size for stats
     fontWeight: 'bold',
-    color: '#d9bfff', // Purple color similar to the design
+    color: '#ffffff',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 2,
+    fontSize: 11, // Smaller font size for labels
+    color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
+    fontWeight: '500',
   },
   chartCard: {
-    backgroundColor: '#1f2937',
-    borderRadius: 24,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    position: 'relative',
+    borderRadius: 12,
+    padding: 8,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+    overflow: 'hidden',
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 16,
+    marginVertical: 4,
+    paddingHorizontal: 8,
   },
   chart: {
     marginVertical: 8,
     borderRadius: 16,
   },
   chartContainer: {
-    alignItems: 'center',
     justifyContent: 'center',
   },
   programContainer: {
-    backgroundColor: '#1f2937',
-    borderRadius: 24,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    position: 'relative',
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 65, 81, 0.5)',
+    overflow: 'hidden',
   },
   emptyProgram: {
     alignItems: 'center',
@@ -497,7 +564,7 @@ const styles = StyleSheet.create({
   },
   emptyProgramText: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: '#d1d5db',
     marginVertical: 16,
   },
 });

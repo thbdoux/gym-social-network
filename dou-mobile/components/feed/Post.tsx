@@ -1,12 +1,26 @@
 // components/feed/Post.tsx
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, TextInput, Alert, Modal } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Image, 
+  TextInput, 
+  Alert, 
+  Modal,
+  Animated,
+  Dimensions 
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useLanguage } from '../../context/LanguageContext';
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
 import ProgramCard from '../workouts/ProgramCard';
+
+// Get screen dimensions for bottom sheet
+const { height, width } = Dimensions.get('window');
 
 interface Author {
   id: number;
@@ -34,7 +48,7 @@ interface Post {
   is_liked: boolean;
   shares_count?: number;
   is_share?: boolean;
-  original_post_details?: any; // This could be a more specific type
+  original_post_details?: any;
   image?: string;
   program_id?: number;
   program_details?: any;
@@ -42,7 +56,6 @@ interface Post {
   workout_log_details?: any;
   user_username: string;
   user_id?: number;
-  // New fields for the updated design
   streak?: number;
   achievements?: string[];
   stats?: {
@@ -50,7 +63,7 @@ interface Post {
     thisWeek?: number;
     streak?: number;
   };
-  personality?: string; // Added personality field for avatar gradient
+  personality?: string;
 }
 
 interface PostProps {
@@ -59,12 +72,13 @@ interface PostProps {
   onLike: (postId: number) => void;
   onComment: (postId: number, content: string) => void;
   onShare?: (postId: number, content: string) => void;
-  onEdit?: (post: Post) => void;
+  onEdit?: (post: Post, newContent: string) => void;
   onDelete?: (postId: number) => void;
   userData?: any;
   onProgramClick?: (program: any) => void;
   onForkProgram?: (programId: number) => Promise<any>;
   onProfileClick?: (userId: number) => void;
+  onNavigateToProfile?: (userId: number) => void;
   detailMode?: boolean; 
   onPostClick?: (postId: number) => void; 
 }
@@ -81,6 +95,7 @@ const Post: React.FC<PostProps> = ({
   onProgramClick,
   onForkProgram,
   onProfileClick,
+  onNavigateToProfile,
   detailMode,
   onPostClick  
 }) => {
@@ -91,6 +106,14 @@ const Post: React.FC<PostProps> = ({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareText, setShareText] = useState('');
   const [liked, setLiked] = useState(post.is_liked);
+  
+  // New state for bottom sheet menu
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const bottomSheetAnim = useRef(new Animated.Value(0)).current;
+  
+  // New state for edit mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(post.content);
 
   // Format date to display relative time for recent dates
   const formatDate = (dateString) => {
@@ -177,6 +200,27 @@ const Post: React.FC<PostProps> = ({
     }
   };
   
+  // Function to show bottom sheet
+  const showBottomSheetMenu = () => {
+    setShowBottomSheet(true);
+    Animated.timing(bottomSheetAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  // Function to hide bottom sheet
+  const hideBottomSheet = () => {
+    Animated.timing(bottomSheetAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowBottomSheet(false);
+    });
+  };
+  
   const handleShare = () => {
     if (post.is_share) {
       Alert.alert(t('info'), t('shared_posts_cannot_be_shared'));
@@ -193,10 +237,24 @@ const Post: React.FC<PostProps> = ({
     setIsShareModalOpen(false);
   };
 
+  // Handle clicking on the post content area
   const handlePostClick = () => {
     // Only navigate if we're not in detail mode and a handler is provided
     if (!detailMode && onPostClick) {
       onPostClick(post.id);
+    }
+  };
+
+  // Handle clicking on username or profile picture
+  const handleUserProfileClick = (event) => {
+    // Stop event propagation to prevent triggering the post click
+    event.stopPropagation();
+    
+    if (post.user_id && onNavigateToProfile) {
+      onNavigateToProfile(post.user_id);
+    } else if (post.user_id && onProfileClick) {
+      // Fallback to modal if navigation isn't provided
+      onProfileClick(post.user_id);
     }
   };
 
@@ -219,17 +277,38 @@ const Post: React.FC<PostProps> = ({
             if (onDelete) {
               onDelete(post.id);
             }
-            setShowMenu(false);
+            hideBottomSheet();
           }
         }
       ]
     );
   };
 
+  // Start editing post
+  const handleStartEditing = () => {
+    setEditText(post.content);
+    setIsEditing(true);
+    hideBottomSheet();
+  };
+  
+  // Submit edited post
+  const handleSubmitEdit = () => {
+    if (onEdit && editText.trim() !== '') {
+      onEdit(post, editText);
+    }
+    setIsEditing(false);
+  };
+
   const handleLike = () => {
     setLiked(!liked);
     onLike(post.id);
   };
+  
+  // Calculate bottom sheet position based on animation value
+  const translateY = bottomSheetAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [height, 0],
+  });
   
   // Determine what type of post this is
   const effectivePostType = (post.is_share && post.original_post_details?.post_type) 
@@ -240,17 +319,23 @@ const Post: React.FC<PostProps> = ({
   
   const SharedPostContent = ({ 
     originalPost, 
-    onOriginalPostClick ,
+    onOriginalPostClick,
     onProgramClick,
     onForkProgram,
     currentUser,
-  }: { 
-    originalPost: any,
-    onOriginalPostClick?: (postId: number) => void ,
-    onProgramClick?: (program: any) => void,
   }) => {
     // Get post type details for the original post
     const originalPostTypeDetails = getPostTypeDetails(originalPost.post_type);
+    
+    // Handle clicking on the username or avatar in a shared post
+    const handleSharedProfileClick = (event) => {
+      event.stopPropagation();
+      if (originalPost.user_id && onNavigateToProfile) {
+        onNavigateToProfile(originalPost.user_id);
+      } else if (originalPost.user_id && onProfileClick) {
+        onProfileClick(originalPost.user_id);
+      }
+    };
     
     // Add a handler for clicking on the shared post content
     const handleOriginalPostClick = () => {
@@ -268,7 +353,7 @@ const Post: React.FC<PostProps> = ({
         <View style={styles.sharedPostHeader}>
           <TouchableOpacity 
             style={styles.sharedPostAvatar}
-            onPress={() => originalPost.user_id && onProfileClick && onProfileClick(originalPost.user_id)}
+            onPress={handleSharedProfileClick}
             activeOpacity={0.7}
           >
             <Text style={styles.sharedPostAvatarText}>
@@ -276,17 +361,16 @@ const Post: React.FC<PostProps> = ({
             </Text>
           </TouchableOpacity>
           
-          <View>
+          <TouchableOpacity onPress={handleSharedProfileClick} activeOpacity={0.7}>
             <Text style={styles.sharedPostUsername}>{originalPost.user_username}</Text>
             <Text style={styles.sharedPostDate}>
               {formatDate(originalPost.created_at)}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
         
         <Text style={styles.sharedPostContent}>{originalPost.content}</Text>
         
-        {/* Keep the rest of the component the same */}
         {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && (
           <WorkoutLogCard
             user={currentUser}
@@ -323,17 +407,38 @@ const Post: React.FC<PostProps> = ({
       {(post.comments && post.comments.length > 0) ? (
         post.comments.map(comment => (
           <View key={comment.id} style={styles.commentItem}>
-            <View style={styles.commentAvatar}>
+            <TouchableOpacity 
+              style={styles.commentAvatar}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (comment.author?.id && onNavigateToProfile) {
+                  onNavigateToProfile(comment.author.id);
+                } else if (comment.author?.id && onProfileClick) {
+                  onProfileClick(comment.author.id);
+                }
+              }}
+            >
               <Text style={styles.commentAvatarText}>
                 {comment.user_username?.[0]?.toUpperCase() || '?'}
               </Text>
-            </View>
+            </TouchableOpacity>
             
             <View style={styles.commentBubble}>
               <View style={styles.commentHeader}>
-                <Text style={styles.commentUsername}>
-                  {comment.user_username}
-                </Text>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (comment.author?.id && onNavigateToProfile) {
+                      onNavigateToProfile(comment.author.id);
+                    } else if (comment.author?.id && onProfileClick) {
+                      onProfileClick(comment.author.id);
+                    }
+                  }}
+                >
+                  <Text style={styles.commentUsername}>
+                    {comment.user_username}
+                  </Text>
+                </TouchableOpacity>
                 <Text style={styles.commentDate}>
                   {formatDate(comment.created_at)}
                 </Text>
@@ -384,7 +489,7 @@ const Post: React.FC<PostProps> = ({
     <TouchableOpacity 
       activeOpacity={detailMode ? 1 : 0.7}
       onPress={handlePostClick}
-      disabled={detailMode}
+      disabled={detailMode || isEditing}
       style={styles.postWrapper}
     >
       <View style={styles.container}>
@@ -405,8 +510,12 @@ const Post: React.FC<PostProps> = ({
         {/* Post Header */}
         <View style={styles.header}>
           <View style={styles.authorContainer}>
-            {/* User Avatar with Activity Ring */}
-            <View style={styles.avatarWrapper}>
+            {/* User Avatar with Activity Ring - Now clickable */}
+            <TouchableOpacity 
+              style={styles.avatarWrapper}
+              onPress={handleUserProfileClick}
+              activeOpacity={0.7}
+            >
               <LinearGradient
                 colors={avatarGradientColors}
                 style={styles.avatarGradient}
@@ -433,11 +542,17 @@ const Post: React.FC<PostProps> = ({
                   <Text style={styles.streakText}>{userStreak}</Text>
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
             
             <View style={styles.authorInfo}>
               <View style={styles.authorNameRow}>
-                <Text style={styles.authorName}>{post.user_username}</Text>
+                {/* Username is now clickable */}
+                <TouchableOpacity 
+                  onPress={handleUserProfileClick}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.authorName}>{post.user_username}</Text>
+                </TouchableOpacity>
                 
                 {/* Post Type Badge */}
                 {post.post_type && post.post_type !== 'regular' && (
@@ -465,118 +580,93 @@ const Post: React.FC<PostProps> = ({
           
           <TouchableOpacity 
             style={styles.menuButton}
-            onPress={() => setShowMenu(!showMenu)}
+            onPress={showBottomSheetMenu}
           >
             <Ionicons name="ellipsis-horizontal" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
         
-        {/* Post Menu */}
-        {showMenu && (
-          <View style={styles.menuPopup}>
-            {post.user_username === currentUser && (
-              <>
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => {
-                    if (onEdit) onEdit(post);
-                    setShowMenu(false);
-                  }}
-                >
-                  <Ionicons name="create-outline" size={20} color="#E5E7EB" />
-                  <Text style={styles.menuItemText}>{t('edit_post')}</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={handleDeletePost}
-                >
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                  <Text style={[styles.menuItemText, styles.deleteText]}>{t('delete_post')}</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => setShowMenu(false)}
-            >
-              <Ionicons name="close-outline" size={20} color="#E5E7EB" />
-              <Text style={styles.menuItemText}>{t('cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {/* Achievement Pills */}
-        {/* {badgesToShow.length > 0 && (
-          <View style={styles.achievementsContainer}>
-            {badgesToShow.map((badge, index) => (
-              <LinearGradient
-                key={index}
-                colors={badge.color}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.achievementPill}
-              >
-                <Ionicons name={badge.icon} size={12} color="#FFFFFF" />
-                <Text style={styles.achievementText}>{badge.name}</Text>
-              </LinearGradient>
-            ))}
-          </View>
-        )} */}
-        
         {/* Post Content */}
         <View style={styles.content}>
-          {post.content && <Text style={styles.postText}>{post.content}</Text>}
-          
-          {/* Program Card - Always visible now */}
-          {post.post_type === 'program' && post.program_details && (
-            <View style={styles.programCardContainer}>
-              <ProgramCard
-                programId={post.program_id}
-                program={post.program_details}
-                onProgramSelect={onProgramClick}
-                currentUser={currentUser}
-                inFeedMode={true}
-                onFork={onForkProgram}
+          {isEditing ? (
+            // Edit Mode UI
+            <View style={styles.editContainer}>
+              <TextInput
+                style={styles.editInput}
+                value={editText}
+                onChangeText={setEditText}
+                multiline
+                placeholder={t('edit_your_post')}
+                placeholderTextColor="#9CA3AF"
               />
+              <View style={styles.editButtons}>
+                <TouchableOpacity 
+                  style={[styles.editButton, styles.cancelButton]}
+                  onPress={() => setIsEditing(false)}
+                >
+                  <Text style={styles.editButtonText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.editButton, styles.saveButton]}
+                  onPress={handleSubmitEdit}
+                >
+                  <Text style={styles.editButtonText}>{t('save')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-          
-          {/* Workout Log */}
-          {post.post_type === 'workout_log' && post.workout_log_details && (
-            <View style={styles.workoutLogContainer}>
-              <WorkoutLogCard 
-                user={currentUser}
-                logId={post.workout_log}
-                log={post.workout_log_details}
-                inFeedMode={true}
-              />
-            </View>
-          )}
-          
-          {/* Shared Post */}
-          {post.is_share && post.original_post_details && (
-            <SharedPostContent 
-              originalPost={post.original_post_details} 
-              onOriginalPostClick={handleOriginalPostClick}
-              onProgramClick={onProgramClick}
-              onForkProgram={onForkProgram}     // Pass the handler here
-              currentUser={currentUser}
-            />
-          )}
-          
-          {/* Regular Image */}
-          {!post.is_share && post.image && (
-            <Image
-              source={{ uri: post.image }}
-              style={styles.postImage}
-              resizeMode="cover"
-            />
+          ) : (
+            // Normal Content View
+            <>
+              {post.content && <Text style={styles.postText}>{post.content}</Text>}
+              
+              {/* Program Card - Always visible now */}
+              {post.post_type === 'program' && post.program_details && (
+                <View style={styles.programCardContainer}>
+                  <ProgramCard
+                    programId={post.program_id}
+                    program={post.program_details}
+                    onProgramSelect={onProgramClick}
+                    currentUser={currentUser}
+                    inFeedMode={true}
+                    onFork={onForkProgram}
+                  />
+                </View>
+              )}
+              
+              {/* Workout Log */}
+              {post.post_type === 'workout_log' && post.workout_log_details && (
+                <View style={styles.workoutLogContainer}>
+                  <WorkoutLogCard 
+                    user={currentUser}
+                    logId={post.workout_log}
+                    log={post.workout_log_details}
+                    inFeedMode={true}
+                  />
+                </View>
+              )}
+              
+              {/* Shared Post */}
+              {post.is_share && post.original_post_details && (
+                <SharedPostContent 
+                  originalPost={post.original_post_details} 
+                  onOriginalPostClick={handleOriginalPostClick}
+                  onProgramClick={onProgramClick}
+                  onForkProgram={onForkProgram}
+                  currentUser={currentUser}
+                />
+              )}
+              
+              {/* Regular Image */}
+              {!post.is_share && post.image && (
+                <Image
+                  source={{ uri: post.image }}
+                  style={styles.postImage}
+                  resizeMode="cover"
+                />
+              )}
+            </>
           )}
         </View>
-        
-        {/* Activity Stats Bar - REMOVED as requested */}
         
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
@@ -715,6 +805,71 @@ const Post: React.FC<PostProps> = ({
             </View>
           </View>
         </Modal>
+        
+        {/* Bottom Sheet Menu */}
+        {showBottomSheet && (
+          <TouchableOpacity 
+            style={styles.bottomSheetOverlay}
+            activeOpacity={1}
+            onPress={hideBottomSheet}
+          >
+            <Animated.View 
+              style={[
+                styles.bottomSheet,
+                {
+                  transform: [{ translateY: translateY }]
+                }
+              ]}
+            >
+              <View style={styles.bottomSheetHandle} />
+              
+              <Text style={styles.bottomSheetTitle}>{t('post_options')}</Text>
+              
+              {post.user_username === currentUser && (
+                <>
+                  <TouchableOpacity 
+                    style={styles.bottomSheetItem}
+                    onPress={handleStartEditing}
+                  >
+                    <Ionicons name="create-outline" size={24} color="#E5E7EB" />
+                    <Text style={styles.bottomSheetItemText}>{t('edit_post')}</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.bottomSheetItem}
+                    onPress={handleDeletePost}
+                  >
+                    <Ionicons name="trash-outline" size={24} color="#EF4444" />
+                    <Text style={[styles.bottomSheetItemText, styles.deleteText]}>{t('delete_post')}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              
+              <TouchableOpacity 
+                style={styles.bottomSheetItem}
+                onPress={() => {
+                  if (post.user_id && onNavigateToProfile) {
+                    onNavigateToProfile(post.user_id);
+                    hideBottomSheet();
+                  } else if (post.user_id && onProfileClick) {
+                    onProfileClick(post.user_id);
+                    hideBottomSheet();
+                  }
+                }}
+              >
+                <Ionicons name="person-outline" size={24} color="#E5E7EB" />
+                <Text style={styles.bottomSheetItemText}>{t('view_profile')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.bottomSheetItem, styles.bottomSheetCancelItem]}
+                onPress={hideBottomSheet}
+              >
+                <Text style={styles.bottomSheetCancelText}>{t('cancel')}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -876,36 +1031,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 6,
-  },
-  menuPopup: {
-    position: 'absolute',
-    top: 60,
-    right: 16,
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
-    zIndex: 10,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.5)',
-  },
-  menuItemText: {
-    fontSize: 14,
-    color: '#E5E7EB',
-    marginLeft: 8,
-  },
-  deleteText: {
-    color: '#EF4444',
   },
   content: {
     paddingHorizontal: 20,
@@ -1143,11 +1268,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(55, 65, 81, 0.5)',
   },
-  sharedLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 4,
-  },
   sharedPreviewText: {
     fontSize: 14,
     color: '#D1D5DB',
@@ -1162,6 +1282,114 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  
+  // Edit Post styles
+  editContainer: {
+    marginBottom: 16,
+  },
+  editInput: {
+    backgroundColor: 'rgba(31, 41, 55, 0.6)',
+    borderRadius: 12,
+    padding: 16,
+    color: '#FFFFFF',
+    fontSize: 16,
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.5)',
+    marginBottom: 12,
+  },
+  editButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  editButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(75, 85, 99, 0.5)',
+  },
+  saveButton: {
+    backgroundColor: '#3B82F6',
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // Bottom Sheet styles
+  bottomSheetOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    zIndex: 1000,
+  },
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1F2937',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 5,
+    zIndex: 1001,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#6B7280',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  bottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    marginLeft: 8,
+  },
+  bottomSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(55, 65, 81, 0.3)',
+  },
+  bottomSheetItemText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    marginLeft: 16,
+  },
+  bottomSheetCancelItem: {
+    justifyContent: 'center',
+    marginTop: 8,
+    borderBottomWidth: 0,
+  },
+  bottomSheetCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3B82F6',
+  },
+  deleteText: {
+    color: '#EF4444',
   },
 });
 

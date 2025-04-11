@@ -8,12 +8,20 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import Post from '../../components/feed/Post';
-import { usePost } from '../../hooks/query/usePostQuery';
+import { 
+  usePost, 
+  useLikePost, 
+  useCommentOnPost, 
+  useSharePost, 
+  useDeletePost,
+  // useEditPost
+} from '../../hooks/query/usePostQuery';
 import { useLanguage } from '../../context/LanguageContext';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 
@@ -36,6 +44,13 @@ export default function PostDetailScreen() {
     error,
     refetch
   } = usePost(postId);
+  
+  // Add post action mutations
+  const { mutateAsync: likePost } = useLikePost();
+  const { mutateAsync: commentOnPost } = useCommentOnPost();
+  const { mutateAsync: sharePost } = useSharePost();
+  const { mutateAsync: deletePost } = useDeletePost();
+  // const { mutateAsync: editPost } = useEditPost();
 
   const handleGoBack = () => {
     router.back();
@@ -46,13 +61,18 @@ export default function PostDetailScreen() {
     setSelectedUserId(userId);
     setShowProfileModal(true);
   };
+  
+  // Add handler to navigate to user profile page
+  const handleNavigateToProfile = (userId: number) => {
+    router.push(`/user/${userId}`);
+  };
 
   // If we need to view a different post (for shared posts)
   const handlePostClick = (postId: number) => {
     router.push(`/post/${postId}`);
   };
 
-    // Add this function:
+  // Add this function for program clicks
   const handleProgramClick = (program: any) => {
     let programId: number | null = null;
     
@@ -73,6 +93,59 @@ export default function PostDetailScreen() {
     } else {
       console.error('Could not extract program ID from:', program);
       Alert.alert('Error', 'Could not open program details');
+    }
+  };
+  
+  // Add handlers for post actions
+  const handleLike = async (postId: number) => {
+    try {
+      await likePost(postId);
+      refetch(); // Refresh post data
+    } catch (err) {
+      console.error('Error liking post:', err);
+      Alert.alert('Error', 'Failed to like post');
+    }
+  };
+
+  const handleComment = async (postId: number, content: string) => {
+    try {
+      await commentOnPost({ postId, content });
+      refetch(); // Refresh post data
+    } catch (err) {
+      console.error('Error commenting on post:', err);
+      Alert.alert('Error', 'Failed to add comment');
+    }
+  };
+
+  const handleShare = async (postId: number, content: string) => {
+    try {
+      await sharePost({ postId, content });
+      refetch(); // Refresh post data
+    } catch (err) {
+      console.error('Error sharing post:', err);
+      Alert.alert('Error', 'Failed to share post');
+    }
+  };
+  
+  const handleDeletePost = async (postId: number) => {
+    try {
+      await deletePost(postId);
+      // Go back to feed after deleting
+      router.back();
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      Alert.alert('Error', 'Failed to delete post');
+    }
+  };
+  
+  // Add edit post handler
+  const handleEditPost = async (post: any, newContent: string) => {
+    try {
+      // await editPost({ postId: post.id, content: newContent });
+      refetch(); // Refresh post data
+    } catch (err) {
+      console.error('Error editing post:', err);
+      Alert.alert('Error', 'Failed to edit post');
     }
   };
 
@@ -121,17 +194,16 @@ export default function PostDetailScreen() {
         <Post
           post={post}
           currentUser={currentUser}
-          // Re-use the same handlers from your FeedScreen
-          onLike={(postId) => {
-            // This will be handled by the Post component itself
-          }}
-          onComment={(postId, content) => {
-            // This will be handled by the Post component itself
-          }}
+          onLike={handleLike}
+          onComment={handleComment}
+          onShare={handleShare}
+          onEdit={handleEditPost}
+          onDelete={handleDeletePost}
           onProfileClick={handleProfileClick}
+          onNavigateToProfile={handleNavigateToProfile}
           onPostClick={handlePostClick}
           onProgramClick={handleProgramClick}
-          detailMode={true} // Add this prop to your Post component
+          detailMode={true} // Show in detail mode
         />
       </ScrollView>
       

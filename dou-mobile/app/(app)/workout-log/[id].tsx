@@ -32,6 +32,7 @@ import ExerciseSelector from '../../../components/workouts/ExerciseSelector';
 import ExerciseConfigurator, { Exercise, ExerciseSet } from '../../../components/workouts/ExerciseConfigurator';
 import ExerciseCard from '../../../components/workouts/ExerciseCard';
 import { SupersetManager } from '../../../components/workouts/utils/SupersetManager';
+import { v4 as uuidv4 } from 'react-native-uuid';
 
 // Updated green color scheme
 const COLORS = {
@@ -86,6 +87,8 @@ export default function WorkoutLogDetailScreen() {
   const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
   const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [pairingMode, setPairingMode] = useState(false);
+  const [pairingSourceIndex, setPairingSourceIndex] = useState(-1);
   
   // Hooks
   const { user } = useAuth();
@@ -113,6 +116,26 @@ export default function WorkoutLogDetailScreen() {
     }
   }, [editExercisesMode, log?.exercises]);
   
+  // Handle exit pairing mode on back press
+  useEffect(() => {
+    const backHandler = () => {
+      if (pairingMode) {
+        setPairingMode(false);
+        setPairingSourceIndex(-1);
+        return true; // Handled
+      }
+      return false; // Not handled
+    };
+    
+    // We'd normally add an event listener for hardware back button here
+    // but for simplicity, we'll just ensure pairingMode is reset when
+    // editing mode is exited
+    
+    return () => {
+      // Cleanup if needed
+    };
+  }, [pairingMode]);
+  
   // Add keyboard event listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -136,8 +159,6 @@ export default function WorkoutLogDetailScreen() {
   
   // Check if current user is the log creator
   const isCreator = log?.username === user?.username;
-  
-  // Memoized calculations for workout statistics
   const workoutStats = useMemo(() => {
     if (!log?.exercises) return {
       maxReps: 1,
@@ -629,7 +650,111 @@ export default function WorkoutLogDetailScreen() {
     setHasUnsavedChanges(true);
   };
   
+  // Handle moving exercise up
+  const handleMoveExerciseUp = (exerciseIndex) => {
+    if (exerciseIndex <= 0) return;
+    
+    // Create a deep copy
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Swap exercises
+    const temp = updatedExercises[exerciseIndex];
+    updatedExercises[exerciseIndex] = updatedExercises[exerciseIndex - 1];
+    updatedExercises[exerciseIndex - 1] = temp;
+    
+    // Update orders
+    updatedExercises[exerciseIndex].order = exerciseIndex;
+    updatedExercises[exerciseIndex - 1].order = exerciseIndex - 1;
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
   
+  // Handle moving exercise down
+  const handleMoveExerciseDown = (exerciseIndex) => {
+    if (exerciseIndex >= localExercises.length - 1) return;
+    
+    // Create a deep copy
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Swap exercises
+    const temp = updatedExercises[exerciseIndex];
+    updatedExercises[exerciseIndex] = updatedExercises[exerciseIndex + 1];
+    updatedExercises[exerciseIndex + 1] = temp;
+    
+    // Update orders
+    updatedExercises[exerciseIndex].order = exerciseIndex;
+    updatedExercises[exerciseIndex + 1].order = exerciseIndex + 1;
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
+  
+  // Handle deleting an exercise
+  const handleDeleteExercise = (exerciseIndex) => {
+    // Create a deep copy
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Remove exercise
+    updatedExercises.splice(exerciseIndex, 1);
+    
+    // Update order for remaining exercises
+    updatedExercises.forEach((exercise, index) => {
+      exercise.order = index;
+    });
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
+  
+  // Handle making a superset
+  const handleMakeSuperset = (exerciseIndex) => {
+    // Enter pairing mode and store the source exercise index
+    setPairingMode(true);
+    setPairingSourceIndex(exerciseIndex);
+    
+    // No alert, just visual feedback in the UI that we're in pairing mode
+  };
+  
+  // Handle selecting an exercise as superset pair
+  const handleSelectPair = (targetIndex) => {
+    if (pairingSourceIndex === targetIndex) {
+      Alert.alert(t('error'), t('cannot_pair_with_itself'));
+      return;
+    }
+    
+    // Create the superset relationship using SupersetManager
+    const updatedExercises = SupersetManager.createSuperset(
+      localExercises,
+      pairingSourceIndex,
+      targetIndex,
+      90 // Default rest time (90 seconds)
+    );
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+    setPairingMode(false);
+    setPairingSourceIndex(-1);
+  };
+  
+  // Handle removing a superset
+  const handleRemoveSuperset = (exerciseIndex) => {
+    // Create a deep copy
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Remove superset properties
+    updatedExercises[exerciseIndex].is_superset = false;
+    updatedExercises[exerciseIndex].superset_with = null;
+    updatedExercises[exerciseIndex].superset_rest_time = 0;
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
   
   // Handle editing an exercise
   const handleEditExercise = (index) => {
@@ -685,53 +810,52 @@ export default function WorkoutLogDetailScreen() {
     setExerciseConfiguratorVisible(false);
     setCurrentExercise(null);
   };
+  
+  // Handle selecting an exercise from the selector
+  const handleSelectExercise = (exerciseName) => {
+    // Create a new exercise with the selected name
+    const newExerciseId = Date.now(); // Simple ID generation
+    const newExercise = {
+      id: newExerciseId,
+      name: exerciseName,
+      sets: [{ reps: 10, weight: 0, rest_time: 60 }],
+      order: localExercises.length
+    };
+    
+    // Add to local exercises
+    const updatedExercises = [...localExercises, newExercise];
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+    setExerciseSelectorVisible(false);
+  };
 
-  const handleDoneEditingExercises = async () => {
-    if (hasUnsavedChanges) {
-      // Ask user if they want to save changes
-      Alert.alert(
-        t('save_changes'),
-        t('do_you_want_to_save_your_changes'),
-        [
-          {
-            text: t('discard'),
-            style: 'destructive',
-            onPress: () => {
-              // Discard changes and exit edit mode
-              setEditExercisesMode(false);
-              setHasUnsavedChanges(false);
-            }
-          },
-          {
-            text: t('save'),
-            onPress: async () => {
-              try {
-                // Show loading indicator
-                // You might want to add a loading state here
-                
-                // Update the log with local changes
-                await updateLog({
-                  id: logId,
-                  logData: {
-                    exercises: localExercises
-                  }
-                });
-                
-                // Exit edit mode and refresh data
-                setEditExercisesMode(false);
-                setHasUnsavedChanges(false);
-                await refetch();
-              } catch (error) {
-                console.error('Failed to save exercises:', error);
-                Alert.alert(t('error'), t('failed_to_save_changes'));
-              }
-            }
-          }
-        ]
-      );
-    } else {
-      // No changes, just exit edit mode
+  // If cancel/save is pressed when in pairing mode, exit pairing mode
+  const handleCancelEditing = () => {
+    setPairingMode(false);
+    setEditExercisesMode(false);
+    setHasUnsavedChanges(false);
+  };
+
+  const handleSaveChanges = async () => {
+    setPairingMode(false); // Exit pairing mode if active
+    try {
+      // Show loading indicator (can be implemented with a state)
+      
+      // Update the log with local changes
+      await updateLog({
+        id: logId,
+        logData: {
+          exercises: localExercises
+        }
+      });
+      
+      // Exit edit mode and refresh data
       setEditExercisesMode(false);
+      setHasUnsavedChanges(false);
+      await refetch();
+    } catch (error) {
+      console.error('Failed to save exercises:', error);
+      Alert.alert(t('error'), t('failed_to_save_changes'));
     }
   };
 
@@ -959,72 +1083,23 @@ export default function WorkoutLogDetailScreen() {
               <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           ) : editExercisesMode ? (
-            // Edit mode header actions
+            // Simplified edit mode actions - just Save and Cancel
             <View style={styles.editModeActions}>
               {/* Cancel button */}
               <TouchableOpacity 
                 style={styles.cancelButton}
-                onPress={() => {
-                  if (hasUnsavedChanges) {
-                    Alert.alert(
-                      t('unsaved_changes'),
-                      t('discard_changes_confirmation'),
-                      [
-                        {
-                          text: t('cancel'),
-                          style: 'cancel'
-                        },
-                        {
-                          text: t('discard'),
-                          style: 'destructive',
-                          onPress: () => {
-                            setEditExercisesMode(false);
-                            setHasUnsavedChanges(false);
-                          }
-                        }
-                      ]
-                    );
-                  } else {
-                    setEditExercisesMode(false);
-                  }
-                }}
+                onPress={handleCancelEditing}
               >
                 <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
               </TouchableOpacity>
               
-              {/* Save button - only visible if changes made */}
-              {hasUnsavedChanges && (
-                <TouchableOpacity 
-                  style={styles.saveButton}
-                  onPress={async () => {
-                    try {
-                      await updateLog({
-                        id: logId,
-                        logData: {
-                          exercises: localExercises
-                        }
-                      });
-                      
-                      setHasUnsavedChanges(false);
-                      await refetch();
-                      Alert.alert(t('success'), t('changes_saved_successfully'));
-                    } catch (error) {
-                      console.error('Failed to save exercises:', error);
-                      Alert.alert(t('error'), t('failed_to_save_changes'));
-                    }
-                  }}
-                >
-                  <Ionicons name="save-outline" size={16} color="#FFFFFF" style={styles.saveButtonIcon} />
-                  <Text style={styles.saveButtonText}>{t('save')}</Text>
-                </TouchableOpacity>
-              )}
-              
-              {/* Done button */}
+              {/* Save button - single button for all changes */}
               <TouchableOpacity 
-                style={styles.doneButton}
-                onPress={handleDoneEditingExercises}
+                style={styles.saveButton}
+                onPress={handleSaveChanges}
               >
-                <Text style={styles.doneButtonText}>{t('done')}</Text>
+                <Ionicons name="save-outline" size={16} color="#FFFFFF" style={styles.saveButtonIcon} />
+                <Text style={styles.saveButtonText}>{t('save')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -1106,6 +1181,15 @@ export default function WorkoutLogDetailScreen() {
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{t('exercises')}</Text>
                 <View style={styles.exerciseControls}>
+                  {editExercisesMode && (
+                    <TouchableOpacity 
+                      style={styles.addExerciseButton}
+                      onPress={() => setExerciseSelectorVisible(true)}
+                    >
+                      <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
+                      <Text style={styles.addExerciseText}>{t('add')}</Text>
+                    </TouchableOpacity>
+                  )}
                   <Text style={styles.exerciseCount}>
                     {log.exercises?.length || 0} {t('total')}
                   </Text>
@@ -1121,18 +1205,28 @@ export default function WorkoutLogDetailScreen() {
                       <ExerciseCard
                         key={index}
                         exercise={exercise}
+                        pairedExerciseName={
+                          exercise.is_superset && SupersetManager.getPairedExercise(localExercises, index)?.name
+                        }
                         showAllSets={true}
                         editMode={editExercisesMode}
+                        pairingMode={pairingMode && pairingSourceIndex !== index}
                         isFirst={index === 0}
                         isLast={index === localExercises.length - 1}
                         exerciseIndex={index}
                         onEdit={() => handleEditExercise(index)}
+                        onDelete={() => handleDeleteExercise(index)}
+                        onMakeSuperset={() => handleMakeSuperset(index)}
+                        onRemoveSuperset={() => handleRemoveSuperset(index)}
+                        onMoveUp={() => handleMoveExerciseUp(index)}
+                        onMoveDown={() => handleMoveExerciseDown(index)}
                         onAddSet={() => handleAddSet(exercise)}
                         onRemoveSet={(setIndex) => handleRemoveSet(exercise, setIndex)}
                         onUpdateSet={(setIndex, field, value) => 
                           handleUpdateSet(exercise, setIndex, field, value)
                         }
                         onUpdateNotes={(notes) => handleUpdateExerciseNotes(exercise, notes)}
+                        onSelect={() => pairingMode && handleSelectPair(index)}
                       />
                     ))}
                   </View>
@@ -1141,6 +1235,13 @@ export default function WorkoutLogDetailScreen() {
                   <View style={styles.emptyState}>
                     <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
                     <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
+                    <TouchableOpacity 
+                      style={styles.emptyStateAddButton}
+                      onPress={() => setExerciseSelectorVisible(true)}
+                    >
+                      <Ionicons name="add-circle" size={20} color={COLORS.primary} />
+                      <Text style={styles.emptyStateAddText}>{t('add_exercise')}</Text>
+                    </TouchableOpacity>
                   </View>
                 )
               ) : (
@@ -1178,14 +1279,22 @@ export default function WorkoutLogDetailScreen() {
       
       {/* Edit mode reminder (if in edit mode) */}
       {editExercisesMode && (
-      <View style={styles.editModeReminder}>
-        <Text style={styles.editModeText}>
-          {hasUnsavedChanges 
-            ? t('unsaved_changes_reminder') 
-            : t('tap_exercises_to_edit')}
-        </Text>
-      </View>
-    )}
+        <View style={styles.editModeReminder}>
+          <Text style={styles.editModeText}>
+            {pairingMode 
+              ? t('select_exercise_to_pair_with') 
+              : t('tap_exercises_to_edit')}
+          </Text>
+          {pairingMode && (
+            <TouchableOpacity 
+              style={styles.cancelPairingButton}
+              onPress={() => setPairingMode(false)}
+            >
+              <Text style={styles.cancelPairingText}>{t('cancel_pairing')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       
       {/* Exercise Configurator Modal */}
       {currentExercise && (
@@ -1199,6 +1308,13 @@ export default function WorkoutLogDetailScreen() {
           isEdit={!!currentExercise?.id}
         />
       )}
+      
+      {/* Exercise Selector Modal */}
+      <ExerciseSelector
+        visible={exerciseSelectorVisible}
+        onClose={() => setExerciseSelectorVisible(false)}
+        onSelectExercise={handleSelectExercise}
+      />
     </SafeAreaView>
   );
 }
@@ -1272,13 +1388,34 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
-  doneButton: {
-    backgroundColor: COLORS.success,
+  editModeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
-  doneButtonText: {
+  saveButtonIcon: {
+    marginRight: 4,
+  },
+  saveButtonText: {
     fontSize: 13,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -1404,6 +1541,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text.secondary,
   },
+  addExerciseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  addExerciseText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  emptyStateAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  emptyStateAddText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
   exercisesList: {
     padding: 16,
     paddingTop: 8,
@@ -1438,6 +1605,19 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  cancelPairingButton: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  cancelPairingText: {
+    fontSize: 12,
+    color: '#ef4444',
+    fontWeight: '500',
   },
   
   // Stats styles
@@ -1555,69 +1735,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text.secondary,
-  },
-  editModeActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cancelButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    marginRight: 8,
-  },
-  cancelButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  saveButtonIcon: {
-    marginRight: 4,
-  },
-  saveButtonText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  saveChangesButton: {
-    position: 'absolute',
-    bottom: 60,
-    left: 16,
-    right: 16,
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    zIndex: 10,
-  },
-  saveChangesButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  unsavedChangesIndicator: {
-    backgroundColor: 'rgba(234, 88, 12, 0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginRight: 8,
-  },
-  unsavedChangesText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
 });

@@ -1,5 +1,5 @@
 // app/(app)/profile.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,29 +12,39 @@ import {
   SafeAreaView,
   Dimensions,
   Modal,
+  StatusBar,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../context/LanguageContext';
 import { useCurrentUser, useLogout } from '../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../hooks/query/useGymQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
+import { useLogs, useWorkoutStats } from '../../hooks/query/useLogQuery';
+// Add this import at the top with other imports
+import { useFriendsCount, usePostsCount, useWorkoutsCount, useAllCounts } from '../../hooks/query/useUserCountQuery';
 import ProgramCard from '../../components/workouts/ProgramCard';
 import { getAvatarUrl } from '../../utils/imageUtils';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parse, subMonths, addMonths } from 'date-fns';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function ProfileScreen() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const router = useRouter();
+  const logout = useLogout();
   const [refreshing, setRefreshing] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
-  
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   
   // Use React Query hooks
   const { 
@@ -44,6 +54,17 @@ export default function ProfileScreen() {
     error: profileError
   } = useCurrentUser();
   
+  // Get logs for workout data
+  const { data: logs, isLoading: logsLoading } = useLogs();
+
+  // Get workout stats for chart data
+  const { data: workoutStats, isLoading: statsLoading } = useWorkoutStats();
+  
+  const { data: friendsCount = 0, isLoading: friendsCountLoading } = useFriendsCount();
+  const { data: postsCount = 0, isLoading: postsCountLoading } = usePostsCount();
+  const { data: workoutsCount = 0, isLoading: workoutsCountLoading } = useWorkoutsCount();
+
+  console.log(friendsCount);
   useFocusEffect(
     useCallback(() => {
       // Force refetch profile data when screen is focused
@@ -54,6 +75,7 @@ export default function ProfileScreen() {
       };
     }, [])
   );
+  
   // Get preferred gym info
   const {
     displayText: gymDisplayText,
@@ -68,16 +90,61 @@ export default function ProfileScreen() {
   } = useProgram(profile?.current_program?.id, {
     enabled: !!profile?.current_program?.id
   });
+
+  // Process logs data for the calendar
+  const workoutDays = useMemo(() => {
+    if (!logs) return [];
+    
+    return logs.map(log => {
+      if (log.date) {
+        try {
+          // Parse French format date (DD/MM/YYYY)
+          return parse(log.date, 'dd/MM/yyyy', new Date());
+        } catch (error) {
+          console.error("Error parsing date:", error);
+          return null;
+        }
+      }
+      return null;
+    }).filter(date => date !== null);
+  }, [logs]);
   
-  // Session data for chart - aggregated by month
-  const sessionData = [
-    { month: 'Jan', sessions: 4 },
-    { month: 'Feb', sessions: 5 },
-    { month: 'Mar', sessions: 6 },
-    { month: 'Apr', sessions: 4 },
-    { month: 'May', sessions: 5 },
-    { month: 'Jun', sessions: 7 },
-  ];
+  // Process logs data for the chart by month
+  const sessionData = useMemo(() => {
+    if (!logs) return [];
+    
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const date = subMonths(new Date(), 5 - i);
+      return {
+        month: format(date, 'MMM'),
+        date,
+        sessions: 0
+      };
+    });
+    
+    if (logs && logs.length > 0) {
+      logs.forEach(log => {
+        try {
+          if (!log.date) return;
+          
+          // Parse French format date (DD/MM/YYYY)
+          const logDate = parse(log.date, 'dd/MM/yyyy', new Date());
+          
+          const monthIndex = last6Months.findIndex(item => 
+            format(item.date, 'MMM yyyy') === format(logDate, 'MMM yyyy')
+          );
+          
+          if (monthIndex !== -1) {
+            last6Months[monthIndex].sessions += 1;
+          }
+        } catch (error) {
+          console.error("Error processing log date:", error, log.date);
+        }
+      });
+    }
+    
+    return last6Months;
+  }, [logs]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -90,22 +157,66 @@ export default function ProfileScreen() {
     }
   };
 
-  // Format focus text (convert snake_case to Title Case)
-  const formatFocus = (focus) => {
-    if (!focus) return '';
-    return focus
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  // Navigation functions
+  const navigateToFriends = () => {
+    router.push('/friends');
+  };
+  
+  const navigateToPosts = () => {
+    router.push('/posts');
+  };
+  
+  const navigateToWorkouts = () => {
+    router.push('/workouts');
   };
 
-  // Get initials for avatar placeholder
-  const getInitials = (name) => {
-    if (!name) return '?';
-    return name.charAt(0).toUpperCase();
+  const navigateToEditProfile = () => {
+    setOptionsModalVisible(false);
+    router.push('/edit-profile');
   };
 
-  // Get personality-based gradient for avatar (similar to Post component)
+  const handleLogout = async () => {
+    setOptionsModalVisible(false);
+    Alert.alert(
+      t('logout_confirmation_title'),
+      t('logout_confirmation_message'),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('logout'),
+          onPress: logout,
+          style: 'destructive'
+        }
+      ]
+    );
+  };
+
+  // Calendar functions
+  const getDaysInMonth = (date) => {
+    const start = startOfMonth(date);
+    const end = endOfMonth(date);
+    return eachDayOfInterval({ start, end });
+  };
+
+  const changeMonth = (direction) => {
+    setCurrentMonth(prevMonth => {
+      return direction === 'next' 
+        ? addMonths(prevMonth, 1) 
+        : subMonths(prevMonth, 1);
+    });
+  };
+
+  const isWorkoutDay = (day) => {
+    return workoutDays.some(date => date && isSameDay(day, date));
+  };
+
+  // Format gym info
+  const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
+
+  // Get personality-based gradient for avatar
   const getPersonalityGradient = () => {
     const personality = profile?.personality_type || 'default';
     
@@ -123,12 +234,11 @@ export default function ProfileScreen() {
     }
   };
 
-  // Weekdays for program schedule visualization
-  const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
   // Combine loading states
   const isLoading = profileLoading || (profile?.preferred_gym && gymLoading) || 
-                   (profile?.current_program?.id && programLoading);
+                 (profile?.current_program?.id && programLoading) ||
+                 logsLoading || statsLoading || 
+                 friendsCountLoading || postsCountLoading || workoutsCountLoading;
   
   if (isLoading && !refreshing) {
     return (
@@ -141,6 +251,8 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
       {/* Image Modal */}
       <Modal
         visible={imageModalVisible}
@@ -163,6 +275,33 @@ export default function ProfileScreen() {
             />
           </View>
         </View>
+      </Modal>
+
+      {/* Options Modal */}
+      <Modal
+        visible={optionsModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setOptionsModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={0.9}
+          onPress={() => setOptionsModalVisible(false)}
+        >
+          <View style={styles.optionsContainer}>
+            <BlurView intensity={30} tint="dark" style={styles.blurBackground} />
+            <TouchableOpacity style={styles.optionItem} onPress={navigateToEditProfile}>
+              <Ionicons name="create-outline" size={24} color="#ffffff" />
+              <Text style={styles.optionText}>{t('edit_profile')}</Text>
+            </TouchableOpacity>
+            <View style={styles.optionDivider} />
+            <TouchableOpacity style={styles.optionItem} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+              <Text style={[styles.optionText, { color: '#ef4444' }]}>{t('logout')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       <ScrollView
@@ -205,19 +344,29 @@ export default function ProfileScreen() {
             {/* Right side - Profile info and stats */}
             <View style={styles.profileRightContent}>
               <View style={styles.profileInfo}>
-                <Text style={styles.profileUsername}>{profile?.username || t('user')}</Text>
+                <View style={styles.usernameContainer}>
+                  <Text style={styles.profileUsername}>{profile?.username || t('user')}</Text>
+                  <TouchableOpacity 
+                    style={styles.optionsButton}
+                    onPress={() => setOptionsModalVisible(true)}
+                  >
+                    <MaterialCommunityIcons name="dots-vertical" size={24} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
                 
                 <View style={styles.badgesContainer}>
-                  <LinearGradient
-                    colors={['#9333EA', '#D946EF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.personalityBadge}
-                  >
-                    <Text style={styles.personalityText}>
-                      {profile?.personality_type ? t(profile.personality_type.toLowerCase()) : t('fitness_enthusiast')}
-                    </Text>
-                  </LinearGradient>
+                  {profile?.personality_type && (
+                    <LinearGradient
+                      colors={['#9333EA', '#D946EF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.personalityBadge}
+                    >
+                      <Text style={styles.personalityText}>
+                        {t(profile.personality_type.toLowerCase())}
+                      </Text>
+                    </LinearGradient>
+                  )}
                   
                   {profile?.preferred_gym && (
                     <LinearGradient
@@ -227,30 +376,106 @@ export default function ProfileScreen() {
                       style={styles.gymBadge}
                     >
                       <Text style={styles.gymText}>
-                        {gymDisplayText}
+                        {gymInfo}
                       </Text>
                     </LinearGradient>
                   )}
                 </View>
               </View>
+            </View>
+          </View>
+          
+          {/* Stats row (below profile info) */}
+          <View style={styles.statsRow}>
+            <TouchableOpacity style={styles.statItem} onPress={navigateToFriends}>
+              <Text style={styles.statValue}>{friendsCount}</Text>
+              <Text style={styles.statLabel}>{t('friends')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.statItem} onPress={navigateToPosts}>
+              <Text style={styles.statValue}>{postsCount}</Text>
+              <Text style={styles.statLabel}>{t('posts')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.statItem} onPress={navigateToWorkouts}>
+              <Text style={styles.statValue}>{workoutsCount}</Text>
+              <Text style={styles.statLabel}>{t('workouts')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* Monthly Workout Calendar */}
+        <View style={styles.calendarCard}>
+          <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+          
+          <View style={styles.calendarHeader}>
+            <Text style={styles.cardTitle}>{t('workout_calendar')}</Text>
+            <View style={styles.monthSelectorContainer}>
+              <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthButton}>
+                <Ionicons name="chevron-back" size={24} color="#ffffff" />
+              </TouchableOpacity>
+              <Text style={styles.monthDisplay}>
+                {format(currentMonth, 'MMMM yyyy')}
+              </Text>
+              <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthButton}>
+                <Ionicons name="chevron-forward" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.weekdaysHeader}>
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+              <Text key={index} style={styles.weekdayLabel}>{day}</Text>
+            ))}
+          </View>
+          
+          <View style={styles.calendarGrid}>
+            {getDaysInMonth(currentMonth).map((day, index) => {
+              const isWorkout = isWorkoutDay(day);
+              const isCurrent = isToday(day);
               
-              {/* Stats side by side */}
-              <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{profile?.friends_count || 0}</Text>
-                  <Text style={styles.statLabel}>{t('friends')}</Text>
-                </View>
-                
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{profile?.posts_count || 0}</Text>
-                  <Text style={styles.statLabel}>{t('posts')}</Text>
-                </View>
-                
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{profile?.workouts_count || 0}</Text>
-                  <Text style={styles.statLabel}>{t('workouts')}</Text>
-                </View>
-              </View>
+              return (
+                <TouchableOpacity 
+                  key={index}
+                  style={[
+                    styles.calendarDay,
+                    isWorkout && styles.workoutDay,
+                    isCurrent && styles.currentDay
+                  ]}
+                  onPress={() => {
+                    if (isWorkout) {
+                      // Navigate to workout details for this day
+                      // router.push(`/workout-log/${format(day, 'yyyy-MM-dd')}`);
+                      Alert.alert('Workout', `You worked out on ${format(day, 'MMMM d, yyyy')}`);
+                    }
+                  }}
+                >
+                  <Text 
+                    style={[
+                      styles.dayNumber,
+                      isWorkout && styles.workoutDayNumber,
+                      isCurrent && styles.currentDayNumber
+                    ]}
+                  >
+                    {format(day, 'd')}
+                  </Text>
+                  
+                  {isWorkout && (
+                    <View style={styles.workoutIndicator} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          
+          <View style={styles.calendarLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} />
+              <Text style={styles.legendText}>{t('workout_day')}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+              <Text style={styles.legendText}>{t('today')}</Text>
             </View>
           </View>
         </View>
@@ -272,19 +497,19 @@ export default function ProfileScreen() {
                   }
                 ]
               }}
-              width={screenWidth - 50} // Using more horizontal space
-              height={180} // Reduced height for thinner y-axis
+              width={screenWidth - 32} // Full width minus padding
+              height={180}
               fromZero={true}
-              yAxisInterval={1} // Interval of 1
+              yAxisInterval={1}
               yAxisSuffix=""
               yAxisLabel=""
-              withInnerLines={false} // No grid
-              withOuterLines={true} // Outer frame
-              withHorizontalLines={true} // Only horizontal lines
-              withVerticalLines={false} // No vertical lines
+              withInnerLines={false}
+              withOuterLines={true}
+              withHorizontalLines={true}
+              withVerticalLines={false}
               withDots={true}
               withShadow={false}
-              segments={7} // 0-7 range with intervals of 1
+              segments={7}
               chartConfig={{
                 backgroundColor: '#080f19',
                 backgroundGradientFrom: '#080f19',
@@ -330,14 +555,16 @@ export default function ProfileScreen() {
             <View style={styles.emptyProgram}>
               <Ionicons name="barbell-outline" size={48} color="#d1d5db" />
               <Text style={styles.emptyProgramText}>{t('no_active_program')}</Text>
-              <LinearGradient
-                colors={['#9333EA', '#D946EF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.emptyProgramButton}
-              >
-                <Text style={styles.emptyProgramButtonText}>{t('browse_programs')}</Text>
-              </LinearGradient>
+              <TouchableOpacity onPress={() => router.push('/programs')}>
+                <LinearGradient
+                  colors={['#9333EA', '#D946EF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.emptyProgramButton}
+                >
+                  <Text style={styles.emptyProgramButtonText}>{t('browse_programs')}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -349,11 +576,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080f19', // Dark background like in the design
+    backgroundColor: '#080f19',
   },
   scrollContainer: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 0, // Full width
     paddingBottom: 24,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -371,32 +599,30 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 24,
+    borderRadius: 0, // Remove border radius for full width
   },
 
   profileHeader: {
     position: 'relative',
-    borderRadius: 12,
-    padding: 8,
-    marginTop: 8,
-    marginBottom: 0,
-    borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+    borderRadius: 0, // Remove border radius for full width
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 0, // Remove border
     overflow: 'hidden',
   },
   profileHeaderContent: {
-    flexDirection: 'row', // Changed to row layout
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8, // Reduced margin
+    marginVertical: 4,
   },
   profileImageContainer: {
     position: 'relative',
-    marginRight: 16, // Add margin to the right
+    marginRight: 20,
   },
   profileGradient: {
-    width: 80, // Smaller profile picture
-    height: 80,
-    borderRadius: 40,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
@@ -404,8 +630,8 @@ const styles = StyleSheet.create({
   profileImageInner: {
     width: '100%',
     height: '100%',
-    borderRadius: 37, 
-    backgroundColor: '#3B82F6',
+    borderRadius: 42, 
+    backgroundColor: '#080f19',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -413,108 +639,265 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 37,
+    borderRadius: 42,
   },
   onlineIndicator: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 16, // Smaller indicator
-    height: 16,
-    borderRadius: 8,
+    bottom: 2,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#4ade80', // Green for online status
     borderWidth: 2,
-    borderColor: '#1f2937',
+    borderColor: '#080f19',
   },
   profileRightContent: {
     flex: 1, // Take up remaining space
   },
   profileInfo: {
-    alignItems: 'flex-start', // Left align
-    marginBottom: 1,
+    alignItems: 'flex-start',
+    marginBottom: 0,
+    width: '100%',
+  },
+  usernameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 8,
   },
   profileUsername: {
-    fontSize: 24, // Smaller font size
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8, // Reduced margin
+    flex: 1,
+  },
+  optionsButton: {
+    padding: 5,
   },
   badgesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
   },
   personalityBadge: {
-    paddingHorizontal: 12, // Smaller padding
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    marginRight: 6,
-    marginTop: 4,
   },
   personalityText: {
     color: '#ffffff',
-    fontSize: 12, // Smaller text
+    fontSize: 13,
     fontWeight: '600',
   },
   gymBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
-    marginTop: 4,
   },
   gymText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
   },
   statsRow: {
     flexDirection: 'row',
-    marginTop: 8, // Reduced margin
+    marginTop: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
-    marginRight: 16, // Space between stat items
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    backgroundColor: 'rgba(31, 41, 55, 0.5)',
+    borderRadius: 12,
   },
   statValue: {
-    fontSize: 14, // Smaller font size for stats
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#ffffff',
   },
   statLabel: {
-    fontSize: 11, // Smaller font size for labels
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
     fontWeight: '500',
+    marginTop: 2,
   },
-  chartCard: {
+  
+  // Calendar styles
+  calendarCard: {
     position: 'relative',
     borderRadius: 0,
-    padding: 8,
-    marginBottom: 0,
+    padding: 16,
+    marginVertical: 0,
     borderWidth: 0,
+    overflow: 'hidden',
+  },
+  calendarHeader: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  monthSelectorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  monthDisplay: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginHorizontal: 12,
+    width: 150,
+    textAlign: 'center',
+  },
+  monthButton: {
+    padding: 5,
+    borderRadius: 20,
+    backgroundColor: 'rgba(31, 41, 55, 0.5)',
+  },
+  weekdaysHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  weekdayLabel: {
+    width: 32,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9ca3af',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+  },
+  calendarDay: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 4,
+    borderRadius: 16,
+    backgroundColor: 'rgba(31, 41, 55, 0.3)',
+    position: 'relative',
+  },
+  dayNumber: {
+    fontSize: 14,
+    color: '#e5e7eb',
+  },
+  workoutDay: {
+    backgroundColor: 'rgba(168, 85, 247, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.5)',
+  },
+  workoutDayNumber: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  currentDay: {
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.7)',
+  },
+  currentDayNumber: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  workoutIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#d946ef',
+  },
+  calendarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  
+  // Options modal styles
+  optionsContainer: {
+    position: 'absolute',
+    top: 100,
+    right: 20,
+    width: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 5,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  optionText: {
+    color: '#ffffff',
+    fontSize: 16,
+    marginLeft: 12,
+  },
+  optionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(75, 85, 99, 0.5)',
+  },
+  
+  chartCard: {
+    position: 'relative',
+    borderRadius: 0, // Remove border radius for full width
+    padding: 16,
+    marginVertical: 0, // Remove margins
+    borderWidth: 0, // Remove border
     borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
-    marginVertical: 4,
+    marginBottom: 16,
     paddingHorizontal: 8,
   },
   chart: {
     marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: 0, // Remove border radius for chart
   },
   chartContainer: {
-    // alignItems: 'center',
+    alignItems: 'center',
     justifyContent: 'center',
   },
   programContainer: {
     position: 'relative',
-    borderRadius: 0,
-    padding: 8,
-    marginBottom: 0,
-    borderWidth: 0,
+    borderRadius: 0, // Remove border radius for full width
+    padding: 16,
+    marginTop: 0, // Remove margins
+    borderWidth: 0, // Remove border
     borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },
@@ -531,7 +914,7 @@ const styles = StyleSheet.create({
   emptyProgramButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   emptyProgramButtonText: {
     color: '#fff',

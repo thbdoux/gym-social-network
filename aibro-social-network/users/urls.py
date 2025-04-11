@@ -2,7 +2,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import UserViewSet, UserProfileView, reset_user_current_program, update_language_preference
+from .views import (
+    UserViewSet, 
+    UserProfileView, 
+    reset_user_current_program, 
+    update_language_preference,
+    get_all_counts,
+    get_friends_count,
+)   
 from .profile_preview_api import (
     get_user_profile_preview, 
     get_user_friends, 
@@ -23,4 +30,6 @@ urlpatterns = [
     path('<int:user_id>/posts/', get_user_posts, name='user-posts'),
     path('<int:user_id>/reset-current-program/', reset_user_current_program, name='reset-user-current-program'),
     path('', include(router.urls)),
+    path('friends/count/', get_friends_count, name='friends-count'),
+    path('me/counts/', get_all_counts, name='all-counts'),
 ]

@@ -2,6 +2,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { handleApiError } from './utils/errorHandler';
+import { authEvents } from './utils/authEvents';
 
 /**
  * Configure the base API client with common settings
@@ -47,9 +48,9 @@ apiClient.interceptors.response.use(
         // Clear token
         await SecureStore.deleteItemAsync('token');
         
-        // We can't directly navigate here as we're outside the React component
-        // Instead, we'll use an event system or AuthContext to handle logout
-        // For now, we'll just reject the promise
+        // Emit the token expired event to notify auth context
+        authEvents.emit('tokenExpired');
+        
       } catch (logoutError) {
         console.error('Error during logout:', logoutError);
       }

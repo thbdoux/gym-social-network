@@ -83,13 +83,15 @@ export default function WorkoutDetailScreen() {
   
   // State for exercise edit mode
   const [editExercisesMode, setEditExercisesMode] = useState(false);
+  const [localExercises, setLocalExercises] = useState([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // State for exercise management
   const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
   const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
   const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null);
   const [pairingMode, setPairingMode] = useState(false);
-  const [pairingSourceIndex, setPairingSourceIndex] = useState<number | null>(null);
+  const [pairingSourceIndex, setPairingSourceIndex] = useState(-1);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   // Hooks
@@ -112,6 +114,14 @@ export default function WorkoutDetailScreen() {
     }
   }, [workout]);
   
+  // Initialize local exercises when edit mode is entered
+  useEffect(() => {
+    if (editExercisesMode && workout?.exercises) {
+      // Create a deep copy to work with locally
+      setLocalExercises(JSON.parse(JSON.stringify(workout.exercises)));
+    }
+  }, [editExercisesMode, workout?.exercises]);
+  
   // Add keyboard event listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -132,6 +142,26 @@ export default function WorkoutDetailScreen() {
       keyboardDidHideListener.remove();
     };
   }, []);
+  
+  // Effect to exit pairing mode on back press
+  useEffect(() => {
+    const backHandler = () => {
+      if (pairingMode) {
+        setPairingMode(false);
+        setPairingSourceIndex(-1);
+        return true; // Handled
+      }
+      return false; // Not handled
+    };
+    
+    // We'd normally add an event listener for hardware back button here
+    // but for simplicity, we'll just ensure pairingMode is reset when
+    // editing mode is exited
+    
+    return () => {
+      // Cleanup if needed
+    };
+  }, [pairingMode]);
   
   // Check if current user is the workout creator
   const isCreator = workout?.creator_username === user?.username;
@@ -335,12 +365,54 @@ export default function WorkoutDetailScreen() {
     }
   };
   
-  // Handle saving workout edits (for exercise editing mode)
-  const handleDoneEditingExercises = async () => {
-    setEditExercisesMode(false);
+  // Handle cancelling edit mode
+  const handleCancelEditing = () => {
     setPairingMode(false);
-    setPairingSourceIndex(null);
-    await refetch();
+    setEditExercisesMode(false);
+    setHasUnsavedChanges(false);
+  };
+  
+  // Handle saving changes in edit mode
+  const handleSaveChanges = async () => {
+    setPairingMode(false); // Exit pairing mode if active
+    try {
+      // Save each exercise to the backend
+      for (const exercise of localExercises) {
+        if (workout.exercises.some(e => e.id === exercise.id)) {
+          // Update existing exercise
+          await updateExercise({
+            templateId: workoutId,
+            exerciseId: exercise.id,
+            exercise
+          });
+        } else {
+          // Add new exercise
+          await addExercise({
+            templateId: workoutId,
+            exercise
+          });
+        }
+      }
+      
+      // Check for exercises that were deleted in the local state
+      for (const originalExercise of workout.exercises) {
+        if (!localExercises.some(e => e.id === originalExercise.id)) {
+          // This exercise was deleted, so remove it from the backend
+          await deleteExercise({
+            templateId: workoutId,
+            exerciseId: originalExercise.id
+          });
+        }
+      }
+      
+      // Exit edit mode and refresh data
+      setEditExercisesMode(false);
+      setHasUnsavedChanges(false);
+      await refetch();
+    } catch (error) {
+      console.error('Failed to save exercises:', error);
+      Alert.alert(t('error'), t('failed_to_save_changes'));
+    }
   };
   
   // Handle deleting the workout
@@ -369,19 +441,23 @@ export default function WorkoutDetailScreen() {
 
   // Handle adding a set to an exercise
   const handleAddSet = (exercise) => {
-    // Create a new set based on the last set or with default values
-    const lastSet = exercise.sets.length > 0 ? {...exercise.sets[exercise.sets.length - 1]} : { reps: 8, weight: 0, rest_time: 60 };
-    const newSets = [...exercise.sets, lastSet];
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
     
-    // Update the exercise with the new set
-    updateExercise({
-      templateId: workoutId,
-      exerciseId: exercise.id,
-      exercise: {
-        ...exercise,
-        sets: newSets
-      }
-    });
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Get last set for reference or create default
+    const lastSet = exercise.sets.length > 0 
+      ? {...exercise.sets[exercise.sets.length - 1]} 
+      : { reps: 10, weight: 0, rest_time: 60 };
+    
+    // Add the new set
+    updatedExercises[exerciseIndex].sets.push(lastSet);
+    
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
 
   // Handle removing a set from an exercise
@@ -391,38 +467,39 @@ export default function WorkoutDetailScreen() {
       return;
     }
     
-    const newSets = exercise.sets.filter((_, index) => index !== setIndex);
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
     
-    updateExercise({
-      templateId: workoutId,
-      exerciseId: exercise.id,
-      exercise: {
-        ...exercise,
-        sets: newSets
-      }
-    });
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Remove the set
+    updatedExercises[exerciseIndex].sets.splice(setIndex, 1);
+    
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
 
   // Handle updating a set's values
   const handleUpdateSet = (exercise, setIndex, field, value) => {
-    const newSets = [...exercise.sets];
-    newSets[setIndex] = {
-      ...newSets[setIndex],
-      [field]: value
-    };
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
     
-    updateExercise({
-      templateId: workoutId,
-      exerciseId: exercise.id,
-      exercise: {
-        ...exercise,
-        sets: newSets
-      }
-    });
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Update the specific set
+    updatedExercises[exerciseIndex].sets[setIndex][field] = value;
+    
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
   
   // Start superset pairing mode
-  const handleStartPairing = (index) => {
+  const handleMakeSuperset = (index) => {
+    // Enter pairing mode and store the source exercise index
     setPairingMode(true);
     setPairingSourceIndex(index);
   };
@@ -430,178 +507,212 @@ export default function WorkoutDetailScreen() {
   // Cancel pairing mode
   const handleCancelPairing = () => {
     setPairingMode(false);
-    setPairingSourceIndex(null);
+    setPairingSourceIndex(-1);
   };
   
   // Pair exercises as superset
-  const handlePairExercises = (targetIndex) => {
-    if (pairingSourceIndex === null || pairingSourceIndex === targetIndex) {
+  const handleSelectPair = (targetIndex) => {
+    if (pairingSourceIndex === targetIndex) {
+      Alert.alert(t('error'), t('cannot_pair_with_itself'));
       return;
     }
     
-    const sourceExercise = workout.exercises[pairingSourceIndex];
-    const targetExercise = workout.exercises[targetIndex];
+    // Create the superset relationship using SupersetManager
+    const updatedExercises = SupersetManager.createSuperset(
+      localExercises,
+      pairingSourceIndex,
+      targetIndex,
+      90 // Default rest time (90 seconds)
+    );
     
-    // Set up source exercise superset
-    updateExercise({
-      templateId: workoutId,
-      exerciseId: sourceExercise.id,
-      exercise: {
-        ...sourceExercise,
-        is_superset: true,
-        superset_with: targetExercise.order,
-        superset_rest_time: 90
-      }
-    });
-    
-    // Set up target exercise superset
-    updateExercise({
-      templateId: workoutId,
-      exerciseId: targetExercise.id,
-      exercise: {
-        ...targetExercise,
-        is_superset: true,
-        superset_with: sourceExercise.order,
-        superset_rest_time: 90
-      }
-    });
-    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
     setPairingMode(false);
-    setPairingSourceIndex(null);
-    refetch();
+    setPairingSourceIndex(-1);
   };
   
   // Remove superset pairing
-  const handleRemoveSuperset = (index) => {
-    const exercise = workout.exercises[index];
+  const handleRemoveSuperset = (exerciseIndex) => {
+    // Create a deep copy
+    const updatedExercises = SupersetManager.removeSuperset(
+      localExercises,
+      exerciseIndex
+    );
     
-    if (exercise.is_superset && exercise.superset_with !== null) {
-      // Find paired exercise
-      const pairedExercise = workout.exercises.find(ex => 
-        ex.order === exercise.superset_with
-      );
-      
-      if (pairedExercise) {
-        // Update paired exercise
-        updateExercise({
-          templateId: workoutId,
-          exerciseId: pairedExercise.id,
-          exercise: {
-            ...pairedExercise,
-            is_superset: false,
-            superset_with: null,
-            superset_rest_time: undefined
-          }
-        });
-      }
-      
-      // Update this exercise
-      updateExercise({
-        templateId: workoutId,
-        exerciseId: exercise.id,
-        exercise: {
-          ...exercise,
-          is_superset: false,
-          superset_with: null,
-          superset_rest_time: undefined
-        }
-      });
-      
-      refetch();
-    }
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
+  
+  // Handle moving exercise up
+  const handleMoveExerciseUp = (exerciseIndex) => {
+    if (exerciseIndex <= 0) return;
+    
+    // Create a deep copy
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Swap exercises
+    const temp = updatedExercises[exerciseIndex];
+    updatedExercises[exerciseIndex] = updatedExercises[exerciseIndex - 1];
+    updatedExercises[exerciseIndex - 1] = temp;
+    
+    // Update orders
+    updatedExercises[exerciseIndex].order = exerciseIndex;
+    updatedExercises[exerciseIndex - 1].order = exerciseIndex - 1;
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
+  
+  // Handle moving exercise down
+  const handleMoveExerciseDown = (exerciseIndex) => {
+    if (exerciseIndex >= localExercises.length - 1) return;
+    
+    // Create a deep copy
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Swap exercises
+    const temp = updatedExercises[exerciseIndex];
+    updatedExercises[exerciseIndex] = updatedExercises[exerciseIndex + 1];
+    updatedExercises[exerciseIndex + 1] = temp;
+    
+    // Update orders
+    updatedExercises[exerciseIndex].order = exerciseIndex;
+    updatedExercises[exerciseIndex + 1].order = exerciseIndex + 1;
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
   
   // Handle editing an exercise
   const handleEditExercise = (index) => {
-    const exercise = workout.exercises[index];
+    // Use localExercises when in edit mode, otherwise use workout.exercises
+    const exercise = editExercisesMode 
+      ? localExercises[index] 
+      : workout.exercises[index];
     setCurrentExercise({...exercise});
     setExerciseConfiguratorVisible(true);
   };
   
-  // Handle saving an exercise (new or edited)
+  // Handle deleting an exercise
+  const handleDeleteExercise = (exerciseIndex) => {
+    // Create a deep copy
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Remove exercise
+    updatedExercises.splice(exerciseIndex, 1);
+    
+    // Update order for remaining exercises
+    updatedExercises.forEach((exercise, index) => {
+      exercise.order = index;
+    });
+    
+    // Update state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
+  
+  // Handle updating exercise notes
+  const handleUpdateExerciseNotes = (exercise, notes) => {
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
+    
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Update the notes
+    updatedExercises[exerciseIndex].notes = notes;
+    
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
+  
+  // Handle saving an exercise (edited)
   const handleSaveExercise = (exercise) => {
-    if (currentExercise?.id) {
-      // Update existing exercise
-      updateExercise({
-        templateId: workoutId,
-        exerciseId: currentExercise.id,
-        exercise: {
+    if (editExercisesMode) {
+      if (currentExercise?.id) {
+        // Update existing exercise in local state
+        const exerciseIndex = localExercises.findIndex(e => e.id === currentExercise.id);
+        if (exerciseIndex === -1) {
+          setExerciseConfiguratorVisible(false);
+          setCurrentExercise(null);
+          return;
+        }
+        
+        // Create a deep copy of the exercises array
+        const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+        
+        // Update the exercise
+        updatedExercises[exerciseIndex] = {
           ...exercise,
           id: currentExercise.id,
           order: currentExercise.order
-        }
-      });
-    } else {
-      // Add new exercise
-      addExercise({
-        templateId: workoutId,
-        exercise: {
+        };
+        
+        // Update local state
+        setLocalExercises(updatedExercises);
+        setHasUnsavedChanges(true);
+      } else {
+        // Add new exercise to local state
+        const newExerciseId = Date.now(); // Simple ID generation
+        const newExercise = {
           ...exercise,
-          order: workout.exercises ? workout.exercises.length : 0
-        }
-      });
+          id: newExerciseId,
+          order: localExercises.length
+        };
+        
+        setLocalExercises([...localExercises, newExercise]);
+        setHasUnsavedChanges(true);
+      }
+    } else {
+      // Direct API call when not in edit mode
+      if (currentExercise?.id) {
+        // Update existing exercise
+        updateExercise({
+          templateId: workoutId,
+          exerciseId: currentExercise.id,
+          exercise: {
+            ...exercise,
+            id: currentExercise.id,
+            order: currentExercise.order
+          }
+        }).then(() => refetch());
+      } else {
+        // Add new exercise
+        addExercise({
+          templateId: workoutId,
+          exercise: {
+            ...exercise,
+            order: workout.exercises ? workout.exercises.length : 0
+          }
+        }).then(() => refetch());
+      }
     }
     
     setExerciseConfiguratorVisible(false);
     setCurrentExercise(null);
-    refetch();
   };
   
-  // Handle moving an exercise up or down
-  const handleMoveExercise = (index, direction) => {
-    if (
-      (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === workout.exercises.length - 1)
-    ) {
-      return;
-    }
+  // Handle selecting an exercise from the selector
+  const handleSelectExercise = (exerciseName) => {
+    // Create a new exercise with the selected name
+    const newExerciseId = Date.now(); // Simple ID generation
+    const newExercise = {
+      id: newExerciseId,
+      name: exerciseName,
+      sets: [{ reps: 10, weight: 0, rest_time: 60 }],
+      order: localExercises.length
+    };
     
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    const updatedExercises = SupersetManager.reorderExercises(
-      workout.exercises,
-      index,
-      targetIndex
-    );
-    
-    // Update all affected exercises
-    Promise.all(
-      updatedExercises.map(exercise => 
-        updateExercise({
-          templateId: workoutId,
-          exerciseId: exercise.id,
-          exercise
-        })
-      )
-    ).then(() => {
-      refetch();
-    });
-  };
-  
-  // Delete an exercise
-  const handleDeleteExercise = (exerciseId) => {
-    Alert.alert(
-      t('delete_exercise'),
-      t('confirm_delete_exercise'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        { 
-          text: t('delete'), 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteExercise({
-                templateId: workoutId,
-                exerciseId: exerciseId
-              });
-              refetch();
-            } catch (error) {
-              console.error('Failed to delete exercise:', error);
-              Alert.alert(t('error'), t('failed_to_delete_exercise'));
-            }
-          }
-        }
-      ]
-    );
+    // Add to local exercises
+    const updatedExercises = [...localExercises, newExercise];
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+    setExerciseSelectorVisible(false);
   };
   
   // Render loading state
@@ -655,23 +766,34 @@ export default function WorkoutDetailScreen() {
             </Text>
           </View>
           
-          {isCreator ? (
+          {isCreator && !editExercisesMode ? (
             <TouchableOpacity 
               style={styles.optionsButton}
               onPress={handleOptionsMenu}
             >
               <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
             </TouchableOpacity>
+          ) : editExercisesMode ? (
+            // Simplified edit mode actions - just Save and Cancel
+            <View style={styles.editModeActions}>
+              {/* Cancel button */}
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={handleCancelEditing}
+              >
+                <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              
+              {/* Save button - single button for all changes */}
+              <TouchableOpacity 
+                style={styles.saveButton}
+                onPress={handleSaveChanges}
+              >
+                <Ionicons name="save-outline" size={16} color="#FFFFFF" style={styles.saveButtonIcon} />
+                <Text style={styles.saveButtonText}>{t('save')}</Text>
+              </TouchableOpacity>
+            </View>
           ) : null}
-
-          {editExercisesMode && (
-            <TouchableOpacity 
-              style={styles.doneButton}
-              onPress={handleDoneEditingExercises}
-            >
-              <Text style={styles.doneButtonText}>{t('done')}</Text>
-            </TouchableOpacity>
-          )}
         </View>
         
         {/* Creator info row */}
@@ -748,104 +870,107 @@ export default function WorkoutDetailScreen() {
             <Text style={styles.sectionTitle}>{t('exercises')}</Text>
             <View style={styles.exerciseControls}>
               <Text style={styles.exerciseCount}>
-                {workout.exercises?.length || 0} {t('total')}
+                {editExercisesMode 
+                  ? localExercises?.length || 0 
+                  : workout.exercises?.length || 0
+                } {t('total')}
               </Text>
             </View>
           </View>
           
-          {workout.exercises && workout.exercises.length > 0 ? (
-            <View style={styles.exercisesList}>
-              {workout.exercises.map((exercise, index) => {
-                // Find paired exercise name if this is a superset
-                const pairedExerciseName = exercise.is_superset && exercise.superset_with !== null
-                  ? workout.exercises.find(ex => ex.order === exercise.superset_with)?.name
-                  : null;
-                
-                return (
-                  <ExerciseCard
-                    key={index}
-                    exercise={exercise}
-                    pairedExerciseName={pairedExerciseName}
-                    showAllSets={true} // Always show detailed view in workout detail
-                    editMode={editExercisesMode}
-                    isFirst={index === 0}
-                    isLast={index === workout.exercises.length - 1}
-                    pairingMode={pairingMode && pairingSourceIndex !== index}
-                    exerciseIndex={index}
-                    onEdit={() => handleEditExercise(index)}
-                    onDelete={() => handleDeleteExercise(exercise.id)}
-                    onMakeSuperset={() => handleStartPairing(index)}
-                    onRemoveSuperset={() => handleRemoveSuperset(index)}
-                    onMoveUp={() => handleMoveExercise(index, 'up')}
-                    onMoveDown={() => handleMoveExercise(index, 'down')}
-                    onAddSet={() => handleAddSet(exercise)}
-                    onRemoveSet={(setIndex) => handleRemoveSet(exercise, setIndex)}
-                    onUpdateSet={(setIndex, field, value) => 
-                      handleUpdateSet(exercise, setIndex, field, value)
-                    }
-                    onUpdateNotes={(notes) => {
-                      updateExercise({
-                        templateId: workoutId,
-                        exerciseId: exercise.id,
-                        exercise: {
-                          ...exercise,
-                          notes
-                        }
-                      });
-                    }}
-                    onUpdateSupersetRestTime={(time) => {
-                      // Update both exercises in the superset
-                      if (exercise.is_superset && exercise.superset_with !== null) {
-                        // Find paired exercise
-                        const pairedExercise = workout.exercises.find(ex => 
-                          ex.order === exercise.superset_with
-                        );
-                        
-                        if (pairedExercise) {
-                          // Update this exercise
-                          updateExercise({
-                            templateId: workoutId,
-                            exerciseId: exercise.id,
-                            exercise: {
-                              ...exercise,
-                              superset_rest_time: time
-                            }
-                          });
-                          
-                          // Update paired exercise
-                          updateExercise({
-                            templateId: workoutId,
-                            exerciseId: pairedExercise.id,
-                            exercise: {
-                              ...pairedExercise,
-                              superset_rest_time: time
-                            }
-                          });
-                        }
+          {editExercisesMode ? (
+            // In edit mode, map over localExercises
+            localExercises && localExercises.length > 0 ? (
+              <View style={styles.exercisesList}>
+                {localExercises.map((exercise, index) => {
+                  // Find paired exercise name if this is a superset
+                  const pairedExerciseName = exercise.is_superset && exercise.superset_with !== null
+                    ? localExercises.find(ex => ex.order === exercise.superset_with)?.name
+                    : null;
+                  
+                  return (
+                    <ExerciseCard
+                      key={index}
+                      exercise={exercise}
+                      pairedExerciseName={pairedExerciseName}
+                      showAllSets={true}
+                      editMode={true}
+                      isFirst={index === 0}
+                      isLast={index === localExercises.length - 1}
+                      pairingMode={pairingMode && pairingSourceIndex !== index}
+                      exerciseIndex={index}
+                      onEdit={() => handleEditExercise(index)}
+                      onDelete={() => handleDeleteExercise(index)}
+                      onMakeSuperset={() => handleMakeSuperset(index)}
+                      onRemoveSuperset={() => handleRemoveSuperset(index)}
+                      onMoveUp={() => handleMoveExerciseUp(index)}
+                      onMoveDown={() => handleMoveExerciseDown(index)}
+                      onAddSet={() => handleAddSet(exercise)}
+                      onRemoveSet={(setIndex) => handleRemoveSet(exercise, setIndex)}
+                      onUpdateSet={(setIndex, field, value) => 
+                        handleUpdateSet(exercise, setIndex, field, value)
                       }
-                    }}
-                    onSelect={pairingMode ? () => handlePairExercises(index) : undefined}
-                  />
-                );
-              })}
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
-              <Text style={styles.emptyStateText}>{t('no_exercises')}</Text>
-              {editExercisesMode && (
+                      onUpdateNotes={(notes) => handleUpdateExerciseNotes(exercise, notes)}
+                      onSelect={() => pairingMode && handleSelectPair(index)}
+                    />
+                  );
+                })}
+              </View>
+            ) : (
+              // Empty state for edit mode
+              <View style={styles.emptyState}>
+                <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
+                <Text style={styles.emptyStateText}>{t('no_exercises')}</Text>
                 <TouchableOpacity
                   style={styles.emptyStateAddButton}
-                  onPress={() => {
-                    setCurrentExercise(null);
-                    setExerciseSelectorVisible(true);
-                  }}
+                  onPress={() => setExerciseSelectorVisible(true)}
                 >
                   <Ionicons name="add-circle" size={20} color={COLORS.success} />
                   <Text style={styles.emptyStateAddText}>{t('add_your_first_exercise')}</Text>
                 </TouchableOpacity>
-              )}
-            </View>
+              </View>
+            )
+          ) : (
+            // Normal mode - display workout.exercises
+            workout.exercises && workout.exercises.length > 0 ? (
+              <View style={styles.exercisesList}>
+                {workout.exercises.map((exercise, index) => {
+                  // Find paired exercise name if this is a superset
+                  const pairedExerciseName = exercise.is_superset && exercise.superset_with !== null
+                    ? workout.exercises.find(ex => ex.order === exercise.superset_with)?.name
+                    : null;
+                  
+                  return (
+                    <ExerciseCard
+                      key={index}
+                      exercise={exercise}
+                      pairedExerciseName={pairedExerciseName}
+                      showAllSets={true}
+                      editMode={false}
+                      exerciseIndex={index}
+                      // Important: Ensure these are passed even in view mode
+                      isFirst={index === 0}
+                      isLast={index === workout.exercises.length - 1}
+                    />
+                  );
+                })}
+              </View>
+            ) : (
+              // Empty state for normal mode
+              <View style={styles.emptyState}>
+                <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
+                <Text style={styles.emptyStateText}>{t('no_exercises')}</Text>
+                {isCreator && (
+                  <TouchableOpacity
+                    style={styles.emptyStateAddButton}
+                    onPress={() => setEditExercisesMode(true)}
+                  >
+                    <Ionicons name="add-circle" size={20} color={COLORS.success} />
+                    <Text style={styles.emptyStateAddText}>{t('add_exercises')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )
           )}
         </View>
         
@@ -874,10 +999,7 @@ export default function WorkoutDetailScreen() {
             styles.floatingAddButton,
             keyboardVisible && { bottom: 80 } // Move up when keyboard is visible
           ]}
-          onPress={() => {
-            setCurrentExercise(null);
-            setExerciseSelectorVisible(true);
-          }}
+          onPress={() => setExerciseSelectorVisible(true)}
         >
           <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -887,8 +1009,18 @@ export default function WorkoutDetailScreen() {
       {editExercisesMode && (
         <View style={styles.editModeReminder}>
           <Text style={styles.editModeText}>
-            {t('tap_exercises_to_edit')}
+            {pairingMode 
+              ? t('select_exercise_to_pair_with') 
+              : t('tap_exercises_to_edit')}
           </Text>
+          {pairingMode && (
+            <TouchableOpacity 
+              style={styles.cancelPairingButton}
+              onPress={() => setPairingMode(false)}
+            >
+              <Text style={styles.cancelPairingText}>{t('cancel_pairing')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
       
@@ -896,36 +1028,32 @@ export default function WorkoutDetailScreen() {
       <ExerciseSelector
         visible={exerciseSelectorVisible}
         onClose={() => setExerciseSelectorVisible(false)}
-        onSelectExercise={(exerciseName) => {
-          setExerciseSelectorVisible(false);
-          setCurrentExercise({
-            name: exerciseName,
-            sets: [{reps: 10, weight: 0, rest_time: 60}],
-            is_superset: false,
-            superset_with: null
-          });
-          setExerciseConfiguratorVisible(true);
-        }}
+        onSelectExercise={handleSelectExercise}
       />
       
       {/* Exercise Configurator Modal */}
-      <ExerciseConfigurator
-        visible={exerciseConfiguratorVisible}
-        onClose={() => setExerciseConfiguratorVisible(false)}
-        onSave={handleSaveExercise}
-        exerciseName={currentExercise?.name || ''}
-        initialSets={currentExercise?.sets || []}
-        initialNotes={currentExercise?.notes || ''}
-        isSuperset={currentExercise?.is_superset || false}
-        supersetWith={currentExercise?.superset_with || null}
-        supersetRestTime={currentExercise?.superset_rest_time || 90}
-        supersetPairedExerciseName={
-          currentExercise?.is_superset && currentExercise?.superset_with !== null
-            ? workout?.exercises.find(ex => ex.order === currentExercise.superset_with)?.name || null
-            : null
-        }
-        isEdit={!!currentExercise?.id}
-      />
+      {currentExercise && (
+        <ExerciseConfigurator
+          visible={exerciseConfiguratorVisible}
+          onClose={() => setExerciseConfiguratorVisible(false)}
+          onSave={handleSaveExercise}
+          exerciseName={currentExercise?.name || ''}
+          initialSets={currentExercise?.sets || []}
+          initialNotes={currentExercise?.notes || ''}
+          isSuperset={currentExercise?.is_superset || false}
+          supersetWith={currentExercise?.superset_with || null}
+          supersetRestTime={currentExercise?.superset_rest_time || 90}
+          supersetPairedExerciseName={
+            currentExercise?.is_superset && currentExercise?.superset_with !== null
+              ? (editExercisesMode 
+                  ? localExercises 
+                  : workout?.exercises
+                ).find(ex => ex.order === currentExercise.superset_with)?.name || null
+              : null
+          }
+          isEdit={!!currentExercise?.id}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -961,6 +1089,38 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  editModeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  saveButtonIcon: {
+    marginRight: 4,
+  },
+  saveButtonText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   doneButton: {
     backgroundColor: COLORS.success,
@@ -1091,12 +1251,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 8,
+    alignSelf: 'center',
   },
   cancelPairingText: {
-    fontSize: 14,
+    fontSize: 12,
+    color: '#ef4444',
     fontWeight: '500',
-    color: '#EF4444',
-    marginLeft: 4,
   },
   exercisesSection: {
     marginBottom: 16,
@@ -1106,12 +1270,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingHorizontal: 16,
+    marginTop: 4,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    padding: 12,
   },
   exerciseControls: {
     flexDirection: 'row',
@@ -1120,10 +1285,10 @@ const styles = StyleSheet.create({
   exerciseCount: {
     fontSize: 14,
     color: COLORS.text.secondary,
-    padding:12,
   },
   exercisesList: {
-    marginBottom: 16,
+    padding: 16,
+    paddingTop: 8,
   },
   emptyState: {
     alignItems: 'center',
@@ -1131,7 +1296,7 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: COLORS.card,
     borderRadius: 12,
-    marginBottom: 16,
+    margin: 16,
   },
   emptyStateText: {
     fontSize: 16,
@@ -1155,6 +1320,7 @@ const styles = StyleSheet.create({
   },
   tagsSection: {
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   tagsContainer: {
     flexDirection: 'row',

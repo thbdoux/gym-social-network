@@ -33,11 +33,12 @@ interface FeedContainerProps {
   onLike: (postId: number) => void;
   onComment: (postId: number, content: string) => void;
   onShare: (postId: number, content: string) => void;
-  onEdit?: (post: any) => void;
+  onEdit?: (post: any, newContent: string) => void;
   onDelete?: (postId: number) => void;
   onProgramSelect?: (program: any) => void;
   onForkProgram?: (programId: number) => Promise<any>;
   onProfileClick?: (userId: number) => void;
+  onNavigateToProfile?: (userId: number) => void;
   refreshing?: boolean;
   onRefresh?: () => void;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -55,7 +56,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   onDelete,
   onProgramSelect,
   onForkProgram,
-  onProfileClick, 
+  onProfileClick,
+  onNavigateToProfile,
   onPostClick,
   refreshing = false,
   onRefresh,
@@ -201,6 +203,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           onProgramClick={onProgramSelect}
           onForkProgram={onForkProgram}
           onProfileClick={onProfileClick}
+          onNavigateToProfile={onNavigateToProfile}
           onPostClick={onPostClick}
         />
       )}

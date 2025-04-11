@@ -493,7 +493,7 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return WorkoutLog.objects.filter(
-            user=self.request.user
+            # user=self.request.user
         ).select_related(
             'program',
             'based_on_instance',
@@ -674,3 +674,16 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.exception(f"Error creating workout log: {str(e)}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Add these imports if not present
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_workouts_count(request):
+    """Get the count of workout logs for the current user"""
+    count = request.user.workout_logs.count()
+    return Response({"count": count})

@@ -2,7 +2,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested import routers
-from .views import WorkoutTemplateViewSet, ProgramViewSet, WorkoutInstanceViewSet, WorkoutLogViewSet
+from .views import (
+    WorkoutTemplateViewSet, 
+    ProgramViewSet, 
+    WorkoutInstanceViewSet, 
+    WorkoutLogViewSet,
+    get_workouts_count,
+)
 
 from users.profile_preview_api import get_program_details, get_workout_log_details
 router = DefaultRouter()
@@ -15,6 +21,7 @@ program_router = routers.NestedSimpleRouter(router, r'programs', lookup='program
 program_router.register(r'workouts', WorkoutInstanceViewSet, basename='program-workouts')
 
 urlpatterns = [
+    path('logs/count/', get_workouts_count, name='workouts-count'),
     path('', include(router.urls)),
     path('', include(program_router.urls)),
     path('programs/<int:program_id>/details/', get_program_details, name='program-details'),
