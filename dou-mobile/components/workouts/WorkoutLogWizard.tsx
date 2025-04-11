@@ -52,6 +52,7 @@ type WorkoutLogWizardProps = {
   visible: boolean;
   onProgramSelected?: (programId: number) => void;
   onTemplateSelected?: (templateId: number) => void;
+  programId?: number | null;
 };
 
 const { width } = Dimensions.get('window');
@@ -65,7 +66,8 @@ const WorkoutLogWizard = ({
   onClose, 
   visible,
   onProgramSelected,
-  onTemplateSelected
+  onTemplateSelected,
+  programId = null
 }: WorkoutLogWizardProps) => {
   const { t } = useLanguage();
   
@@ -90,7 +92,7 @@ const WorkoutLogWizard = ({
       difficulty_level: 'moderate',
       mood_rating: 3,
       exercises: [],
-      program_id: null,
+      program_id: logFromProgram ? programId : null, // Set program_id directly from programId prop
       program_workout_id: null,
       template_id: null,
       source_type: sourceType
@@ -103,7 +105,8 @@ const WorkoutLogWizard = ({
       formData.duration_minutes = programWorkout.estimated_duration || 45;
       formData.difficulty_level = programWorkout.difficulty_level || 'moderate';
       formData.exercises = programWorkout.exercises ? [...programWorkout.exercises] : [];
-      formData.program_id = programWorkout.program_id || null;
+      // Ensure program_id is set from prop first, fallback to programWorkout.program_id
+      formData.program_id = programId || programWorkout.program_id || null;
       formData.program_workout_id = programWorkout.id || null;
     }
     

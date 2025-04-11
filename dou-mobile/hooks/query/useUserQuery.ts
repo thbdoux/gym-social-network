@@ -1,25 +1,29 @@
-// hooks/query/useUserQuery.ts
 import { 
-    useQuery, 
-    useMutation, 
-    useQueryClient,
-  } from '@tanstack/react-query';
-  import * as SecureStore from 'expo-secure-store';
-  import { router } from 'expo-router';
-  import { userService } from '../../api/services';
-  
-  // Query keys
-  export const userKeys = {
-    all: ['users'],
-    lists: () => [...userKeys.all, 'list'],
-    list: (filters) => [...userKeys.lists(), { ...filters }],
-    details: () => [...userKeys.all, 'detail'],
-    detail: (id) => [...userKeys.details(), id],
-    current: () => [...userKeys.all, 'current'],
-    friends: () => [...userKeys.all, 'friends'],
-    friendRequests: () => [...userKeys.all, 'friendRequests'],
-  };
-  
+  useQuery, 
+  useMutation, 
+  useQueryClient,
+} from '@tanstack/react-query';
+import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
+import { userService } from '../../api/services';
+import { postKeys } from './usePostQuery';
+import { programKeys } from './useProgramQuery';
+import { workoutKeys } from './useWorkoutQuery';
+import { logKeys } from './useLogQuery';
+import { gymKeys } from './useGymQuery';
+import { profilePreviewKeys } from './useProfilePreviewQuery';
+
+// Query keys
+export const userKeys = {
+  all: ['users'],
+  lists: () => [...userKeys.all, 'list'],
+  list: (filters) => [...userKeys.lists(), { ...filters }],
+  details: () => [...userKeys.all, 'detail'],
+  detail: (id) => [...userKeys.details(), id],
+  current: () => [...userKeys.all, 'current'],
+  friends: () => [...userKeys.all, 'friends'],
+  friendRequests: () => [...userKeys.all, 'friendRequests'],
+};
   // Get current user
   export const useCurrentUser = (options = {}) => {
     return useQuery({
@@ -209,14 +213,42 @@ import {
     return useMutation({
       mutationFn: ({ username, password }) => userService.login(username, password),
       onSuccess: async (data) => {
-        // Store the token in secure storage
-        await SecureStore.setItemAsync('token', data.access);
-        
-        // Clear the query client cache
-        queryClient.clear();
-        
-        // Then refetch current user data
-        queryClient.resetQueries({ queryKey: userKeys.current() });
+        try {
+          // STEP 1: Perform a complete cache purge
+          queryClient.clear();
+          
+          // STEP 2: Store the new token
+          await SecureStore.setItemAsync('token', data.access);
+          
+          // STEP 3: Force explicit removal of specific cached queries
+          // This is redundant with clear() but serves as a safety measure
+          const allQueryKeys = [
+            userKeys.all,
+            postKeys.all,
+            programKeys.all,
+            workoutKeys.all,
+            logKeys.all,
+            gymKeys.all,
+            profilePreviewKeys.all
+          ];
+          
+          // Remove each query key specifically
+          allQueryKeys.forEach(key => {
+            queryClient.removeQueries({ queryKey: key, exact: false });
+          });
+          
+          // STEP 4: Force a reset of the current user query to trigger refetch
+          queryClient.resetQueries({ queryKey: userKeys.current(), exact: true });
+          
+          // STEP 5: Force immediate refetch of current user data
+          queryClient.invalidateQueries({ 
+            queryKey: userKeys.current(),
+            refetchType: 'active',
+            exact: true
+          });
+        } catch (error) {
+          console.error('Error handling login cache operations:', error);
+        }
       },
     });
   };
@@ -226,11 +258,40 @@ import {
     
     return async () => {
       try {
+        // STEP 1: Remove token first
         await SecureStore.deleteItemAsync('token');
-        queryClient.clear(); // Complete cache purge
+        
+        // STEP 2: Force explicit removal of specific cached queries
+        const allQueryKeys = [
+          userKeys.all,
+          postKeys.all,
+          programKeys.all,
+          workoutKeys.all,
+          logKeys.all,
+          gymKeys.all,
+          profilePreviewKeys.all
+        ];
+        
+        // Remove each query key specifically
+        allQueryKeys.forEach(key => {
+          queryClient.removeQueries({ queryKey: key, exact: false });
+        });
+        
+        // STEP 3: Perform a complete cache purge
+        queryClient.clear();
+        
+        // STEP 4: Reset cache to initial state
+        queryClient.resetQueries();
+        
+        // STEP 5: Add a small delay to ensure cache operations complete
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // STEP 6: Navigate to login screen
         router.replace('/login');
       } catch (error) {
         console.error('Error during logout:', error);
+        // Still attempt to navigate to login even if there was an error
+        router.replace('/login');
       }
     };
   };

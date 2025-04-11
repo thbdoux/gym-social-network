@@ -150,7 +150,7 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   header: {
     flexDirection: 'row',
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   loadingText: {
     marginTop: 16,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
     padding: 20,
   },
   errorTitle: {

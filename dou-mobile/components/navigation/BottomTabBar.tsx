@@ -295,7 +295,7 @@ const BottomTabBar: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+    backgroundColor: 'rgba(8,15,25,255)',
     height: Platform.OS === 'ios' ? 84 : 64,
     paddingBottom: Platform.OS === 'ios' ? 24 : 8,
     justifyContent: 'space-between',
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   fabMenuInner: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+    backgroundColor: 'rgba(8,15,25,255)',
     borderRadius: 28,
     padding: 12,
     justifyContent: 'space-around',

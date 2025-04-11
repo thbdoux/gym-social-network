@@ -334,14 +334,14 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   safeArea: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   header: {
-    backgroundColor: '#111827', // Unified background color
+    backgroundColor: '#080f19', // Unified background color
     overflow: 'hidden',
     // No border or separator
   },

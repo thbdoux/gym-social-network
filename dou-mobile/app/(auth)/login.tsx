@@ -115,7 +115,7 @@ export default function LoginScreen() {
       >
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <HeaderLogoWithSVG />
+          <HeaderLogoWithSVG width={160} height={60} />
         </View>
         
         {/* Form Container */}
@@ -276,7 +276,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   scrollContainer: {
     flexGrow: 1,

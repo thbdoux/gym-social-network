@@ -11,7 +11,7 @@ export default function AppLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: {
-            backgroundColor: '#111827',
+            backgroundColor: '#080f19',
           },
           animation: 'slide_from_right',
           animationDuration: 200,

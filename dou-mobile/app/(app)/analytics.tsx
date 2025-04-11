@@ -96,14 +96,32 @@ export default function AnalyticsScreen() {
     const monthMap = new Map();
     
     // Process each log
+    // Find this section in monthlyData useMemo function
     logs.forEach(log => {
       if (!log.date || !log.exercises) return;
       
-      const date = new Date(log.date);
+      // Parse the date string correctly
+      let date;
+      if (typeof log.date === 'string') {
+        // Assuming the format is MM/DD/YYYY
+        const [month, day, year] = log.date.split('/');
+        date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        // If it's already a Date object or timestamp
+        date = new Date(log.date);
+      }
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', log.date);
+        return;
+      }
+      
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = new Date(date.getFullYear(), date.getMonth(), 1)
         .toLocaleString('default', { month: 'short' });
       
+      // Rest of your existing code...
       if (!monthMap.has(monthKey)) {
         monthMap.set(monthKey, {
           label: monthLabel,
@@ -287,7 +305,7 @@ export default function AnalyticsScreen() {
                   cx={`${x}%`}
                   cy={`${100 - value}%`}
                   r="4"
-                  fill="#111827"
+                  fill="#080f19"
                   stroke={colorScheme.stroke}
                   strokeWidth="2"
                 />
@@ -320,7 +338,7 @@ export default function AnalyticsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <StatusBar barStyle="light-content" backgroundColor="#080f19" />
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         {/* Header */}
         <View style={styles.header}>
@@ -507,12 +525,12 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   contentContainer: {
     padding: 16,
@@ -522,7 +540,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   loadingText: {
     color: '#FFFFFF',

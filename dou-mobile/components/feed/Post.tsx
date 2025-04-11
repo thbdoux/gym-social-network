@@ -508,7 +508,7 @@ const Post: React.FC<PostProps> = ({
         )}
         
         {/* Achievement Pills */}
-        {badgesToShow.length > 0 && (
+        {/* {badgesToShow.length > 0 && (
           <View style={styles.achievementsContainer}>
             {badgesToShow.map((badge, index) => (
               <LinearGradient
@@ -523,7 +523,7 @@ const Post: React.FC<PostProps> = ({
               </LinearGradient>
             ))}
           </View>
-        )}
+        )} */}
         
         {/* Post Content */}
         <View style={styles.content}>
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   container: {
-    backgroundColor: 'rgba(17, 24, 39, 0.9)', // More transparent background for blur effect
+    backgroundColor: 'rgba(8,15,25,255)', // More transparent background for blur effect
     borderRadius: 0,
     overflow: 'hidden',
     borderWidth: 1,
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(124, 58, 237, 0.05)',
+    backgroundColor: 'rgba(8,15,25,255)',
     borderRadius: 24,
   },
   gradientLine: {
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#111827',
+    borderColor: '#080f19',
   },
   streakText: {
     color: '#FFFFFF',

@@ -17,6 +17,7 @@ const HeaderSettingsButton = () => {
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#080f19',
     marginRight: 16,
     padding: 4,
   },

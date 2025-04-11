@@ -117,9 +117,9 @@ const SidebarButton = () => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 10,
-    marginRight: 16,
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
+    padding: 0,
+    marginRight: 6,
+    backgroundColor: 'rgba(8,15,25,255)',
     borderRadius: 12,
   },
   iconContainer: {

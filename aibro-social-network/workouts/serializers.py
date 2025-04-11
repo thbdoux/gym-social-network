@@ -307,6 +307,7 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
             
         return data
 
+    # Update this method in your WorkoutLogCreateSerializer class
     def create(self, validated_data):
         print("Debug - Create method called")
         print("Debug - Validated data:", validated_data)
@@ -324,6 +325,10 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
                 print("Debug - Processing exercise:", exercise_data)
                 sets_data = exercise_data.pop('sets', [])
                 
+                # Remove id fields to ensure new records are created
+                if 'id' in exercise_data:
+                    exercise_data.pop('id')
+                
                 # Create exercise
                 exercise = ExerciseLog.objects.create(
                     workout=workout_log,
@@ -334,6 +339,11 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
                 # Create sets for this exercise
                 for set_data in sets_data:
                     print("Debug - Processing set:", set_data)
+                    
+                    # Remove id field from sets data
+                    if 'id' in set_data:
+                        set_data.pop('id')
+                    
                     set_obj = SetLog.objects.create(
                         exercise=exercise,
                         **set_data

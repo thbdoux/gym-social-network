@@ -13,6 +13,8 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,6 +35,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
   
+  
   // Use React Query hooks
   const { 
     data: profile, 
@@ -41,6 +44,16 @@ export default function ProfileScreen() {
     error: profileError
   } = useCurrentUser();
   
+  useFocusEffect(
+    useCallback(() => {
+      // Force refetch profile data when screen is focused
+      refetchProfile();
+      
+      return () => {
+        // Cleanup if needed
+      };
+    }, [])
+  );
   // Get preferred gym info
   const {
     displayText: gymDisplayText,
@@ -273,9 +286,9 @@ export default function ProfileScreen() {
               withShadow={false}
               segments={7} // 0-7 range with intervals of 1
               chartConfig={{
-                backgroundColor: '#111827',
-                backgroundGradientFrom: '#111827',
-                backgroundGradientTo: '#111827',
+                backgroundColor: '#080f19',
+                backgroundGradientFrom: '#080f19',
+                backgroundGradientTo: '#080f19',
                 decimalPlaces: 0,
                 color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
                 labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
@@ -336,7 +349,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827', // Dark background like in the design
+    backgroundColor: '#080f19', // Dark background like in the design
   },
   scrollContainer: {
     paddingHorizontal: 10,
@@ -346,7 +359,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
   },
   loadingText: {
     color: '#9ca3af',

@@ -41,7 +41,7 @@ const COLORS = {
   primary: "#0ea5e9", // Blue
   secondary: "#0284c7", // Darker blue
   tertiary: "#0369a1", // Even darker blue
-  background: "#111827", // Dark background
+  background: "#080f19", // Dark background
   card: "#1F2937", // Card background
   text: {
     primary: "#FFFFFF",
@@ -631,7 +631,7 @@ export default function WorkoutDetailScreen() {
   
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <StatusBar barStyle="light-content" backgroundColor="#080f19" />
       
       {/* Header */}
       <LinearGradient

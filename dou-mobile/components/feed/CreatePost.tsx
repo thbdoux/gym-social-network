@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   contentInput: {
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
     borderRadius: 12,
     padding: 16,
     color: '#FFFFFF',
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   },
   attachmentPreview: {
     marginTop: 16,
-    backgroundColor: '#111827',
+    backgroundColor: '#080f19',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,

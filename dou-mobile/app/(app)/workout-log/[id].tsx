@@ -41,7 +41,7 @@ const COLORS = {
   accent: "#f59e0b", // Amber
   success: "#10b981", // Emerald
   danger: "#ef4444", // Red
-  background: "#111827", // Dark background
+  background: "#080f19", // Dark background
   card: "#1F2937", // Card background
   text: {
     primary: "#ffffff",
@@ -73,6 +73,9 @@ export default function WorkoutLogDetailScreen() {
   const [logDuration, setLogDuration] = useState(0);
   const [logMoodRating, setLogMoodRating] = useState(0);
   const [logDifficulty, setLogDifficulty] = useState(0);
+
+  const [localExercises, setLocalExercises] = useState([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // State for edit modes
   const [editExercisesMode, setEditExercisesMode] = useState(false);
@@ -102,6 +105,13 @@ export default function WorkoutLogDetailScreen() {
       setLogDifficulty(log.perceived_difficulty || 0);
     }
   }, [log]);
+
+  useEffect(() => {
+    if (editExercisesMode && log?.exercises) {
+      // Create a deep copy to work with locally
+      setLocalExercises(JSON.parse(JSON.stringify(log.exercises)));
+    }
+  }, [editExercisesMode, log?.exercises]);
   
   // Add keyboard event listeners
   useEffect(() => {
@@ -537,12 +547,6 @@ export default function WorkoutLogDetailScreen() {
     }
   };
   
-  // Handle saving exercise edits (for exercise editing mode)
-  const handleDoneEditingExercises = async () => {
-    setEditExercisesMode(false);
-    await refetch();
-  };
-  
   // Handle deleting the log
   const handleDeleteLog = () => {
     Alert.alert(
@@ -569,37 +573,27 @@ export default function WorkoutLogDetailScreen() {
   
   // Handle updating a set
   const handleUpdateSet = (exercise, setIndex, field, value) => {
-    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
     if (exerciseIndex === -1) return;
     
     // Create a deep copy of the exercises array
-    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
     
     // Update the specific set
     updatedExercises[exerciseIndex].sets[setIndex][field] = value;
     
-    // Prepare the update data
-    const updateData = {
-      ...log,
-      exercises: updatedExercises
-    };
-    
-    // Update the log
-    updateLog({
-      id: logId,
-      logData: updateData
-    }).then(() => {
-      refetch();
-    });
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
   
   // Handle adding a set
   const handleAddSet = (exercise) => {
-    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
     if (exerciseIndex === -1) return;
     
     // Create a deep copy of the exercises array
-    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
     
     // Get last set for reference or create default
     const lastSet = exercise.sets.length > 0 
@@ -609,19 +603,9 @@ export default function WorkoutLogDetailScreen() {
     // Add the new set
     updatedExercises[exerciseIndex].sets.push(lastSet);
     
-    // Prepare the update data
-    const updateData = {
-      ...log,
-      exercises: updatedExercises
-    };
-    
-    // Update the log
-    updateLog({
-      id: logId,
-      logData: updateData
-    }).then(() => {
-      refetch();
-    });
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
   
   // Handle removing a set
@@ -631,67 +615,52 @@ export default function WorkoutLogDetailScreen() {
       return;
     }
     
-    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
     if (exerciseIndex === -1) return;
     
     // Create a deep copy of the exercises array
-    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
     
     // Remove the set
     updatedExercises[exerciseIndex].sets.splice(setIndex, 1);
     
-    // Prepare the update data
-    const updateData = {
-      ...log,
-      exercises: updatedExercises
-    };
-    
-    // Update the log
-    updateLog({
-      id: logId,
-      logData: updateData
-    }).then(() => {
-      refetch();
-    });
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
+  
+  
   
   // Handle editing an exercise
   const handleEditExercise = (index) => {
-    const exercise = log.exercises[index];
+    // Use localExercises when in edit mode, otherwise use log.exercises
+    const exercise = editExercisesMode 
+      ? localExercises[index] 
+      : log.exercises[index];
     setCurrentExercise({...exercise});
     setExerciseConfiguratorVisible(true);
   };
   
   // Handle updating exercise notes
   const handleUpdateExerciseNotes = (exercise, notes) => {
-    const exerciseIndex = log.exercises.findIndex(e => e.id === exercise.id);
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
     if (exerciseIndex === -1) return;
     
     // Create a deep copy of the exercises array
-    const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
     
     // Update the notes
     updatedExercises[exerciseIndex].notes = notes;
     
-    // Prepare the update data
-    const updateData = {
-      ...log,
-      exercises: updatedExercises
-    };
-    
-    // Update the log
-    updateLog({
-      id: logId,
-      logData: updateData
-    }).then(() => {
-      refetch();
-    });
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
   };
   
   // Handle saving an exercise (edited)
   const handleSaveExercise = (exercise) => {
     if (currentExercise?.id) {
-      const exerciseIndex = log.exercises.findIndex(e => e.id === currentExercise.id);
+      const exerciseIndex = localExercises.findIndex(e => e.id === currentExercise.id);
       if (exerciseIndex === -1) {
         setExerciseConfiguratorVisible(false);
         setCurrentExercise(null);
@@ -699,7 +668,7 @@ export default function WorkoutLogDetailScreen() {
       }
       
       // Create a deep copy of the exercises array
-      const updatedExercises = JSON.parse(JSON.stringify(log.exercises));
+      const updatedExercises = JSON.parse(JSON.stringify(localExercises));
       
       // Update the exercise
       updatedExercises[exerciseIndex] = {
@@ -708,25 +677,64 @@ export default function WorkoutLogDetailScreen() {
         order: currentExercise.order
       };
       
-      // Prepare the update data
-      const updateData = {
-        ...log,
-        exercises: updatedExercises
-      };
-      
-      // Update the log
-      updateLog({
-        id: logId,
-        logData: updateData
-      }).then(() => {
-        refetch();
-      });
+      // Update local state
+      setLocalExercises(updatedExercises);
+      setHasUnsavedChanges(true);
     }
     
     setExerciseConfiguratorVisible(false);
     setCurrentExercise(null);
   };
-  
+
+  const handleDoneEditingExercises = async () => {
+    if (hasUnsavedChanges) {
+      // Ask user if they want to save changes
+      Alert.alert(
+        t('save_changes'),
+        t('do_you_want_to_save_your_changes'),
+        [
+          {
+            text: t('discard'),
+            style: 'destructive',
+            onPress: () => {
+              // Discard changes and exit edit mode
+              setEditExercisesMode(false);
+              setHasUnsavedChanges(false);
+            }
+          },
+          {
+            text: t('save'),
+            onPress: async () => {
+              try {
+                // Show loading indicator
+                // You might want to add a loading state here
+                
+                // Update the log with local changes
+                await updateLog({
+                  id: logId,
+                  logData: {
+                    exercises: localExercises
+                  }
+                });
+                
+                // Exit edit mode and refresh data
+                setEditExercisesMode(false);
+                setHasUnsavedChanges(false);
+                await refetch();
+              } catch (error) {
+                console.error('Failed to save exercises:', error);
+                Alert.alert(t('error'), t('failed_to_save_changes'));
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      // No changes, just exit edit mode
+      setEditExercisesMode(false);
+    }
+  };
+
   // Render advanced stats content
   const renderAdvancedStats = () => {
     return (
@@ -919,7 +927,7 @@ export default function WorkoutLogDetailScreen() {
   
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <StatusBar barStyle="light-content" backgroundColor="#080f19" />
       
       {/* Header */}
       <LinearGradient
@@ -951,12 +959,74 @@ export default function WorkoutLogDetailScreen() {
               <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           ) : editExercisesMode ? (
-            <TouchableOpacity 
-              style={styles.doneButton}
-              onPress={handleDoneEditingExercises}
-            >
-              <Text style={styles.doneButtonText}>{t('done')}</Text>
-            </TouchableOpacity>
+            // Edit mode header actions
+            <View style={styles.editModeActions}>
+              {/* Cancel button */}
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => {
+                  if (hasUnsavedChanges) {
+                    Alert.alert(
+                      t('unsaved_changes'),
+                      t('discard_changes_confirmation'),
+                      [
+                        {
+                          text: t('cancel'),
+                          style: 'cancel'
+                        },
+                        {
+                          text: t('discard'),
+                          style: 'destructive',
+                          onPress: () => {
+                            setEditExercisesMode(false);
+                            setHasUnsavedChanges(false);
+                          }
+                        }
+                      ]
+                    );
+                  } else {
+                    setEditExercisesMode(false);
+                  }
+                }}
+              >
+                <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              
+              {/* Save button - only visible if changes made */}
+              {hasUnsavedChanges && (
+                <TouchableOpacity 
+                  style={styles.saveButton}
+                  onPress={async () => {
+                    try {
+                      await updateLog({
+                        id: logId,
+                        logData: {
+                          exercises: localExercises
+                        }
+                      });
+                      
+                      setHasUnsavedChanges(false);
+                      await refetch();
+                      Alert.alert(t('success'), t('changes_saved_successfully'));
+                    } catch (error) {
+                      console.error('Failed to save exercises:', error);
+                      Alert.alert(t('error'), t('failed_to_save_changes'));
+                    }
+                  }}
+                >
+                  <Ionicons name="save-outline" size={16} color="#FFFFFF" style={styles.saveButtonIcon} />
+                  <Text style={styles.saveButtonText}>{t('save')}</Text>
+                </TouchableOpacity>
+              )}
+              
+              {/* Done button */}
+              <TouchableOpacity 
+                style={styles.doneButton}
+                onPress={handleDoneEditingExercises}
+              >
+                <Text style={styles.doneButtonText}>{t('done')}</Text>
+              </TouchableOpacity>
+            </View>
           ) : null}
         </View>
         
@@ -1043,32 +1113,57 @@ export default function WorkoutLogDetailScreen() {
               </View>
               
               {/* Exercise List */}
-              {log.exercises && log.exercises.length > 0 ? (
-                <View style={styles.exercisesList}>
-                  {log.exercises.map((exercise, index) => (
-                    <ExerciseCard
-                      key={index}
-                      exercise={exercise}
-                      showAllSets={true} // Always show detailed view in workout log detail
-                      editMode={editExercisesMode}
-                      isFirst={index === 0}
-                      isLast={index === log.exercises.length - 1}
-                      exerciseIndex={index}
-                      onEdit={() => handleEditExercise(index)}
-                      onAddSet={() => handleAddSet(exercise)}
-                      onRemoveSet={(setIndex) => handleRemoveSet(exercise, setIndex)}
-                      onUpdateSet={(setIndex, field, value) => 
-                        handleUpdateSet(exercise, setIndex, field, value)
-                      }
-                      onUpdateNotes={(notes) => handleUpdateExerciseNotes(exercise, notes)}
-                    />
-                  ))}
-                </View>
+              {editExercisesMode ? (
+                // In edit mode, map over localExercises
+                localExercises && localExercises.length > 0 ? (
+                  <View style={styles.exercisesList}>
+                    {localExercises.map((exercise, index) => (
+                      <ExerciseCard
+                        key={index}
+                        exercise={exercise}
+                        showAllSets={true}
+                        editMode={editExercisesMode}
+                        isFirst={index === 0}
+                        isLast={index === localExercises.length - 1}
+                        exerciseIndex={index}
+                        onEdit={() => handleEditExercise(index)}
+                        onAddSet={() => handleAddSet(exercise)}
+                        onRemoveSet={(setIndex) => handleRemoveSet(exercise, setIndex)}
+                        onUpdateSet={(setIndex, field, value) => 
+                          handleUpdateSet(exercise, setIndex, field, value)
+                        }
+                        onUpdateNotes={(notes) => handleUpdateExerciseNotes(exercise, notes)}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  // Empty state for edit mode
+                  <View style={styles.emptyState}>
+                    <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
+                    <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
+                  </View>
+                )
               ) : (
-                <View style={styles.emptyState}>
-                  <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
-                  <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
-                </View>
+                // In normal mode, map over log.exercises
+                log.exercises && log.exercises.length > 0 ? (
+                  <View style={styles.exercisesList}>
+                    {log.exercises.map((exercise, index) => (
+                      <ExerciseCard
+                        key={index}
+                        exercise={exercise}
+                        showAllSets={true}
+                        editMode={false}
+                        exerciseIndex={index}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  // Empty state for normal mode
+                  <View style={styles.emptyState}>
+                    <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
+                    <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
+                  </View>
+                )
               )}
             </View>
             
@@ -1083,12 +1178,14 @@ export default function WorkoutLogDetailScreen() {
       
       {/* Edit mode reminder (if in edit mode) */}
       {editExercisesMode && (
-        <View style={styles.editModeReminder}>
-          <Text style={styles.editModeText}>
-            {t('tap_exercises_to_edit')}
-          </Text>
-        </View>
-      )}
+      <View style={styles.editModeReminder}>
+        <Text style={styles.editModeText}>
+          {hasUnsavedChanges 
+            ? t('unsaved_changes_reminder') 
+            : t('tap_exercises_to_edit')}
+        </Text>
+      </View>
+    )}
       
       {/* Exercise Configurator Modal */}
       {currentExercise && (
@@ -1458,5 +1555,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text.secondary,
+  },
+  editModeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  saveButtonIcon: {
+    marginRight: 4,
+  },
+  saveButtonText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  saveChangesButton: {
+    position: 'absolute',
+    bottom: 60,
+    left: 16,
+    right: 16,
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  saveChangesButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 8,
+  },
+  unsavedChangesIndicator: {
+    backgroundColor: 'rgba(234, 88, 12, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  unsavedChangesText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
