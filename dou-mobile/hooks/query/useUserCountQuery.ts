@@ -5,43 +5,49 @@ import { userCountService } from '../../api/services';
 // Query keys
 export const userCountKeys = {
   all: ['userCounts'],
-  friends: () => [...userCountKeys.all, 'friends'],
-  posts: () => [...userCountKeys.all, 'posts'],
-  workouts: () => [...userCountKeys.all, 'workouts'],
-  allCounts: () => [...userCountKeys.all, 'all']
+  friends: (userId = null) => userId ? [...userCountKeys.all, 'friends', userId] : [...userCountKeys.all, 'friends'],
+  posts: (userId = null) => userId ? [...userCountKeys.all, 'posts', userId] : [...userCountKeys.all, 'posts'],
+  workouts: (userId = null) => userId ? [...userCountKeys.all, 'workouts', userId] : [...userCountKeys.all, 'workouts'],
+  allCounts: (userId = null) => userId ? [...userCountKeys.all, 'all', userId] : [...userCountKeys.all, 'all']
 };
 
 /**
- * Hook to get the count of friends for the current user
+ * Hook to get the count of friends for the current user or a specific user
  */
-export const useFriendsCount = (options = {}) => {
+export const useFriendsCount = (userId = null, options = {}) => {
   return useQuery({
-    queryKey: userCountKeys.friends(),
-    queryFn: userCountService.getFriendsCount,
+    queryKey: userCountKeys.friends(userId),
+    queryFn: () => userId 
+      ? userCountService.getUserFriendsCount(userId)
+      : userCountService.getFriendsCount(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     ...options
   });
 };
 
 /**
- * Hook to get the count of posts for the current user
+ * Hook to get the count of posts for the current user or a specific user
  */
-export const usePostsCount = (options = {}) => {
+export const usePostsCount = (userId = null, options = {}) => {
   return useQuery({
-    queryKey: userCountKeys.posts(),
-    queryFn: userCountService.getPostsCount,
+    queryKey: userCountKeys.posts(userId),
+    queryFn: () => userId 
+      ? userCountService.getUserPostsCount(userId)
+      : userCountService.getPostsCount(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     ...options
   });
 };
 
 /**
- * Hook to get the count of workouts for the current user
+ * Hook to get the count of workouts for the current user or a specific user
  */
-export const useWorkoutsCount = (options = {}) => {
+export const useWorkoutsCount = (userId = null, options = {}) => {
   return useQuery({
-    queryKey: userCountKeys.workouts(),
-    queryFn: userCountService.getWorkoutsCount,
+    queryKey: userCountKeys.workouts(userId),
+    queryFn: () => userId 
+      ? userCountService.getUserWorkoutsCount(userId)
+      : userCountService.getWorkoutsCount(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     ...options
   });
@@ -50,10 +56,12 @@ export const useWorkoutsCount = (options = {}) => {
 /**
  * Hook to get all counts in a single request (more efficient)
  */
-export const useAllCounts = (options = {}) => {
+export const useAllCounts = (userId = null, options = {}) => {
   return useQuery({
-    queryKey: userCountKeys.allCounts(),
-    queryFn: userCountService.getAllCounts,
+    queryKey: userCountKeys.allCounts(userId),
+    queryFn: () => userId 
+      ? userCountService.getUserAllCounts(userId)
+      : userCountService.getAllCounts(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     ...options
   });

@@ -1,5 +1,5 @@
 // app/(app)/user/[id].tsx
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Dimensions,
   SafeAreaView,
   StatusBar,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
@@ -21,8 +23,11 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { useUser } from '../../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../../hooks/query/useGymQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
+import { useLogs, useWorkoutStats } from '../../../hooks/query/useLogQuery';
+import { useFriendsCount, usePostsCount, useWorkoutsCount } from '../../../hooks/query/useUserCountQuery';
 import ProgramCard from '../../../components/workouts/ProgramCard';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parse, subMonths, addMonths } from 'date-fns';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -32,12 +37,15 @@ export default function ProfilePreviewPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const userId = typeof id === 'string' ? parseInt(id) : 0;
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   
   // Fetch user data
   const {
     data: userData,
     isLoading: userLoading,
     error: userError,
+    refetch: refetchUser
   } = useUser(userId, {
     enabled: !!userId,
     refetchOnMount: true,
@@ -59,31 +67,90 @@ export default function ProfilePreviewPage() {
     enabled: !!userData?.current_program?.id
   });
   
-  // Training consistency data - aggregated by month
-  const sessionData = [
-    { month: 'Jan', sessions: 4 },
-    { month: 'Feb', sessions: 5 },
-    { month: 'Mar', sessions: 6 },
-    { month: 'Apr', sessions: 4 },
-    { month: 'May', sessions: 5 },
-    { month: 'Jun', sessions: 7 },
-  ];
+  // Get logs for workout data
+  const { data: logs, isLoading: logsLoading } = useLogs(userId);
 
-  // Format text utilities
-  const formatText = (text?: string): string => {
-    if (!text) return '';
-    return text
-      .split('_')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Get initials for avatar fallback
-  const getInitials = (name?: string): string => {
-    if (!name) return '?';
-    return name.charAt(0).toUpperCase();
-  };
+  // Get workout stats for chart data
+  const { data: workoutStats, isLoading: statsLoading } = useWorkoutStats(userId);
   
+  const { data: friendsCount = 0, isLoading: friendsCountLoading } = useFriendsCount(userId);
+  const { data: postsCount = 0, isLoading: postsCountLoading } = usePostsCount(userId);
+  const { data: workoutsCount = 0, isLoading: workoutsCountLoading } = useWorkoutsCount(userId);
+
+  // Process logs data for the calendar
+  const workoutDays = useMemo(() => {
+    if (!logs) return [];
+    
+    return logs.map(log => {
+      if (log.date) {
+        try {
+          // Parse French format date (DD/MM/YYYY)
+          return parse(log.date, 'dd/MM/yyyy', new Date());
+        } catch (error) {
+          console.error("Error parsing date:", error);
+          return null;
+        }
+      }
+      return null;
+    }).filter(date => date !== null);
+  }, [logs]);
+  
+  // Process logs data for the chart by month
+  const sessionData = useMemo(() => {
+    if (!logs) return [];
+    
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const date = subMonths(new Date(), 5 - i);
+      return {
+        month: format(date, 'MMM'),
+        date,
+        sessions: 0
+      };
+    });
+    
+    if (logs && logs.length > 0) {
+      logs.forEach(log => {
+        try {
+          if (!log.date) return;
+          
+          // Parse French format date (DD/MM/YYYY)
+          const logDate = parse(log.date, 'dd/MM/yyyy', new Date());
+          
+          const monthIndex = last6Months.findIndex(item => 
+            format(item.date, 'MMM yyyy') === format(logDate, 'MMM yyyy')
+          );
+          
+          if (monthIndex !== -1) {
+            last6Months[monthIndex].sessions += 1;
+          }
+        } catch (error) {
+          console.error("Error processing log date:", error, log.date);
+        }
+      });
+    }
+    
+    return last6Months;
+  }, [logs]);
+
+  // Calendar functions
+  const getDaysInMonth = (date) => {
+    const start = startOfMonth(date);
+    const end = endOfMonth(date);
+    return eachDayOfInterval({ start, end });
+  };
+
+  const changeMonth = (direction) => {
+    setCurrentMonth(prevMonth => {
+      return direction === 'next' 
+        ? addMonths(prevMonth, 1) 
+        : subMonths(prevMonth, 1);
+    });
+  };
+
+  const isWorkoutDay = (day) => {
+    return workoutDays.some(date => date && isSameDay(day, date));
+  };
+
   // Get personality-based gradient for avatar
   const getPersonalityGradient = () => {
     const personality = userData?.personality_type || 'default';
@@ -102,10 +169,23 @@ export default function ProfilePreviewPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetchUser();
+    } catch (error) {
+      console.error('Error refreshing profile data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Combine loading states
   const isLoading = userLoading || 
-                   (userData?.preferred_gym && gymLoading) || 
-                   (userData?.current_program?.id && programLoading);
+                 (userData?.preferred_gym && gymLoading) || 
+                 (userData?.current_program?.id && programLoading) ||
+                 logsLoading || statsLoading || 
+                 friendsCountLoading || postsCountLoading || workoutsCountLoading;
 
   // Formatted gym info
   const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
@@ -126,10 +206,10 @@ export default function ProfilePreviewPage() {
         <View style={styles.headerRight} />
       </View>
 
-      {isLoading ? (
+      {isLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#a855f7" />
-          <Text style={styles.loadingText}>{t('loading')}</Text>
+          <Text style={styles.loadingText}>{t('loading_profile')}</Text>
         </View>
       ) : userError ? (
         <View style={styles.errorContainer}>
@@ -140,7 +220,17 @@ export default function ProfilePreviewPage() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#a855f7"
+              colors={['#a855f7']}
+            />
+          }
+        >
           {/* Profile Header with Left-aligned Profile Picture */}
           <View style={styles.profileHeader}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
@@ -167,7 +257,9 @@ export default function ProfilePreviewPage() {
               {/* Right side - Profile info and stats */}
               <View style={styles.profileRightContent}>
                 <View style={styles.profileInfo}>
-                  <Text style={styles.profileUsername}>{userData?.username || t('user')}</Text>
+                  <View style={styles.usernameContainer}>
+                    <Text style={styles.profileUsername}>{userData?.username || t('user')}</Text>
+                  </View>
                   
                   <View style={styles.badgesContainer}>
                     {userData?.personality_type && (
@@ -197,30 +289,98 @@ export default function ProfilePreviewPage() {
                     )}
                   </View>
                 </View>
+              </View>
+            </View>
+            
+            {/* Stats row (below profile info) */}
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{friendsCount}</Text>
+                <Text style={styles.statLabel}>{t('friends')}</Text>
+              </View>
+
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{postsCount}</Text>
+                <Text style={styles.statLabel}>{t('posts')}</Text>
+              </View>
+
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{workoutsCount}</Text>
+                <Text style={styles.statLabel}>{t('workouts')}</Text>
+              </View>
+            </View>
+          </View>
+          
+          {/* Monthly Workout Calendar */}
+          <View style={styles.calendarCard}>
+            <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
+            
+            <View style={styles.calendarHeader}>
+              <Text style={styles.cardTitle}>{t('workout_calendar')}</Text>
+              <View style={styles.monthSelectorContainer}>
+                <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthButton}>
+                  <Ionicons name="chevron-back" size={24} color="#ffffff" />
+                </TouchableOpacity>
+                <Text style={styles.monthDisplay}>
+                  {format(currentMonth, 'MMMM yyyy')}
+                </Text>
+                <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthButton}>
+                  <Ionicons name="chevron-forward" size={24} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.weekdaysHeader}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                <Text key={index} style={styles.weekdayLabel}>{day}</Text>
+              ))}
+            </View>
+            
+            <View style={styles.calendarGrid}>
+              {getDaysInMonth(currentMonth).map((day, index) => {
+                const isWorkout = isWorkoutDay(day);
+                const isCurrent = isToday(day);
                 
-                {/* Stats side by side */}
-                <View style={styles.statsRow}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
-                      {userData?.friends_count || userData?.friend_count || 0}
+                return (
+                  <TouchableOpacity 
+                    key={index}
+                    style={[
+                      styles.calendarDay,
+                      isWorkout && styles.workoutDay,
+                      isCurrent && styles.currentDay
+                    ]}
+                    onPress={() => {
+                      if (isWorkout) {
+                        Alert.alert('Workout', `${userData?.username} worked out on ${format(day, 'MMMM d, yyyy')}`);
+                      }
+                    }}
+                  >
+                    <Text 
+                      style={[
+                        styles.dayNumber,
+                        isWorkout && styles.workoutDayNumber,
+                        isCurrent && styles.currentDayNumber
+                      ]}
+                    >
+                      {format(day, 'd')}
                     </Text>
-                    <Text style={styles.statLabel}>{t('friends')}</Text>
-                  </View>
-                  
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
-                      {userData?.posts_count || (userData?.posts?.length) || 0}
-                    </Text>
-                    <Text style={styles.statLabel}>{t('posts')}</Text>
-                  </View>
-                  
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
-                      {userData?.workouts_count || userData?.workout_count || 0}
-                    </Text>
-                    <Text style={styles.statLabel}>{t('workouts')}</Text>
-                  </View>
-                </View>
+                    
+                    {isWorkout && (
+                      <View style={styles.workoutIndicator} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            
+            <View style={styles.calendarLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} />
+                <Text style={styles.legendText}>{t('workout_day')}</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+                <Text style={styles.legendText}>{t('today')}</Text>
               </View>
             </View>
           </View>
@@ -243,18 +403,18 @@ export default function ProfilePreviewPage() {
                   ]
                 }}
                 width={screenWidth - 32} // Full width minus padding
-                height={180} // Reduced height for thinner y-axis
+                height={180}
                 fromZero={true}
-                yAxisInterval={1} // Interval of 1
+                yAxisInterval={1}
                 yAxisSuffix=""
                 yAxisLabel=""
-                withInnerLines={false} // No grid
-                withOuterLines={true} // Outer frame
-                withHorizontalLines={true} // Only horizontal lines
-                withVerticalLines={false} // No vertical lines
+                withInnerLines={false}
+                withOuterLines={true}
+                withHorizontalLines={true}
+                withVerticalLines={false}
                 withDots={true}
                 withShadow={false}
-                segments={7} // 0-7 range with intervals of 1
+                segments={7}
                 chartConfig={{
                   backgroundColor: '#080f19',
                   backgroundGradientFrom: '#080f19',
@@ -339,22 +499,20 @@ const styles = StyleSheet.create({
   headerRight: {
     width: 40,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
+  scrollContainer: {
+    paddingHorizontal: 0,
     paddingBottom: 24,
-    paddingTop: 16,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#080f19',
   },
   loadingText: {
     color: '#9ca3af',
-    marginTop: 16,
+    marginTop: 12,
   },
   errorContainer: {
     flex: 1,
@@ -383,27 +541,30 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 16,
+    borderRadius: 0,
   },
+  
   profileHeader: {
     position: 'relative',
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 8,
+    borderWidth: 0,
     overflow: 'hidden',
   },
   profileHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginVertical: 4,
   },
   profileImageContainer: {
     position: 'relative',
-    marginRight: 16,
+    marginRight: 20,
   },
   profileGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
@@ -411,7 +572,7 @@ const styles = StyleSheet.create({
   profileImageInner: {
     width: '100%',
     height: '100%',
-    borderRadius: 37, 
+    borderRadius: 42, 
     backgroundColor: '#080f19',
     overflow: 'hidden',
     justifyContent: 'center',
@@ -420,31 +581,39 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 37,
+    borderRadius: 42,
   },
   onlineIndicator: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    bottom: 2,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#4ade80', // Green for online status
     borderWidth: 2,
     borderColor: '#080f19',
   },
   profileRightContent: {
-    flex: 1,
+    flex: 1, // Take up remaining space
   },
   profileInfo: {
     alignItems: 'flex-start',
+    marginBottom: 0,
+    width: '100%',
+  },
+  usernameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
     marginBottom: 8,
   },
   profileUsername: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
+    flex: 1,
   },
   badgesContainer: {
     flexDirection: 'row',
@@ -454,53 +623,170 @@ const styles = StyleSheet.create({
   },
   personalityBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   personalityText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   gymBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   gymText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
   },
   statsRow: {
     flexDirection: 'row',
-    marginTop: 8,
+    marginTop: 16,
     justifyContent: 'space-between',
+    paddingHorizontal: 0,
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(55, 65, 81, 0.4)',
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    backgroundColor: 'rgba(31, 41, 55, 0.5)',
     borderRadius: 12,
-    minWidth: 70,
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#ffffff',
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
     fontWeight: '500',
+    marginTop: 2,
   },
+  
+  // Calendar styles
+  calendarCard: {
+    position: 'relative',
+    borderRadius: 0,
+    padding: 16,
+    marginVertical: 0,
+    borderWidth: 0,
+    overflow: 'hidden',
+  },
+  calendarHeader: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  monthSelectorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  monthDisplay: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginHorizontal: 12,
+    width: 150,
+    textAlign: 'center',
+  },
+  monthButton: {
+    padding: 5,
+    borderRadius: 20,
+    backgroundColor: 'rgba(31, 41, 55, 0.5)',
+  },
+  weekdaysHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  weekdayLabel: {
+    width: 32,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9ca3af',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+  },
+  calendarDay: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 4,
+    borderRadius: 16,
+    backgroundColor: 'rgba(31, 41, 55, 0.3)',
+    position: 'relative',
+  },
+  dayNumber: {
+    fontSize: 14,
+    color: '#e5e7eb',
+  },
+  workoutDay: {
+    backgroundColor: 'rgba(168, 85, 247, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.5)',
+  },
+  workoutDayNumber: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  currentDay: {
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.7)',
+  },
+  currentDayNumber: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  workoutIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#d946ef',
+  },
+  calendarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  
   chartCard: {
     position: 'relative',
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 16,
-    marginBottom: 16,
+    marginVertical: 0,
+    borderWidth: 0,
     overflow: 'hidden',
   },
   cardTitle: {
@@ -508,19 +794,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 16,
+    paddingHorizontal: 8,
   },
   chart: {
     marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: 0,
   },
   chartContainer: {
+    alignItems: 'center',
     justifyContent: 'center',
   },
   programContainer: {
     position: 'relative',
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 16,
-    marginBottom: 16,
+    marginTop: 0,
+    borderWidth: 0,
     overflow: 'hidden',
   },
   emptyProgram: {

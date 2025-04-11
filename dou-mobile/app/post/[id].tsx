@@ -20,7 +20,7 @@ import {
   useCommentOnPost, 
   useSharePost, 
   useDeletePost,
-  // useEditPost
+  useUpdatePost
 } from '../../hooks/query/usePostQuery';
 import { useLanguage } from '../../context/LanguageContext';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
@@ -50,7 +50,7 @@ export default function PostDetailScreen() {
   const { mutateAsync: commentOnPost } = useCommentOnPost();
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
-  // const { mutateAsync: editPost } = useEditPost();
+  const { mutateAsync: updatePost } = useUpdatePost();
 
   const handleGoBack = () => {
     router.back();
@@ -138,10 +138,13 @@ export default function PostDetailScreen() {
     }
   };
   
-  // Add edit post handler
+  // Add edit post handler using the correct updatePost API
   const handleEditPost = async (post: any, newContent: string) => {
     try {
-      // await editPost({ postId: post.id, content: newContent });
+      await updatePost({ 
+        id: post.id, 
+        updates: { content: newContent } 
+      });
       refetch(); // Refresh post data
     } catch (err) {
       console.error('Error editing post:', err);

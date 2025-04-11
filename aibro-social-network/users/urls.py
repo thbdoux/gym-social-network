@@ -9,6 +9,8 @@ from .views import (
     update_language_preference,
     get_all_counts,
     get_friends_count,
+    get_user_all_counts,
+    get_user_friends_count,
 )   
 from .profile_preview_api import (
     get_user_profile_preview, 
@@ -32,4 +34,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('friends/count/', get_friends_count, name='friends-count'),
     path('me/counts/', get_all_counts, name='all-counts'),
+    # Add to urlpatterns
+    path('<int:user_id>/friends/count/', get_user_friends_count, name='user-friends-count'),
+    path('<int:user_id>/counts/', get_user_all_counts, name='user-all-counts'),
 ]

@@ -107,9 +107,7 @@ const Post: React.FC<PostProps> = ({
   const [shareText, setShareText] = useState('');
   const [liked, setLiked] = useState(post.is_liked);
   
-  // New state for bottom sheet menu
-  const [showBottomSheet, setShowBottomSheet] = useState(false);
-  const bottomSheetAnim = useRef(new Animated.Value(0)).current;
+  // No bottom sheet needed as we'll use Alert
   
   // New state for edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -200,25 +198,50 @@ const Post: React.FC<PostProps> = ({
     }
   };
   
-  // Function to show bottom sheet
-  const showBottomSheetMenu = () => {
-    setShowBottomSheet(true);
-    Animated.timing(bottomSheetAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  };
-  
-  // Function to hide bottom sheet
-  const hideBottomSheet = () => {
-    Animated.timing(bottomSheetAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowBottomSheet(false);
+  // Function to show post options alert
+  const showPostOptions = () => {
+    const isCurrentUserPost = post.user_username === currentUser;
+    
+    // Create buttons array based on whether the current user owns the post
+    const buttons = [];
+    
+    // Add "View Profile" for all posts
+    buttons.push({
+      text: t('view_profile'),
+      onPress: () => {
+        if (post.user_id && onNavigateToProfile) {
+          onNavigateToProfile(post.user_id);
+        } else if (post.user_id && onProfileClick) {
+          onProfileClick(post.user_id);
+        }
+      }
     });
+    
+    // Add Edit and Delete options only for the post owner
+    if (isCurrentUserPost) {
+      buttons.push({
+        text: t('edit_post'),
+        onPress: handleStartEditing
+      });
+      
+      buttons.push({
+        text: t('delete_post'),
+        style: 'destructive',
+        onPress: () => handleDeleteConfirmation()
+      });
+    }
+    
+    // Add Cancel button
+    buttons.push({
+      text: t('cancel'),
+      style: 'cancel'
+    });
+    
+    Alert.alert(
+      t('post_options'),
+      '',
+      buttons
+    );
   };
   
   const handleShare = () => {
@@ -264,7 +287,8 @@ const Post: React.FC<PostProps> = ({
     }
   };
   
-  const handleDeletePost = () => {
+  // Separate confirmation for delete
+  const handleDeleteConfirmation = () => {
     Alert.alert(
       t('delete_post'),
       t('confirm_delete_post'),
@@ -277,7 +301,6 @@ const Post: React.FC<PostProps> = ({
             if (onDelete) {
               onDelete(post.id);
             }
-            hideBottomSheet();
           }
         }
       ]
@@ -288,7 +311,6 @@ const Post: React.FC<PostProps> = ({
   const handleStartEditing = () => {
     setEditText(post.content);
     setIsEditing(true);
-    hideBottomSheet();
   };
   
   // Submit edited post
@@ -304,11 +326,7 @@ const Post: React.FC<PostProps> = ({
     onLike(post.id);
   };
   
-  // Calculate bottom sheet position based on animation value
-  const translateY = bottomSheetAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [height, 0],
-  });
+  // No bottom sheet animation needed
   
   // Determine what type of post this is
   const effectivePostType = (post.is_share && post.original_post_details?.post_type) 
@@ -580,7 +598,7 @@ const Post: React.FC<PostProps> = ({
           
           <TouchableOpacity 
             style={styles.menuButton}
-            onPress={showBottomSheetMenu}
+            onPress={showPostOptions}
           >
             <Ionicons name="ellipsis-horizontal" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -806,70 +824,7 @@ const Post: React.FC<PostProps> = ({
           </View>
         </Modal>
         
-        {/* Bottom Sheet Menu */}
-        {showBottomSheet && (
-          <TouchableOpacity 
-            style={styles.bottomSheetOverlay}
-            activeOpacity={1}
-            onPress={hideBottomSheet}
-          >
-            <Animated.View 
-              style={[
-                styles.bottomSheet,
-                {
-                  transform: [{ translateY: translateY }]
-                }
-              ]}
-            >
-              <View style={styles.bottomSheetHandle} />
-              
-              <Text style={styles.bottomSheetTitle}>{t('post_options')}</Text>
-              
-              {post.user_username === currentUser && (
-                <>
-                  <TouchableOpacity 
-                    style={styles.bottomSheetItem}
-                    onPress={handleStartEditing}
-                  >
-                    <Ionicons name="create-outline" size={24} color="#E5E7EB" />
-                    <Text style={styles.bottomSheetItemText}>{t('edit_post')}</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.bottomSheetItem}
-                    onPress={handleDeletePost}
-                  >
-                    <Ionicons name="trash-outline" size={24} color="#EF4444" />
-                    <Text style={[styles.bottomSheetItemText, styles.deleteText]}>{t('delete_post')}</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-              
-              <TouchableOpacity 
-                style={styles.bottomSheetItem}
-                onPress={() => {
-                  if (post.user_id && onNavigateToProfile) {
-                    onNavigateToProfile(post.user_id);
-                    hideBottomSheet();
-                  } else if (post.user_id && onProfileClick) {
-                    onProfileClick(post.user_id);
-                    hideBottomSheet();
-                  }
-                }}
-              >
-                <Ionicons name="person-outline" size={24} color="#E5E7EB" />
-                <Text style={styles.bottomSheetItemText}>{t('view_profile')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.bottomSheetItem, styles.bottomSheetCancelItem]}
-                onPress={hideBottomSheet}
-              >
-                <Text style={styles.bottomSheetCancelText}>{t('cancel')}</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </TouchableOpacity>
-        )}
+        {/* No bottom sheet component - using Alert instead */}
       </View>
     </TouchableOpacity>
   );
@@ -1323,71 +1278,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Bottom Sheet styles
-  bottomSheetOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    zIndex: 1000,
-  },
-  bottomSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#1F2937',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingBottom: 30,
-    paddingTop: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 5,
-    zIndex: 1001,
-  },
-  bottomSheetHandle: {
-    width: 40,
-    height: 5,
-    backgroundColor: '#6B7280',
-    borderRadius: 3,
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  bottomSheetTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 16,
-    marginLeft: 8,
-  },
-  bottomSheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.3)',
-  },
-  bottomSheetItemText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginLeft: 16,
-  },
-  bottomSheetCancelItem: {
-    justifyContent: 'center',
-    marginTop: 8,
-    borderBottomWidth: 0,
-  },
-  bottomSheetCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#3B82F6',
-  },
+  // No bottom sheet styles needed
   deleteText: {
     color: '#EF4444',
   },

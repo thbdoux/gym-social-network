@@ -255,3 +255,20 @@ def get_posts_count(request):
     ).count()
     print(count)
     return Response({"count": count})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_posts_count(request, user_id):
+    """Get the count of posts for a specific user"""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        user = User.objects.get(id=user_id)
+        count = Post.objects.filter(user=user).count()
+        return Response({"count": count})
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )

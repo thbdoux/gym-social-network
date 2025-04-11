@@ -300,3 +300,41 @@ def get_all_counts(request):
         "posts_count": posts_count,
         "workouts_count": workouts_count
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_friends_count(request, user_id):
+    """Get the count of friends for a specific user"""
+    try:
+        user = User.objects.get(id=user_id)
+        count = user.friends.count()
+        return Response({"count": count})
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_all_counts(request, user_id):
+    """Get all counts for a specific user in a single request"""
+    try:
+        from posts.models import Post
+        from workouts.models import WorkoutLog
+        
+        user = User.objects.get(id=user_id)
+        friends_count = user.friends.count()
+        posts_count = Post.objects.filter(user=user).count()
+        workouts_count = WorkoutLog.objects.filter(user=user).count()
+        
+        return Response({
+            "friends_count": friends_count,
+            "posts_count": posts_count,
+            "workouts_count": workouts_count
+        })
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
