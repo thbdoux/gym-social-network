@@ -119,7 +119,23 @@ const userService = {
   getNotifications: async (): Promise<any[]> => {
     // This would be implemented when API endpoint is available
     return [];
-  }
+  },
+
+
+  /**
+   * Check friendship status between current user and another user
+   * @param userId - The ID of the user to check friendship status with
+   * @returns A string representing the friendship status: 'self', 'friends', 'request_sent', 'request_received', or 'not_friends'
+   */
+  checkFriendshipStatus: async (userId: number): Promise<string> => {
+    try {
+      const response = await apiClient.get(`/users/${userId}/friendship-status/`);
+      return response.data.status;
+    } catch (error) {
+      console.error('Error checking friendship status:', error);
+      return 'not_friends'; // Default to not friends if there's an error
+    }
+  },
 };
 
 export default userService;

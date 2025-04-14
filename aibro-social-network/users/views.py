@@ -338,3 +338,72 @@ def get_user_all_counts(request, user_id):
             {"detail": "User not found"},
             status=status.HTTP_404_NOT_FOUND
         )
+
+# Add this to your views.py file
+from django.db.models import Q
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_friendship_status(request, user_id):
+    """
+    Check friendship status between current user and the specified user.
+    Returns one of: 'self', 'friends', 'request_sent', 'request_received', 'not_friends'
+    """
+    try:
+        target_user_id = int(user_id)
+        current_user = request.user
+        
+        # Check if it's the same user
+        if current_user.id == target_user_id:
+            return Response({"status": "self"})
+        
+        # Get target user
+        try:
+            target_user = User.objects.get(id=target_user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if they are friends
+        friend_relation = Friendship.objects.filter(
+            (Q(from_user=current_user) & Q(to_user=target_user)) |
+            (Q(from_user=target_user) & Q(to_user=current_user))
+        ).exists()
+        
+        if friend_relation:
+            return Response({"status": "friends"})
+            
+        # Check for pending friend requests
+        sent_request = FriendRequest.objects.filter(
+            from_user=current_user,
+            to_user=target_user,
+            status='pending'
+        ).exists()
+        
+        if sent_request:
+            return Response({"status": "request_sent"})
+            
+        received_request = FriendRequest.objects.filter(
+            from_user=target_user,
+            to_user=current_user,
+            status='pending'
+        ).exists()
+        
+        if received_request:
+            return Response({"status": "request_received"})
+        
+        # No relationship
+        return Response({"status": "not_friends"})
+        
+    except Exception as e:
+        logger.exception(f"Error checking friendship status: {str(e)}")
+        return Response(
+            {"detail": f"Error checking friendship status: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

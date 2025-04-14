@@ -23,6 +23,7 @@ export const userKeys = {
   current: () => [...userKeys.all, 'current'],
   friends: () => [...userKeys.all, 'friends'],
   friendRequests: () => [...userKeys.all, 'friendRequests'],
+  friendshipStatus: (userId) => [...userKeys.all, 'friendship', userId],
 };
   // Get current user
   export const useCurrentUser = (options = {}) => {
@@ -197,6 +198,21 @@ export const userKeys = {
         queryClient.invalidateQueries({ queryKey: userKeys.lists() });
         queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
       },
+    });
+  };
+
+  /**
+   * Hook to check friendship status with another user
+   */
+  export const useFriendshipStatus = (userId, options = {}) => {
+    return useQuery({
+      queryKey: userKeys.friendshipStatus(userId),
+      queryFn: () => userService.checkFriendshipStatus(userId),
+      // Enable only if we have a valid userId
+      enabled: !!userId,
+      // Short stale time as this can change frequently
+      staleTime: 1000 * 30, // 30 seconds
+      ...options
     });
   };
   

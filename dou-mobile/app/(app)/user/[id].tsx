@@ -20,7 +20,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useLanguage } from '../../../context/LanguageContext';
-import { useCurrentUser, useUser } from '../../../hooks/query/useUserQuery';
+import { useCurrentUser, useUser, useFriendshipStatus } from '../../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../../hooks/query/useGymQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
 import { useLogs, useWorkoutStats } from '../../../hooks/query/useLogQuery';
@@ -47,8 +47,16 @@ export default function ProfilePreviewPage() {
     isLoading: currentUserLoading, 
     refetch: refetchCurrentUser 
   } = useCurrentUser();
+
+  const {
+    data: friendshipStatus = 'not_friends',
+    isLoading: friendshipStatusLoading,
+    refetch: refetchFriendshipStatus
+  } = useFriendshipStatus(userId, {
+    enabled: !!userId && !!currentUser && userId !== currentUser.id,
+  });
   
-  console.log(currentUser);
+  // console.log(currentUser);
   // Fetch user data
   const {
     data: userData,
@@ -91,34 +99,6 @@ export default function ProfilePreviewPage() {
   const respondToFriendRequest = useRespondToFriendRequest();
   const removeFriend = useRemoveFriend();
 
-  // Determine friendship status with robust checks
-  const friendshipStatus = useMemo(() => {
-    if (!currentUser || !userData || currentUser.id === userData.id) {
-      return "self"; // This is the current user's own profile
-    }
-    
-    // Check if they are already friends - using safe access
-    if (currentUser.friends && Array.isArray(currentUser.friends) && 
-        currentUser.friends.includes(userData.id)) {
-      return "friends";
-    }
-    
-    // Check if current user sent a request - using safe access
-    if (currentUser.sent_friend_requests && Array.isArray(currentUser.sent_friend_requests) && 
-        currentUser.sent_friend_requests.includes(userData.id)) {
-      return "request_sent";
-    }
-    
-    // Check if the other user sent a request - using safe access
-    if (currentUser.received_friend_requests && Array.isArray(currentUser.received_friend_requests) && 
-        currentUser.received_friend_requests.includes(userData.id)) {
-      return "request_received";
-    }
-    
-    // No relationship yet
-    return "not_friends";
-  }, [currentUser, userData]);
-  
   // Process logs data for the calendar
   const workoutDays = useMemo(() => {
     if (!logs) return [];
@@ -229,9 +209,10 @@ export default function ProfilePreviewPage() {
             sendFriendRequest.mutate(userId, {
               onSuccess: () => {
                 Alert.alert(t('request_sent'), t('request_sent_success'));
-                // Refresh both user data objects
+                // Refresh data including friendship status
                 refetchUser();
                 refetchCurrentUser();
+                refetchFriendshipStatus();
               },
               onError: (error) => {
                 console.error('Friend request error:', error);
@@ -252,9 +233,10 @@ export default function ProfilePreviewPage() {
       {
         onSuccess: () => {
           Alert.alert(t('request_accepted'), t('now_friends', { username: userData.username }));
-          // Refresh both user data objects
+          // Refresh data including friendship status
           refetchUser();
           refetchCurrentUser();
+          refetchFriendshipStatus();
         },
         onError: (error) => {
           console.error('Accept friend request error:', error);
@@ -271,9 +253,10 @@ export default function ProfilePreviewPage() {
       { userId, response: 'reject' },
       {
         onSuccess: () => {
-          // Refresh both user data objects
+          // Refresh data including friendship status
           refetchUser();
           refetchCurrentUser();
+          refetchFriendshipStatus();
         },
         onError: (error) => {
           console.error('Reject friend request error:', error);
@@ -300,9 +283,10 @@ export default function ProfilePreviewPage() {
             removeFriend.mutate(userId, {
               onSuccess: () => {
                 Alert.alert(t('friend_removed'), t('friend_removed_success'));
-                // Refresh both user data objects
+                // Refresh data including friendship status
                 refetchUser();
                 refetchCurrentUser();
+                refetchFriendshipStatus();
               },
               onError: (error) => {
                 console.error('Remove friend error:', error);
@@ -318,13 +302,18 @@ export default function ProfilePreviewPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetchUser(), refetchCurrentUser()]);
+      await Promise.all([
+        refetchUser(), 
+        refetchCurrentUser(),
+        refetchFriendshipStatus()
+      ]);
     } catch (error) {
       console.error('Error refreshing profile data:', error);
     } finally {
       setRefreshing(false);
     }
   };
+
 
   // Enhanced friendship status badge with more distinct styling
   const renderFriendshipStatus = () => {
@@ -418,7 +407,7 @@ export default function ProfilePreviewPage() {
   };
 
   // Combine loading states
-  const isLoading = userLoading || currentUserLoading ||
+  const isLoading = userLoading || currentUserLoading || friendshipStatusLoading ||
                  (userData?.preferred_gym && gymLoading) || 
                  (userData?.current_program?.id && programLoading) ||
                  logsLoading || statsLoading || 
@@ -428,7 +417,7 @@ export default function ProfilePreviewPage() {
   const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
   
   // Debug log to show current friendship status - can be removed in production
-  console.log(`Friendship status with ${userData?.username}: ${friendshipStatus}`);
+  // console.log(`Friendship status with ${userData?.username}: ${friendshipStatus}`);
 
   return (
     <SafeAreaView style={styles.container}>

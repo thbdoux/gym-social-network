@@ -11,6 +11,7 @@ from .views import (
     get_friends_count,
     get_user_all_counts,
     get_user_friends_count,
+    check_friendship_status,
 )   
 from .profile_preview_api import (
     get_user_profile_preview, 
@@ -27,6 +28,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     path('update-language/', update_language_preference, name='update-language-preference'),
+    path('<int:user_id>/friendship-status/', check_friendship_status, name='friendship-status'),
     path('<int:user_id>/profile-preview/', get_user_profile_preview, name='user-profile-preview'),
     path('<int:user_id>/friends/', get_user_friends, name='user-friends'),
     path('<int:user_id>/posts/', get_user_posts, name='user-posts'),
