@@ -260,12 +260,12 @@ const WorkoutLogWizard = ({
       const finalData = {
         ...updatedFormData,
         // Convert null to undefined for optional fields to avoid backend issues
-        program_id: updatedFormData.program_id || undefined,
-        program_workout_id: updatedFormData.program_workout_id || undefined,
-        template_id: updatedFormData.template_id || undefined,
-        gym_id: updatedFormData.gym_id || undefined
+        program_id: updatedFormData.program_id ?? undefined,
+        program_workout_id: updatedFormData.program_workout_id ?? undefined,
+        template_id: updatedFormData.template_id ?? undefined,
+        gym_id: updatedFormData.gym_id ?? undefined
       };
-      
+      console.log('Submitting workout form data:', finalData);
       // Submit the form data
       onSubmit(finalData);
     }

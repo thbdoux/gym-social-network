@@ -20,11 +20,12 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useLanguage } from '../../../context/LanguageContext';
-import { useUser } from '../../../hooks/query/useUserQuery';
+import { useCurrentUser, useUser } from '../../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../../hooks/query/useGymQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
 import { useLogs, useWorkoutStats } from '../../../hooks/query/useLogQuery';
 import { useFriendsCount, usePostsCount, useWorkoutsCount } from '../../../hooks/query/useUserCountQuery';
+import { useSendFriendRequest, useRespondToFriendRequest, useRemoveFriend } from '../../../hooks/query/useUserQuery';
 import ProgramCard from '../../../components/workouts/ProgramCard';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parse, subMonths, addMonths } from 'date-fns';
@@ -40,6 +41,14 @@ export default function ProfilePreviewPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
+  // Fetch current user data for friend check - added refetch function
+  const { 
+    data: currentUser, 
+    isLoading: currentUserLoading, 
+    refetch: refetchCurrentUser 
+  } = useCurrentUser();
+  
+  console.log(currentUser);
   // Fetch user data
   const {
     data: userData,
@@ -77,6 +86,39 @@ export default function ProfilePreviewPage() {
   const { data: postsCount = 0, isLoading: postsCountLoading } = usePostsCount(userId);
   const { data: workoutsCount = 0, isLoading: workoutsCountLoading } = useWorkoutsCount(userId);
 
+  // Friend management mutations
+  const sendFriendRequest = useSendFriendRequest();
+  const respondToFriendRequest = useRespondToFriendRequest();
+  const removeFriend = useRemoveFriend();
+
+  // Determine friendship status with robust checks
+  const friendshipStatus = useMemo(() => {
+    if (!currentUser || !userData || currentUser.id === userData.id) {
+      return "self"; // This is the current user's own profile
+    }
+    
+    // Check if they are already friends - using safe access
+    if (currentUser.friends && Array.isArray(currentUser.friends) && 
+        currentUser.friends.includes(userData.id)) {
+      return "friends";
+    }
+    
+    // Check if current user sent a request - using safe access
+    if (currentUser.sent_friend_requests && Array.isArray(currentUser.sent_friend_requests) && 
+        currentUser.sent_friend_requests.includes(userData.id)) {
+      return "request_sent";
+    }
+    
+    // Check if the other user sent a request - using safe access
+    if (currentUser.received_friend_requests && Array.isArray(currentUser.received_friend_requests) && 
+        currentUser.received_friend_requests.includes(userData.id)) {
+      return "request_received";
+    }
+    
+    // No relationship yet
+    return "not_friends";
+  }, [currentUser, userData]);
+  
   // Process logs data for the calendar
   const workoutDays = useMemo(() => {
     if (!logs) return [];
@@ -169,10 +211,114 @@ export default function ProfilePreviewPage() {
     }
   };
 
+  // Enhanced friendship action handlers that refresh both user data
+  const handleSendFriendRequest = () => {
+    if (!userData || !userId) return;
+    
+    Alert.alert(
+      t('send_request_title'),
+      t('send_request_message', { username: userData.username }),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('confirm'),
+          onPress: () => {
+            sendFriendRequest.mutate(userId, {
+              onSuccess: () => {
+                Alert.alert(t('request_sent'), t('request_sent_success'));
+                // Refresh both user data objects
+                refetchUser();
+                refetchCurrentUser();
+              },
+              onError: (error) => {
+                console.error('Friend request error:', error);
+                Alert.alert(t('error'), t('request_sent_error'));
+              }
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAcceptFriendRequest = () => {
+    if (!userData || !userId) return;
+    
+    respondToFriendRequest.mutate(
+      { userId, response: 'accept' },
+      {
+        onSuccess: () => {
+          Alert.alert(t('request_accepted'), t('now_friends', { username: userData.username }));
+          // Refresh both user data objects
+          refetchUser();
+          refetchCurrentUser();
+        },
+        onError: (error) => {
+          console.error('Accept friend request error:', error);
+          Alert.alert(t('error'), t('accept_request_error'));
+        }
+      }
+    );
+  };
+
+  const handleRejectFriendRequest = () => {
+    if (!userData || !userId) return;
+    
+    respondToFriendRequest.mutate(
+      { userId, response: 'reject' },
+      {
+        onSuccess: () => {
+          // Refresh both user data objects
+          refetchUser();
+          refetchCurrentUser();
+        },
+        onError: (error) => {
+          console.error('Reject friend request error:', error);
+          Alert.alert(t('error'), t('reject_request_error'));
+        }
+      }
+    );
+  };
+
+  const handleRemoveFriend = () => {
+    if (!userData || !userId) return;
+    
+    Alert.alert(
+      t('remove_friend_title'),
+      t('remove_friend_message', { username: userData.username }),
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('confirm'),
+          onPress: () => {
+            removeFriend.mutate(userId, {
+              onSuccess: () => {
+                Alert.alert(t('friend_removed'), t('friend_removed_success'));
+                // Refresh both user data objects
+                refetchUser();
+                refetchCurrentUser();
+              },
+              onError: (error) => {
+                console.error('Remove friend error:', error);
+                Alert.alert(t('error'), t('friend_removed_error'));
+              }
+            });
+          },
+        },
+      ]
+    );
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetchUser();
+      await Promise.all([refetchUser(), refetchCurrentUser()]);
     } catch (error) {
       console.error('Error refreshing profile data:', error);
     } finally {
@@ -180,8 +326,99 @@ export default function ProfilePreviewPage() {
     }
   };
 
+  // Enhanced friendship status badge with more distinct styling
+  const renderFriendshipStatus = () => {
+    switch (friendshipStatus) {
+      case "self":
+        return null; // No need to show friendship status on own profile
+      case "friends":
+        return (
+          <View style={styles.friendshipBadge}>
+            <Ionicons name="people" size={16} color="#ffffff" />
+            <Text style={styles.friendshipText}>{t('friends')}</Text>
+          </View>
+        );
+      case "request_sent":
+        return (
+          <View style={[styles.friendshipBadge, styles.requestSentBadge]}>
+            <Ionicons name="time" size={16} color="#ffffff" />
+            <Text style={styles.friendshipText}>{t('request_sent')}</Text>
+          </View>
+        );
+      case "request_received":
+        return (
+          <View style={[styles.friendshipBadge, styles.requestReceivedBadge]}>
+            <Ionicons name="notifications" size={16} color="#ffffff" />
+            <Text style={styles.friendshipText}>{t('request_received')}</Text>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Enhanced friendship action buttons with improved visuals
+  const renderFriendshipAction = () => {
+    if (friendshipStatus === "self" || !currentUser) return null;
+    
+    switch (friendshipStatus) {
+      case "friends":
+        return (
+          <TouchableOpacity
+            style={[styles.friendActionButton, styles.removeFriendButton]}
+            onPress={handleRemoveFriend}
+          >
+            <Ionicons name="person-remove" size={20} color="#ffffff" />
+            <Text style={styles.friendActionButtonText}>{t('remove_friend')}</Text>
+          </TouchableOpacity>
+        );
+      case "request_sent":
+        return (
+          <TouchableOpacity
+            style={[styles.friendActionButton, styles.pendingButton]}
+            disabled={true}
+          >
+            <Ionicons name="time" size={20} color="#ffffff" />
+            <Text style={styles.friendActionButtonText}>{t('pending_request')}</Text>
+          </TouchableOpacity>
+        );
+      case "request_received":
+        return (
+          <View style={styles.requestActionContainer}>
+            <TouchableOpacity
+              style={[styles.requestActionButton, styles.acceptButton]}
+              onPress={handleAcceptFriendRequest}
+            >
+              <Ionicons name="checkmark" size={20} color="#ffffff" />
+              <Text style={styles.requestActionButtonText}>{t('accept')}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.requestActionButton, styles.rejectButton]}
+              onPress={handleRejectFriendRequest}
+            >
+              <Ionicons name="close" size={20} color="#ffffff" />
+              <Text style={styles.requestActionButtonText}>{t('reject')}</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      case "not_friends":
+        return (
+          <TouchableOpacity
+            style={[styles.friendActionButton, styles.addFriendButton]}
+            onPress={handleSendFriendRequest}
+          >
+            <Ionicons name="person-add" size={20} color="#ffffff" />
+            <Text style={styles.friendActionButtonText}>{t('add_friend')}</Text>
+          </TouchableOpacity>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Combine loading states
-  const isLoading = userLoading || 
+  const isLoading = userLoading || currentUserLoading ||
                  (userData?.preferred_gym && gymLoading) || 
                  (userData?.current_program?.id && programLoading) ||
                  logsLoading || statsLoading || 
@@ -189,6 +426,9 @@ export default function ProfilePreviewPage() {
 
   // Formatted gym info
   const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
+  
+  // Debug log to show current friendship status - can be removed in production
+  console.log(`Friendship status with ${userData?.username}: ${friendshipStatus}`);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -259,6 +499,7 @@ export default function ProfilePreviewPage() {
                 <View style={styles.profileInfo}>
                   <View style={styles.usernameContainer}>
                     <Text style={styles.profileUsername}>{userData?.username || t('user')}</Text>
+                    {renderFriendshipStatus()}
                   </View>
                   
                   <View style={styles.badgesContainer}>
@@ -292,6 +533,9 @@ export default function ProfilePreviewPage() {
               </View>
             </View>
             
+            {/* Friendship action button */}
+            {renderFriendshipAction()}
+            
             {/* Stats row (below profile info) */}
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
@@ -311,6 +555,7 @@ export default function ProfilePreviewPage() {
             </View>
           </View>
           
+          {/* Rest of the component... */}
           {/* Monthly Workout Calendar */}
           <View style={styles.calendarCard}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
@@ -542,6 +787,110 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 0,
+  },
+  
+  // Enhanced friendship styles
+  friendshipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.8)', // Green for friends
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  requestSentBadge: {
+    backgroundColor: 'rgba(168, 85, 247, 0.8)', // Purple for sent requests
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+  },
+  requestReceivedBadge: {
+    backgroundColor: 'rgba(59, 130, 246, 0.8)', // Blue for received requests
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+  },
+  friendshipText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  friendActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginVertical: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  friendActionButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  addFriendButton: {
+    backgroundColor: '#10B981', // Green
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  removeFriendButton: {
+    backgroundColor: '#EF4444', // Red
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  pendingButton: {
+    backgroundColor: '#6B7280', // Gray
+    borderWidth: 1,
+    borderColor: 'rgba(107, 114, 128, 0.3)',
+  },
+  requestActionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 16,
+    gap: 12,
+  },
+  requestActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  requestActionButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  acceptButton: {
+    backgroundColor: '#10B981', // Green
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  rejectButton: {
+    backgroundColor: '#EF4444', // Red
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   
   profileHeader: {

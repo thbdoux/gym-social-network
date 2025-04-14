@@ -14,24 +14,20 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { userService } from '../../api/services';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
 
 export default function LoginScreen() {
   const { t } = useLanguage();
-  const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
     password: '',
-    confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   
-  // Simpler animation state - only for input focus
+  // Track focused input for animation
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   const handleInputChange = (field: string, value: string) => {
@@ -44,64 +40,24 @@ export default function LoginScreen() {
   const handleSubmit = async () => {
     setLoading(true);
 
-    // Form validation
-    if (!isLogin) {
-      if (formData.password !== formData.confirmPassword) {
-        Alert.alert(t('error'), t('passwords_do_not_match'));
-        setLoading(false);
-        return;
-      }
-      if (!formData.email) {
-        Alert.alert(t('error'), t('email_required'));
-        setLoading(false);
-        return;
-      }
-    }
-
     try {
-      if (isLogin) {
-        const success = await login(formData.username, formData.password);
-        if (success) {
-          // Navigate to feed page with proper group path
-          router.replace('/(app)/feed');
-        } else {
-          Alert.alert(t('error'), t('invalid_credentials'));
-        }
+      const success = await login(formData.username, formData.password);
+      if (success) {
+        // Navigate to feed page with proper group path
+        router.replace('/(app)/feed');
       } else {
-        try {
-          await userService.registerUser({
-            username: formData.username,
-            password: formData.password,
-            email: formData.email,
-            training_level: 'beginner',
-            personality_type: 'casual'
-          });
-          
-          const success = await login(formData.username, formData.password);
-          if (success) {
-            // Navigate to feed page with proper group path
-            router.replace('/(app)/feed');
-          }
-        } catch (err: any) {
-          if (err.response?.data?.username) {
-            Alert.alert(t('error'), t('username_taken'));
-          } else if (err.response?.data?.email) {
-            Alert.alert(t('error'), t('email_registered'));
-          } else {
-            Alert.alert(t('error'), t('registration_failed'));
-          }
-        }
+        Alert.alert(t('error'), t('invalid_credentials'));
       }
     } catch (err) {
-      Alert.alert(t('error'), `${t('error')} ${isLogin ? t('login') : t('register')}`);
+      Alert.alert(t('error'), `${t('error')} ${t('login')}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Simple toggle without animation
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
+  // Navigate to personality wizard when register is clicked
+  const handleNavigateToRegister = () => {
+    router.push('/personality-wizard');
   };
 
   return (
@@ -143,31 +99,6 @@ export default function LoginScreen() {
             />
           </View>
 
-          {!isLogin && (
-            <View style={[
-              styles.inputContainer,
-              focusedInput === 'email' && styles.inputContainerFocused
-            ]}>
-              <Ionicons 
-                name="mail-outline" 
-                size={20} 
-                color={focusedInput === 'email' ? '#3B82F6' : '#9CA3AF'} 
-                style={styles.inputIcon} 
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={t('email')}
-                placeholderTextColor="#9CA3AF"
-                value={formData.email}
-                onChangeText={(text) => handleInputChange('email', text)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                onFocus={() => setFocusedInput('email')}
-                onBlur={() => setFocusedInput(null)}
-              />
-            </View>
-          )}
-
           <View style={[
             styles.inputContainer,
             focusedInput === 'password' && styles.inputContainerFocused
@@ -190,35 +121,9 @@ export default function LoginScreen() {
             />
           </View>
 
-          {!isLogin && (
-            <View style={[
-              styles.inputContainer,
-              focusedInput === 'confirmPassword' && styles.inputContainerFocused
-            ]}>
-              <Ionicons 
-                name="lock-closed-outline" 
-                size={20} 
-                color={focusedInput === 'confirmPassword' ? '#3B82F6' : '#9CA3AF'} 
-                style={styles.inputIcon} 
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={t('confirm_password')}
-                placeholderTextColor="#9CA3AF"
-                value={formData.confirmPassword}
-                onChangeText={(text) => handleInputChange('confirmPassword', text)}
-                secureTextEntry
-                onFocus={() => setFocusedInput('confirmPassword')}
-                onBlur={() => setFocusedInput(null)}
-              />
-            </View>
-          )}
-
-          {isLogin && (
-            <TouchableOpacity style={styles.forgotPassword} activeOpacity={0.7}>
-              <Text style={styles.forgotPasswordText}>{t('forgot_password')}</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity style={styles.forgotPassword} activeOpacity={0.7}>
+            <Text style={styles.forgotPasswordText}>{t('forgot_password')}</Text>
+          </TouchableOpacity>
 
           {/* Submit Button */}
           <TouchableOpacity
@@ -232,7 +137,7 @@ export default function LoginScreen() {
             ) : (
               <View style={styles.buttonContent}>
                 <Text style={styles.buttonText}>
-                  {isLogin ? t('continue') : t('create_account_button')}
+                  {t('continue')}
                 </Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </View>
@@ -242,15 +147,13 @@ export default function LoginScreen() {
           {/* Toggle Login/Register */}
           <TouchableOpacity
             style={styles.toggleContainer}
-            onPress={toggleMode}
+            onPress={handleNavigateToRegister}
             activeOpacity={0.7}
           >
             <Text style={styles.toggleText}>
-              {isLogin
-                ? t('dont_have_account')
-                : t('already_have_account')}
+              {t('dont_have_account')}
               <Text style={styles.toggleActionText}>
-                {isLogin ? ' ' + t('register') : ' ' + t('login')}
+                {' ' + t('register')}
               </Text>
             </Text>
           </TouchableOpacity>

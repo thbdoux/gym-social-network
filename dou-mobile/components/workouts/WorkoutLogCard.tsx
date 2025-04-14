@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useGym } from '../../hooks/query/useGymQuery';
 
 interface WorkoutLogCardProps {
   logId: number;
@@ -21,6 +22,7 @@ interface WorkoutLogCardProps {
     username?: string;
     program?: number;
     program_name?: string;
+    gym?: number;
     gym_name?: string;
     completed: boolean;
     mood_rating?: number;
@@ -53,11 +55,12 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
 }) => {
   const { t } = useLanguage();
   const isOwner = user === log.username;
-
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   
+  const { data: gym } = useGym(log.gym);
+
   // Start wiggle animation when entering selection mode
   useEffect(() => {
     if (selectionMode) {
@@ -288,12 +291,17 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
               ]} />
             </View>
             
-            {log.gym_name && (
+            {gym ? (
+              <View style={styles.gymContainer}>
+                <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
+                <Text style={styles.gymText}>{`${gym.name} - ${gym.location}`}</Text>
+              </View>
+            ) : log.gym_name ? (
               <View style={styles.gymContainer}>
                 <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
                 <Text style={styles.gymText}>{log.gym_name}</Text>
               </View>
-            )}
+            ) : null}
           </View>
           
           {/* Program name if available */}

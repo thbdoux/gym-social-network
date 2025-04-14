@@ -18,19 +18,25 @@ interface Exercise {
     rest_time: number;
   }>;
 }
-
 interface Log {
   id?: number;
   date: string;
   name: string;
+  description?: string;
   notes?: string;
-  duration?: number;
-  gym?: number | { id: number; name: string };
+  duration_minutes?: number;  // Match WorkoutLogFormData naming
+  gym_id?: number | null;     // Match WorkoutLogFormData structure
+  gym_name?: string;          // For display purposes
+  location?: string;          // Location string (could be gym location or 'Home')
   mood_rating?: number;
-  energy_level?: number;
-  perceived_difficulty?: number;
-  completed: boolean;
+  difficulty_level?: string;  // Match WorkoutLogFormData naming
+  completed?: boolean;
   exercises: Exercise[];
+  program_id?: number | null;
+  program_workout_id?: number | null;
+  template_id?: number | null;
+  tags?: string[];
+  source_type?: 'none' | 'program' | 'template';
   [key: string]: any;
 }
 

@@ -159,6 +159,7 @@ export default function WorkoutLogDetailScreen() {
   
   // Check if current user is the log creator
   const isCreator = log?.username === user?.username;
+  
   const workoutStats = useMemo(() => {
     if (!log?.exercises) return {
       maxReps: 1,
