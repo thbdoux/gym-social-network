@@ -24,6 +24,7 @@ export const userKeys = {
   friends: () => [...userKeys.all, 'friends'],
   friendRequests: () => [...userKeys.all, 'friendRequests'],
   friendshipStatus: (userId) => [...userKeys.all, 'friendship', userId],
+  userFriends: (userId) => [...userKeys.all, 'friends', userId],
 };
   // Get current user
   export const useCurrentUser = (options = {}) => {

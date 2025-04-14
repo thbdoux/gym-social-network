@@ -46,6 +46,7 @@ import {
 } from '../../hooks/query/useProgramQuery';
 import { 
   useLogs,
+  useUserLogs,
   useCreateLog,
   useDeleteLog
 } from '../../hooks/query/useLogQuery';
@@ -103,6 +104,7 @@ export default function WorkoutsScreen() {
     refetch: refetchActiveProgram
   } = useProgram(user?.current_program?.id);
   
+  
   // Use React Query hooks
   const { 
     data: programs = [], 
@@ -110,11 +112,12 @@ export default function WorkoutsScreen() {
     refetch: refetchPrograms 
   } = useUserPrograms();
   
+  console.log(user)
   const {
     data: logs = [],
     isLoading: logsLoading,
     refetch: refetchLogs
-  } = useLogs();
+  } = useUserLogs(user?.username);
   
   const {
     data: templates = [],

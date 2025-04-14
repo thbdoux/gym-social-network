@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-import { useLogs } from '../../hooks/query/useLogQuery';
+import { useUserLogs } from '../../hooks/query/useLogQuery';
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
+import { useAuth } from '../../hooks/useAuth';
 
 interface WorkoutLog {
   id: number;
@@ -39,6 +40,8 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
   onCancel 
 }) => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
   
@@ -47,7 +50,7 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
     data: logs = [], 
     isLoading: loading, 
     error 
-  } = useLogs();
+  } = useUserLogs(user?.username);
   
   // Filter logs based on search query
   const filteredLogs = logs.filter(log =>

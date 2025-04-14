@@ -9,6 +9,7 @@ from .views import (
     WorkoutLogViewSet,
     get_workouts_count,
     get_user_workouts_count,
+    get_user_logs_by_username,
 )
 
 from users.profile_preview_api import get_program_details, get_workout_log_details
@@ -25,6 +26,8 @@ urlpatterns = [
     path('logs/count/', get_workouts_count, name='workouts-count'),
     # Add to urlpatterns
     path('logs/user/<int:user_id>/count/', get_user_workouts_count, name='user-workouts-count'),
+    # Add to workouts/urls.py
+    path('logs/user/<str:username>/', get_user_logs_by_username, name='user-logs-by-username'),
     path('', include(router.urls)),
     path('', include(program_router.urls)),
     path('programs/<int:program_id>/details/', get_program_details, name='program-details'),

@@ -535,6 +535,7 @@ const template = {
     tap_exercises_to_edit: 'Tap exercises to edit',
     add_notes_here: 'Add notes here',
     fork: 'Download',
+    forked_from: 'from',
     completed: "Completed",
     remove_workout: "Remove Workout",
   },
@@ -565,6 +566,7 @@ const template = {
     tap_exercises_to_edit: 'Cliquer sur les exercices pour éditer',
     add_notes_here: 'Ajouter des notes',
     fork: "Télécharger",
+    forked_from:'de',
     completed: "Terminé",
     remove_workout: "Supprimer",
   }

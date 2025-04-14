@@ -37,6 +37,7 @@ interface Log {
   template_id?: number | null;
   tags?: string[];
   source_type?: 'none' | 'program' | 'template';
+  username?: string;          // User who created the log
   [key: string]: any;
 }
 
@@ -57,6 +58,18 @@ const logService = {
     return transformLogs(logs);
   },
 
+  /**
+   * Get logs for a specific user by username
+   * Note: Since the backend doesn't have a specific endpoint for this,
+   * we fetch all logs and filter them client-side.
+   * This is an interim solution until a proper backend endpoint is implemented.
+   */
+   getLogsByUsername: async (username: string): Promise<Log[]> => {
+    const response = await apiClient.get(`/workouts/logs/user/${username}/`);
+    const logs = extractData(response);
+    return transformLogs(logs);
+  },
+
   getLogById: async (id: number): Promise<Log> => {
     const response = await apiClient.get(`/workouts/logs/${id}/`);
     const log = response.data;
@@ -64,14 +77,12 @@ const logService = {
   },
 
   createLog: async (logData: Log): Promise<Log> => {
-    const formattedData = formatLogData(logData);
-    const response = await apiClient.post('/workouts/logs/', formattedData);
+    const response = await apiClient.post('/workouts/logs/', logData);
     return response.data;
   },
 
   updateLog: async (id: number, logData: Partial<Log>): Promise<Log> => {
-    const formattedData = formatLogData(logData);
-    const response = await apiClient.patch(`/workouts/logs/${id}/`, formattedData);
+    const response = await apiClient.patch(`/workouts/logs/${id}/`, logData);
     return response.data;
   },
 

@@ -23,7 +23,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { useCurrentUser, useUser, useFriendshipStatus } from '../../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../../hooks/query/useGymQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
-import { useLogs, useWorkoutStats } from '../../../hooks/query/useLogQuery';
+import { useUserLogs, useWorkoutStats } from '../../../hooks/query/useLogQuery';
 import { useFriendsCount, usePostsCount, useWorkoutsCount } from '../../../hooks/query/useUserCountQuery';
 import { useSendFriendRequest, useRespondToFriendRequest, useRemoveFriend } from '../../../hooks/query/useUserQuery';
 import ProgramCard from '../../../components/workouts/ProgramCard';
@@ -56,7 +56,11 @@ export default function ProfilePreviewPage() {
     enabled: !!userId && !!currentUser && userId !== currentUser.id,
   });
   
-  // console.log(currentUser);
+  const navigateToUserFriends = () => {
+    if (userId) {
+      router.push(`/friends/${userId}`);
+    }
+  };
   // Fetch user data
   const {
     data: userData,
@@ -85,10 +89,11 @@ export default function ProfilePreviewPage() {
   });
   
   // Get logs for workout data
-  const { data: logs, isLoading: logsLoading } = useLogs(userId);
+  console.log(userData);
+  const { data: logs, isLoading: logsLoading } = useUserLogs(userData?.username);
 
   // Get workout stats for chart data
-  const { data: workoutStats, isLoading: statsLoading } = useWorkoutStats(userId);
+  const { data: workoutStats, isLoading: statsLoading } = useWorkoutStats(userData?.username);
   
   const { data: friendsCount = 0, isLoading: friendsCountLoading } = useFriendsCount(userId);
   const { data: postsCount = 0, isLoading: postsCountLoading } = usePostsCount(userId);
@@ -348,7 +353,7 @@ export default function ProfilePreviewPage() {
 
   // Enhanced friendship action buttons with improved visuals
   const renderFriendshipAction = () => {
-    if (friendshipStatus === "self" || !currentUser) return null;
+    if (currentUser?.username === userData?.username) return null;
     
     switch (friendshipStatus) {
       case "friends":
@@ -415,9 +420,6 @@ export default function ProfilePreviewPage() {
 
   // Formatted gym info
   const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
-  
-  // Debug log to show current friendship status - can be removed in production
-  // console.log(`Friendship status with ${userData?.username}: ${friendshipStatus}`);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -527,10 +529,10 @@ export default function ProfilePreviewPage() {
             
             {/* Stats row (below profile info) */}
             <View style={styles.statsRow}>
-              <View style={styles.statItem}>
+              <TouchableOpacity style={styles.statItem} onPress={navigateToUserFriends}>
                 <Text style={styles.statValue}>{friendsCount}</Text>
                 <Text style={styles.statLabel}>{t('friends')}</Text>
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{postsCount}</Text>
@@ -542,6 +544,7 @@ export default function ProfilePreviewPage() {
                 <Text style={styles.statLabel}>{t('workouts')}</Text>
               </View>
             </View>
+
           </View>
           
           {/* Rest of the component... */}

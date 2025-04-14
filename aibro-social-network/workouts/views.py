@@ -704,3 +704,27 @@ def get_user_workouts_count(request, user_id):
             {"detail": "User not found"},
             status=status.HTTP_404_NOT_FOUND
         )
+
+# Add to workouts/views.py
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_logs_by_username(request, username):
+    """Get workout logs for a specific user by username"""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        user = User.objects.get(username=username)
+        logs = WorkoutLog.objects.filter(user=user).select_related(
+            'program', 'based_on_instance', 'gym'
+        ).prefetch_related(
+            'exercises', 'exercises__sets'
+        )
+        
+        serializer = WorkoutLogSerializer(logs, many=True)
+        return Response(serializer.data)
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )

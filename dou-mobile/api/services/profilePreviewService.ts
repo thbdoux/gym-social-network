@@ -76,7 +76,7 @@ const profilePreviewService = {
    */
   getUserFriends: async (userId: number): Promise<Friend[]> => {
     const response = await apiClient.get(`/users/${userId}/friends/`);
-    return response.data.friends || [];
+    return response.data || [];
   },
 
   /**

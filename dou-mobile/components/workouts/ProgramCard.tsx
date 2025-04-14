@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-import { useModal } from '../../context/ModalContext';
+import { useProgram } from '../../hooks/query/useProgramQuery';
 
 interface ProgramCardProps {
   programId: number;
@@ -27,6 +27,7 @@ interface ProgramCardProps {
     workouts?: any[];
     tags?: string[];
     is_public?: boolean;
+    forked_from?: string; // Added forked_from property
   };
   inFeedMode?: boolean;
   currentUser?: string;
@@ -56,6 +57,8 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   const { t } = useLanguage();
   const isOwner = currentUser === program.creator_username;
 
+
+  const { data: originalProgram, isLoading, refetch } = useProgram(program?.forked_from);
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -148,7 +151,8 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   const handleFork = (e: any) => {
     e.stopPropagation();
     if (onFork) {
-      onFork(programId);
+      console.log(program?.id)
+      onFork(program?.id);
     }
   };
   
@@ -308,6 +312,13 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
             <Ionicons name="person" size={12} color="#9CA3AF" />
             <Text style={styles.creatorText}>{program.creator_username}</Text>
           </View>
+          
+          {program.forked_from && (
+            <View style={styles.forkedInfo}>
+              <Ionicons name="download-outline" size={12} color="#9CA3AF" />
+              <Text style={styles.forkedText}>{originalProgram?.creator_username}</Text>
+            </View>
+          )}
           
           {!isOwner && !selectionMode && (
             <TouchableOpacity 
@@ -484,6 +495,20 @@ const styles = StyleSheet.create({
   creatorText: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.7)',
+    marginLeft: 4,
+  },
+  forkedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  forkedText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.8)',
     marginLeft: 4,
   },
   forkButton: {

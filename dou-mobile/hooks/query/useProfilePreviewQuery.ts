@@ -13,29 +13,32 @@ export const profilePreviewKeys = {
 };
 
 // Get user profile preview data
-export const useUserProfilePreview = (userId: number) => {
+export const useUserProfilePreview = (userId: number, options = {}) => {
   return useQuery({
     queryKey: profilePreviewKeys.user(userId),
     queryFn: () => profilePreviewService.getUserProfilePreview(userId),
     enabled: !!userId,
+    ...options,
   });
 };
 
 // Get user friends for profile preview
-export const useUserFriends = (userId: number) => {
+export const useUserFriends = (userId: number, options = {}) => {
   return useQuery({
     queryKey: profilePreviewKeys.friends(userId),
     queryFn: () => profilePreviewService.getUserFriends(userId),
     enabled: !!userId,
+    ...options,
   });
 };
 
 // Get user posts for profile preview
-export const useUserPosts = (userId: number) => {
+export const useUserPosts = (userId: number, options = {}) => {
   return useQuery({
     queryKey: profilePreviewKeys.posts(userId),
     queryFn: () => profilePreviewService.getUserPosts(userId),
     enabled: !!userId,
+    ...options,
   });
 };
 
@@ -102,10 +105,11 @@ export const useProgramPreviewDetails = (programId: number) => {
 };
 
 // Get workout log details for profile preview
-export const useWorkoutLogPreviewDetails = (logId: number) => {
+export const useWorkoutLogPreviewDetails = (logId: number, options = {}) => {
   return useQuery({
     queryKey: profilePreviewKeys.workoutLog(logId),
     queryFn: () => profilePreviewService.getWorkoutLogDetails(logId),
     enabled: !!logId,
+    ...options,
   });
 };

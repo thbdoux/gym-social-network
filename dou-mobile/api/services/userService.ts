@@ -136,6 +136,7 @@ const userService = {
       return 'not_friends'; // Default to not friends if there's an error
     }
   },
+
 };
 
 export default userService;

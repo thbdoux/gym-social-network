@@ -27,7 +27,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useCurrentUser, useLogout } from '../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../hooks/query/useGymQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
-import { useLogs, useWorkoutStats } from '../../hooks/query/useLogQuery';
+import { useUserLogs, useWorkoutStats } from '../../hooks/query/useLogQuery';
 // Add this import at the top with other imports
 import { useFriendsCount, usePostsCount, useWorkoutsCount, useAllCounts } from '../../hooks/query/useUserCountQuery';
 import ProgramCard from '../../components/workouts/ProgramCard';
@@ -55,7 +55,7 @@ export default function ProfileScreen() {
   } = useCurrentUser();
   
   // Get logs for workout data
-  const { data: logs, isLoading: logsLoading } = useLogs();
+  const { data: logs, isLoading: logsLoading } = useUserLogs(user?.username);
 
   // Get workout stats for chart data
   const { data: workoutStats, isLoading: statsLoading } = useWorkoutStats();

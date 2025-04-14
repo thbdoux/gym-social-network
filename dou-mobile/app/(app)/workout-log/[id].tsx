@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // Custom hooks
 import { useAuth } from '../../../hooks/useAuth';
+import { useGym } from '../../../hooks/query/useGymQuery';
 import { useLanguage } from '../../../context/LanguageContext';
 import {
   useLog,
@@ -77,6 +78,9 @@ export default function WorkoutLogDetailScreen() {
 
   const [localExercises, setLocalExercises] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const [logGymId, setLogGymId] = useState(null);
+  const [logGymName, setLogGymName] = useState('');
   
   // State for edit modes
   const [editExercisesMode, setEditExercisesMode] = useState(false);
@@ -94,10 +98,10 @@ export default function WorkoutLogDetailScreen() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { data: log, isLoading, refetch } = useLog(logId);
+  const { data: gym } = useGym(log?.gym);
   const { mutateAsync: updateLog } = useUpdateLog();
   const { mutateAsync: deleteLog } = useDeleteLog();
   
-  // Initialize form state when log data is loaded
   useEffect(() => {
     if (log) {
       setLogName(log.name);
@@ -106,6 +110,8 @@ export default function WorkoutLogDetailScreen() {
       setLogDuration(log.duration || 0);
       setLogMoodRating(log.mood_rating || 0);
       setLogDifficulty(log.perceived_difficulty || 0);
+      setLogGymId(log.gym_id || null);
+      setLogGymName(log.gym_name || '');
     }
   }, [log]);
 
@@ -349,6 +355,11 @@ export default function WorkoutLogDetailScreen() {
           text: t('date'),
           onPress: () => handleEditWorkoutDate()
         },
+        {
+          text: t('gym'), // Add Gym option
+          onPress: () => handleEditWorkoutGym()
+        },
+
         {
           text: t('duration'),
           onPress: () => handleEditWorkoutDuration()
@@ -617,13 +628,22 @@ export default function WorkoutLogDetailScreen() {
     // Create a deep copy of the exercises array
     const updatedExercises = JSON.parse(JSON.stringify(localExercises));
     
-    // Get last set for reference or create default
-    const lastSet = exercise.sets.length > 0 
-      ? {...exercise.sets[exercise.sets.length - 1]} 
-      : { reps: 10, weight: 0, rest_time: 60 };
+    // Get the next order number
+    const nextOrder = exercise.sets.length > 0 
+      ? Math.max(...exercise.sets.map(set => set.order || 0)) + 1 
+      : 0;
+    
+    // Create a new set with properties from the last set but WITH A NEW ID
+    const newSet = {
+      // Do NOT copy the ID from the last set
+      reps: exercise.sets.length > 0 ? exercise.sets[exercise.sets.length - 1].reps : 10,
+      weight: exercise.sets.length > 0 ? exercise.sets[exercise.sets.length - 1].weight : 0,
+      rest_time: exercise.sets.length > 0 ? exercise.sets[exercise.sets.length - 1].rest_time : 60,
+      order: nextOrder // Correctly add the order field
+    };
     
     // Add the new set
-    updatedExercises[exerciseIndex].sets.push(lastSet);
+    updatedExercises[exerciseIndex].sets.push(newSet);
     
     // Update local state
     setLocalExercises(updatedExercises);
@@ -858,6 +878,16 @@ export default function WorkoutLogDetailScreen() {
       console.error('Failed to save exercises:', error);
       Alert.alert(t('error'), t('failed_to_save_changes'));
     }
+  };
+
+  const handleEditWorkoutGym = () => {
+    router.push({
+      pathname: "/workout-log/select-gym",
+      params: { 
+        logId: logId,
+        currentGymId: logGymId 
+      }
+    });
   };
 
   // Render advanced stats content
@@ -1133,12 +1163,20 @@ export default function WorkoutLogDetailScreen() {
           </View>
           
           {/* Gym */}
-          {log.gym_name && (
+          {gym ? (
             <View style={styles.workoutInfoItem}>
-              <Ionicons name="location-outline" size={14} color={COLORS.text.secondary} />
-              <Text style={styles.infoText}>{log.gym_name}</Text>
+              <Ionicons name="fitness-outline" size={14} color={COLORS.text.secondary} />
+              <Text style={styles.infoText}>
+                {`${gym?.name} - ${gym?.location}`}
+              </Text>
             </View>
-          )}
+            ) : 
+            <View style={styles.workoutInfoItem}>
+            <Ionicons name="fitness-outline" size={14} color={COLORS.text.secondary} />
+            <Text style={styles.infoText}>
+              {t('no_gym_set')}
+            </Text>
+          </View>}
           
           {/* Duration */}
           <View style={styles.workoutInfoItem}>

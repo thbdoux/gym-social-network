@@ -97,13 +97,42 @@ def get_user_friends(request, user_id):
     try:
         target_user = User.objects.get(id=user_id)
         
-        # Get user's friendships
-        friendships = target_user.friendships_initiated.all()[:10]  # Limit to 10 friends
+        # Get ALL user's friendships (both initiated and received)
+        from users.models import Friendship
+        from_friendships = target_user.friendships_initiated.all().select_related('to_user')
+        to_friendships = target_user.friendships_received.all().select_related('from_user')
         
-        # Create serialized data
-        friends_data = FriendshipSerializer(friendships, many=True).data
+        # Extract the friend user objects from both directions
+        friends = []
         
-        return Response(friends_data)
+        # Process initiated friendships (where target_user is the from_user)
+        for friendship in from_friendships:
+            friend_user = friendship.to_user
+            friends.append({
+                'id': friend_user.id,
+                'username': friend_user.username,
+                'avatar': friend_user.avatar.url if friend_user.avatar else None,
+                'training_level': friend_user.training_level,
+                'personality_type': friend_user.personality_type
+            })
+        
+        # Process received friendships (where target_user is the to_user)
+        for friendship in to_friendships:
+            friend_user = friendship.from_user
+            # Avoid duplicates (in case there are reciprocal friendships)
+            if not any(f['id'] == friend_user.id for f in friends):
+                friends.append({
+                    'id': friend_user.id,
+                    'username': friend_user.username,
+                    'avatar': friend_user.avatar.url if friend_user.avatar else None,
+                    'training_level': friend_user.training_level,
+                    'personality_type': friend_user.personality_type
+                })
+        
+        # Limit to first 10 friends
+        friends = friends[:10]
+        
+        return Response(friends)
         
     except ObjectDoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
