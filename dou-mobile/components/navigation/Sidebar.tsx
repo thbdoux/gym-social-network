@@ -27,6 +27,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useUpdateLanguage } from '../../hooks/query/useUserQuery';
 import { useCurrentUser } from '../../hooks/query/useUserQuery';
 import { BlurView } from 'expo-blur';
+import { userCountKeys } from '@/hooks/query/useUserCountQuery';
+import { getAvatarUrl } from '../../utils/imageUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -132,9 +134,9 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
             <SafeAreaView style={styles.content}>
               <View style={styles.header}>
                 <View style={styles.headerContent}>
-                  <Image 
-                    source={{ uri: user?.profile_image || 'https://via.placeholder.com/80' }} 
-                    style={styles.profileImage} 
+                <Image
+                    source={{ uri: getAvatarUrl(user?.avatar, 80) }}
+                    style={styles.profileImage}
                   />
                   <View style={styles.userInfo}>
                     <Text style={styles.username}>{user?.username || t('guest')}</Text>
