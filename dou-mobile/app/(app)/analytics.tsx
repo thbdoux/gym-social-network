@@ -16,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../context/LanguageContext';
-import { useLogs } from '../../hooks/query/useLogQuery';
+import { useTheme } from '../../context/ThemeContext'; // Import theme context
+import { useUserLogs } from '../../hooks/query/useLogQuery';
 import Svg, { Path, Circle, LinearGradient, Stop, Defs } from 'react-native-svg';
 
 // Define metric types
@@ -26,8 +27,8 @@ const METRIC_TYPES = {
   SETS: 'sets'
 };
 
-// Color schemes for different metrics
-const colorSchemes = {
+// Base color schemes for different metrics - will be adjusted based on personality
+const baseColorSchemes = {
   tonnage: {
     gradient: ['#FF006E', '#FB5607'],
     stroke: '#FF006E',
@@ -56,11 +57,14 @@ const { width } = Dimensions.get('window');
 export default function AnalyticsScreen() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  // Get theme context
+  const { palette, personality, workoutPalette, programPalette } = useTheme();
+  
   const [selectedMetric, setSelectedMetric] = useState(METRIC_TYPES.TONNAGE);
   const [selectedExercise, setSelectedExercise] = useState('all');
   
   // Fetch workout logs
-  const { data: logs = [], isLoading } = useLogs();
+  const { data: logs = [], isLoading } = useUserLogs(user?.username);
 
   // Get unique exercise names from all logs
   const exercises = useMemo(() => {
@@ -83,6 +87,49 @@ export default function AnalyticsScreen() {
     }));
   }, [logs, t]);
 
+  // Adjust color schemes based on personality
+  const colorSchemes = useMemo(() => {
+    if (!personality) return baseColorSchemes;
+    
+    // Personalize color schemes based on user personality
+    return {
+      tonnage: {
+        ...baseColorSchemes.tonnage,
+        stroke: workoutPalette.highlight,
+        text: workoutPalette.highlight,
+        fill: `rgba(${hexToRgb(workoutPalette.highlight)}, 0.1)`,
+        card: workoutPalette.highlight
+      },
+      avgWeight: {
+        ...baseColorSchemes.avgWeight,
+        stroke: programPalette.highlight,
+        text: programPalette.highlight,
+        fill: `rgba(${hexToRgb(programPalette.highlight)}, 0.1)`,
+        card: programPalette.highlight
+      },
+      sets: {
+        ...baseColorSchemes.sets,
+        stroke: palette.highlight,
+        text: palette.highlight,
+        fill: `rgba(${hexToRgb(palette.highlight)}, 0.1)`,
+        card: palette.highlight
+      }
+    };
+  }, [personality, palette, workoutPalette, programPalette]);
+
+  // Helper function to convert hex to rgb for rgba strings
+  function hexToRgb(hex) {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return `${r}, ${g}, ${b}`;
+  }
+
   // Group logs by month
   const monthlyData = useMemo(() => {
     if (!logs || logs.length === 0) return {
@@ -96,7 +143,6 @@ export default function AnalyticsScreen() {
     const monthMap = new Map();
     
     // Process each log
-    // Find this section in monthlyData useMemo function
     logs.forEach(log => {
       if (!log.date || !log.exercises) return;
       
@@ -225,7 +271,9 @@ export default function AnalyticsScreen() {
     if (data.length === 0 || labels.length === 0) {
       return (
         <View style={styles.emptyChart}>
-          <Text style={styles.emptyChartText}>{t('not_enough_data')}</Text>
+          <Text style={[styles.emptyChartText, { color: palette.text }]}>
+            {t('not_enough_data')}
+          </Text>
         </View>
       );
     }
@@ -255,11 +303,11 @@ export default function AnalyticsScreen() {
     const colorScheme = colorSchemes[selectedMetric];
     
     return (
-      <View style={styles.chartContainer}>
+      <View style={[styles.chartContainer, { backgroundColor: 'rgba(31, 41, 55, 0.3)' }]}>
         {/* Y-axis values */}
         <View style={styles.yAxisLabels}>
-          <Text style={styles.axisLabel}>{Math.round(maxValue)}</Text>
-          <Text style={styles.axisLabel}>{Math.round(minValue)}</Text>
+          <Text style={[styles.axisLabel, { color: palette.text }]}>{Math.round(maxValue)}</Text>
+          <Text style={[styles.axisLabel, { color: palette.text }]}>{Math.round(minValue)}</Text>
         </View>
         
         {/* Chart drawing area */}
@@ -267,7 +315,7 @@ export default function AnalyticsScreen() {
           {/* Background grid lines */}
           <View style={styles.gridLines}>
             {[0, 1, 2, 3, 4].map(i => (
-              <View key={i} style={styles.gridLine} />
+              <View key={i} style={[styles.gridLine, { backgroundColor: 'rgba(75, 85, 99, 0.3)' }]} />
             ))}
           </View>
           
@@ -305,7 +353,7 @@ export default function AnalyticsScreen() {
                   cx={`${x}%`}
                   cy={`${100 - value}%`}
                   r="4"
-                  fill="#080f19"
+                  fill={palette.page_background}
                   stroke={colorScheme.stroke}
                   strokeWidth="2"
                 />
@@ -316,7 +364,7 @@ export default function AnalyticsScreen() {
           {/* X-axis labels */}
           <View style={styles.xAxisLabels}>
             {labels.map((label, i) => (
-              <Text key={i} style={styles.axisLabel}>{label}</Text>
+              <Text key={i} style={[styles.axisLabel, { color: palette.text }]}>{label}</Text>
             ))}
           </View>
         </View>
@@ -329,40 +377,43 @@ export default function AnalyticsScreen() {
   
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={styles.loadingText}>{t('loading')}</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
+        <ActivityIndicator size="large" color={palette.text} />
+        <Text style={[styles.loadingText, { color: palette.text }]}>{t('loading')}</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#080f19" />
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.page_background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={palette.page_background} />
+      <ScrollView 
+        style={[styles.container, { backgroundColor: palette.page_background }]} 
+        contentContainerStyle={styles.contentContainer}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-            <Text style={styles.headerTitle}>{t('analytics')}</Text>
+            <Ionicons name="chevron-back" size={24} color={palette.text} />
+            <Text style={[styles.headerTitle, { color: palette.text }]}>{t('analytics')}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.optionsButton}>
-            <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
+            <Ionicons name="ellipsis-vertical" size={20} color={palette.text} />
           </TouchableOpacity>
         </View>
         
         {/* Metric Selector */}
         <View style={styles.metricSelectorContainer}>
-          <View style={styles.metricSelector}>
+          <View style={[styles.metricSelector, { backgroundColor: 'rgba(31, 41, 55, 0.3)' }]}>
             <TouchableOpacity 
               style={[
                 styles.metricButton, 
                 selectedMetric === METRIC_TYPES.TONNAGE && {
-                  backgroundColor: 'rgba(255, 0, 110, 0.1)'
+                  backgroundColor: colorSchemes.tonnage.fill
                 }
               ]}
               onPress={() => setSelectedMetric(METRIC_TYPES.TONNAGE)}
@@ -370,6 +421,7 @@ export default function AnalyticsScreen() {
               <Text 
                 style={[
                   styles.metricButtonText, 
+                  { color: palette.text },
                   selectedMetric === METRIC_TYPES.TONNAGE && {
                     color: colorSchemes.tonnage.text,
                     fontWeight: '600'
@@ -384,7 +436,7 @@ export default function AnalyticsScreen() {
               style={[
                 styles.metricButton, 
                 selectedMetric === METRIC_TYPES.AVG_WEIGHT && {
-                  backgroundColor: 'rgba(58, 134, 255, 0.1)'
+                  backgroundColor: colorSchemes.avgWeight.fill
                 }
               ]}
               onPress={() => setSelectedMetric(METRIC_TYPES.AVG_WEIGHT)}
@@ -392,6 +444,7 @@ export default function AnalyticsScreen() {
               <Text 
                 style={[
                   styles.metricButtonText, 
+                  { color: palette.text },
                   selectedMetric === METRIC_TYPES.AVG_WEIGHT && {
                     color: colorSchemes.avgWeight.text,
                     fontWeight: '600'
@@ -406,14 +459,15 @@ export default function AnalyticsScreen() {
               style={[
                 styles.metricButton, 
                 selectedMetric === METRIC_TYPES.SETS && {
-                  backgroundColor: 'rgba(6, 214, 160, 0.1)'
+                  backgroundColor: colorSchemes.sets.fill
                 }
               ]}
               onPress={() => setSelectedMetric(METRIC_TYPES.SETS)}
             >
               <Text 
                 style={[
-                  styles.metricButtonText, 
+                  styles.metricButtonText,
+                  { color: palette.text }, 
                   selectedMetric === METRIC_TYPES.SETS && {
                     color: colorSchemes.sets.text,
                     fontWeight: '600'
@@ -428,8 +482,8 @@ export default function AnalyticsScreen() {
         
         {/* Chart Title */}
         <View style={styles.chartTitleContainer}>
-          <Text style={styles.chartTitle}>{getMetricLabel()}</Text>
-          <Text style={styles.chartSubtitle}>
+          <Text style={[styles.chartTitle, { color: palette.text }]}>{getMetricLabel()}</Text>
+          <Text style={[styles.chartSubtitle, { color: palette.text }]}>
             {selectedExercise === 'all' ? t('all_exercises') : 
               exercises.find(e => e.id === selectedExercise)?.name}
           </Text>
@@ -451,15 +505,17 @@ export default function AnalyticsScreen() {
               key={exercise.id}
               style={[
                 styles.exerciseButton,
+                { backgroundColor: 'rgba(31, 41, 55, 0.3)' },
                 selectedExercise === exercise.id ? {
                   backgroundColor: colorScheme.fill
-                } : styles.inactiveExerciseButton
+                } : null
               ]}
               onPress={() => setSelectedExercise(exercise.id)}
             >
               <Text 
                 style={[
                   styles.exerciseButtonText,
+                  { color: palette.text },
                   selectedExercise === exercise.id && { color: colorScheme.text }
                 ]}
               >
@@ -471,20 +527,23 @@ export default function AnalyticsScreen() {
         
         {/* Summary Cards */}
         <View style={styles.summaryCardsContainer}>
-          <View style={[styles.summaryCard, { backgroundColor: colorScheme.fill }]}>
-            <Text style={styles.summaryCardLabel}>{t('current')}</Text>
+          <View style={[
+            styles.summaryCard, 
+            { backgroundColor: colorScheme.fill }
+          ]}>
+            <Text style={[styles.summaryCardLabel, { color: palette.text }]}>{t('current')}</Text>
             <Text style={[styles.summaryCardValue, { color: colorScheme.text }]}>
               {selectedMetric === METRIC_TYPES.AVG_WEIGHT 
                 ? progress.current.toFixed(1) 
                 : Math.round(progress.current).toLocaleString()}
             </Text>
-            <Text style={styles.summaryCardUnit}>
+            <Text style={[styles.summaryCardUnit, { color: palette.text }]}>
               {selectedMetric === METRIC_TYPES.SETS ? t('sets') : 'kg'}
             </Text>
           </View>
           
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>{t('monthly')}</Text>
+          <View style={[styles.summaryCard, { backgroundColor: 'rgba(31, 41, 55, 0.3)' }]}>
+            <Text style={[styles.summaryCardLabel, { color: palette.text }]}>{t('monthly')}</Text>
             <Text style={[
               styles.summaryCardValue, 
               progress.monthlyChange >= 0 ? styles.positiveChange : styles.negativeChange
@@ -494,14 +553,14 @@ export default function AnalyticsScreen() {
                 ? progress.monthlyChange.toFixed(1) 
                 : Math.round(progress.monthlyChange).toLocaleString()}
             </Text>
-            <Text style={styles.summaryCardUnit}>
+            <Text style={[styles.summaryCardUnit, { color: palette.text }]}>
               {progress.monthlyChangePercent >= 0 ? '+' : ''}
               {progress.monthlyChangePercent.toFixed(1)}%
             </Text>
           </View>
           
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>{t('total')}</Text>
+          <View style={[styles.summaryCard, { backgroundColor: 'rgba(31, 41, 55, 0.3)' }]}>
+            <Text style={[styles.summaryCardLabel, { color: palette.text }]}>{t('total')}</Text>
             <Text style={[
               styles.summaryCardValue, 
               progress.totalChange >= 0 ? styles.positiveChange : styles.negativeChange
@@ -511,7 +570,7 @@ export default function AnalyticsScreen() {
                 ? progress.totalChange.toFixed(1) 
                 : Math.round(progress.totalChange).toLocaleString()}
             </Text>
-            <Text style={styles.summaryCardUnit}>
+            <Text style={[styles.summaryCardUnit, { color: palette.text }]}>
               {progress.totalChangePercent >= 0 ? '+' : ''}
               {progress.totalChangePercent.toFixed(1)}%
             </Text>
@@ -525,12 +584,12 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#080f19',
+    // Background color now from theme
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
+    // Background color now from theme
   },
   contentContainer: {
     padding: 16,
@@ -540,10 +599,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#080f19',
+    // Background color now from theme
   },
   loadingText: {
-    color: '#FFFFFF',
+    // Color now from theme
     marginTop: 12,
     fontSize: 16,
   },
@@ -560,7 +619,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    // Color now from theme
     marginLeft: 4,
   },
   optionsButton: {
@@ -575,7 +634,7 @@ const styles = StyleSheet.create({
   },
   metricSelector: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(31, 41, 55, 0.3)',
+    // Background color now dynamic
     borderRadius: 12,
     padding: 4,
   },
@@ -588,7 +647,7 @@ const styles = StyleSheet.create({
   },
   metricButtonText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    // Color now from theme
     fontWeight: '400',
   },
   chartTitleContainer: {
@@ -597,19 +656,19 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    // Color now from theme
     marginBottom: 4,
   },
   chartSubtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
+    // Color now from theme
   },
   mainChartContainer: {
     marginBottom: 24,
   },
   chartContainer: {
     height: 250,
-    backgroundColor: 'rgba(31, 41, 55, 0.3)',
+    // Background color now dynamic
     borderRadius: 12,
     padding: 16,
     overflow: 'hidden',
@@ -623,7 +682,7 @@ const styles = StyleSheet.create({
   },
   axisLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
+    // Color now from theme
   },
   chartInner: {
     position: 'absolute',
@@ -643,7 +702,7 @@ const styles = StyleSheet.create({
   gridLine: {
     width: '100%',
     height: 1,
-    backgroundColor: 'rgba(75, 85, 99, 0.3)',
+    // Background color now dynamic
   },
   xAxisLabels: {
     position: 'absolute',
@@ -662,20 +721,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginRight: 8,
-  },
-  inactiveExerciseButton: {
-    backgroundColor: 'rgba(31, 41, 55, 0.3)',
+    // Background color now dynamic
   },
   exerciseButtonText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    // Color now from theme
   },
   summaryCardsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   summaryCard: {
-    backgroundColor: 'rgba(31, 41, 55, 0.3)',
+    // Background color now dynamic
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -683,24 +740,24 @@ const styles = StyleSheet.create({
   },
   summaryCardLabel: {
     fontSize: 12,
-    color: '#D1D5DB',
+    // Color now from theme
     marginBottom: 4,
   },
   summaryCardValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    // Color varies based on state
   },
   summaryCardUnit: {
     fontSize: 12,
-    color: '#9CA3AF',
+    // Color now from theme
     marginTop: 2,
   },
   positiveChange: {
-    color: '#10B981',
+    color: '#10B981', // Keeping consistent colors for positive/negative
   },
   negativeChange: {
-    color: '#EF4444',
+    color: '#EF4444', // Keeping consistent colors for positive/negative
   },
   emptyChart: {
     height: 200,
@@ -711,6 +768,6 @@ const styles = StyleSheet.create({
   },
   emptyChartText: {
     fontSize: 16,
-    color: '#9CA3AF',
+    // Color now from theme
   },
 });

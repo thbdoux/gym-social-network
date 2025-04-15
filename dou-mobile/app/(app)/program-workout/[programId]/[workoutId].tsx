@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Custom hooks
 import { useAuth } from '../../../../hooks/useAuth';
 import { useLanguage } from '../../../../context/LanguageContext';
+import { useTheme } from '../../../../context/ThemeContext'; // Import ThemeContext
 import { useProgramWorkout, useUpdateProgramWorkout, useRemoveWorkoutFromProgram } from '../../../../hooks/query/useProgramQuery';
 import { useProgram } from '../../../../hooks/query/useProgramQuery';
 
@@ -29,23 +30,6 @@ import ExerciseSelector from '../../../../components/workouts/ExerciseSelector';
 import ExerciseConfigurator, { Exercise, ExerciseSet } from '../../../../components/workouts/ExerciseConfigurator';
 import ExerciseCard from '../../../../components/workouts/ExerciseCard';
 import { SupersetManager } from '../../../../components/workouts/utils/SupersetManager';
-
-// Colors - using the same color scheme as the workout template page for consistency
-const COLORS = {
-  primary: "#0ea5e9", // Blue
-  secondary: "#0284c7", // Darker blue
-  tertiary: "#0369a1", // Even darker blue
-  background: "#080f19", // Dark background
-  card: "#1F2937", // Card background
-  text: {
-    primary: "#FFFFFF",
-    secondary: "rgba(255, 255, 255, 0.7)",
-    tertiary: "rgba(255, 255, 255, 0.5)"
-  },
-  border: "rgba(255, 255, 255, 0.1)",
-  success: "#10b981", // Green
-  danger: "#ef4444" // Red
-};
 
 export default function ProgramWorkoutDetailScreen() {
   // Get IDs from route params
@@ -78,6 +62,39 @@ export default function ProgramWorkoutDetailScreen() {
     const firstId = rawWorkoutId[0];
     workoutId = typeof firstId === 'string' ? parseInt(firstId, 10) || 0 : 
                 typeof firstId === 'number' ? firstId : 0;
+  }
+  
+  // Get theme context
+  const { programWorkoutPalette, palette, workoutPalette } = useTheme();
+  
+  // Create dynamic theme colors using primarily programWorkoutPalette with fallbacks to workoutPalette
+  const COLORS = {
+    primary: programWorkoutPalette.background,
+    secondary: programWorkoutPalette.highlight,
+    tertiary: programWorkoutPalette.border,
+    background: palette.page_background,
+    card: "#1F2937", // Consistent with other screens
+    text: {
+      primary: programWorkoutPalette.text,
+      secondary: programWorkoutPalette.text_secondary,
+      tertiary: "rgba(255, 255, 255, 0.5)"
+    },
+    border: programWorkoutPalette.border,
+    success: "#10b981", // Keep universal success color
+    danger: "#ef4444" // Keep universal danger color
+  };
+  
+  // Helper function to convert hex to RGB for rgba()
+  function hexToRgb(hex) {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse the hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return `${r}, ${g}, ${b}`;
   }
   
   // State for workout details
@@ -802,9 +819,9 @@ export default function ProgramWorkoutDetailScreen() {
   // Render loading state
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={styles.loadingText}>{t('loading')}</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: COLORS.background }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={[styles.loadingText, { color: COLORS.text.primary }]}>{t('loading')}</Text>
       </View>
     );
   }
@@ -812,19 +829,22 @@ export default function ProgramWorkoutDetailScreen() {
   // Render error state if workout or program not found
   if (!workout || !program) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={60} color="#EF4444" />
-        <Text style={styles.errorTitle}>{t('workout_not_found')}</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>{t('back_to_program')}</Text>
+      <View style={[styles.errorContainer, { backgroundColor: COLORS.background }]}>
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.danger} />
+        <Text style={[styles.errorTitle, { color: COLORS.text.primary }]}>{t('workout_not_found')}</Text>
+        <TouchableOpacity 
+          style={[styles.backButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} 
+          onPress={() => router.back()}
+        >
+          <Text style={[styles.backButtonText, { color: COLORS.text.primary }]}>{t('back_to_program')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
   
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#080f19" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: COLORS.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
         <LinearGradient
           colors={[COLORS.primary, COLORS.secondary]}
           start={{ x: 0, y: 0 }}
@@ -834,23 +854,23 @@ export default function ProgramWorkoutDetailScreen() {
           {/* Top row with back button, title and actions */}
           <View style={styles.headerTopRow}>
             <TouchableOpacity 
-              style={styles.backButton} 
+              style={[styles.backButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} 
               onPress={() => router.back()}
             >
-              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
             </TouchableOpacity>
             
-            <Text style={styles.headerTitle} numberOfLines={1}>
+            <Text style={[styles.headerTitle, { color: COLORS.text.primary }]} numberOfLines={1}>
               {workout.name}
             </Text>
             
             <View style={styles.headerActions}>
               {isCreator && !editExercisesMode && (
                 <TouchableOpacity 
-                  style={styles.optionsButton}
+                  style={[styles.optionsButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
                   onPress={handleOptionsMenu}
                 >
-                  <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
+                  <Ionicons name="ellipsis-vertical" size={24} color={COLORS.text.primary} />
                 </TouchableOpacity>
               )}
               
@@ -858,19 +878,19 @@ export default function ProgramWorkoutDetailScreen() {
                 <View style={styles.editModeActions}>
                   {/* Cancel button */}
                   <TouchableOpacity 
-                    style={styles.cancelButton}
+                    style={[styles.cancelButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
                     onPress={handleCancelEditing}
                   >
-                    <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+                    <Text style={[styles.cancelButtonText, { color: COLORS.text.primary }]}>{t('cancel')}</Text>
                   </TouchableOpacity>
                   
                   {/* Save button - single button for all changes */}
                   <TouchableOpacity 
-                    style={styles.saveButton}
+                    style={[styles.saveButton, { backgroundColor: 'rgba(16, 185, 129, 0.8)' }]}
                     onPress={handleSaveChanges}
                   >
-                    <Ionicons name="save-outline" size={16} color="#FFFFFF" style={styles.saveButtonIcon} />
-                    <Text style={styles.saveButtonText}>{t('save')}</Text>
+                    <Ionicons name="save-outline" size={16} color={COLORS.text.primary} style={styles.saveButtonIcon} />
+                    <Text style={[styles.saveButtonText, { color: COLORS.text.primary }]}>{t('save')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -879,42 +899,42 @@ export default function ProgramWorkoutDetailScreen() {
           
           {/* Program info row */}
           <View style={styles.programInfoRow}>
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeBadgeText}>{t('workout')}</Text>
+            <View style={[styles.typeBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+              <Text style={[styles.typeBadgeText, { color: COLORS.text.primary }]}>{t('workout')}</Text>
             </View>
             
             <View style={styles.programInfo}>
               <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
-              <Text style={styles.programText}>{program.name}</Text>
+              <Text style={[styles.programText, { color: COLORS.text.secondary }]}>{program.name}</Text>
             </View>
           </View>
           
           {/* Compact workout details */}
-          <View style={styles.workoutInfoRow}>
+          <View style={[styles.workoutInfoRow, { backgroundColor: 'rgba(0, 0, 0, 0.15)' }]}>
             {/* Difficulty */}
             <View style={styles.infoItem}>
               <Text style={styles.infoIcon}>{getDifficultyIndicator(workout.difficulty_level)}</Text>
-              <Text style={styles.infoText}>{t(workout.difficulty_level)}</Text>
+              <Text style={[styles.infoText, { color: COLORS.text.primary }]}>{t(workout.difficulty_level)}</Text>
             </View>
             
             {/* Duration */}
             <View style={styles.infoItem}>
               <Ionicons name="time-outline" size={16} color={COLORS.text.secondary} />
-              <Text style={styles.infoText}>{workout.estimated_duration} {t('min')}</Text>
+              <Text style={[styles.infoText, { color: COLORS.text.primary }]}>{workout.estimated_duration} {t('min')}</Text>
             </View>
             
             {/* Weekday */}
             <View style={styles.infoItem}>
               <Ionicons name="calendar-outline" size={16} color={COLORS.text.secondary} />
-              <Text style={styles.infoText}>{getWeekdayName(workout.preferred_weekday)}</Text>
+              <Text style={[styles.infoText, { color: COLORS.text.primary }]}>{getWeekdayName(workout.preferred_weekday)}</Text>
             </View>
           </View>
           
           {/* Description (shown only if it exists) */}
           {workout.description && (
-            <View style={styles.descriptionContainer}>
-              <Text style={styles.descriptionLabel}>{t('description')}</Text>
-              <Text style={styles.descriptionText} numberOfLines={2}>
+            <View style={[styles.descriptionContainer, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+              <Text style={[styles.descriptionLabel, { color: COLORS.text.secondary }]}>{t('description')}</Text>
+              <Text style={[styles.descriptionText, { color: COLORS.text.primary }]} numberOfLines={2}>
                 {workout.description}
               </Text>
             </View>
@@ -925,20 +945,25 @@ export default function ProgramWorkoutDetailScreen() {
       <ScrollView style={styles.contentContainer}>
         {/* Pairing mode indicator */}
         {pairingMode && (
-          <View style={styles.pairingModeIndicator}>
-            <Ionicons name="link" size={16} color="#0ea5e9" />
-            <Text style={styles.pairingModeText}>{t('select_exercise_to_pair')}</Text>
-            <TouchableOpacity onPress={handleCancelPairing} style={styles.cancelPairingButton}>
-              <Ionicons name="close-circle" size={16} color="#EF4444" />
-              <Text style={styles.cancelPairingText}>{t('cancel')}</Text>
+          <View style={[styles.pairingModeIndicator, { 
+            backgroundColor: `rgba(${hexToRgb(COLORS.primary)}, 0.1)` 
+          }]}>
+            <Ionicons name="link" size={16} color={COLORS.primary} />
+            <Text style={[styles.pairingModeText, { color: COLORS.primary }]}>{t('select_exercise_to_pair')}</Text>
+            <TouchableOpacity 
+              onPress={handleCancelPairing} 
+              style={[styles.cancelPairingButton, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
+            >
+              <Ionicons name="close-circle" size={16} color={COLORS.danger} />
+              <Text style={[styles.cancelPairingText, { color: COLORS.danger }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         )}
         
         <View style={styles.exercisesSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('exercises')}</Text>
-            <Text style={styles.exerciseCount}>
+            <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>{t('exercises')}</Text>
+            <Text style={[styles.exerciseCount, { color: COLORS.text.secondary }]}>
               {editExercisesMode 
                 ? localExercises?.length || 0 
                 : workout.exercises?.length || 0
@@ -987,15 +1012,17 @@ export default function ProgramWorkoutDetailScreen() {
               </View>
             ) : (
               // Empty state for edit mode
-              <View style={styles.emptyState}>
+              <View style={[styles.emptyState, { backgroundColor: COLORS.card }]}>
                 <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
-                <Text style={styles.emptyStateText}>{t('no_exercises')}</Text>
+                <Text style={[styles.emptyStateText, { color: COLORS.text.tertiary }]}>{t('no_exercises')}</Text>
                 <TouchableOpacity
-                  style={styles.emptyStateAddButton}
+                  style={[styles.emptyStateAddButton, { 
+                    backgroundColor: `rgba(${hexToRgb(COLORS.success)}, 0.1)` 
+                  }]}
                   onPress={() => setExerciseSelectorVisible(true)}
                 >
                   <Ionicons name="add-circle" size={20} color={COLORS.success} />
-                  <Text style={styles.emptyStateAddText}>{t('add_your_first_exercise')}</Text>
+                  <Text style={[styles.emptyStateAddText, { color: COLORS.success }]}>{t('add_your_first_exercise')}</Text>
                 </TouchableOpacity>
               </View>
             )
@@ -1026,16 +1053,18 @@ export default function ProgramWorkoutDetailScreen() {
               </View>
             ) : (
               // Empty state for normal mode
-              <View style={styles.emptyState}>
+              <View style={[styles.emptyState, { backgroundColor: COLORS.card }]}>
                 <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
-                <Text style={styles.emptyStateText}>{t('no_exercises')}</Text>
+                <Text style={[styles.emptyStateText, { color: COLORS.text.tertiary }]}>{t('no_exercises')}</Text>
                 {isCreator && (
                   <TouchableOpacity
-                    style={styles.emptyStateAddButton}
+                    style={[styles.emptyStateAddButton, { 
+                      backgroundColor: `rgba(${hexToRgb(COLORS.success)}, 0.1)` 
+                    }]}
                     onPress={() => setEditExercisesMode(true)}
                   >
                     <Ionicons name="add-circle" size={20} color={COLORS.success} />
-                    <Text style={styles.emptyStateAddText}>{t('add_exercises')}</Text>
+                    <Text style={[styles.emptyStateAddText, { color: COLORS.success }]}>{t('add_exercises')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1046,11 +1075,13 @@ export default function ProgramWorkoutDetailScreen() {
         {/* Tags Section (if any) */}
         {workout.tags && workout.tags.length > 0 && (
           <View style={styles.tagsSection}>
-            <Text style={styles.sectionTitle}>{t('tags')}</Text>
+            <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>{t('tags')}</Text>
             <View style={styles.tagsContainer}>
               {workout.tags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
+                <View key={index} style={[styles.tag, { 
+                  backgroundColor: `rgba(${hexToRgb(COLORS.primary)}, 0.2)` 
+                }]}>
+                  <Text style={[styles.tagText, { color: COLORS.text.secondary }]}>#{tag}</Text>
                 </View>
               ))}
             </View>
@@ -1066,28 +1097,32 @@ export default function ProgramWorkoutDetailScreen() {
         <TouchableOpacity
           style={[
             styles.floatingAddButton,
+            { backgroundColor: COLORS.primary },
             keyboardVisible && { bottom: 80 } // Move up when keyboard is visible
           ]}
           onPress={() => setExerciseSelectorVisible(true)}
         >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Ionicons name="add" size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
       )}
       
       {/* Edit mode reminder (if in edit exercises mode) */}
       {editExercisesMode && (
-        <View style={styles.editModeReminder}>
-          <Text style={styles.editModeText}>
+        <View style={[styles.editModeReminder, { 
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          borderTopColor: 'rgba(255, 255, 255, 0.1)'
+        }]}>
+          <Text style={[styles.editModeText, { color: COLORS.text.secondary }]}>
             {pairingMode 
               ? t('select_exercise_to_pair_with') 
               : t('tap_exercises_to_edit')}
           </Text>
           {pairingMode && (
             <TouchableOpacity 
-              style={styles.cancelPairingButton}
+              style={[styles.cancelPairingButton, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
               onPress={() => setPairingMode(false)}
             >
-              <Text style={styles.cancelPairingText}>{t('cancel_pairing')}</Text>
+              <Text style={[styles.cancelPairingText, { color: COLORS.danger }]}>{t('cancel_pairing')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1128,6 +1163,39 @@ export default function ProgramWorkoutDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   header: {
     padding: 12,
     paddingBottom: 16,
@@ -1137,16 +1205,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
   headerTitle: {
     flex: 1,
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginLeft: 10,
     marginRight: 5,
   },
@@ -1162,18 +1224,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     marginRight: 8,
   },
   cancelButtonText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#FFFFFF',
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.success,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -1184,22 +1243,18 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   optionsButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   doneButton: {
-    backgroundColor: COLORS.success,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   doneButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   programInfoRow: {
@@ -1208,7 +1263,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   typeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -1216,7 +1270,6 @@ const styles = StyleSheet.create({
   },
   typeBadgeText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
   },
   programInfo: {
@@ -1225,7 +1278,6 @@ const styles = StyleSheet.create({
   },
   programText: {
     fontSize: 14,
-    color: COLORS.text.secondary,
     marginLeft: 4,
     fontWeight: '500',
   },
@@ -1233,7 +1285,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     borderRadius: 12,
     padding: 10,
     marginBottom: 12,
@@ -1251,68 +1302,27 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: COLORS.text.primary,
     marginLeft: 6,
   },
   descriptionContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     borderRadius: 12,
     padding: 10,
   },
   descriptionLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
     marginBottom: 4,
   },
   descriptionText: {
     fontSize: 14,
-    color: '#FFFFFF',
     lineHeight: 20,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    marginTop: 12,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  backButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   contentContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
     padding: 16,
   },
   pairingModeIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1322,7 +1332,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: '#0ea5e9',
     marginLeft: 8,
   },
   cancelPairingButton: {
@@ -1331,13 +1340,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     borderRadius: 8,
     alignSelf: 'center',
   },
   cancelPairingText: {
     fontSize: 12,
-    color: '#ef4444',
     fontWeight: '500',
   },
   exercisesSection: {
@@ -1352,11 +1359,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   exerciseCount: {
     fontSize: 14,
-    color: COLORS.text.secondary,
   },
   exercisesList: {
     marginBottom: 16,
@@ -1365,20 +1370,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: COLORS.card,
     borderRadius: 12,
     marginBottom: 16,
   },
   emptyStateText: {
     fontSize: 16,
-    color: COLORS.text.tertiary,
     marginTop: 16,
     marginBottom: 12,
   },
   emptyStateAddButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1386,7 +1388,6 @@ const styles = StyleSheet.create({
   },
   emptyStateAddText: {
     fontSize: 14,
-    color: COLORS.success,
     marginLeft: 8,
   },
   tagsSection: {
@@ -1398,7 +1399,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   tag: {
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
@@ -1407,7 +1407,6 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 14,
-    color: COLORS.text.secondary,
   },
   bottomPadding: {
     height: 80,
@@ -1415,13 +1414,10 @@ const styles = StyleSheet.create({
   // Edit mode reminder
   editModeReminder: {
     padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   editModeText: {
     fontSize: 12,
-    color: COLORS.text.secondary,
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -1433,7 +1429,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#0ea5e9',
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,

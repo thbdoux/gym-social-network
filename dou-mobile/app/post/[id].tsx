@@ -23,6 +23,7 @@ import {
   useUpdatePost
 } from '../../hooks/query/usePostQuery';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext'; // Add theme context
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 
 export default function PostDetailScreen() {
@@ -32,6 +33,7 @@ export default function PostDetailScreen() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const currentUser = user?.username || '';
+  const { palette } = useTheme(); // Get theme palette
   
   // Add state for profile modal
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -152,40 +154,71 @@ export default function PostDetailScreen() {
     }
   };
 
+  // Create dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      backgroundColor: palette.page_background
+    },
+    header: {
+      borderBottomColor: palette.border
+    },
+    headerTitle: {
+      color: palette.text
+    },
+    loadingContainer: {
+      backgroundColor: palette.page_background
+    },
+    loadingText: {
+      color: palette.text
+    },
+    errorContainer: {
+      backgroundColor: palette.page_background
+    },
+    errorTitle: {
+      color: '#EF4444' // Keep error color consistent
+    },
+    errorText: {
+      color: palette.text
+    },
+    backButtonText: {
+      color: palette.highlight
+    }
+  };
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading post...</Text>
+      <SafeAreaView style={[styles.loadingContainer, dynamicStyles.loadingContainer]}>
+        <ActivityIndicator size="large" color={palette.highlight} />
+        <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Loading post...</Text>
       </SafeAreaView>
     );
   }
 
   if (error || !post) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
+      <SafeAreaView style={[styles.errorContainer, dynamicStyles.errorContainer]}>
         <Text style={styles.errorTitle}>Error</Text>
-        <Text style={styles.errorText}>Post not found</Text>
+        <Text style={[styles.errorText, dynamicStyles.errorText]}>Post not found</Text>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={handleGoBack}
         >
-          <Text style={styles.backButtonText}>Go back</Text>
+          <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>Go back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={handleGoBack}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={palette.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post</Text>
+        <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Post</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -225,7 +258,7 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
+    // Background color now comes from theme
   },
   header: {
     flexDirection: 'row',
@@ -234,12 +267,12 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.5)',
+    // Border color now comes from theme
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    // Text color now comes from theme
   },
   headerRight: {
     width: 24, // Matches the width of the back button for balance
@@ -259,35 +292,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#080f19',
+    // Background color now comes from theme
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#9CA3AF',
+    // Text color now comes from theme
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#080f19',
+    // Background color now comes from theme
     padding: 20,
   },
   errorTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#EF4444',
+    color: '#EF4444', // Keeping error color consistent
     marginBottom: 12,
   },
   errorText: {
     fontSize: 16,
-    color: '#9CA3AF',
+    // Text color now comes from theme
     textAlign: 'center',
     marginBottom: 24,
   },
   backButtonText: {
     fontSize: 16,
-    color: '#3B82F6',
+    // Color now comes from theme
     fontWeight: '600',
   },
 });

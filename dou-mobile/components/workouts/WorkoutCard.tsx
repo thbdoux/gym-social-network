@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface WorkoutCardProps {
   workoutId: number;
@@ -61,6 +62,7 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
   onLongPress
 }) => {
   const { t } = useLanguage();
+  const { workoutPalette } = useTheme();
   
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
@@ -156,7 +158,6 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
     }
   };
 
-  // Inside the WorkoutCard component in WorkoutCard.tsx
   const handleCardPress = () => {
     if (selectionMode) {
       onSelect && onSelect();
@@ -217,7 +218,8 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
         delayLongPress={200}
         style={[
           styles.container,
-          isSelected && styles.selectedContainer
+          { backgroundColor: workoutPalette.background },
+          isSelected && [styles.selectedContainer, { borderColor: workoutPalette.text }]
         ]}
       >
         {/* Selection indicator */}
@@ -225,7 +227,7 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
           <View style={styles.selectionIndicator}>
             <View style={[
               styles.checkbox,
-              isSelected && styles.checkboxSelected
+              isSelected && [styles.checkboxSelected, { backgroundColor: workoutPalette.background }]
             ]}>
               {isSelected && (
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
@@ -251,15 +253,15 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
           {/* Top row with type, difficulty and weekday if instance */}
           <View style={styles.topRow}>
             <View style={styles.typeContainer}>
-              <View style={styles.typeBadge}>
-                <Text style={styles.typeText}>
+              <View style={[styles.typeBadge, { backgroundColor: workoutPalette.badge_bg }]}>
+                <Text style={[styles.typeText, { color: workoutPalette.text }]}>
                   {isTemplate ? t('template') : t('workout')}
                 </Text>
               </View>
               
               {workout.difficulty_level && (
                 <View style={styles.difficultyContainer}>
-                  <Text style={styles.difficultyText}>
+                  <Text style={[styles.difficultyText, { color: workoutPalette.text_secondary }]}>
                     {getDifficultyIndicator(workout.difficulty_level)} {t(workout.difficulty_level.toLowerCase())}
                   </Text>
                 </View>
@@ -268,21 +270,23 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
             
             {!isTemplate && workout.preferred_weekday !== undefined && (
               <View style={styles.weekdayBadge}>
-                <Text style={styles.weekdayText}>{getWeekdayName(workout.preferred_weekday)}</Text>
+                <Text style={[styles.weekdayText, { color: workoutPalette.highlight }]}>
+                  {getWeekdayName(workout.preferred_weekday)}
+                </Text>
               </View>
             )}
           </View>
           
           {/* Workout title */}
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={[styles.title, { color: workoutPalette.text }]} numberOfLines={1}>
             {workoutName}
           </Text>
           
           {/* Program name if available and is instance */}
           {!isTemplate && workout.program_name && (
             <View style={styles.programRow}>
-              <Ionicons name="calendar-outline" size={12} color="rgba(255, 255, 255, 0.7)" />
-              <Text style={styles.programText} numberOfLines={1}>
+              <Ionicons name="calendar-outline" size={12} color={workoutPalette.text_secondary} />
+              <Text style={[styles.programText, { color: workoutPalette.text }]} numberOfLines={1}>
                 {workout.program_name}
               </Text>
             </View>
@@ -291,28 +295,44 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
           {/* Stats row */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>{t('exercises')}</Text>
-              <Text style={styles.statValue}>{exerciseCount}</Text>
+              <Text style={[styles.statLabel, { color: workoutPalette.text_secondary }]}>
+                {t('exercises')}
+              </Text>
+              <Text style={[styles.statValue, { color: workoutPalette.text }]}>
+                {exerciseCount}
+              </Text>
             </View>
             
             {workout.estimated_duration && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('duration')}</Text>
-                <Text style={styles.statValue}>{workout.estimated_duration}m</Text>
+                <Text style={[styles.statLabel, { color: workoutPalette.text_secondary }]}>
+                  {t('duration')}
+                </Text>
+                <Text style={[styles.statValue, { color: workoutPalette.text }]}>
+                  {workout.estimated_duration}m
+                </Text>
               </View>
             )}
             
             {workout.equipment_required && workout.equipment_required.length > 0 && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('equipment')}</Text>
-                <Text style={styles.statValue}>{workout.equipment_required.length}</Text>
+                <Text style={[styles.statLabel, { color: workoutPalette.text_secondary }]}>
+                  {t('equipment')}
+                </Text>
+                <Text style={[styles.statValue, { color: workoutPalette.text }]}>
+                  {workout.equipment_required.length}
+                </Text>
               </View>
             )}
             
             {workout.tags && workout.tags.length > 0 && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Tags</Text>
-                <Text style={styles.statValue}>{workout.tags.length}</Text>
+                <Text style={[styles.statLabel, { color: workoutPalette.text_secondary }]}>
+                  Tags
+                </Text>
+                <Text style={[styles.statValue, { color: workoutPalette.text }]}>
+                  {workout.tags.length}
+                </Text>
               </View>
             )}
           </View>
@@ -323,14 +343,16 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
           <View style={styles.exerciseRow}>
             {exerciseNames.map((name, index) => (
               <View key={index} style={styles.exerciseBubble}>
-                <Text style={styles.exerciseName} numberOfLines={1}>
+                <Text style={[styles.exerciseName, { color: workoutPalette.highlight }]} numberOfLines={1}>
                   {name}
                 </Text>
               </View>
             ))}
             {exerciseCount > 3 && (
               <View style={styles.moreBubble}>
-                <Text style={styles.moreText}>+{exerciseCount - 3}</Text>
+                <Text style={[styles.moreText, { color: workoutPalette.highlight }]}>
+                  +{exerciseCount - 3}
+                </Text>
               </View>
             )}
           </View>
@@ -342,21 +364,25 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
           
           {isTemplate && onAddToProgram && !selectionMode && (
             <TouchableOpacity 
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: workoutPalette.action_bg }]}
               onPress={handleAddToProgram}
             >
-              <Ionicons name="add-circle-outline" size={14} color="#0c4a6e" />
-              <Text style={styles.actionText}>{t('add_to_program')}</Text>
+              <Ionicons name="add-circle-outline" size={14} color={workoutPalette.highlight} />
+              <Text style={[styles.actionText, { color: workoutPalette.highlight }]}>
+                {t('add_to_program')}
+              </Text>
             </TouchableOpacity>
           )}
           
           {onFork && !selectionMode && (
             <TouchableOpacity 
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: workoutPalette.action_bg }]}
               onPress={handleFork}
             >
-              <Ionicons name="copy-outline" size={14} color="#0c4a6e" />
-              <Text style={styles.actionText}>{isTemplate ? t('fork_template') : t('fork')}</Text>
+              <Ionicons name="copy-outline" size={14} color={workoutPalette.highlight} />
+              <Text style={[styles.actionText, { color: workoutPalette.highlight }]}>
+                {isTemplate ? t('fork_template') : t('fork')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -369,7 +395,6 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#0ea5e9', // Blue color
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -380,7 +405,6 @@ const styles = StyleSheet.create({
   },
   selectedContainer: {
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   cardContent: {
     padding: 16,
@@ -397,14 +421,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   typeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
   typeText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
   },
   difficultyContainer: {
@@ -412,7 +434,6 @@ const styles = StyleSheet.create({
   },
   difficultyText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
   },
   weekdayBadge: {
@@ -427,14 +448,12 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   weekdayText: {
-    color: '#0c4a6e',
     fontSize: 12,
     fontWeight: '700',
   },
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
     marginBottom: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
@@ -447,7 +466,6 @@ const styles = StyleSheet.create({
   },
   programText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
     marginLeft: 6,
   },
@@ -461,13 +479,11 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 2,
   },
   statValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -490,7 +506,6 @@ const styles = StyleSheet.create({
     maxWidth: 120,
   },
   exerciseName: {
-    color: '#0c4a6e',
     fontSize: 10,
     fontWeight: '600',
   },
@@ -503,7 +518,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   moreText: {
-    color: '#0c4a6e',
     fontSize: 10,
     fontWeight: '600',
   },
@@ -521,7 +535,6 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 16,
@@ -532,7 +545,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionText: {
-    color: '#0c4a6e',
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,

@@ -58,8 +58,6 @@ export default function ProfileScreen() {
     refetch: refetchProfile,
     error: profileError
   } = useCurrentUser();
-
-  console.log('current user profile', profile);
   
   // Get logs for workout data
   const { data: logs, isLoading: logsLoading } = useUserLogs(user?.username);

@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../../hooks/useAuth';
 import { useGym } from '../../../hooks/query/useGymQuery';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useTheme } from '../../../context/ThemeContext'; // Import ThemeContext
 import {
   useLog,
   useUpdateLog,
@@ -35,38 +36,13 @@ import ExerciseCard from '../../../components/workouts/ExerciseCard';
 import { SupersetManager } from '../../../components/workouts/utils/SupersetManager';
 import { v4 as uuidv4 } from 'react-native-uuid';
 
-// Updated green color scheme
-const COLORS = {
-  primary: "#4ade80", // Light green
-  secondary: "#10b981", // Emerald
-  tertiary: "#059669", // Green-teal
-  accent: "#f59e0b", // Amber
-  success: "#10b981", // Emerald
-  danger: "#ef4444", // Red
-  background: "#080f19", // Dark background
-  card: "#1F2937", // Card background
-  text: {
-    primary: "#ffffff",
-    secondary: "rgba(255, 255, 255, 0.7)",
-    tertiary: "rgba(255, 255, 255, 0.5)"
-  },
-  border: "rgba(255, 255, 255, 0.1)"
-};
-
-// Exercise colors - green variants with complementary colors
-const EXERCISE_COLORS = [
-  "#4ade80", // Light green
-  "#34d399", // Emerald
-  "#2dd4bf", // Teal
-  "#a3e635", // Lime
-  "#fbbf24", // Amber
-  "#f472b6"  // Pink
-];
-
 export default function WorkoutLogDetailScreen() {
   // Get log ID from route params
   const { id } = useLocalSearchParams();
   const logId = typeof id === 'string' ? parseInt(id, 10) : 0;
+  
+  // Get theme context
+  const { workoutLogPalette, palette } = useTheme();
   
   // State for workout log details
   const [logName, setLogName] = useState('');
@@ -101,6 +77,34 @@ export default function WorkoutLogDetailScreen() {
   const { data: gym } = useGym(log?.gym);
   const { mutateAsync: updateLog } = useUpdateLog();
   const { mutateAsync: deleteLog } = useDeleteLog();
+  
+  // Create dynamic theme colors
+  const COLORS = {
+    primary: workoutLogPalette.background,
+    secondary: workoutLogPalette.highlight,
+    tertiary: workoutLogPalette.border,
+    accent: palette.highlight,
+    success: "#10b981", // Keep universal success color
+    danger: "#ef4444", // Keep universal danger color
+    background: palette.page_background,
+    card: "#1F2937", // Slightly adjust for consistency
+    text: {
+      primary: workoutLogPalette.text,
+      secondary: workoutLogPalette.text_secondary,
+      tertiary: "rgba(255, 255, 255, 0.5)"
+    },
+    border: workoutLogPalette.border
+  };
+  
+  // Exercise colors - derived from workoutLogPalette with some variation
+  const EXERCISE_COLORS = [
+    workoutLogPalette.highlight,
+    workoutLogPalette.background,
+    palette.highlight,
+    workoutLogPalette.badge_bg,
+    workoutLogPalette.action_bg,
+    "#f472b6"  // Keep one distinct color for variety
+  ];
   
   useEffect(() => {
     if (log) {
@@ -1060,9 +1064,9 @@ export default function WorkoutLogDetailScreen() {
   // Render loading state
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={styles.loadingText}>{t('loading')}</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: COLORS.background }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={[styles.loadingText, { color: COLORS.text.primary }]}>{t('loading')}</Text>
       </View>
     );
   }
@@ -1070,19 +1074,22 @@ export default function WorkoutLogDetailScreen() {
   // Render error state if log not found
   if (!log) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={60} color="#EF4444" />
-        <Text style={styles.errorTitle}>{t('workout_log_not_found')}</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>{t('back_to_workouts')}</Text>
+      <View style={[styles.errorContainer, { backgroundColor: COLORS.background }]}>
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.danger} />
+        <Text style={[styles.errorTitle, { color: COLORS.text.primary }]}>{t('workout_log_not_found')}</Text>
+        <TouchableOpacity 
+          style={[styles.backButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} 
+          onPress={() => router.back()}
+        >
+          <Text style={[styles.backButtonText, { color: COLORS.text.primary }]}>{t('back_to_workouts')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
   
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#080f19" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: COLORS.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       
       {/* Header */}
       <LinearGradient
@@ -1097,7 +1104,7 @@ export default function WorkoutLogDetailScreen() {
             style={styles.backButton} 
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
           </TouchableOpacity>
           
           <View style={styles.titleContainer}>
@@ -1111,7 +1118,7 @@ export default function WorkoutLogDetailScreen() {
               style={styles.optionsButton}
               onPress={handleOptionsMenu}
             >
-              <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
+              <Ionicons name="ellipsis-vertical" size={24} color={COLORS.text.primary} />
             </TouchableOpacity>
           ) : editExercisesMode ? (
             // Simplified edit mode actions - just Save and Cancel
@@ -1129,7 +1136,7 @@ export default function WorkoutLogDetailScreen() {
                 style={styles.saveButton}
                 onPress={handleSaveChanges}
               >
-                <Ionicons name="save-outline" size={16} color="#FFFFFF" style={styles.saveButtonIcon} />
+                <Ionicons name="save-outline" size={16} color={COLORS.text.primary} style={styles.saveButtonIcon} />
                 <Text style={styles.saveButtonText}>{t('save')}</Text>
               </TouchableOpacity>
             </View>
@@ -1142,11 +1149,14 @@ export default function WorkoutLogDetailScreen() {
             <Ionicons name="person" size={14} color={COLORS.text.secondary} />
             <Text style={styles.creatorText}>{log.username}</Text>
           </View>
-          <View style={styles.statusBadge}>
+          <View style={[styles.statusBadge, { 
+            backgroundColor: 'rgba(22, 101, 52, 0.2)',
+            borderColor: 'rgba(22, 101, 52, 0.3)' 
+          }]}>
             <Ionicons 
               name={log.completed ? "checkmark-circle" : "time"} 
               size={12} 
-              color="#FFFFFF"
+              color={COLORS.text.primary}
             />
             <Text style={styles.statusText}>
               {log.completed ? t('completed') : t('in_progress')}
@@ -1222,11 +1232,11 @@ export default function WorkoutLogDetailScreen() {
                 <View style={styles.exerciseControls}>
                   {editExercisesMode && (
                     <TouchableOpacity 
-                      style={styles.addExerciseButton}
+                      style={[styles.addExerciseButton, { backgroundColor: 'rgba(22, 163, 74, 0.1)' }]}
                       onPress={() => setExerciseSelectorVisible(true)}
                     >
                       <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
-                      <Text style={styles.addExerciseText}>{t('add')}</Text>
+                      <Text style={[styles.addExerciseText, { color: COLORS.primary }]}>{t('add')}</Text>
                     </TouchableOpacity>
                   )}
                   <Text style={styles.exerciseCount}>
@@ -1271,15 +1281,15 @@ export default function WorkoutLogDetailScreen() {
                   </View>
                 ) : (
                   // Empty state for edit mode
-                  <View style={styles.emptyState}>
+                  <View style={[styles.emptyState, { backgroundColor: COLORS.card }]}>
                     <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
                     <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
                     <TouchableOpacity 
-                      style={styles.emptyStateAddButton}
+                      style={[styles.emptyStateAddButton, { backgroundColor: 'rgba(22, 163, 74, 0.1)' }]}
                       onPress={() => setExerciseSelectorVisible(true)}
                     >
                       <Ionicons name="add-circle" size={20} color={COLORS.primary} />
-                      <Text style={styles.emptyStateAddText}>{t('add_exercise')}</Text>
+                      <Text style={[styles.emptyStateAddText, { color: COLORS.primary }]}>{t('add_exercise')}</Text>
                     </TouchableOpacity>
                   </View>
                 )
@@ -1299,7 +1309,7 @@ export default function WorkoutLogDetailScreen() {
                   </View>
                 ) : (
                   // Empty state for normal mode
-                  <View style={styles.emptyState}>
+                  <View style={[styles.emptyState, { backgroundColor: COLORS.card }]}>
                     <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
                     <Text style={styles.emptyStateText}>{t('no_exercises_recorded')}</Text>
                   </View>
@@ -1318,18 +1328,21 @@ export default function WorkoutLogDetailScreen() {
       
       {/* Edit mode reminder (if in edit mode) */}
       {editExercisesMode && (
-        <View style={styles.editModeReminder}>
-          <Text style={styles.editModeText}>
+        <View style={[styles.editModeReminder, { 
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          borderTopColor: 'rgba(255, 255, 255, 0.1)' 
+        }]}>
+          <Text style={[styles.editModeText, { color: COLORS.text.secondary }]}>
             {pairingMode 
               ? t('select_exercise_to_pair_with') 
               : t('tap_exercises_to_edit')}
           </Text>
           {pairingMode && (
             <TouchableOpacity 
-              style={styles.cancelPairingButton}
+              style={[styles.cancelPairingButton, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
               onPress={() => setPairingMode(false)}
             >
-              <Text style={styles.cancelPairingText}>{t('cancel_pairing')}</Text>
+              <Text style={[styles.cancelPairingText, { color: COLORS.danger }]}>{t('cancel_pairing')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1361,17 +1374,14 @@ export default function WorkoutLogDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
   },
   loadingText: {
-    color: '#FFFFFF',
     marginTop: 12,
     fontSize: 16,
   },
@@ -1379,23 +1389,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
     padding: 20,
   },
   errorTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginTop: 16,
     marginBottom: 24,
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   backButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -1446,10 +1452,10 @@ const styles = StyleSheet.create({
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   saveButtonIcon: {
     marginRight: 4,
@@ -1472,7 +1478,7 @@ const styles = StyleSheet.create({
   },
   creatorText: {
     fontSize: 14,
-    color: COLORS.text.secondary,
+    color: 'rgba(255, 255, 255, 0.7)',
     marginLeft: 4,
   },
   statusBadge: {
@@ -1481,9 +1487,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
-    backgroundColor: 'rgba(22, 101, 52, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(22, 101, 52, 0.3)',
   },
   statusText: {
     fontSize: 12,
@@ -1505,7 +1509,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: COLORS.text.primary,
+    color: '#FFFFFF',
     marginLeft: 4,
   },
   infoIcon: {
@@ -1528,7 +1532,7 @@ const styles = StyleSheet.create({
   tabNavigationContainer: {
     flexDirection: 'row',
     height: 50,
-    backgroundColor: COLORS.card,
+    backgroundColor: '#1F2937',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -1539,19 +1543,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabButtonActive: {
-    backgroundColor: 'rgba(74, 222, 128, 0.05)',
+    backgroundColor: 'rgba(22, 163, 74, 0.05)',
   },
   tabButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text.secondary,
+    color: 'rgba(255, 255, 255, 0.7)',
     marginLeft: 6,
   },
   
   // Content Container Styles
   contentContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   exercisesContainer: {
     flex: 1,
@@ -1578,12 +1581,11 @@ const styles = StyleSheet.create({
   },
   exerciseCount: {
     fontSize: 14,
-    color: COLORS.text.secondary,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   addExerciseButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1591,14 +1593,12 @@ const styles = StyleSheet.create({
   },
   addExerciseText: {
     fontSize: 13,
-    color: COLORS.primary,
     marginLeft: 4,
     fontWeight: '500',
   },
   emptyStateAddButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1606,7 +1606,6 @@ const styles = StyleSheet.create({
   },
   emptyStateAddText: {
     fontSize: 14,
-    color: COLORS.primary,
     marginLeft: 8,
     fontWeight: '500',
   },
@@ -1618,13 +1617,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: COLORS.card,
     margin: 16,
     borderRadius: 12,
   },
   emptyStateText: {
     fontSize: 16,
-    color: COLORS.text.tertiary,
+    color: 'rgba(255, 255, 255, 0.5)',
     marginTop: 16,
     textAlign: 'center',
   },
@@ -1635,13 +1633,10 @@ const styles = StyleSheet.create({
   // Edit mode reminder
   editModeReminder: {
     padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   editModeText: {
     fontSize: 12,
-    color: COLORS.text.secondary,
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -1649,20 +1644,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     borderRadius: 8,
     alignSelf: 'center',
   },
   cancelPairingText: {
     fontSize: 12,
-    color: '#ef4444',
     fontWeight: '500',
   },
   
   // Stats styles
   statsContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
     paddingTop: 16,
   },
   statsSectionContainer: {
@@ -1677,7 +1669,7 @@ const styles = StyleSheet.create({
   statsSectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.text.primary,
+    color: '#FFFFFF',
     marginLeft: 8,
   },
   statsCardsRow: {
@@ -1701,10 +1693,10 @@ const styles = StyleSheet.create({
   statsCardValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.text.primary,
+    color: '#FFFFFF',
   },
   exerciseStatCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#1F2937',
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
@@ -1723,7 +1715,7 @@ const styles = StyleSheet.create({
   exerciseStatName: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#FFFFFF',
   },
   exerciseStatGrid: {
     flexDirection: 'row',
@@ -1736,16 +1728,16 @@ const styles = StyleSheet.create({
   },
   exerciseStatLabel: {
     fontSize: 10,
-    color: COLORS.text.tertiary,
+    color: 'rgba(255, 255, 255, 0.5)',
     marginBottom: 2,
   },
   exerciseStatValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text.secondary,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   muscleGroupStatCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#1F2937',
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
@@ -1753,7 +1745,7 @@ const styles = StyleSheet.create({
   muscleGroupName: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#FFFFFF',
     marginBottom: 10,
   },
   muscleGroupStatGrid: {
@@ -1767,12 +1759,12 @@ const styles = StyleSheet.create({
   },
   muscleGroupStatLabel: {
     fontSize: 10,
-    color: COLORS.text.tertiary,
+    color: 'rgba(255, 255, 255, 0.5)',
     marginBottom: 2,
   },
   muscleGroupStatValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text.secondary,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
 });

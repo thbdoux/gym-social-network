@@ -24,6 +24,7 @@ import { BlurView } from 'expo-blur';
 // Custom hooks
 import { useAuth } from '../../../hooks/useAuth';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useTheme } from '../../../context/ThemeContext'; // Import ThemeContext
 import { 
   useProgram, 
   useUpdateProgramWorkout,
@@ -42,11 +43,9 @@ import WorkoutCard from '../../../components/workouts/WorkoutCard';
 export default function ProgramDetailScreen() {
   // Get program ID from route params
   const params = useLocalSearchParams();
-  console.log("All route params:", params);
   
   // Extract ID with fallbacks
   const rawId = params.id;
-  console.log("Raw ID from params:", rawId);
   
   let programId: number;
   
@@ -64,7 +63,26 @@ export default function ProgramDetailScreen() {
     programId = 0;
   }
   
-  console.log("Final programId after parsing:", programId);
+  // Get theme context
+  const { programPalette, palette } = useTheme();
+  
+  // Create dynamic theme colors
+  const COLORS = {
+    primary: programPalette.background,
+    secondary: programPalette.highlight,
+    tertiary: programPalette.border,
+    background: palette.page_background,
+    card: "#1F2937", // Consistent with other screens
+    text: {
+      primary: programPalette.text,
+      secondary: programPalette.text_secondary,
+      tertiary: "rgba(255, 255, 255, 0.5)"
+    },
+    border: programPalette.border,
+    success: "#22c55e", // Keep universal success color
+    danger: "#EF4444", // Keep universal danger color
+    highlight: programPalette.highlight
+  };
   
   // State
   const [editMode, setEditMode] = useState(false);
@@ -131,6 +149,19 @@ export default function ProgramDetailScreen() {
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  };
+  
+  // Convert hex to RGB for rgba strings
+  const hexToRgb = (hex) => {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return `${r}, ${g}, ${b}`;
   };
   
   // Handle workout drag between days
@@ -392,9 +423,9 @@ export default function ProgramDetailScreen() {
   // Render loading state
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={styles.loadingText}>{t('loading')}</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: COLORS.background }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={[styles.loadingText, { color: COLORS.text.primary }]}>{t('loading')}</Text>
       </View>
     );
   }
@@ -402,100 +433,100 @@ export default function ProgramDetailScreen() {
   // Render error state if program not found
   if (!program) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={60} color="#EF4444" />
-        <Text style={styles.errorTitle}>{t('program_not_found')}</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>{t('back_to_workouts')}</Text>
+      <View style={[styles.errorContainer, { backgroundColor: COLORS.background }]}>
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.danger} />
+        <Text style={[styles.errorTitle, { color: COLORS.text.primary }]}>{t('program_not_found')}</Text>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} onPress={() => router.back()}>
+          <Text style={[styles.backButtonText, { color: COLORS.text.primary }]}>{t('back_to_workouts')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
   
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: COLORS.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       
       {/* Fixed Header */}
       <View style={styles.fixedHeaderContainer}>
         <LinearGradient
-          colors={['#7e22ce', '#9333ea']}
+          colors={[COLORS.primary, COLORS.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.fixedHeader}
         >
           <View style={styles.headerControls}>
             <TouchableOpacity 
-              style={styles.backButton} 
+              style={[styles.backButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} 
               onPress={() => router.back()}
             >
-              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
             </TouchableOpacity>
             
             <View style={styles.headerActions}>
               {isCreator && !editMode && !selectionMode && (
                 <>
                   <TouchableOpacity 
-                    style={styles.headerAction}
+                    style={[styles.headerAction, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
                     onPress={() => setEditMode(true)}
                   >
-                    <Ionicons name="create-outline" size={22} color="#FFFFFF" />
+                    <Ionicons name="create-outline" size={22} color={COLORS.text.primary} />
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                    style={styles.headerAction}
+                    style={[styles.headerAction, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
                     onPress={handleToggleActive}
                   >
                     <Ionicons 
                       name={program.is_active ? "checkmark-circle" : "ellipse-outline"} 
                       size={22} 
-                      color="#FFFFFF" 
+                      color={COLORS.text.primary} 
                     />
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                    style={styles.headerAction}
+                    style={[styles.headerAction, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
                     onPress={handleDeleteProgram}
                   >
-                    <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+                    <Ionicons name="trash-outline" size={22} color={COLORS.text.primary} />
                   </TouchableOpacity>
                 </>
               )}
               
               {!isCreator && !selectionMode && (
                 <TouchableOpacity 
-                  style={styles.forkButton}
+                  style={[styles.forkButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
                   onPress={handleFork}
                 >
-                  <Ionicons name="download-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.forkText}>{t('fork')}</Text>
+                  <Ionicons name="download-outline" size={18} color={COLORS.text.primary} />
+                  <Text style={[styles.forkText, { color: COLORS.text.primary }]}>{t('fork')}</Text>
                 </TouchableOpacity>
               )}
               
               {editMode && (
                 <>
                   <TouchableOpacity 
-                    style={styles.cancelButton}
+                    style={[styles.cancelButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
                     onPress={handleCancelEdit}
                   >
-                    <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+                    <Text style={[styles.cancelButtonText, { color: COLORS.text.primary }]}>{t('cancel')}</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                    style={styles.saveButton}
+                    style={[styles.saveButton, { backgroundColor: COLORS.success }]}
                     onPress={handleSaveProgram}
                   >
-                    <Text style={styles.saveButtonText}>{t('save')}</Text>
+                    <Text style={[styles.saveButtonText, { color: '#FFFFFF' }]}>{t('save')}</Text>
                   </TouchableOpacity>
                 </>
               )}
               
               {selectionMode && (
                 <TouchableOpacity 
-                  style={styles.cancelButton}
+                  style={[styles.cancelButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
                   onPress={toggleSelectionMode}
                 >
-                  <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+                  <Text style={[styles.cancelButtonText, { color: COLORS.text.primary }]}>{t('cancel')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -503,21 +534,24 @@ export default function ProgramDetailScreen() {
           
           {/* Program Title and Status */}
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
+            <Text style={[styles.headerTitle, { color: COLORS.text.primary }]} numberOfLines={1}>
               {program.name}
             </Text>
             
             {program.is_active && (
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>{t('active')}</Text>
+              <View style={[styles.activeBadge, { 
+                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                borderColor: 'rgba(34, 197, 94, 0.3)'
+              }]}>
+                <Text style={[styles.activeBadgeText, { color: COLORS.success }]}>{t('active')}</Text>
               </View>
             )}
           </View>
           
           {/* Program Meta Info (small text under title) */}
           <View style={styles.programMetaInfo}>
-            <Text style={styles.programMetaText}>
-              <Ionicons name="person" size={10} color="rgba(255, 255, 255, 0.8)" /> {program.creator_username} • 
+            <Text style={[styles.programMetaText, { color: COLORS.text.secondary }]}>
+              <Ionicons name="person" size={10} color={COLORS.text.secondary} /> {program.creator_username} • 
               {formatFocus(program.focus)} • 
               {program.difficulty_level}
             </Text>
@@ -534,11 +568,14 @@ export default function ProgramDetailScreen() {
       >
         {/* Program Description (if exists) */}
         {(editMode || program.description) && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionLabel}>{t('description')}</Text>
+          <View style={[styles.descriptionContainer, { backgroundColor: 'rgba(31, 41, 55, 0.6)' }]}>
+            <Text style={[styles.descriptionLabel, { color: COLORS.text.secondary }]}>{t('description')}</Text>
             {editMode ? (
               <TextInput
-                style={styles.descriptionInput}
+                style={[styles.descriptionInput, { 
+                  color: COLORS.text.primary,
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)' 
+                }]}
                 value={programDescription}
                 onChangeText={setProgramDescription}
                 placeholder={t('program_description')}
@@ -547,17 +584,19 @@ export default function ProgramDetailScreen() {
                 numberOfLines={3}
               />
             ) : (
-              <Text style={styles.descriptionText}>{program.description}</Text>
+              <Text style={[styles.descriptionText, { color: COLORS.text.primary }]}>{program.description}</Text>
             )}
           </View>
         )}
         
         {/* Weekly Schedule */}
         <View style={styles.scheduleSection}>
-          <Text style={styles.sectionTitle}>{t('weekly_schedule')}</Text>
+          <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>{t('weekly_schedule')}</Text>
           
           {/* Compact Schedule Preview */}
-          <View style={styles.compactSchedule}>
+          <View style={[styles.compactSchedule, { 
+            backgroundColor: 'rgba(31, 41, 55, 0.5)' 
+          }]}>
             {[t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'),t('sun')].map((day, index) => {
               const hasWorkout = program.workouts?.some(w => w.preferred_weekday === index);
               const isSelected = selectedWeekday === index;
@@ -567,23 +606,28 @@ export default function ProgramDetailScreen() {
                   key={index}
                   style={[
                     styles.dayColumn,
-                    isSelected && styles.selectedDayColumn
+                    isSelected && {
+                      backgroundColor: `rgba(${hexToRgb(COLORS.primary)}, 0.2)`
+                    }
                   ]}
                   onPress={() => setSelectedWeekday(isSelected ? null : index)}
                 >
                   <Text style={[
                     styles.dayText,
-                    isSelected && styles.selectedDayText
+                    { color: COLORS.text.secondary },
+                    isSelected && { color: COLORS.text.primary }
                   ]}>
                     {day}
                   </Text>
                   <View style={[
                     styles.dayIndicator,
-                    hasWorkout ? styles.activeDayIndicator : styles.inactiveDayIndicator
+                    hasWorkout ? 
+                      { backgroundColor: COLORS.text.primary } : 
+                      { backgroundColor: 'rgba(255, 255, 255, 0.2)' }
                   ]} />
                   
                   {hasWorkout && (
-                    <Text style={styles.workoutCount}>
+                    <Text style={[styles.workoutCount, { color: COLORS.text.primary }]}>
                       {program.workouts.filter(w => w.preferred_weekday === index).length}
                     </Text>
                   )}
@@ -603,10 +647,10 @@ export default function ProgramDetailScreen() {
                   style={styles.cancelSelectionButton}
                   onPress={toggleSelectionMode}
                 >
-                  <Text style={styles.cancelSelectionText}>{t('cancel')}</Text>
+                  <Text style={[styles.cancelSelectionText, { color: COLORS.text.primary }]}>{t('cancel')}</Text>
                 </TouchableOpacity>
                 
-                <Text style={styles.selectionCount}>
+                <Text style={[styles.selectionCount, { color: COLORS.text.primary }]}>
                   {selectedWorkouts.length} {t('selected')}
                 </Text>
                 
@@ -616,7 +660,7 @@ export default function ProgramDetailScreen() {
                       style={styles.deleteButton}
                       onPress={confirmDelete}
                     >
-                      <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+                      <Ionicons name="trash-outline" size={22} color={COLORS.text.primary} />
                     </TouchableOpacity>
                   )}
                   
@@ -625,21 +669,21 @@ export default function ProgramDetailScreen() {
                       style={styles.selectAllButton}
                       onPress={selectAllWorkouts}
                     >
-                      <Text style={styles.selectAllText}>{t('select_all')}</Text>
+                      <Text style={[styles.selectAllText, { color: COLORS.text.primary }]}>{t('select_all')}</Text>
                     </TouchableOpacity>
                   ) : selectedWorkouts.length < filteredWorkouts.length ? (
                     <TouchableOpacity 
                       style={styles.selectAllButton}
                       onPress={selectAllWorkouts}
                     >
-                      <Text style={styles.selectAllText}>{t('select_all')}</Text>
+                      <Text style={[styles.selectAllText, { color: COLORS.text.primary }]}>{t('select_all')}</Text>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity 
                       style={styles.selectAllButton}
                       onPress={deselectAllWorkouts}
                     >
-                      <Text style={styles.selectAllText}>{t('deselect_all')}</Text>
+                      <Text style={[styles.selectAllText, { color: COLORS.text.primary }]}>{t('deselect_all')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -647,7 +691,7 @@ export default function ProgramDetailScreen() {
             ) : (
               // Normal header
               <>
-                <Text style={styles.sectionTitle}>
+                <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>
                   {selectedWeekday !== null 
                     ? `${
                         [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')][selectedWeekday]
@@ -658,20 +702,23 @@ export default function ProgramDetailScreen() {
                 <View style={styles.workoutActions}>
                   {selectedWeekday !== null && (
                     <TouchableOpacity
-                      style={styles.clearFilterButton}
+                      style={[styles.clearFilterButton, { 
+                        backgroundColor: `rgba(${hexToRgb(COLORS.primary)}, 0.15)`,
+                        borderColor: `rgba(${hexToRgb(COLORS.primary)}, 0.3)`
+                      }]}
                       onPress={() => setSelectedWeekday(null)}
                     >
-                      <Text style={styles.clearFilterText}>{t('show_all')}</Text>
+                      <Text style={[styles.clearFilterText, { color: COLORS.text.secondary }]}>{t('show_all')}</Text>
                     </TouchableOpacity>
                   )}
                   
                   {isCreator && !editMode && (
                     <TouchableOpacity
-                      style={styles.addWorkoutButton}
+                      style={[styles.addWorkoutButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]}
                       onPress={handleAddWorkoutClick}
                     >
-                      <Ionicons name="add" size={18} color="#7e22ce" />
-                      <Text style={styles.addWorkoutText}>{t('add_workout')}</Text>
+                      <Ionicons name="add" size={18} color={COLORS.primary} />
+                      <Text style={[styles.addWorkoutText, { color: COLORS.primary }]}>{t('add_workout')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -699,8 +746,8 @@ export default function ProgramDetailScreen() {
               ))}
             </View>
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
+            <View style={[styles.emptyState, { backgroundColor: 'rgba(31, 41, 55, 0.4)' }]}>
+              <Text style={[styles.emptyStateText, { color: COLORS.text.secondary }]}>
                 {selectedWeekday !== null
                   ? t('no_workouts_for_day')
                   : t('no_workouts_in_program')}
@@ -708,10 +755,13 @@ export default function ProgramDetailScreen() {
               
               {isCreator && !editMode && !selectionMode && (
                 <TouchableOpacity
-                  style={styles.emptyStateButton}
+                  style={[styles.emptyStateButton, { 
+                    backgroundColor: `rgba(${hexToRgb(COLORS.primary)}, 0.15)`,
+                    borderColor: `rgba(${hexToRgb(COLORS.primary)}, 0.3)`
+                  }]}
                   onPress={handleAddWorkoutClick}
                 >
-                  <Text style={styles.emptyStateButtonText}>{t('add_first_workout')}</Text>
+                  <Text style={[styles.emptyStateButtonText, { color: COLORS.text.secondary }]}>{t('add_first_workout')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -730,25 +780,27 @@ export default function ProgramDetailScreen() {
         onRequestClose={() => setShowDaySelector(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { 
+            borderColor: 'rgba(75, 85, 99, 0.3)'
+          }]}>
             <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
             
             <LinearGradient
-              colors={['#7e22ce', '#9333ea']}
+              colors={[COLORS.primary, COLORS.secondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.modalHeader}
             >
-              <Text style={styles.modalTitle}>{t('select_day')}</Text>
+              <Text style={[styles.modalTitle, { color: COLORS.text.primary }]}>{t('select_day')}</Text>
               <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={() => setShowDaySelector(false)}
               >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+                <Ionicons name="close" size={24} color={COLORS.text.primary} />
               </TouchableOpacity>
             </LinearGradient>
             
-            <View style={styles.daySelector}>
+            <View style={[styles.daySelector, { backgroundColor: 'rgba(31, 41, 55, 0.8)' }]}>
               {[t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')].map((day, index) => (
                 <TouchableOpacity
                   key={index}
@@ -756,16 +808,16 @@ export default function ProgramDetailScreen() {
                   onPress={() => handleDaySelect(index)}
                 >
                   <LinearGradient
-                    colors={['#7e22ce', '#9333ea']}
+                    colors={[COLORS.primary, COLORS.secondary]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.dayGradient}
                   >
-                    <Text style={styles.daySelectText}>{day}</Text>
+                    <Text style={[styles.daySelectText, { color: COLORS.text.primary }]}>{day}</Text>
                     
                     {program.workouts?.some(w => w.preferred_weekday === index) && (
-                      <View style={styles.hasWorkoutsIndicator}>
-                        <Text style={styles.workoutCountText}>
+                      <View style={[styles.hasWorkoutsIndicator, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                        <Text style={[styles.workoutCountText, { color: COLORS.text.primary }]}>
                           {program.workouts.filter(w => w.preferred_weekday === index).length}
                         </Text>
                       </View>
@@ -786,16 +838,18 @@ export default function ProgramDetailScreen() {
         onRequestClose={() => setShowTemplateSelector(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { 
+            borderColor: 'rgba(75, 85, 99, 0.3)'
+          }]}>
             <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
             
             <LinearGradient
-              colors={['#7e22ce', '#9333ea']}
+              colors={[COLORS.primary, COLORS.secondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.modalHeader}
             >
-              <Text style={styles.modalTitle}>
+              <Text style={[styles.modalTitle, { color: COLORS.text.primary }]}>
                 {selectedWeekday !== null
                   ? `${t('select_template')} - ${
                     [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')][selectedWeekday]
@@ -809,15 +863,18 @@ export default function ProgramDetailScreen() {
                   setSearchQuery('');
                 }}
               >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+                <Ionicons name="close" size={24} color={COLORS.text.primary} />
               </TouchableOpacity>
             </LinearGradient>
             
             {/* Search bar */}
-            <View style={styles.searchContainer}>
+            <View style={[styles.searchContainer, { 
+              backgroundColor: 'rgba(31, 41, 55, 0.9)',
+              borderBottomColor: 'rgba(75, 85, 99, 0.3)'
+            }]}>
               <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: COLORS.text.primary }]}
                 placeholder={t('search_workouts')}
                 placeholderTextColor="#9CA3AF"
                 value={searchQuery}
@@ -833,7 +890,7 @@ export default function ProgramDetailScreen() {
               )}
             </View>
             
-            <ScrollView style={styles.templatesList}>
+            <ScrollView style={[styles.templatesList, { backgroundColor: 'rgba(31, 41, 55, 0.8)' }]}>
               {filteredTemplates.length > 0 ? (
                 filteredTemplates.map((template) => (
                   <View key={template.id}>
@@ -850,7 +907,7 @@ export default function ProgramDetailScreen() {
                 ))
               ) : (
                 <View style={styles.emptyTemplates}>
-                  <Text style={styles.emptyTemplatesText}>
+                  <Text style={[styles.emptyTemplatesText, { color: COLORS.text.secondary }]}>
                     {searchQuery.length > 0 
                       ? t('no_search_results')
                       : t('no_templates')}
@@ -870,7 +927,9 @@ export default function ProgramDetailScreen() {
         onRequestClose={cancelDelete}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { 
+            borderColor: 'rgba(75, 85, 99, 0.3)'
+          }]}>
             <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
             
             <LinearGradient
@@ -879,7 +938,7 @@ export default function ProgramDetailScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.modalHeader}
             >
-              <Text style={styles.modalTitle}>{t('confirm_delete')}</Text>
+              <Text style={[styles.modalTitle, { color: '#FFFFFF' }]}>{t('confirm_delete')}</Text>
               <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={cancelDelete}
@@ -888,8 +947,8 @@ export default function ProgramDetailScreen() {
               </TouchableOpacity>
             </LinearGradient>
             
-            <View style={styles.deleteConfirmContent}>
-              <Text style={styles.deleteConfirmText}>
+            <View style={[styles.deleteConfirmContent, { backgroundColor: 'rgba(31, 41, 55, 0.8)' }]}>
+              <Text style={[styles.deleteConfirmText, { color: COLORS.text.primary }]}>
                 {t('delete_confirm_message', { 
                   count: selectedWorkouts.length,
                   type: selectedWorkouts.length === 1 ? t('workout') : t('workouts')
@@ -898,14 +957,14 @@ export default function ProgramDetailScreen() {
               
               <View style={styles.deleteButtons}>
                 <TouchableOpacity 
-                  style={styles.cancelDeleteButton}
+                  style={[styles.cancelDeleteButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
                   onPress={cancelDelete}
                 >
-                  <Text style={styles.cancelDeleteText}>{t('cancel')}</Text>
+                  <Text style={[styles.cancelDeleteText, { color: COLORS.text.primary }]}>{t('cancel')}</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  style={styles.confirmDeleteButton}
+                  style={[styles.confirmDeleteButton, { backgroundColor: COLORS.danger }]}
                   onPress={handleDeleteSelectedWorkouts}
                 >
                   <Text style={styles.confirmDeleteText}>{t('delete')}</Text>
@@ -922,17 +981,14 @@ export default function ProgramDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#111827',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111827',
   },
   loadingText: {
-    color: '#FFFFFF',
     marginTop: 12,
     fontSize: 16,
   },
@@ -940,20 +996,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111827',
     padding: 20,
   },
   errorTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginTop: 16,
     marginBottom: 24,
   },
   
   // Fixed Header
   fixedHeaderContainer: {
-    backgroundColor: '#111827',
     zIndex: 100,
   },
   fixedHeader: {
@@ -969,10 +1022,8 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   backButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -986,44 +1037,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     marginLeft: 8,
   },
   forkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
   },
   forkText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 6,
   },
   saveButton: {
-    backgroundColor: '#22c55e',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginLeft: 8,
   },
   saveButtonText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
   cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginLeft: 8,
   },
   cancelButtonText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -1038,31 +1082,26 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     flex: 1,
   },
   headerTitleInput: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 8,
     padding: 8,
   },
   activeBadge: {
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
     marginLeft: 8,
     borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
   },
   activeBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#22c55e',
   },
   
   // Program Meta Info (new style for small text under title)
@@ -1071,18 +1110,15 @@ const styles = StyleSheet.create({
   },
   programMetaText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
   },
   
   // Content Styles
   contentContainer: {
     flex: 1,
-    backgroundColor: '#111827',
   },
   
   // Description Container (moved from program details card)
   descriptionContainer: {
-    backgroundColor: 'rgba(31, 41, 55, 0.6)',
     borderRadius: 16,
     padding: 16,
     margin: 16,
@@ -1090,18 +1126,14 @@ const styles = StyleSheet.create({
   },
   descriptionLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
     marginBottom: 4,
   },
   descriptionText: {
     fontSize: 14,
-    color: '#FFFFFF',
     lineHeight: 20,
   },
   descriptionInput: {
     fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
     padding: 8,
     textAlignVertical: 'top',
@@ -1117,7 +1149,6 @@ const styles = StyleSheet.create({
   compactSchedule: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
     borderRadius: 16,
     padding: 12,
     marginTop: 8,
@@ -1127,17 +1158,10 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
-  selectedDayColumn: {
-    backgroundColor: 'rgba(124, 58, 237, 0.2)',
-  },
   dayText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 6,
-  },
-  selectedDayText: {
-    color: '#FFFFFF',
   },
   dayIndicator: {
     width: 14,
@@ -1145,20 +1169,8 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     marginBottom: 4,
   },
-  activeDayIndicator: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    elevation: 2,
-  },
-  inactiveDayIndicator: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
   workoutCount: {
     fontSize: 10,
-    color: '#FFFFFF',
     fontWeight: '700',
   },
   
@@ -1166,7 +1178,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 12,
   },
   workoutsSection: {
@@ -1186,26 +1197,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
   },
   clearFilterText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#a78bfa',
   },
   addWorkoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     marginLeft: 8,
   },
   addWorkoutText: {
-    color: '#7e22ce',
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 4,
@@ -1218,7 +1224,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   emptyState: {
-    backgroundColor: 'rgba(31, 41, 55, 0.4)',
     borderRadius: 12,
     padding: 24,
     alignItems: 'center',
@@ -1227,22 +1232,18 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#9CA3AF',
     textAlign: 'center',
     marginBottom: 16,
   },
   emptyStateButton: {
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
   },
   emptyStateButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#a78bfa',
   },
   bottomPadding: {
     height: 40,
@@ -1262,7 +1263,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(75, 85, 99, 0.3)',
   },
   modalBlur: {
     position: 'absolute',
@@ -1280,7 +1280,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   modalCloseButton: {
     padding: 4,
@@ -1288,7 +1287,6 @@ const styles = StyleSheet.create({
   
   // Day Selector Styles
   daySelector: {
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
     padding: 16,
   },
   daySelectorItem: {
@@ -1305,16 +1303,13 @@ const styles = StyleSheet.create({
   daySelectText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   hasWorkoutsIndicator: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   workoutCountText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1323,11 +1318,9 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(31, 41, 55, 0.9)',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(75, 85, 99, 0.3)',
   },
   searchIcon: {
     marginRight: 8,
@@ -1335,14 +1328,12 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#FFFFFF',
     height: 40,
   },
   clearSearchButton: {
     padding: 4,
   },
   templatesList: {
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
     padding: 16,
     maxHeight: 400,
   },
@@ -1352,7 +1343,6 @@ const styles = StyleSheet.create({
   },
   emptyTemplatesText: {
     fontSize: 14,
-    color: '#9CA3AF',
     textAlign: 'center',
   },
   
@@ -1368,11 +1358,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   cancelSelectionText: {
-    color: '#FFFFFF',
     fontSize: 16,
   },
   selectionCount: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -1392,17 +1380,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   selectAllText: {
-    color: '#FFFFFF',
     fontSize: 14,
   },
   
   // Delete confirmation styles
   deleteConfirmContent: {
     padding: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
   },
   deleteConfirmText: {
-    color: '#FFFFFF',
     fontSize: 16,
     marginBottom: 24,
     textAlign: 'center',
@@ -1413,19 +1398,16 @@ const styles = StyleSheet.create({
   },
   cancelDeleteButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingVertical: 12,
     borderRadius: 8,
     marginRight: 8,
     alignItems: 'center',
   },
   cancelDeleteText: {
-    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   confirmDeleteButton: {
     flex: 1,
-    backgroundColor: '#EF4444',
     paddingVertical: 12,
     borderRadius: 8,
     marginLeft: 8,

@@ -116,7 +116,7 @@ export default function WorkoutsScreen() {
     refetch: refetchPrograms 
   } = useUserPrograms();
   
-  console.log(user)
+
   const {
     data: logs = [],
     isLoading: logsLoading,

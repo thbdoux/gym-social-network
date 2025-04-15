@@ -297,7 +297,7 @@ const workout = {
   fr: {
     workouts: 'Entraînements',
     workout: 'Entraînement',
-    workout_history: 'Carnet d\'entraînement',
+    workout_history: 'Historique',
     log_workout: 'Enregistrer un entraînement',
     record_completed_workout: 'Enregistrer un entraînement terminé',
     no_workouts: 'Aucun entraînement',

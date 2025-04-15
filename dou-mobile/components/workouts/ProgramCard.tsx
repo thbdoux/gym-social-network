@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useProgram } from '../../hooks/query/useProgramQuery';
+import { useTheme } from '../../context/ThemeContext';
 
 interface ProgramCardProps {
   programId: number;
@@ -55,8 +56,8 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   onLongPress
 }) => {
   const { t } = useLanguage();
+  const { programPalette } = useTheme();
   const isOwner = currentUser === program.creator_username;
-
 
   const { data: originalProgram, isLoading, refetch } = useProgram(program?.forked_from);
   // Animation for selection mode
@@ -151,7 +152,6 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   const handleFork = (e: any) => {
     e.stopPropagation();
     if (onFork) {
-      console.log(program?.id)
       onFork(program?.id);
     }
   };
@@ -189,7 +189,8 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
         delayLongPress={200}
         style={[
           styles.container,
-          isSelected && styles.selectedContainer
+          { backgroundColor: programPalette.background },
+          isSelected && [styles.selectedContainer, { borderColor: programPalette.text }]
         ]}
       >
         {/* Selection indicator */}
@@ -197,7 +198,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
           <View style={styles.selectionIndicator}>
             <View style={[
               styles.checkbox,
-              isSelected && styles.checkboxSelected
+              isSelected && [styles.checkboxSelected, { backgroundColor: programPalette.background }]
             ]}>
               {isSelected && (
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
@@ -223,10 +224,12 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
           {/* Title and badges row */}
           <View style={styles.topRow}>
             <View style={styles.titleContainer}>
-              <View style={styles.programBadge}>
-                <Text style={styles.programBadgeText}>{t('program')}</Text>
+              <View style={[styles.programBadge, { backgroundColor: programPalette.badge_bg }]}>
+                <Text style={[styles.programBadgeText, { color: programPalette.text }]}>
+                  {t('program')}
+                </Text>
               </View>
-              <Text style={styles.title} numberOfLines={1}>
+              <Text style={[styles.title, { color: programPalette.text }]} numberOfLines={1}>
                 {program.name}
               </Text>
             </View>
@@ -268,7 +271,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
           
           {/* Focus area (goal) */}
           <View style={styles.focusRow}>
-            <Text style={styles.focusText}>
+            <Text style={[styles.focusText, { color: programPalette.text_secondary }]}>
               {formatFocus(program.focus)}
             </Text>
           </View>
@@ -276,19 +279,27 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
           {/* Info row */}
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>{t('level')}</Text>
-              <Text style={styles.infoValue}>{program.difficulty_level}</Text>
+              <Text style={[styles.infoLabel, { color: programPalette.text_secondary }]}>
+                {t('level')}
+              </Text>
+              <Text style={[styles.infoValue, { color: programPalette.text }]}>
+                {program.difficulty_level}
+              </Text>
             </View>
             
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>{t('sessions')}</Text>
-              <Text style={styles.infoValue}>{program.sessions_per_week}x</Text>
+              <Text style={[styles.infoLabel, { color: programPalette.text_secondary }]}>
+                {t('sessions')}
+              </Text>
+              <Text style={[styles.infoValue, { color: programPalette.text }]}>
+                {program.sessions_per_week}x
+              </Text>
             </View>
           </View>
         </View>
         
         {/* Weekly schedule visualization */}
-        <View style={styles.scheduleRow}>
+        <View style={[styles.scheduleRow, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}>
           {WEEKDAYS.map((day, index) => {
             const hasWorkout = program.workouts?.some(w => 
               w.preferred_weekday === index
@@ -296,10 +307,14 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
             
             return (
               <View key={index} style={styles.dayItem}>
-                <Text style={styles.dayText}>{day}</Text>
+                <Text style={[styles.dayText, { color: programPalette.text_secondary }]}>
+                  {day}
+                </Text>
                 <View style={[
                   styles.dayIndicator,
-                  hasWorkout ? styles.dayActive : styles.dayInactive
+                  hasWorkout 
+                    ? [styles.dayActive, { backgroundColor: programPalette.text }] 
+                    : [styles.dayInactive, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]
                 ]} />
               </View>
             );
@@ -309,24 +324,30 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
         {/* Actions */}
         <View style={styles.actionsRow}>
           <View style={styles.creatorInfo}>
-            <Ionicons name="person" size={12} color="#9CA3AF" />
-            <Text style={styles.creatorText}>{program.creator_username}</Text>
+            <Ionicons name="person" size={12} color={programPalette.text_secondary} />
+            <Text style={[styles.creatorText, { color: programPalette.text_secondary }]}>
+              {program.creator_username}
+            </Text>
           </View>
           
           {program.forked_from && (
-            <View style={styles.forkedInfo}>
-              <Ionicons name="download-outline" size={12} color="#9CA3AF" />
-              <Text style={styles.forkedText}>{originalProgram?.creator_username}</Text>
+            <View style={[styles.forkedInfo, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
+              <Ionicons name="download-outline" size={12} color={programPalette.text_secondary} />
+              <Text style={[styles.forkedText, { color: programPalette.text_secondary }]}>
+                {originalProgram?.creator_username}
+              </Text>
             </View>
           )}
           
           {!isOwner && !selectionMode && (
             <TouchableOpacity 
-              style={styles.forkButton}
+              style={[styles.forkButton, { backgroundColor: programPalette.action_bg }]}
               onPress={handleFork}
             >
-              <Ionicons name="download-outline" size={14} color="#FFFFFF" />
-              <Text style={styles.forkText}>{t('fork')}</Text>
+              <Ionicons name="download-outline" size={14} color={programPalette.highlight} />
+              <Text style={[styles.forkText, { color: programPalette.highlight }]}>
+                {t('fork')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -339,7 +360,6 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#7e22ce', // Deeper, more vigorous purple
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -350,7 +370,6 @@ const styles = StyleSheet.create({
   },
   selectedContainer: {
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   cardContent: {
     padding: 16,
@@ -361,13 +380,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  // Add these styles to your StyleSheet definition
   titleContainer: {
     flex: 1,
     marginRight: 8,
   },
   programBadge: {
-    backgroundColor: 'rgba(200, 0, 240, 0.7)', // Slightly darker purple
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -377,12 +394,10 @@ const styles = StyleSheet.create({
   programBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
     marginRight: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
@@ -428,7 +443,6 @@ const styles = StyleSheet.create({
   focusText: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.85)',
   },
   infoRow: {
     flexDirection: 'row',
@@ -439,13 +453,11 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -453,7 +465,6 @@ const styles = StyleSheet.create({
   scheduleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     paddingVertical: 10,
     paddingHorizontal: 20,
   },
@@ -462,7 +473,6 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 4,
   },
   dayIndicator: {
@@ -471,7 +481,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   dayActive: {
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -479,7 +488,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   dayInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -494,13 +502,11 @@ const styles = StyleSheet.create({
   },
   creatorText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginLeft: 4,
   },
   forkedInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -508,13 +514,11 @@ const styles = StyleSheet.create({
   },
   forkedText: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.8)',
     marginLeft: 4,
   },
   forkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 16,
@@ -525,7 +529,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   forkText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,
@@ -566,7 +569,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#111827',
   },
-  
 });
 
 export default ProgramCard;

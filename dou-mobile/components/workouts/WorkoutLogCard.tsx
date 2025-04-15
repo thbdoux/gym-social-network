@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGym } from '../../hooks/query/useGymQuery';
+import { useTheme } from '../../context/ThemeContext';
 
 interface WorkoutLogCardProps {
   logId: number;
@@ -54,6 +55,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   onLongPress
 }) => {
   const { t } = useLanguage();
+  const { workoutLogPalette } = useTheme();
   const isOwner = user === log.username;
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
@@ -212,18 +214,19 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
         delayLongPress={200}
         style={[
           styles.container,
-          isSelected && styles.selectedContainer
+          { backgroundColor: workoutLogPalette.background },
+          isSelected && [styles.selectedContainer, { borderColor: workoutLogPalette.text }]
         ]}
       >
         {/* Completed indicator strip */}
-        {log.completed && <View style={styles.completedStrip} />}
+        {log.completed && <View style={[styles.completedStrip, { backgroundColor: workoutLogPalette.text }]} />}
         
         {/* Selection indicator */}
         {selectionMode && (
           <View style={styles.selectionIndicator}>
             <View style={[
               styles.checkbox,
-              isSelected && styles.checkboxSelected
+              isSelected && [styles.checkboxSelected, { backgroundColor: workoutLogPalette.background }]
             ]}>
               {isSelected && (
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
@@ -248,34 +251,42 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
         <View style={styles.cardContent}>
           {/* Top row with workout log badge and fork button */}
           <View style={styles.badgeActionRow}>
-            <View style={styles.workoutLogBadge}>
-              <Text style={styles.workoutLogBadgeText}>{t('workout_log')}</Text>
+            <View style={[styles.workoutLogBadge, { backgroundColor: workoutLogPalette.badge_bg }]}>
+              <Text style={[styles.workoutLogBadgeText, { color: workoutLogPalette.text }]}>
+                {t('workout_log')}
+              </Text>
             </View>
             
             {!isOwner && !selectionMode && (
               <TouchableOpacity 
-                style={styles.forkButton}
+                style={[styles.forkButton, { backgroundColor: workoutLogPalette.action_bg }]}
                 onPress={handleFork}
               >
-                <Ionicons name="download-outline" size={14} color="#166534" />
-                <Text style={styles.forkText}>{t('fork')}</Text>
+                <Ionicons name="download-outline" size={14} color={workoutLogPalette.highlight} />
+                <Text style={[styles.forkText, { color: workoutLogPalette.highlight }]}>
+                  {t('fork')}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
           
           {/* Title and completed/pending status container */}
           <View style={styles.titleStatusContainer}>
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={[styles.title, { color: workoutLogPalette.text }]} numberOfLines={1}>
               {log.name}
             </Text>
             
             {log.completed ? (
               <View style={styles.completedBadge}>
-                <Text style={styles.completedText}>{t('completed')}</Text>
+                <Text style={[styles.completedText, { color: workoutLogPalette.highlight }]}>
+                  {t('completed')}
+                </Text>
               </View>
             ) : (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingText}>{t('in_progress')}</Text>
+              <View style={[styles.pendingBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                <Text style={[styles.pendingText, { color: workoutLogPalette.text }]}>
+                  {t('in_progress')}
+                </Text>
               </View>
             )}
           </View>
@@ -283,23 +294,31 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           {/* Date and location container */}
           <View style={styles.dateLocationRow}>
             <View style={styles.dateContainer}>
-              <Ionicons name="calendar-outline" size={12} color="rgba(255, 255, 255, 0.8)" />
-              <Text style={styles.dateText}>{formatDate(log.date)}</Text>
+              <Ionicons name="calendar-outline" size={12} color={workoutLogPalette.text} />
+              <Text style={[styles.dateText, { color: workoutLogPalette.text }]}>
+                {formatDate(log.date)}
+              </Text>
               <View style={[
                 styles.statusDot,
-                log.completed ? styles.completedDot : styles.pendingDot
+                log.completed 
+                  ? [styles.completedDot, { backgroundColor: workoutLogPalette.text }] 
+                  : [styles.pendingDot, { backgroundColor: 'rgba(255, 255, 255, 0.5)' }]
               ]} />
             </View>
             
             {gym ? (
               <View style={styles.gymContainer}>
-                <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
-                <Text style={styles.gymText}>{`${gym.name} - ${gym.location}`}</Text>
+                <Ionicons name="location" size={12} color={workoutLogPalette.text} />
+                <Text style={[styles.gymText, { color: workoutLogPalette.text_secondary }]}>
+                  {`${gym.name} - ${gym.location}`}
+                </Text>
               </View>
             ) : log.gym_name ? (
               <View style={styles.gymContainer}>
-                <Ionicons name="location" size={12} color="rgba(255, 255, 255, 0.8)" />
-                <Text style={styles.gymText}>{log.gym_name}</Text>
+                <Ionicons name="location" size={12} color={workoutLogPalette.text} />
+                <Text style={[styles.gymText, { color: workoutLogPalette.text_secondary }]}>
+                  {log.gym_name}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -307,8 +326,8 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           {/* Program name if available */}
           {log.program_name && (
             <View style={styles.programRow}>
-              <Ionicons name="barbell-outline" size={12} color="rgba(255, 255, 255, 0.7)" />
-              <Text style={styles.programText} numberOfLines={1}>
+              <Ionicons name="barbell-outline" size={12} color={workoutLogPalette.text_secondary} />
+              <Text style={[styles.programText, { color: workoutLogPalette.text }]} numberOfLines={1}>
                 {log.program_name}
               </Text>
             </View>
@@ -317,27 +336,41 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           {/* Stats row */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>{t('exercises')}</Text>
-              <Text style={styles.statValue}>{exerciseCount}</Text>
+              <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
+                {t('exercises')}
+              </Text>
+              <Text style={[styles.statValue, { color: workoutLogPalette.text }]}>
+                {exerciseCount}
+              </Text>
             </View>
             
             {log.duration && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('duration')}</Text>
-                <Text style={styles.statValue}>{`${log.duration}m`}</Text>
+                <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
+                  {t('duration')}
+                </Text>
+                <Text style={[styles.statValue, { color: workoutLogPalette.text }]}>
+                  {`${log.duration}m`}
+                </Text>
               </View>
             )}
             
             {log.mood_rating && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('mood')}</Text>
-                <Text style={styles.moodValue}>{getMoodEmoji(log.mood_rating)}</Text>
+                <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
+                  {t('mood')}
+                </Text>
+                <Text style={styles.moodValue}>
+                  {getMoodEmoji(log.mood_rating)}
+                </Text>
               </View>
             )}
             
             {log.perceived_difficulty && (
               <View style={styles.statItem}>
-                <Text style={styles.statLabel}>{t('difficulty')}</Text>
+                <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
+                  {t('difficulty')}
+                </Text>
                 <Text style={styles.difficultyValue}>
                   {getDifficultyIndicator(log.perceived_difficulty)}
                 </Text>
@@ -351,14 +384,16 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           <View style={styles.exerciseRow}>
             {exerciseNames.map((name, index) => (
               <View key={index} style={styles.exerciseBubble}>
-                <Text style={styles.exerciseName} numberOfLines={1}>
+                <Text style={[styles.exerciseName, { color: workoutLogPalette.highlight }]} numberOfLines={1}>
                   {name}
                 </Text>
               </View>
             ))}
             {exerciseCount > 3 && (
               <View style={styles.moreBubble}>
-                <Text style={styles.moreText}>{`+${exerciseCount - 3}`}</Text>
+                <Text style={[styles.moreText, { color: workoutLogPalette.highlight }]}>
+                  {`+${exerciseCount - 3}`}
+                </Text>
               </View>
             )}
           </View>
@@ -373,7 +408,6 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#16a34a', // Deeper green
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -384,7 +418,6 @@ const styles = StyleSheet.create({
   },
   selectedContainer: {
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   completedStrip: {
     position: 'absolute',
@@ -392,7 +425,6 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: '#ffffff',
   },
   cardContent: {
     padding: 16,
@@ -405,9 +437,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  // Updated styles
   workoutLogBadge: {
-    backgroundColor: 'rgba(60, 200, 0, 0.7)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -416,12 +446,10 @@ const styles = StyleSheet.create({
   workoutLogBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   forkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 16,
@@ -432,7 +460,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   forkText: {
-    color: '#166534',
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,
@@ -446,7 +473,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
@@ -465,7 +491,6 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
     marginLeft: 4,
   },
@@ -475,7 +500,6 @@ const styles = StyleSheet.create({
   },
   gymText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
     marginLeft: 4,
   },
   statusDot: {
@@ -496,7 +520,6 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   pendingBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -514,7 +537,6 @@ const styles = StyleSheet.create({
   },
 
   completedDot: {
-    backgroundColor: '#ffffff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -522,15 +544,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   pendingDot: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   completedText: {
-    color: '#166534',
     fontSize: 12,
     fontWeight: '700',
   },
   pendingText: {
-    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -542,7 +561,6 @@ const styles = StyleSheet.create({
   },
   programText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
     marginLeft: 6,
   },
@@ -556,13 +574,11 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 2,
   },
   statValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -597,7 +613,6 @@ const styles = StyleSheet.create({
     maxWidth: 120,
   },
   exerciseName: {
-    color: '#166534',
     fontSize: 10,
     fontWeight: '600',
   },
@@ -610,7 +625,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   moreText: {
-    color: '#166534',
     fontSize: 10,
     fontWeight: '600',
   },
