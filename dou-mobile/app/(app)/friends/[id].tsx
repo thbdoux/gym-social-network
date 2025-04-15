@@ -24,6 +24,8 @@ import {
   useUserFriends,
 } from '../../../hooks/query/useProfilePreviewQuery';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+// Import ThemeContext
+import { useTheme } from '../../../context/ThemeContext';
 
 // Types
 interface Friend {
@@ -41,6 +43,10 @@ export default function UserFriendsPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const userId = typeof id === 'string' ? parseInt(id) : 0;
+  
+  // Use the theme context
+  const { palette } = useTheme();
+  
   // State
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -105,18 +111,18 @@ export default function UserFriendsPage() {
     onViewProfile: () => void, 
   }) => {
     return (
-      <View style={styles.itemContainer}>
+      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
         {friend.avatar ? (
           <Image source={{ uri: getAvatarUrl(friend.avatar, 80) }} style={styles.avatar} />
         ) : (
-          <View style={styles.avatarPlaceholder}>
+          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
             <Text style={styles.avatarText}>{getInitials(friend.username)}</Text>
           </View>
         )}
         
         <View style={styles.userInfo}>
-          <Text style={styles.username}>{friend.username}</Text>
-          <Text style={styles.userDetail}>
+          <Text style={[styles.username, { color: palette.text }]}>{friend.username}</Text>
+          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
             {formatText(friend.training_level || '')}
             {friend.training_level && friend.personality_type && " • "}
             {formatText(friend.personality_type || '')}
@@ -125,10 +131,10 @@ export default function UserFriendsPage() {
         
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={styles.viewButton}
+            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
             onPress={onViewProfile}
           >
-            <Ionicons name="eye" size={18} color="#FFFFFF" />
+            <Ionicons name="eye" size={18} color={palette.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -144,31 +150,34 @@ export default function UserFriendsPage() {
   }) => (
     <View style={styles.emptyContainer}>
       {icon}
-      <Text style={styles.emptyMessage}>{message}</Text>
+      <Text style={[styles.emptyMessage, { color: `${palette.text}80` }]}>{message}</Text>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      <View style={[styles.header, { borderColor: `${palette.border}66` }]}>
+        <TouchableOpacity 
+          style={[styles.backButton, { backgroundColor: `${palette.accent}B3` }]} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={palette.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>
           {userData?.username ? `${userData.username} - ${t('friends').toLowerCase()}` : t('friends')}
         </Text>
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
+        <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: palette.text }]}
           placeholder={t('search_friends')}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={`${palette.text}80`}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -178,8 +187,8 @@ export default function UserFriendsPage() {
       <View style={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#a855f7" />
-            <Text style={styles.loadingText}>{t('loading')}</Text>
+            <ActivityIndicator size="large" color={palette.highlight} />
+            <Text style={[styles.loadingText, { color: `${palette.text}80` }]}>{t('loading')}</Text>
           </View>
         ) : (
           <FlatList
@@ -193,7 +202,7 @@ export default function UserFriendsPage() {
             )}
             ListEmptyComponent={
               <EmptyState
-                icon={<Ionicons name="people" size={48} color="#6B7280" />}
+                icon={<Ionicons name="people" size={48} color={`${palette.text}4D`} />}
                 message={searchQuery ? t('no_friends_match_search') : t('no_friends')}
               />
             }
@@ -207,7 +216,6 @@ export default function UserFriendsPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
   },
   header: {
     flexDirection: 'row',
@@ -215,13 +223,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderColor: 'rgba(31, 41, 55, 0.4)',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -229,12 +235,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
     borderRadius: 12,
     margin: 16,
     paddingHorizontal: 12,
@@ -244,7 +248,6 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#FFFFFF',
     paddingVertical: 12,
     fontSize: 16,
   },
@@ -258,7 +261,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#9CA3AF',
     marginTop: 16,
   },
   emptyContainer: {
@@ -268,7 +270,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyMessage: {
-    color: '#9CA3AF',
     fontSize: 16,
     marginTop: 12,
     textAlign: 'center',
@@ -276,7 +277,6 @@ const styles = StyleSheet.create({
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -290,7 +290,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#a855f7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -306,12 +305,10 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#FFFFFF',
     marginBottom: 4,
   },
   userDetail: {
     fontSize: 14,
-    color: '#9CA3AF',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -321,7 +318,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#a855f7',
     justifyContent: 'center',
     alignItems: 'center',
   },

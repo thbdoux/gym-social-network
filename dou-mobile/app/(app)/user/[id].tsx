@@ -29,6 +29,8 @@ import { useSendFriendRequest, useRespondToFriendRequest, useRemoveFriend } from
 import ProgramCard from '../../../components/workouts/ProgramCard';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parse, subMonths, addMonths } from 'date-fns';
+// Import ColorPalette type
+import { ColorPalette, Personality, getColorPalette } from '../../../utils/colorConfig';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -61,6 +63,7 @@ export default function ProfilePreviewPage() {
       router.push(`/friends/${userId}`);
     }
   };
+  
   // Fetch user data
   const {
     data: userData,
@@ -72,6 +75,23 @@ export default function ProfilePreviewPage() {
     refetchOnMount: true,
     staleTime: 0,
   });
+  
+  // Create a custom palette based on the viewed user's personality
+  const userPalette = useMemo(() => {
+    if (!userData || !userData.personality_type) {
+      // Default to versatile if no user data or personality type
+      return getColorPalette('versatile');
+    }
+    
+    // Check if the personality type is valid
+    const personalityType = userData.personality_type.toLowerCase();
+    if (['optimizer', 'versatile', 'diplomate', 'mentor'].includes(personalityType)) {
+      return getColorPalette(personalityType as Personality);
+    }
+    
+    // Fallback to versatile
+    return getColorPalette('versatile');
+  }, [userData]);
   
   // Get preferred gym info
   const {
@@ -89,7 +109,6 @@ export default function ProfilePreviewPage() {
   });
   
   // Get logs for workout data
-  console.log(userData);
   const { data: logs, isLoading: logsLoading } = useUserLogs(userData?.username);
 
   // Get workout stats for chart data
@@ -180,20 +199,12 @@ export default function ProfilePreviewPage() {
 
   // Get personality-based gradient for avatar
   const getPersonalityGradient = () => {
-    const personality = userData?.personality_type || 'default';
-    
-    switch(personality.toLowerCase()) {
-      case 'optimizer':
-        return ['#F59E0B', '#EF4444']; // Amber to Red
-      case 'diplomat':
-        return ['#10B981', '#3B82F6']; // Emerald to Blue
-      case 'mentor':
-        return ['#6366F1', '#4F46E5']; // Indigo to Dark Indigo
-      case 'versatile':
-        return ['#EC4899', '#8B5CF6']; // Pink to Purple
-      default:
-        return ['#9333EA', '#D946EF']; // Default Purple Gradient
+    if (!userData || !userData.personality_type) {
+      // Default gradient
+      return [userPalette.highlight, userPalette.layout];
     }
+    
+    return [userPalette.layout, userPalette.highlight];
   };
 
   // Enhanced friendship action handlers that refresh both user data
@@ -319,7 +330,6 @@ export default function ProfilePreviewPage() {
     }
   };
 
-
   // Enhanced friendship status badge with more distinct styling
   const renderFriendshipStatus = () => {
     switch (friendshipStatus) {
@@ -327,23 +337,23 @@ export default function ProfilePreviewPage() {
         return null; // No need to show friendship status on own profile
       case "friends":
         return (
-          <View style={styles.friendshipBadge}>
-            <Ionicons name="people" size={16} color="#ffffff" />
-            <Text style={styles.friendshipText}>{t('friends')}</Text>
+          <View style={[styles.friendshipBadge, { backgroundColor: `${userPalette.highlight}CC` }]}>
+            <Ionicons name="people" size={16} color={userPalette.text} />
+            <Text style={[styles.friendshipText, { color: userPalette.text }]}>{t('friends')}</Text>
           </View>
         );
       case "request_sent":
         return (
-          <View style={[styles.friendshipBadge, styles.requestSentBadge]}>
-            <Ionicons name="time" size={16} color="#ffffff" />
-            <Text style={styles.friendshipText}>{t('request_sent')}</Text>
+          <View style={[styles.friendshipBadge, styles.requestSentBadge, { backgroundColor: `${userPalette.accent}CC` }]}>
+            <Ionicons name="time" size={16} color={userPalette.text} />
+            <Text style={[styles.friendshipText, { color: userPalette.text }]}>{t('request_sent')}</Text>
           </View>
         );
       case "request_received":
         return (
-          <View style={[styles.friendshipBadge, styles.requestReceivedBadge]}>
-            <Ionicons name="notifications" size={16} color="#ffffff" />
-            <Text style={styles.friendshipText}>{t('request_received')}</Text>
+          <View style={[styles.friendshipBadge, styles.requestReceivedBadge, { backgroundColor: `${userPalette.layout}CC` }]}>
+            <Ionicons name="notifications" size={16} color={userPalette.text} />
+            <Text style={[styles.friendshipText, { color: userPalette.text }]}>{t('request_received')}</Text>
           </View>
         );
       default:
@@ -359,51 +369,51 @@ export default function ProfilePreviewPage() {
       case "friends":
         return (
           <TouchableOpacity
-            style={[styles.friendActionButton, styles.removeFriendButton]}
+            style={[styles.friendActionButton, styles.removeFriendButton, { borderColor: `${userPalette.highlight}4D` }]}
             onPress={handleRemoveFriend}
           >
-            <Ionicons name="person-remove" size={20} color="#ffffff" />
-            <Text style={styles.friendActionButtonText}>{t('remove_friend')}</Text>
+            <Ionicons name="person-remove" size={20} color={userPalette.text} />
+            <Text style={[styles.friendActionButtonText, { color: userPalette.text }]}>{t('remove_friend')}</Text>
           </TouchableOpacity>
         );
       case "request_sent":
         return (
           <TouchableOpacity
-            style={[styles.friendActionButton, styles.pendingButton]}
+            style={[styles.friendActionButton, styles.pendingButton, { backgroundColor: `${userPalette.accent}80`, borderColor: `${userPalette.border}4D` }]}
             disabled={true}
           >
-            <Ionicons name="time" size={20} color="#ffffff" />
-            <Text style={styles.friendActionButtonText}>{t('pending_request')}</Text>
+            <Ionicons name="time" size={20} color={userPalette.text} />
+            <Text style={[styles.friendActionButtonText, { color: userPalette.text }]}>{t('pending_request')}</Text>
           </TouchableOpacity>
         );
       case "request_received":
         return (
           <View style={styles.requestActionContainer}>
             <TouchableOpacity
-              style={[styles.requestActionButton, styles.acceptButton]}
+              style={[styles.requestActionButton, styles.acceptButton, { borderColor: `${userPalette.highlight}4D` }]}
               onPress={handleAcceptFriendRequest}
             >
-              <Ionicons name="checkmark" size={20} color="#ffffff" />
-              <Text style={styles.requestActionButtonText}>{t('accept')}</Text>
+              <Ionicons name="checkmark" size={20} color={userPalette.text} />
+              <Text style={[styles.requestActionButtonText, { color: userPalette.text }]}>{t('accept')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={[styles.requestActionButton, styles.rejectButton]}
+              style={[styles.requestActionButton, styles.rejectButton, { borderColor: `${userPalette.border}4D` }]}
               onPress={handleRejectFriendRequest}
             >
-              <Ionicons name="close" size={20} color="#ffffff" />
-              <Text style={styles.requestActionButtonText}>{t('reject')}</Text>
+              <Ionicons name="close" size={20} color={userPalette.text} />
+              <Text style={[styles.requestActionButtonText, { color: userPalette.text }]}>{t('reject')}</Text>
             </TouchableOpacity>
           </View>
         );
       case "not_friends":
         return (
           <TouchableOpacity
-            style={[styles.friendActionButton, styles.addFriendButton]}
+            style={[styles.friendActionButton, styles.addFriendButton, { backgroundColor: userPalette.highlight, borderColor: `${userPalette.highlight}4D` }]}
             onPress={handleSendFriendRequest}
           >
-            <Ionicons name="person-add" size={20} color="#ffffff" />
-            <Text style={styles.friendActionButtonText}>{t('add_friend')}</Text>
+            <Ionicons name="person-add" size={20} color={userPalette.text} />
+            <Text style={[styles.friendActionButtonText, { color: userPalette.text }]}>{t('add_friend')}</Text>
           </TouchableOpacity>
         );
       default:
@@ -422,32 +432,35 @@ export default function ProfilePreviewPage() {
   const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: userPalette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderColor: `${userPalette.border}66` }]}>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={[styles.backButton, { backgroundColor: `${userPalette.accent}B3` }]} 
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={userPalette.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{userData?.username || t('profile')}</Text>
+        <Text style={[styles.headerTitle, { color: userPalette.text }]}>{userData?.username || t('profile')}</Text>
         <View style={styles.headerRight} />
       </View>
 
       {isLoading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#a855f7" />
-          <Text style={styles.loadingText}>{t('loading_profile')}</Text>
+        <View style={[styles.loadingContainer, { backgroundColor: userPalette.page_background }]}>
+          <ActivityIndicator size="large" color={userPalette.highlight} />
+          <Text style={[styles.loadingText, { color: `${userPalette.text}80` }]}>{t('loading_profile')}</Text>
         </View>
       ) : userError ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={40} color="#EF4444" />
-          <Text style={styles.errorText}>{t('error')}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
-            <Text style={styles.retryButtonText}>{t('go_back')}</Text>
+          <Text style={[styles.errorText, { color: "#EF4444" }]}>{t('error')}</Text>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: userPalette.accent }]} 
+            onPress={() => router.back()}
+          >
+            <Text style={[styles.retryButtonText, { color: userPalette.text }]}>{t('go_back')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -457,8 +470,8 @@ export default function ProfilePreviewPage() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor="#a855f7"
-              colors={['#a855f7']}
+              tintColor={userPalette.highlight}
+              colors={[userPalette.highlight]}
             />
           }
         >
@@ -475,33 +488,33 @@ export default function ProfilePreviewPage() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <View style={styles.profileImageInner}>
+                  <View style={[styles.profileImageInner, { backgroundColor: userPalette.page_background }]}>
                     <Image
                       source={{ uri: getAvatarUrl(userData?.avatar, 80) }}
                       style={styles.profileImage}
                     />
                   </View>
                 </LinearGradient>
-                <View style={styles.onlineIndicator}></View>
+                <View style={[styles.onlineIndicator, { borderColor: userPalette.page_background }]}></View>
               </View>
               
               {/* Right side - Profile info and stats */}
               <View style={styles.profileRightContent}>
                 <View style={styles.profileInfo}>
                   <View style={styles.usernameContainer}>
-                    <Text style={styles.profileUsername}>{userData?.username || t('user')}</Text>
+                    <Text style={[styles.profileUsername, { color: userPalette.text }]}>{userData?.username || t('user')}</Text>
                     {renderFriendshipStatus()}
                   </View>
                   
                   <View style={styles.badgesContainer}>
                     {userData?.personality_type && (
                       <LinearGradient
-                        colors={['#9333EA', '#D946EF']}
+                        colors={[userPalette.layout, userPalette.highlight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.personalityBadge}
                       >
-                        <Text style={styles.personalityText}>
+                        <Text style={[styles.personalityText, { color: userPalette.text }]}>
                           {t(userData.personality_type.toLowerCase())}
                         </Text>
                       </LinearGradient>
@@ -509,12 +522,12 @@ export default function ProfilePreviewPage() {
                     
                     {userData?.preferred_gym && (
                       <LinearGradient
-                        colors={['#3B82F6', '#60A5FA']}
+                        colors={[userPalette.accent, userPalette.highlight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.gymBadge}
                       >
-                        <Text style={styles.gymText}>
+                        <Text style={[styles.gymText, { color: userPalette.text }]}>
                           {gymInfo}
                         </Text>
                       </LinearGradient>
@@ -529,47 +542,55 @@ export default function ProfilePreviewPage() {
             
             {/* Stats row (below profile info) */}
             <View style={styles.statsRow}>
-              <TouchableOpacity style={styles.statItem} onPress={navigateToUserFriends}>
-                <Text style={styles.statValue}>{friendsCount}</Text>
-                <Text style={styles.statLabel}>{t('friends')}</Text>
+              <TouchableOpacity 
+                style={[styles.statItem, { backgroundColor: `${userPalette.accent}80` }]} 
+                onPress={navigateToUserFriends}
+              >
+                <Text style={[styles.statValue, { color: userPalette.text }]}>{friendsCount}</Text>
+                <Text style={[styles.statLabel, { color: `${userPalette.text}B3` }]}>{t('friends')}</Text>
               </TouchableOpacity>
 
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{postsCount}</Text>
-                <Text style={styles.statLabel}>{t('posts')}</Text>
+              <View style={[styles.statItem, { backgroundColor: `${userPalette.accent}80` }]}>
+                <Text style={[styles.statValue, { color: userPalette.text }]}>{postsCount}</Text>
+                <Text style={[styles.statLabel, { color: `${userPalette.text}B3` }]}>{t('posts')}</Text>
               </View>
 
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{workoutsCount}</Text>
-                <Text style={styles.statLabel}>{t('workouts')}</Text>
+              <View style={[styles.statItem, { backgroundColor: `${userPalette.accent}80` }]}>
+                <Text style={[styles.statValue, { color: userPalette.text }]}>{workoutsCount}</Text>
+                <Text style={[styles.statLabel, { color: `${userPalette.text}B3` }]}>{t('workouts')}</Text>
               </View>
             </View>
 
           </View>
           
-          {/* Rest of the component... */}
           {/* Monthly Workout Calendar */}
           <View style={styles.calendarCard}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
             
             <View style={styles.calendarHeader}>
-              <Text style={styles.cardTitle}>{t('workout_calendar')}</Text>
+              <Text style={[styles.cardTitle, { color: userPalette.text }]}>{t('workout_calendar')}</Text>
               <View style={styles.monthSelectorContainer}>
-                <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthButton}>
-                  <Ionicons name="chevron-back" size={24} color="#ffffff" />
+                <TouchableOpacity 
+                  onPress={() => changeMonth('prev')} 
+                  style={[styles.monthButton, { backgroundColor: `${userPalette.accent}80` }]}
+                >
+                  <Ionicons name="chevron-back" size={24} color={userPalette.text} />
                 </TouchableOpacity>
-                <Text style={styles.monthDisplay}>
+                <Text style={[styles.monthDisplay, { color: userPalette.text }]}>
                   {format(currentMonth, 'MMMM yyyy')}
                 </Text>
-                <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthButton}>
-                  <Ionicons name="chevron-forward" size={24} color="#ffffff" />
+                <TouchableOpacity 
+                  onPress={() => changeMonth('next')} 
+                  style={[styles.monthButton, { backgroundColor: `${userPalette.accent}80` }]}
+                >
+                  <Ionicons name="chevron-forward" size={24} color={userPalette.text} />
                 </TouchableOpacity>
               </View>
             </View>
             
             <View style={styles.weekdaysHeader}>
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                <Text key={index} style={styles.weekdayLabel}>{day}</Text>
+                <Text key={index} style={[styles.weekdayLabel, { color: `${userPalette.text}80` }]}>{day}</Text>
               ))}
             </View>
             
@@ -583,8 +604,9 @@ export default function ProfilePreviewPage() {
                     key={index}
                     style={[
                       styles.calendarDay,
-                      isWorkout && styles.workoutDay,
-                      isCurrent && styles.currentDay
+                      { backgroundColor: `${userPalette.accent}4D` },
+                      isWorkout && [styles.workoutDay, { backgroundColor: `${userPalette.highlight}4D`, borderColor: `${userPalette.highlight}80` }],
+                      isCurrent && [styles.currentDay, { backgroundColor: `${userPalette.highlight}4D`, borderColor: `${userPalette.highlight}B3` }]
                     ]}
                     onPress={() => {
                       if (isWorkout) {
@@ -595,15 +617,16 @@ export default function ProfilePreviewPage() {
                     <Text 
                       style={[
                         styles.dayNumber,
-                        isWorkout && styles.workoutDayNumber,
-                        isCurrent && styles.currentDayNumber
+                        { color: userPalette.text },
+                        isWorkout && [styles.workoutDayNumber, { color: userPalette.text, fontWeight: 'bold' }],
+                        isCurrent && [styles.currentDayNumber, { color: userPalette.text, fontWeight: 'bold' }]
                       ]}
                     >
                       {format(day, 'd')}
                     </Text>
                     
                     {isWorkout && (
-                      <View style={styles.workoutIndicator} />
+                      <View style={[styles.workoutIndicator, { backgroundColor: userPalette.highlight }]} />
                     )}
                   </TouchableOpacity>
                 );
@@ -612,12 +635,12 @@ export default function ProfilePreviewPage() {
             
             <View style={styles.calendarLegend}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} />
-                <Text style={styles.legendText}>{t('workout_day')}</Text>
+                <View style={[styles.legendDot, { backgroundColor: userPalette.highlight }]} />
+                <Text style={[styles.legendText, { color: `${userPalette.text}80` }]}>{t('workout_day')}</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-                <Text style={styles.legendText}>{t('today')}</Text>
+                <View style={[styles.legendDot, { backgroundColor: userPalette.highlight }]} />
+                <Text style={[styles.legendText, { color: `${userPalette.text}80` }]}>{t('today')}</Text>
               </View>
             </View>
           </View>
@@ -626,7 +649,7 @@ export default function ProfilePreviewPage() {
           <View style={styles.chartCard}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
             
-            <Text style={styles.cardTitle}>{t('training_consistency')}</Text>
+            <Text style={[styles.cardTitle, { color: userPalette.text }]}>{t('training_consistency')}</Text>
             <View style={styles.chartContainer}>
               <LineChart
                 data={{
@@ -634,7 +657,7 @@ export default function ProfilePreviewPage() {
                   datasets: [
                     {
                       data: sessionData.map(item => item.sessions),
-                      color: (opacity = 1) => `rgba(168, 85, 247, ${opacity})`, // Purple color
+                      color: (opacity = 1) => `${userPalette.highlight}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`,
                       strokeWidth: 3
                     }
                   ]
@@ -653,19 +676,19 @@ export default function ProfilePreviewPage() {
                 withShadow={false}
                 segments={7}
                 chartConfig={{
-                  backgroundColor: '#080f19',
-                  backgroundGradientFrom: '#080f19',
-                  backgroundGradientTo: '#080f19',
+                  backgroundColor: userPalette.page_background,
+                  backgroundGradientFrom: userPalette.page_background,
+                  backgroundGradientTo: userPalette.page_background,
                   decimalPlaces: 0,
-                  color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
+                  color: (opacity = 1) => `${userPalette.text}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`,
+                  labelColor: (opacity = 1) => `${userPalette.text}${Math.round(opacity * 180).toString(16).padStart(2, '0')}`,
                   style: {
                     borderRadius: 16
                   },
                   propsForDots: {
                     r: '6',
                     strokeWidth: '2',
-                    stroke: '#d946ef'
+                    stroke: userPalette.highlight
                   },
                   propsForHorizontalLabels: {
                     fontSize: 12,
@@ -685,18 +708,19 @@ export default function ProfilePreviewPage() {
           <View style={styles.programContainer}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
             
-            <Text style={styles.cardTitle}>{t('current_program')}</Text>
+            <Text style={[styles.cardTitle, { color: userPalette.text }]}>{t('current_program')}</Text>
             
             {userData?.current_program ? (
               <ProgramCard
                 programId={userData.current_program.id}
                 program={userData.current_program}
                 currentUser={userData.username}
+                themePalette={userPalette}
               />
             ) : (
               <View style={styles.emptyProgram}>
-                <Ionicons name="barbell-outline" size={48} color="#d1d5db" />
-                <Text style={styles.emptyProgramText}>{t('no_active_program')}</Text>
+                <Ionicons name="barbell-outline" size={48} color={userPalette.border} />
+                <Text style={[styles.emptyProgramText, { color: userPalette.border }]}>{t('no_active_program')}</Text>
               </View>
             )}
           </View>
@@ -709,7 +733,6 @@ export default function ProfilePreviewPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
   },
   header: {
     flexDirection: 'row',
@@ -718,20 +741,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderColor: 'rgba(31, 41, 55, 0.4)',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   headerRight: {
     width: 40,
@@ -745,10 +766,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#080f19',
   },
   loadingText: {
-    color: '#9ca3af',
     marginTop: 12,
   },
   errorContainer: {
@@ -758,18 +777,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: '#EF4444',
     marginTop: 16,
     marginBottom: 24,
   },
   retryButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: '#374151',
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#FFFFFF',
     fontWeight: '500',
   },
   blurBackground: {
@@ -785,24 +801,19 @@ const styles = StyleSheet.create({
   friendshipBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.8)', // Green for friends
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     marginLeft: 8,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   requestSentBadge: {
-    backgroundColor: 'rgba(168, 85, 247, 0.8)', // Purple for sent requests
     borderColor: 'rgba(168, 85, 247, 0.3)',
   },
   requestReceivedBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.8)', // Blue for received requests
     borderColor: 'rgba(59, 130, 246, 0.3)',
   },
   friendshipText: {
-    color: '#ffffff',
     fontWeight: '600',
     fontSize: 12,
     marginLeft: 4,
@@ -825,25 +836,19 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   friendActionButtonText: {
-    color: '#ffffff',
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 8,
   },
   addFriendButton: {
-    backgroundColor: '#10B981', // Green
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   removeFriendButton: {
     backgroundColor: '#EF4444', // Red
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   pendingButton: {
-    backgroundColor: '#6B7280', // Gray
     borderWidth: 1,
-    borderColor: 'rgba(107, 114, 128, 0.3)',
   },
   requestActionContainer: {
     flexDirection: 'row',
@@ -869,7 +874,6 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   requestActionButtonText: {
-    color: '#ffffff',
     fontWeight: '600',
     fontSize: 14,
     marginLeft: 4,
@@ -877,12 +881,10 @@ const styles = StyleSheet.create({
   acceptButton: {
     backgroundColor: '#10B981', // Green
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   rejectButton: {
     backgroundColor: '#EF4444', // Red
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   
   profileHeader: {
@@ -914,7 +916,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 42, 
-    backgroundColor: '#080f19',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -933,7 +934,6 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     backgroundColor: '#4ade80', // Green for online status
     borderWidth: 2,
-    borderColor: '#080f19',
   },
   profileRightContent: {
     flex: 1, // Take up remaining space
@@ -953,7 +953,6 @@ const styles = StyleSheet.create({
   profileUsername: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
     flex: 1,
   },
   badgesContainer: {
@@ -968,7 +967,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   personalityText: {
-    color: '#ffffff',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -978,7 +976,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   gymText: {
-    color: '#ffffff',
     fontSize: 13,
     fontWeight: '500',
   },
@@ -993,17 +990,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     marginHorizontal: 4,
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
     borderRadius: 12,
   },
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ffffff',
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
     fontWeight: '500',
     marginTop: 2,
@@ -1032,7 +1026,6 @@ const styles = StyleSheet.create({
   monthDisplay: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#ffffff',
     marginHorizontal: 12,
     width: 150,
     textAlign: 'center',
@@ -1040,7 +1033,6 @@ const styles = StyleSheet.create({
   monthButton: {
     padding: 5,
     borderRadius: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
   },
   weekdaysHeader: {
     flexDirection: 'row',
@@ -1053,7 +1045,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '500',
-    color: '#9ca3af',
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -1068,29 +1059,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     margin: 4,
     borderRadius: 16,
-    backgroundColor: 'rgba(31, 41, 55, 0.3)',
     position: 'relative',
   },
   dayNumber: {
     fontSize: 14,
-    color: '#e5e7eb',
   },
   workoutDay: {
-    backgroundColor: 'rgba(168, 85, 247, 0.3)',
     borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.5)',
   },
   workoutDayNumber: {
-    color: '#ffffff',
     fontWeight: 'bold',
   },
   currentDay: {
-    backgroundColor: 'rgba(16, 185, 129, 0.3)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.7)',
   },
   currentDayNumber: {
-    color: '#ffffff',
     fontWeight: 'bold',
   },
   workoutIndicator: {
@@ -1099,7 +1082,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#d946ef',
   },
   calendarLegend: {
     flexDirection: 'row',
@@ -1119,7 +1101,6 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#9ca3af',
   },
   
   chartCard: {
@@ -1133,7 +1114,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 16,
     paddingHorizontal: 8,
   },
@@ -1160,7 +1140,6 @@ const styles = StyleSheet.create({
   },
   emptyProgramText: {
     fontSize: 16,
-    color: '#d1d5db',
     marginVertical: 16,
   },
 });

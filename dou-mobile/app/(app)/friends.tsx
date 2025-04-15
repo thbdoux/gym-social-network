@@ -25,6 +25,8 @@ import {
   useCurrentUser,
 } from '../../hooks/query/useUserQuery';
 import { getAvatarUrl } from '../../utils/imageUtils';
+// Import ThemeContext
+import { useTheme } from '../../context/ThemeContext';
 
 // Types
 interface User {
@@ -51,6 +53,9 @@ export default function FriendsPage() {
   // Get translation function
   const { t } = useLanguage();
   const router = useRouter();
+  
+  // Use the theme context
+  const { palette } = useTheme();
   
   // State
   const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'discover'>('friends');
@@ -252,18 +257,18 @@ export default function FriendsPage() {
       removeFriendMutation.variables === friend.id;
 
     return (
-      <View style={styles.itemContainer}>
+      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
         {friend.avatar ? (
           <Image source={{ uri: getAvatarUrl(friend.avatar, 80) }} style={styles.avatar} />
         ) : (
-          <View style={styles.avatarPlaceholder}>
+          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
             <Text style={styles.avatarText}>{getInitials(friend.username)}</Text>
           </View>
         )}
         
         <View style={styles.userInfo}>
-          <Text style={styles.username}>{friend.username}</Text>
-          <Text style={styles.userDetail}>
+          <Text style={[styles.username, { color: palette.text }]}>{friend.username}</Text>
+          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
             {formatText(friend.training_level || '')}
             {friend.training_level && friend.personality_type && " • "}
             {formatText(friend.personality_type || '')}
@@ -272,10 +277,10 @@ export default function FriendsPage() {
         
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={styles.viewButton}
+            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
             onPress={onViewProfile}
           >
-            <Ionicons name="eye" size={18} color="#FFFFFF" />
+            <Ionicons name="eye" size={18} color={palette.text} />
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -284,9 +289,9 @@ export default function FriendsPage() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={palette.text} />
             ) : (
-              <Ionicons name="person-remove" size={18} color="#FFFFFF" />
+              <Ionicons name="person-remove" size={18} color={palette.text} />
             )}
           </TouchableOpacity>
         </View>
@@ -301,18 +306,18 @@ export default function FriendsPage() {
       respondToFriendRequestMutation.variables?.userId === user.id;
 
     return (
-      <View style={styles.itemContainer}>
+      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
         {user.avatar ? (
           <Image source={{ uri: getAvatarUrl(user.avatar, 80) }} style={styles.avatar} />
         ) : (
-          <View style={styles.avatarPlaceholder}>
+          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
             <Text style={styles.avatarText}>{getInitials(user.username)}</Text>
           </View>
         )}
         
         <View style={styles.userInfo}>
-          <Text style={styles.username}>{user.username}</Text>
-          <Text style={styles.userDetail}>
+          <Text style={[styles.username, { color: palette.text }]}>{user.username}</Text>
+          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
             {formatText(user.training_level || '')}
             {user.training_level && user.personality_type && " • "}
             {formatText(user.personality_type || '')}
@@ -321,46 +326,46 @@ export default function FriendsPage() {
         
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={styles.viewButton}
+            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
             onPress={() => navigateToProfile(user.id)}
           >
-            <Ionicons name="eye" size={18} color="#FFFFFF" />
+            <Ionicons name="eye" size={18} color={palette.text} />
           </TouchableOpacity>
           
           {type === 'received' ? (
             <View style={styles.requestButtonsContainer}>
               <TouchableOpacity
-                style={styles.acceptButton}
+                style={[styles.acceptButton, { backgroundColor: '#10B981' }]}
                 onPress={() => handleFriendAction('accept', user.id)}
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={palette.text} />
                 ) : (
-                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  <Ionicons name="checkmark" size={18} color={palette.text} />
                 )}
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={styles.rejectButton}
+                style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}
                 onPress={() => handleFriendAction('reject', user.id)}
                 disabled={isLoading}
               >
-                <Ionicons name="close" size={18} color="#FFFFFF" />
+                <Ionicons name="close" size={18} color={palette.text} />
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.pendingContainer}>
-              <Text style={styles.pendingText}>{t('pending')}</Text>
+              <Text style={[styles.pendingText, { color: palette.highlight }]}>{t('pending')}</Text>
               <TouchableOpacity
-                style={styles.cancelButton}
+                style={[styles.cancelButton, { backgroundColor: '#EF4444' }]}
                 onPress={() => handleFriendAction('cancel', user.id)}
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={palette.text} />
                 ) : (
-                  <Ionicons name="close" size={18} color="#FFFFFF" />
+                  <Ionicons name="close" size={18} color={palette.text} />
                 )}
               </TouchableOpacity>
             </View>
@@ -376,18 +381,18 @@ export default function FriendsPage() {
       sendFriendRequestMutation.variables === user.id;
 
     return (
-      <View style={styles.itemContainer}>
+      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
         {user.avatar ? (
           <Image source={{ uri: getAvatarUrl(user.avatar, 80) }} style={styles.avatar} />
         ) : (
-          <View style={styles.avatarPlaceholder}>
+          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
             <Text style={styles.avatarText}>{getInitials(user.username)}</Text>
           </View>
         )}
         
         <View style={styles.userInfo}>
-          <Text style={styles.username}>{user.username}</Text>
-          <Text style={styles.userDetail}>
+          <Text style={[styles.username, { color: palette.text }]}>{user.username}</Text>
+          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
             {formatText(user.training_level || '')}
             {user.training_level && user.personality_type && " • "}
             {formatText(user.personality_type || '')}
@@ -396,23 +401,23 @@ export default function FriendsPage() {
         
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={styles.viewButton}
+            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
             onPress={() => navigateToProfile(user.id)}
           >
-            <Ionicons name="eye" size={18} color="#FFFFFF" />
+            <Ionicons name="eye" size={18} color={palette.text} />
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.addButton}
+            style={[styles.addButton, { backgroundColor: '#10B981' }]}
             onPress={() => handleFriendAction('send', user.id)}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={palette.text} />
             ) : (
               <>
-                <Ionicons name="person-add" size={16} color="#FFFFFF" />
-                <Text style={styles.addButtonText}>{t('add_friend')}</Text>
+                <Ionicons name="person-add" size={16} color={palette.text} />
+                <Text style={[styles.addButtonText, { color: palette.text }]}>{t('add_friend')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -432,10 +437,13 @@ export default function FriendsPage() {
   }) => (
     <View style={styles.emptyContainer}>
       {icon}
-      <Text style={styles.emptyMessage}>{message}</Text>
+      <Text style={[styles.emptyMessage, { color: `${palette.text}80` }]}>{message}</Text>
       {action && (
-        <TouchableOpacity style={styles.emptyActionButton} onPress={action.onPress}>
-          <Text style={styles.emptyActionText}>{action.label}</Text>
+        <TouchableOpacity 
+          style={[styles.emptyActionButton, { backgroundColor: palette.highlight }]} 
+          onPress={action.onPress}
+        >
+          <Text style={[styles.emptyActionText, { color: palette.text }]}>{action.label}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -446,8 +454,8 @@ export default function FriendsPage() {
     if (loading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#a855f7" />
-          <Text style={styles.loadingText}>{t('loading')}</Text>
+          <ActivityIndicator size="large" color={palette.highlight} />
+          <Text style={[styles.loadingText, { color: `${palette.text}80` }]}>{t('loading')}</Text>
         </View>
       );
     }
@@ -467,7 +475,7 @@ export default function FriendsPage() {
             )}
             ListEmptyComponent={
               <EmptyState
-                icon={<Ionicons name="people" size={48} color="#6B7280" />}
+                icon={<Ionicons name="people" size={48} color={`${palette.text}4D`} />}
                 message={searchQuery ? t('no_friends_match_search') : t('no_friends')}
                 action={
                   !searchQuery
@@ -491,7 +499,7 @@ export default function FriendsPage() {
               <>
                 {filteredData.received.length > 0 && (
                   <View style={styles.requestsSection}>
-                    <Text style={styles.sectionTitle}>{t('received_requests')}</Text>
+                    <Text style={[styles.sectionTitle, { color: palette.text }]}>{t('received_requests')}</Text>
                     <FlatList
                       data={filteredData.received}
                       keyExtractor={(item) => `received-${item.id}`}
@@ -505,7 +513,7 @@ export default function FriendsPage() {
                 
                 {filteredData.sent.length > 0 && (
                   <View style={styles.requestsSection}>
-                    <Text style={styles.sectionTitle}>{t('sent_requests')}</Text>
+                    <Text style={[styles.sectionTitle, { color: palette.text }]}>{t('sent_requests')}</Text>
                     <FlatList
                       data={filteredData.sent}
                       keyExtractor={(item) => `sent-${item.id}`}
@@ -519,7 +527,7 @@ export default function FriendsPage() {
               </>
             ) : (
               <EmptyState
-                icon={<Ionicons name="time" size={48} color="#6B7280" />}
+                icon={<Ionicons name="time" size={48} color={`${palette.text}4D`} />}
                 message={searchQuery ? t('no_requests_match_search') : t('no_friend_requests')}
                 action={
                   !searchQuery
@@ -542,7 +550,7 @@ export default function FriendsPage() {
             renderItem={({ item }) => <DiscoverItem user={item} />}
             ListEmptyComponent={
               <EmptyState
-                icon={<Ionicons name="search" size={48} color="#6B7280" />}
+                icon={<Ionicons name="search" size={48} color={`${palette.text}4D`} />}
                 message={searchQuery ? t('no_users_match_search') : t('no_recommendations')}
               />
             }
@@ -555,15 +563,18 @@ export default function FriendsPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      <View style={[styles.header, { borderColor: `${palette.border}66` }]}>
+        <TouchableOpacity 
+          style={[styles.backButton, { backgroundColor: `${palette.accent}B3` }]} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={palette.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>
           {activeTab === 'friends'
             ? t('friends')
             : activeTab === 'requests'
@@ -573,10 +584,10 @@ export default function FriendsPage() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
+        <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: palette.text }]}
           placeholder={
             activeTab === 'friends'
               ? t('search_friends')
@@ -584,27 +595,28 @@ export default function FriendsPage() {
               ? t('search_requests')
               : t('search_people')
           }
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={`${palette.text}80`}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { borderColor: `${palette.border}66` }]}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'friends' && [styles.activeTab, { borderColor: palette.highlight }]]}
           onPress={() => setActiveTab('friends')}
         >
           <Ionicons
             name="people"
             size={18}
-            color={activeTab === 'friends' ? '#a855f7' : '#9CA3AF'}
+            color={activeTab === 'friends' ? palette.highlight : `${palette.text}80`}
           />
           <Text
             style={[
               styles.tabText,
-              activeTab === 'friends' && styles.activeTabText,
+              { color: `${palette.text}80` },
+              activeTab === 'friends' && [styles.activeTabText, { color: palette.highlight }],
             ]}
           >
             {t('friends')}
@@ -612,23 +624,24 @@ export default function FriendsPage() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'requests' && [styles.activeTab, { borderColor: palette.highlight }]]}
           onPress={() => setActiveTab('requests')}
         >
           <Ionicons
             name="time"
             size={18}
-            color={activeTab === 'requests' ? '#a855f7' : '#9CA3AF'}
+            color={activeTab === 'requests' ? palette.highlight : `${palette.text}80`}
           />
           <Text
             style={[
               styles.tabText,
-              activeTab === 'requests' && styles.activeTabText,
+              { color: `${palette.text}80` },
+              activeTab === 'requests' && [styles.activeTabText, { color: palette.highlight }],
             ]}
           >
             {t('friend_requests')}
             {(filteredData.received.length + filteredData.sent.length) > 0 && (
-              <View style={styles.badgeContainer}>
+              <View style={[styles.badgeContainer, { backgroundColor: palette.highlight }]}>
                 <Text style={styles.badgeText}>
                   {filteredData.received.length + filteredData.sent.length}
                 </Text>
@@ -638,18 +651,19 @@ export default function FriendsPage() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'discover' && [styles.activeTab, { borderColor: palette.highlight }]]}
           onPress={() => setActiveTab('discover')}
         >
           <Ionicons
             name="person-add"
             size={18}
-            color={activeTab === 'discover' ? '#a855f7' : '#9CA3AF'}
+            color={activeTab === 'discover' ? palette.highlight : `${palette.text}80`}
           />
           <Text
             style={[
               styles.tabText,
-              activeTab === 'discover' && styles.activeTabText,
+              { color: `${palette.text}80` },
+              activeTab === 'discover' && [styles.activeTabText, { color: palette.highlight }],
             ]}
           >
             {t('discover_friends')}
@@ -668,7 +682,6 @@ export default function FriendsPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
   },
   header: {
     flexDirection: 'row',
@@ -676,13 +689,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderColor: 'rgba(31, 41, 55, 0.4)',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -690,12 +701,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
     borderRadius: 12,
     margin: 16,
     paddingHorizontal: 12,
@@ -705,14 +714,12 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#FFFFFF',
     paddingVertical: 12,
     fontSize: 16,
   },
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderColor: 'rgba(31, 41, 55, 0.4)',
     paddingHorizontal: 16,
   },
   tab: {
@@ -723,19 +730,15 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderColor: '#a855f7',
   },
   tabText: {
     marginLeft: 8,
     fontSize: 16,
-    color: '#9CA3AF',
   },
   activeTabText: {
-    color: '#a855f7',
     fontWeight: '500',
   },
   badgeContainer: {
-    backgroundColor: '#a855f7',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -756,7 +759,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#9CA3AF',
     marginTop: 16,
   },
   emptyContainer: {
@@ -766,26 +768,22 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyMessage: {
-    color: '#9CA3AF',
     fontSize: 16,
     marginTop: 12,
     marginBottom: 20,
     textAlign: 'center',
   },
   emptyActionButton: {
-    backgroundColor: '#a855f7',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,
   },
   emptyActionText: {
-    color: '#FFFFFF',
     fontWeight: '500',
   },
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -799,7 +797,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#a855f7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -815,12 +812,10 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#FFFFFF',
     marginBottom: 4,
   },
   userDetail: {
     fontSize: 14,
-    color: '#9CA3AF',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -830,7 +825,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#a855f7',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -851,7 +845,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -860,7 +853,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -870,27 +862,23 @@ const styles = StyleSheet.create({
   },
   pendingText: {
     fontSize: 14,
-    color: '#F59E0B',
     marginRight: 8,
   },
   cancelButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
   },
   addButton: {
     flexDirection: 'row',
-    backgroundColor: '#10B981',
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignItems: 'center',
   },
   addButtonText: {
-    color: '#FFFFFF',
     marginLeft: 4,
     fontWeight: '500',
   },
@@ -900,7 +888,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#FFFFFF',
     marginBottom: 12,
   },
 });
