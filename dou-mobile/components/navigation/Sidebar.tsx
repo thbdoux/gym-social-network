@@ -29,6 +29,8 @@ import { useCurrentUser } from '../../hooks/query/useUserQuery';
 import { BlurView } from 'expo-blur';
 import { userCountKeys } from '@/hooks/query/useUserCountQuery';
 import { getAvatarUrl } from '../../utils/imageUtils';
+import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, getGradientColors, withAlpha } from '../../utils/createThemedStyles';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +46,10 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
   const { mutateAsync: updateLanguage, isLoading } = useUpdateLanguage();
   const { data: user } = useCurrentUser();
   const { t, language, setLanguage } = useLanguage();
+  const { palette } = useTheme();
+  
+  // Create styles using the current palette
+  const styles = themedStyles(palette);
   
   const slideAnim = useSharedValue(width);
   const backdropOpacity = useSharedValue(0);
@@ -110,6 +116,9 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
     });
   };
 
+  // Get gradient colors based on personality
+  const gradientColors = getGradientColors(palette, 'header');
+
   return (
     <Modal
       visible={isVisible}
@@ -128,7 +137,7 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
         
         <Animated.View style={[styles.sidebar, animatedStyle]}>
           <LinearGradient
-            colors={['#111827', '#1F2937']}
+            colors={gradientColors}
             style={styles.gradient}
           >
             <SafeAreaView style={styles.content}>
@@ -148,7 +157,7 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
                   style={styles.closeButton} 
                   onPress={closeWithAnimation}
                 >
-                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                  <Ionicons name="close" size={24} color={palette.text} />
                 </TouchableOpacity>
               </View>
 
@@ -158,7 +167,7 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
               
               <View style={styles.languageContainer}>
                 <View style={styles.languageHeader}>
-                  <Ionicons name="language" size={22} color="#9CA3AF" />
+                  <Ionicons name="language" size={22} color={withAlpha(palette.text, 0.7)} />
                   <Text style={styles.languageTitle}>{t('language')}</Text>
                 </View>
                 
@@ -174,7 +183,7 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
                     <MaterialCommunityIcons
                       name="flag-variant"
                       size={16}
-                      color={language === 'en' ? '#FFFFFF' : '#9CA3AF'}
+                      color={language === 'en' ? palette.text : withAlpha(palette.text, 0.7)}
                     />
                     <Text
                       style={[
@@ -197,7 +206,7 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
                     <MaterialCommunityIcons
                       name="flag-variant"
                       size={16}
-                      color={language === 'fr' ? '#FFFFFF' : '#9CA3AF'}
+                      color={language === 'fr' ? palette.text : withAlpha(palette.text, 0.7)}
                     />
                     <Text
                       style={[
@@ -230,7 +239,8 @@ const Sidebar: React.FC<EnhancedSidebarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+// Create themed styles function
+const themedStyles = createThemedStyles((palette) => ({
   container: {
     flex: 1,
   },
@@ -246,7 +256,7 @@ const styles = StyleSheet.create({
     height: '100%',
     position: 'absolute',
     right: 0,
-    shadowColor: '#000',
+    shadowColor: palette.layout,
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -278,7 +288,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: '#4B5563',
+    borderColor: palette.border,
   },
   userInfo: {
     marginLeft: 12,
@@ -286,24 +296,24 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: palette.text,
   },
   email: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: withAlpha(palette.text, 0.7),
     marginTop: 2,
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(75, 85, 99, 0.3)',
+    backgroundColor: withAlpha(palette.border, 0.3),
     justifyContent: 'center',
     alignItems: 'center',
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: withAlpha(palette.text, 0.1),
     marginVertical: 15,
     marginHorizontal: 20,
   },
@@ -311,7 +321,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     fontSize: 16,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: withAlpha(palette.text, 0.7),
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -327,7 +337,7 @@ const styles = StyleSheet.create({
   },
   languageTitle: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: palette.text,
     marginLeft: 10,
   },
   languageOptions: {
@@ -340,18 +350,18 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     marginRight: 12,
-    backgroundColor: 'rgba(75, 85, 99, 0.2)',
+    backgroundColor: withAlpha(palette.border, 0.2),
   },
   selectedLanguage: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: palette.layout,
   },
   languageText: {
     marginLeft: 6,
-    color: '#9CA3AF',
+    color: withAlpha(palette.text, 0.7),
     fontSize: 14,
   },
   selectedLanguageText: {
-    color: '#FFFFFF',
+    color: palette.text,
     fontWeight: '500',
   },
   bottomSection: {
@@ -361,7 +371,7 @@ const styles = StyleSheet.create({
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EF4444',
+    backgroundColor: '#EF4444', // Keep red for logout button as it's a warning action
     padding: 12,
     borderRadius: 10,
     justifyContent: 'center',
@@ -372,6 +382,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 8,
   },
-});
+}));
 
 export default Sidebar;

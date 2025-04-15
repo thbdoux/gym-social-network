@@ -19,7 +19,7 @@ const HeaderLogoWithSVG: React.FC<HeaderLogoProps> = ({
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../../assets/images/dou-close.png')} 
+        source={require('../../assets/images/dou.png')} 
         style={[styles.logo, { width, height }]}
         resizeMode="contain"
       />

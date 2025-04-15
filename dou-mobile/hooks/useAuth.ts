@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { router } from 'expo-router';
 import { useLanguage } from '../context/LanguageContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { userKeys } from '../hooks/query/useUserQuery';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -20,8 +21,13 @@ export const useAuth = () => {
 
   const requireAuth = (): boolean => {
     if (!context.isAuthenticated && !context.isLoading) {
+      // Invalidate user queries before redirecting
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+      queryClient.invalidateQueries({ queryKey: userKeys.current() });
+      
       // Clear any stale data before redirecting
       queryClient.clear();
+      
       router.replace('/login');
       return false;
     }

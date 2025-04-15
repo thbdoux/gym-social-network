@@ -3,15 +3,20 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 import BottomTabBar from '../../components/navigation/BottomTabBar';
+import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles } from '../../utils/createThemedStyles';
 
 export default function AppLayout() {
+  const { palette } = useTheme();
+  const styles = themedStyles(palette);
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: {
-            backgroundColor: '#111827',
+            backgroundColor: palette.background,
           },
           animation: 'slide_from_right',
           animationDuration: 200,
@@ -21,3 +26,10 @@ export default function AppLayout() {
     </View>
   );
 }
+
+const themedStyles = createThemedStyles((palette) => ({
+  container: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
+}));

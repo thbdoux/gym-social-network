@@ -10,10 +10,12 @@ import Animated, {
   Extrapolate 
 } from 'react-native-reanimated';
 import Sidebar from './Sidebar';
+import { useTheme } from '../../context/ThemeContext';
 
 const SidebarButton = () => {
   const [showSidebar, setShowSidebar] = useState(false);
   const animation = useSharedValue(0);
+  const { palette } = useTheme();
   
   useEffect(() => {
     animation.value = withTiming(showSidebar ? 1 : 0, { duration: 300 });
@@ -37,7 +39,7 @@ const SidebarButton = () => {
     return {
       width: interpolate(animation.value, [0, 1], [16, 20]),
       height: 2,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: palette.text,
       marginBottom: 4,
       borderRadius: 4,
       transform: [
@@ -51,7 +53,7 @@ const SidebarButton = () => {
     return {
       width: interpolate(animation.value, [0, 1], [20, 0]),
       height: 2,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: palette.text,
       marginBottom: 4,
       borderRadius: 4,
       opacity: interpolate(animation.value, [0, 1], [1, 0]),
@@ -76,7 +78,7 @@ const SidebarButton = () => {
     return {
       width: interpolate(animation.value, [0, 1], [12, 20]),
       height: 2,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: palette.text,
       borderRadius: 4,
       transform: [
         { rotate: `${rotate}deg` },
@@ -96,7 +98,7 @@ const SidebarButton = () => {
   return (
     <>
       <TouchableOpacity 
-        style={styles.container}
+        style={[styles.container, { backgroundColor: palette.layout }]}
         onPress={handlePress}
         activeOpacity={0.7}
       >
@@ -119,7 +121,6 @@ const styles = StyleSheet.create({
   container: {
     padding: 0,
     marginRight: 6,
-    backgroundColor: 'rgba(8,15,25,255)',
     borderRadius: 12,
   },
   iconContainer: {

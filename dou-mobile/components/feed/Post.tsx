@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext'; // Import theme hook
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
 import ProgramCard from '../workouts/ProgramCard';
 
@@ -100,14 +101,13 @@ const Post: React.FC<PostProps> = ({
   onPostClick  
 }) => {
   const { t } = useLanguage();
+  const { palette, personality } = useTheme(); // Use theme context
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareText, setShareText] = useState('');
   const [liked, setLiked] = useState(post.is_liked);
-  
-  // No bottom sheet needed as we'll use Alert
   
   // New state for edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -132,6 +132,9 @@ const Post: React.FC<PostProps> = ({
   
   // Get post type details including colors for gradient
   const getPostTypeDetails = (type: string = 'regular') => {
+    // Base gradient colors on the theme palette accent and highlight
+    const defaultGradient = [palette.accent, palette.highlight];
+    
     switch(type) {
       case 'program':
         return {
@@ -139,9 +142,9 @@ const Post: React.FC<PostProps> = ({
           label: t('program'),
           colors: { 
             bg: 'rgba(124, 58, 237, 0.2)',
-            text: '#A78BFA',
-            border: 'rgba(124, 58, 237, 0.3)',
-            gradient: ['#9333EA', '#D946EF']
+            text: palette.text,
+            border: palette.border,
+            gradient: defaultGradient
           }
         };
       case 'workout_log':
@@ -150,9 +153,9 @@ const Post: React.FC<PostProps> = ({
           label: t('workout_log'),
           colors: { 
             bg: 'rgba(16, 185, 129, 0.2)',
-            text: '#34D399',
-            border: 'rgba(16, 185, 129, 0.3)',
-            gradient: ['#059669', '#10B981']
+            text: palette.text,
+            border: palette.border,
+            gradient: defaultGradient
           }
         };
       case 'workout_invite':
@@ -161,9 +164,9 @@ const Post: React.FC<PostProps> = ({
           label: t('workout_invite'),
           colors: { 
             bg: 'rgba(249, 115, 22, 0.2)',
-            text: '#FB923C',
-            border: 'rgba(249, 115, 22, 0.3)',
-            gradient: ['#EA580C', '#F97316']
+            text: palette.text,
+            border: palette.border,
+            gradient: defaultGradient
           }
         };
       default:
@@ -172,9 +175,9 @@ const Post: React.FC<PostProps> = ({
           label: t('regular'),
           colors: { 
             bg: 'rgba(59, 130, 246, 0.2)',
-            text: '#60A5FA',
-            border: 'rgba(59, 130, 246, 0.3)',
-            gradient: ['#6366F1', '#3B82F6']
+            text: palette.text,
+            border: palette.border,
+            gradient: defaultGradient
           }
         };
     }
@@ -182,20 +185,11 @@ const Post: React.FC<PostProps> = ({
 
   // Get avatar gradient colors based on user personality
   const getPersonalityGradient = () => {
-    const personality = post.personality || 'default';
+    // Use the post personality or fallback to the current user's personality
+    const postPersonality = post.personality || personality || 'versatile';
     
-    switch(personality.toLowerCase()) {
-      case 'optimizer':
-        return ['#F59E0B', '#EF4444']; // Amber to Red
-      case 'diplomat':
-        return ['#10B981', '#3B82F6']; // Emerald to Blue
-      case 'mentor':
-        return ['#6366F1', '#4F46E5']; // Indigo to Dark Indigo
-      case 'versatile':
-        return ['#EC4899', '#8B5CF6']; // Pink to Purple
-      default:
-        return ['#9333EA', '#D946EF']; // Default Purple Gradient
-    }
+    // Use the theme palette colors for gradients
+    return [palette.accent, palette.highlight];
   };
   
   // Function to show post options alert
@@ -326,8 +320,6 @@ const Post: React.FC<PostProps> = ({
     onLike(post.id);
   };
   
-  // No bottom sheet animation needed
-  
   // Determine what type of post this is
   const effectivePostType = (post.is_share && post.original_post_details?.post_type) 
     ? post.original_post_details.post_type 
@@ -364,13 +356,13 @@ const Post: React.FC<PostProps> = ({
     
     return (
       <TouchableOpacity 
-        style={styles.sharedPostContainer}
+        style={[styles.sharedPostContainer, { borderColor: palette.border }]}
         onPress={handleOriginalPostClick}
         activeOpacity={0.7}
       >
         <View style={styles.sharedPostHeader}>
           <TouchableOpacity 
-            style={styles.sharedPostAvatar}
+            style={[styles.sharedPostAvatar, { backgroundColor: palette.accent }]}
             onPress={handleSharedProfileClick}
             activeOpacity={0.7}
           >
@@ -380,14 +372,18 @@ const Post: React.FC<PostProps> = ({
           </TouchableOpacity>
           
           <TouchableOpacity onPress={handleSharedProfileClick} activeOpacity={0.7}>
-            <Text style={styles.sharedPostUsername}>{originalPost.user_username}</Text>
-            <Text style={styles.sharedPostDate}>
+            <Text style={[styles.sharedPostUsername, { color: palette.text }]}>
+              {originalPost.user_username}
+            </Text>
+            <Text style={[styles.sharedPostDate, { color: palette.border }]}>
               {formatDate(originalPost.created_at)}
             </Text>
           </TouchableOpacity>
         </View>
         
-        <Text style={styles.sharedPostContent}>{originalPost.content}</Text>
+        <Text style={[styles.sharedPostContent, { color: palette.text }]}>
+          {originalPost.content}
+        </Text>
         
         {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && (
           <WorkoutLogCard
@@ -426,7 +422,7 @@ const Post: React.FC<PostProps> = ({
         post.comments.map(comment => (
           <View key={comment.id} style={styles.commentItem}>
             <TouchableOpacity 
-              style={styles.commentAvatar}
+              style={[styles.commentAvatar, { backgroundColor: palette.accent }]}
               onPress={(e) => {
                 e.stopPropagation();
                 if (comment.author?.id && onNavigateToProfile) {
@@ -441,7 +437,7 @@ const Post: React.FC<PostProps> = ({
               </Text>
             </TouchableOpacity>
             
-            <View style={styles.commentBubble}>
+            <View style={[styles.commentBubble, { backgroundColor: 'rgba(31, 41, 55, 0.8)' }]}>
               <View style={styles.commentHeader}>
                 <TouchableOpacity
                   onPress={(e) => {
@@ -453,20 +449,24 @@ const Post: React.FC<PostProps> = ({
                     }
                   }}
                 >
-                  <Text style={styles.commentUsername}>
+                  <Text style={[styles.commentUsername, { color: palette.text }]}>
                     {comment.user_username}
                   </Text>
                 </TouchableOpacity>
-                <Text style={styles.commentDate}>
+                <Text style={[styles.commentDate, { color: palette.border }]}>
                   {formatDate(comment.created_at)}
                 </Text>
               </View>
-              <Text style={styles.commentContent}>{comment.content}</Text>
+              <Text style={[styles.commentContent, { color: palette.text }]}>
+                {comment.content}
+              </Text>
             </View>
           </View>
         ))
       ) : (
-        <Text style={styles.noCommentsText}>{t('no_comments')}</Text>
+        <Text style={[styles.noCommentsText, { color: palette.border }]}>
+          {t('no_comments')}
+        </Text>
       )}
     </View>
   );
@@ -476,12 +476,12 @@ const Post: React.FC<PostProps> = ({
   
   // Mock badges based on user activity
   const mockBadges = [
-    { id: 1, name: t('20day_streak'), icon: "flame", color: ["#F59E0B", "#EF4444"] },
-    { id: 2, name: t('power_lifter'), icon: "barbell", color: ["#DC2626", "#7F1D1D"] },
-    { id: 3, name: t('early_bird'), icon: "sunny", color: ["#F59E0B", "#FBBF24"] },
-    { id: 4, name: t('yoga_master'), icon: "body", color: ["#10B981", "#3B82F6"] },
-    { id: 5, name: t('weekend_warrior'), icon: "trophy", color: ["#6366F1", "#4F46E5"] },
-    { id: 6, name: t('community_coach'), icon: "people", color: ["#EC4899", "#8B5CF6"] },
+    { id: 1, name: t('20day_streak'), icon: "flame", color: [palette.accent, palette.highlight] },
+    { id: 2, name: t('power_lifter'), icon: "barbell", color: [palette.accent, palette.highlight] },
+    { id: 3, name: t('early_bird'), icon: "sunny", color: [palette.accent, palette.highlight] },
+    { id: 4, name: t('yoga_master'), icon: "body", color: [palette.accent, palette.highlight] },
+    { id: 5, name: t('weekend_warrior'), icon: "trophy", color: [palette.accent, palette.highlight] },
+    { id: 6, name: t('community_coach'), icon: "people", color: [palette.accent, palette.highlight] },
   ];
   
   // Determine which badges to show (either from post or mocked)
@@ -492,7 +492,7 @@ const Post: React.FC<PostProps> = ({
           id: Math.random(), 
           name, 
           icon: "trophy", 
-          color: ["#9333EA", "#D946EF"] 
+          color: [palette.accent, palette.highlight] 
         };
       })
     : [mockBadges[0], mockBadges[Math.floor(Math.random() * (mockBadges.length - 1)) + 1]];
@@ -503,6 +503,12 @@ const Post: React.FC<PostProps> = ({
   // Check if post is workout related
   const isWorkoutRelated = post.post_type === 'workout_log' || post.post_type === 'program';
   
+  // Create themed background style
+  const containerBackgroundStyle = {
+    backgroundColor: palette.page_background,
+    borderColor: palette.border,
+  };
+
   return (
     <TouchableOpacity 
       activeOpacity={detailMode ? 1 : 0.7}
@@ -510,12 +516,12 @@ const Post: React.FC<PostProps> = ({
       disabled={detailMode || isEditing}
       style={styles.postWrapper}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, containerBackgroundStyle]}>
         {/* Blur effect background */}
         <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
         
         {/* Glow effect for premium posts */}
-        <View style={styles.glowEffect} />
+        <View style={[styles.glowEffect, { backgroundColor: palette.pa }]} />
         
         {/* Gradient top line */}
         <LinearGradient
@@ -540,7 +546,7 @@ const Post: React.FC<PostProps> = ({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.avatarInner}>
+                <View style={[styles.avatarInner, { backgroundColor: palette.accent }]}>
                   {userData?.avatar ? (
                     <Image
                       source={{ uri: userData.avatar }}
@@ -556,7 +562,7 @@ const Post: React.FC<PostProps> = ({
               
               {/* Streak indicator */}
               {userStreak > 0 && (
-                <View style={styles.streakBadge}>
+                <View style={[styles.streakBadge, { backgroundColor: palette.accent }]}>
                   <Text style={styles.streakText}>{userStreak}</Text>
                 </View>
               )}
@@ -569,7 +575,9 @@ const Post: React.FC<PostProps> = ({
                   onPress={handleUserProfileClick}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.authorName}>{post.user_username}</Text>
+                  <Text style={[styles.authorName, { color: palette.text }]}>
+                    {post.user_username}
+                  </Text>
                 </TouchableOpacity>
                 
                 {/* Post Type Badge */}
@@ -586,11 +594,13 @@ const Post: React.FC<PostProps> = ({
                 )}
                 
                 {post.is_share && (
-                  <Text style={styles.sharedLabel}>{t('shared_a_post')}</Text>
+                  <Text style={[styles.sharedLabel, { color: palette.border }]}>
+                    {t('shared_a_post')}
+                  </Text>
                 )}
               </View>
               
-              <Text style={styles.postDate}>
+              <Text style={[styles.postDate, { color: palette.border }]}>
                 @{post.user_username} • {formatDate(post.created_at)}
               </Text>
             </View>
@@ -600,7 +610,7 @@ const Post: React.FC<PostProps> = ({
             style={styles.menuButton}
             onPress={showPostOptions}
           >
-            <Ionicons name="ellipsis-horizontal" size={20} color="#9CA3AF" />
+            <Ionicons name="ellipsis-horizontal" size={20} color={palette.border} />
           </TouchableOpacity>
         </View>
         
@@ -610,22 +620,28 @@ const Post: React.FC<PostProps> = ({
             // Edit Mode UI
             <View style={styles.editContainer}>
               <TextInput
-                style={styles.editInput}
+                style={[styles.editInput, { 
+                  backgroundColor: 'rgba(31, 41, 55, 0.6)',
+                  borderColor: palette.accent,
+                  color: palette.text 
+                }]}
                 value={editText}
                 onChangeText={setEditText}
                 multiline
                 placeholder={t('edit_your_post')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={palette.border}
               />
               <View style={styles.editButtons}>
                 <TouchableOpacity 
-                  style={[styles.editButton, styles.cancelButton]}
+                  style={[styles.editButton, styles.cancelButton, { borderColor: palette.border }]}
                   onPress={() => setIsEditing(false)}
                 >
-                  <Text style={styles.editButtonText}>{t('cancel')}</Text>
+                  <Text style={[styles.editButtonText, { color: palette.text }]}>
+                    {t('cancel')}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[styles.editButton, styles.saveButton]}
+                  style={[styles.editButton, styles.saveButton, { backgroundColor: palette.accent }]}
                   onPress={handleSubmitEdit}
                 >
                   <Text style={styles.editButtonText}>{t('save')}</Text>
@@ -635,7 +651,9 @@ const Post: React.FC<PostProps> = ({
           ) : (
             // Normal Content View
             <>
-              {post.content && <Text style={styles.postText}>{post.content}</Text>}
+              {post.content && <Text style={[styles.postText, { color: palette.text }]}>
+                {post.content}
+              </Text>}
               
               {/* Program Card - Always visible now */}
               {post.post_type === 'program' && post.program_details && (
@@ -687,7 +705,7 @@ const Post: React.FC<PostProps> = ({
         </View>
         
         {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
+        <View style={[styles.actionsContainer, { borderTopColor: palette.border }]}>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={handleLike}
@@ -695,11 +713,12 @@ const Post: React.FC<PostProps> = ({
             <Ionicons 
               name={post.is_liked ? "heart" : "heart-outline"} 
               size={20} 
-              color={post.is_liked ? "#F87171" : "#9CA3AF"} 
+              color={post.is_liked ? "#F87171" : palette.border} 
             />
             <Text 
               style={[
                 styles.actionText, 
+                { color: palette.border },
                 post.is_liked && styles.likedText
               ]}
             >
@@ -711,8 +730,10 @@ const Post: React.FC<PostProps> = ({
             style={styles.actionButton}
             onPress={() => setShowCommentInput(!showCommentInput)}
           >
-            <Ionicons name="chatbubble-outline" size={20} color="#9CA3AF" />
-            <Text style={styles.actionText}>{post.comments_count || 0}</Text>
+            <Ionicons name="chatbubble-outline" size={20} color={palette.border} />
+            <Text style={[styles.actionText, { color: palette.border }]}>
+              {post.comments_count || 0}
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -723,11 +744,12 @@ const Post: React.FC<PostProps> = ({
             <Ionicons 
               name="share-social-outline" 
               size={20} 
-              color={post.is_share ? "#6B7280" : "#9CA3AF"} 
+              color={post.is_share ? "#6B7280" : palette.border} 
             />
             <Text 
               style={[
-                styles.actionText, 
+                styles.actionText,
+                { color: palette.border }, 
                 post.is_share && styles.disabledText
               ]}
             >
@@ -738,8 +760,8 @@ const Post: React.FC<PostProps> = ({
         
         {/* Comment Input */}
         {showCommentInput && (
-          <View style={styles.commentInputContainer}>
-            <View style={styles.commentInputAvatar}>
+          <View style={[styles.commentInputContainer, { borderTopColor: palette.border }]}>
+            <View style={[styles.commentInputAvatar, { backgroundColor: palette.accent }]}>
               <Text style={styles.commentInputAvatarText}>
                 {currentUser?.[0]?.toUpperCase() || '?'}
               </Text>
@@ -747,9 +769,12 @@ const Post: React.FC<PostProps> = ({
             
             <View style={styles.commentInputWrapper}>
               <TextInput
-                style={styles.commentInput}
+                style={[styles.commentInput, { 
+                  backgroundColor: palette.layout === '#F8F9FA' ? '#E2E8F0' : '#1F2937',
+                  color: palette.text 
+                }]}
                 placeholder={t('write_comment')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={palette.border}
                 value={commentText}
                 onChangeText={setCommentText}
               />
@@ -770,7 +795,7 @@ const Post: React.FC<PostProps> = ({
                 <Ionicons 
                   name="send" 
                   size={18} 
-                  color={commentText.trim() ? "#60A5FA" : "#6B7280"} 
+                  color={commentText.trim() ? palette.accent : "#6B7280"} 
                 />
               </TouchableOpacity>
             </View>
@@ -788,34 +813,48 @@ const Post: React.FC<PostProps> = ({
           onRequestClose={() => setIsShareModalOpen(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.shareModalContent}>
-              <View style={styles.shareModalHeader}>
-                <Text style={styles.shareModalTitle}>{t('share_post')}</Text>
+            <View style={[styles.shareModalContent, { 
+              backgroundColor: 'rgba(31, 41, 55, 0.9)',
+              borderColor: palette.border
+            }]}>
+              <View style={[styles.shareModalHeader, { 
+                borderBottomColor: palette.border 
+              }]}>
+                <Text style={[styles.shareModalTitle, { color: palette.text }]}>
+                  {t('share_post')}
+                </Text>
                 <TouchableOpacity onPress={() => setIsShareModalOpen(false)}>
-                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                  <Ionicons name="close" size={24} color={palette.text} />
                 </TouchableOpacity>
               </View>
               
               <TextInput
-                style={styles.shareInput}
+                style={[styles.shareInput, { 
+                  backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                  borderColor: palette.border,
+                  color: palette.text 
+                }]}
                 placeholder={t('add_your_thoughts')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={palette.border}
                 multiline
                 value={shareText}
                 onChangeText={setShareText}
               />
               
-              <View style={styles.sharedPostPreview}>
-                <Text style={styles.sharedLabel}>
+              <View style={[styles.sharedPostPreview, { 
+                backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                borderColor: palette.border 
+              }]}>
+                <Text style={[styles.sharedLabel, { color: palette.border }]}>
                   {t('original_post_by')} {post.user_username}
                 </Text>
-                <Text style={styles.sharedPreviewText} numberOfLines={2}>
+                <Text style={[styles.sharedPreviewText, { color: palette.text }]} numberOfLines={2}>
                   {post.content}
                 </Text>
               </View>
               
               <TouchableOpacity 
-                style={styles.shareButton}
+                style={[styles.shareButton, { backgroundColor: palette.accent }]}
                 onPress={submitShare}
               >
                 <Text style={styles.shareButtonText}>{t('share')}</Text>
@@ -823,8 +862,6 @@ const Post: React.FC<PostProps> = ({
             </View>
           </View>
         </Modal>
-        
-        {/* No bottom sheet component - using Alert instead */}
       </View>
     </TouchableOpacity>
   );
@@ -836,11 +873,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   container: {
-    backgroundColor: 'rgba(8,15,25,255)', // More transparent background for blur effect
-    borderRadius: 0,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
     position: 'relative',
   },
   blurBackground: {
@@ -857,7 +892,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(8,15,25,255)',
     borderRadius: 24,
   },
   gradientLine: {
@@ -891,7 +925,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 22,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -913,7 +946,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#9333EA',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -935,10 +967,9 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginRight: 8,
   },
-  // New post type badge styles
+  // Post type badge styles
   postTypeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -955,11 +986,9 @@ const styles = StyleSheet.create({
   },
   sharedLabel: {
     fontSize: 14,
-    color: '#9CA3AF',
   },
   postDate: {
     fontSize: 13,
-    color: '#9CA3AF',
     marginTop: 2,
   },
   menuButton: {
@@ -993,7 +1022,6 @@ const styles = StyleSheet.create({
   },
   postText: {
     fontSize: 16,
-    color: '#E5E7EB',
     lineHeight: 24,
     marginBottom: 8, // Reduced margin between text and cards
   },
@@ -1015,7 +1043,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 8, // Reduced margin
     borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
   },
   sharedPostHeader: {
     flexDirection: 'row',
@@ -1026,7 +1053,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -1039,15 +1065,12 @@ const styles = StyleSheet.create({
   sharedPostUsername: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   sharedPostDate: {
     fontSize: 12,
-    color: '#9CA3AF',
   },
   sharedPostContent: {
     fontSize: 14,
-    color: '#D1D5DB',
     marginBottom: 12,
   },
   sharedPostImage: {
@@ -1059,7 +1082,6 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.3)',
     paddingVertical: 12,
   },
   actionButton: {
@@ -1072,7 +1094,6 @@ const styles = StyleSheet.create({
   actionText: {
     marginLeft: 6,
     fontSize: 14,
-    color: '#9CA3AF',
   },
   likedText: {
     color: '#F87171',
@@ -1085,13 +1106,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.3)',
   },
   commentInputAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1108,11 +1127,9 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    backgroundColor: '#1F2937',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    color: '#FFFFFF',
     fontSize: 14,
   },
   sendButton: {
@@ -1134,7 +1151,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1146,7 +1162,6 @@ const styles = StyleSheet.create({
   },
   commentBubble: {
     flex: 1,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
     borderRadius: 12,
     padding: 12,
   },
@@ -1159,19 +1174,15 @@ const styles = StyleSheet.create({
   commentUsername: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   commentDate: {
     fontSize: 10,
-    color: '#9CA3AF',
   },
   commentContent: {
     fontSize: 14,
-    color: '#E5E7EB',
   },
   noCommentsText: {
     fontSize: 14,
-    color: '#9CA3AF',
     textAlign: 'center',
     marginVertical: 16,
   },
@@ -1184,11 +1195,9 @@ const styles = StyleSheet.create({
   },
   shareModalContent: {
     width: '100%',
-    backgroundColor: 'rgba(31, 41, 55, 0.9)',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
   },
   shareModalHeader: {
     flexDirection: 'row',
@@ -1197,38 +1206,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.5)',
   },
   shareModalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   shareInput: {
-    backgroundColor: 'rgba(17, 24, 39, 0.8)',
     borderRadius: 12,
     padding: 16,
-    color: '#FFFFFF',
     fontSize: 16,
     minHeight: 100,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
   },
   sharedPostPreview: {
-    backgroundColor: 'rgba(17, 24, 39, 0.8)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
   },
   sharedPreviewText: {
     fontSize: 14,
-    color: '#D1D5DB',
   },
   shareButton: {
-    backgroundColor: '#3B82F6',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -1244,14 +1244,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   editInput: {
-    backgroundColor: 'rgba(31, 41, 55, 0.6)',
     borderRadius: 12,
     padding: 16,
-    color: '#FFFFFF',
     fontSize: 16,
     minHeight: 100,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.5)',
     marginBottom: 12,
   },
   editButtons: {
@@ -1267,7 +1264,6 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: 'rgba(31, 41, 55, 0.8)',
     borderWidth: 1,
-    borderColor: 'rgba(75, 85, 99, 0.5)',
   },
   saveButton: {
     backgroundColor: '#3B82F6',
@@ -1278,7 +1274,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // No bottom sheet styles needed
   deleteText: {
     color: '#EF4444',
   },

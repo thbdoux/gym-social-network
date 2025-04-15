@@ -15,6 +15,7 @@ import { usePostsFeed } from '../../hooks/query/usePostQuery';
 import { useFriends } from '../../hooks/query/useUserQuery';
 import { useUsers } from '../../hooks/query/useUserQuery';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext'; // Import the theme hook
 
 interface Post {
   id: number;
@@ -68,6 +69,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
+  const { palette } = useTheme(); // Use the theme context
   
   // Use React Query hooks
   const { 
@@ -156,17 +158,20 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 
   if (isLoading && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading posts...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: palette.layout }]}>
+        <ActivityIndicator size="large" color={palette.accent} />
+        <Text style={[styles.loadingText, { color: palette.text }]}>Loading posts...</Text>
       </View>
     );
   }
   
   if (hasError) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Something went wrong</Text>
+      <View style={[styles.errorContainer, { 
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderColor: 'rgba(239, 68, 68, 0.3)' 
+      }]}>
+        <Text style={[styles.errorTitle, { color: palette.text }]}>Something went wrong</Text>
         <Text style={styles.errorText}>
           {postsError?.message || friendsError?.message || usersError?.message || 'Failed to load posts'}
         </Text>
@@ -176,14 +181,21 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 
   if (filteredPosts.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>No posts yet</Text>
-        <Text style={styles.emptyText}>
+      <View style={[styles.emptyContainer, { backgroundColor: palette.layout }]}>
+        <Text style={[styles.emptyTitle, { color: palette.text }]}>No posts yet</Text>
+        <Text style={[styles.emptyText, { color: palette.border }]}>
           Connect with friends or create your first post!
         </Text>
       </View>
     );
   }
+
+  // Create a style object for content container that incorporates the theme
+  const themedContentContainerStyle = {
+    ...styles.listContainer,
+    backgroundColor: palette.layout,
+    ...(contentContainerStyle || {})
+  };
 
   return (
     <FlatList
@@ -207,13 +219,13 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           onPostClick={onPostClick}
         />
       )}
-      contentContainerStyle={[styles.listContainer, contentContainerStyle]}
+      contentContainerStyle={themedContentContainerStyle}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor="#3B82F6"
-          colors={['#3B82F6']}
+          tintColor={palette.accent}
+          colors={[palette.accent]}
         />
       }
       onScroll={onScroll}
@@ -235,7 +247,6 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   loadingText: {
-    color: '#9CA3AF',
     marginTop: 8,
   },
   emptyContainer: {
@@ -247,12 +258,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 8,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#9CA3AF',
     lineHeight: 20,
   },
   errorContainer: {
@@ -260,16 +269,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     margin: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   errorTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 8,
   },
   errorText: {

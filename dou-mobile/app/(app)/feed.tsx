@@ -14,6 +14,8 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useHeaderAnimation } from '../../context/HeaderAnimationContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 import FeedContainer from '../../components/feed/FeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsModal from '../../components/profile/FriendsModal';
@@ -29,12 +31,16 @@ export default function FeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { palette, personality } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
+  
+  // Create themed styles
+  const styles = themedStyles(palette);
   
   // Create an animated scroll value and share it with the header animation context
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -58,8 +64,6 @@ export default function FeedScreen() {
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: forkProgram } = useForkProgram();
-  // Add editPost mutation
-  // const { mutateAsync: editPost } = useEditPost();
 
   // Calculate header animation values - make it disappear completely
   const headerHeight = scrollY.interpolate({
@@ -199,23 +203,23 @@ export default function FeedScreen() {
     switch (personalityType) {
       case 'optimizer':
         message = t('welcome_message_optimizer');
-        backgroundImage = require('../../assets/images/optimizer-hawk/feed.png');
+        backgroundImage = require('../../assets/images/optimizer-hawk/feed-no-bg.png');
         break;
       case 'versatile':
         message = t('welcome_message_versatile');
-        backgroundImage = require('../../assets/images/versatile-fox/feed.png');
+        backgroundImage = require('../../assets/images/versatile-fox/feed-no-bg.png');
         break;
       case 'diplomate':
         message = t('welcome_message_diplomate');
-        backgroundImage = require('../../assets/images/diplomate-monkey/feed.png');
+        backgroundImage = require('../../assets/images/diplomate-monkey/feed-no-bg.png');
         break;
       case 'mentor':
         message = t('welcome_message_mentor');
-        backgroundImage = require('../../assets/images/mentor-elephant/feed.png');
+        backgroundImage = require('../../assets/images/mentor-elephant/feed-no-bg.png');
         break;
       default:
         message = t('welcome_message_default');
-        backgroundImage = require('../../assets/images/bob.jpg');
+        backgroundImage = require('../../assets/images/optimizer-hawk/feed-no-bg.png');
         break;
     }
     
@@ -226,12 +230,12 @@ export default function FeedScreen() {
           style={styles.welcomeBackground}
           imageStyle={styles.welcomeBackgroundImage}
         >
-            <Text style={styles.welcomeText}>
-              {message}
-            </Text>
-            <Text style={styles.welcomeUsername}>
-              {user?.displayName || user?.username || 'Friend'}?
-            </Text>
+          <Text style={styles.welcomeText}>
+            {message}
+          </Text>
+          <Text style={styles.welcomeUsername}>
+            {user?.displayName || user?.username || 'Friend'}?
+          </Text>
         </ImageBackground>
       </View>
     );
@@ -290,7 +294,7 @@ export default function FeedScreen() {
         <View style={styles.feedWrapper}>
           {postsLoading && !refreshing ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" />
+              <ActivityIndicator size="large" color={palette.primary} />
               <Text style={styles.loadingText}>Loading posts...</Text>
             </View>
           ) : (
@@ -348,19 +352,19 @@ export default function FeedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+// Create themed styles
+const themedStyles = createThemedStyles((palette) => ({
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
+    backgroundColor: palette.layout,
   },
   safeArea: {
     flex: 1,
-    backgroundColor: '#080f19',
+    backgroundColor: palette.layout,
   },
   header: {
-    backgroundColor: '#080f19', // Unified background color
+    backgroundColor: palette.layout,
     overflow: 'hidden',
-    // No border or separator
   },
   headerContent: {
     flexDirection: 'row',
@@ -378,7 +382,7 @@ const styles = StyleSheet.create({
   },
   feedWrapper: {
     flex: 1,
-    paddingTop: 0, // No extra padding needed since friends list is part of the feed
+    paddingTop: 0,
   },
   feedContentContainer: {
     paddingBottom: 100, // More space for bottom tab bar + fab menu
@@ -390,16 +394,15 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#9CA3AF',
+    color: withAlpha(palette.text, 0.7),
   },
-  // New styles for welcome message
   welcomeContainer: {
     marginHorizontal: 0,
     marginVertical: 0,
     borderRadius: 0,
     overflow: 'hidden',
-    elevation: 3, // For Android shadow
-    shadowColor: '#000', // For iOS shadow
+    elevation: 3,
+    shadowColor: palette.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -417,7 +420,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 32,
     paddingLeft: 16,
-    color: '#FFFFFF',
+    color: palette.text,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: {width: -1, height: 1},
     textShadowRadius: 10
@@ -426,9 +429,9 @@ const styles = StyleSheet.create({
     fontSize: 45,
     paddingLeft: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: palette.text,
     textShadowColor: 'rgba(0, 0, 0, 2)',
     textShadowOffset: {width: -1, height: 1},
     textShadowRadius: 10
   },
-});
+}));

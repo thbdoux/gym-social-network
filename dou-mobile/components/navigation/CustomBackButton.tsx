@@ -9,6 +9,7 @@ import Animated, {
   interpolate,
   Extrapolate
 } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext';
 
 interface CustomBackButtonProps {
   defaultRoute?: string;
@@ -20,6 +21,7 @@ const CustomBackButton: React.FC<CustomBackButtonProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const pressed = useSharedValue(0);
+  const { palette } = useTheme();
   
   const handleGoBack = () => {
     pressed.value = withTiming(1, { duration: 150 }, () => {
@@ -60,8 +62,8 @@ const CustomBackButton: React.FC<CustomBackButtonProps> = ({
       activeOpacity={0.7}
     >
       <Animated.View style={[styles.backIcon, backAnimatedStyle]}>
-        <View style={styles.arrowLine1} />
-        <View style={styles.arrowLine2} />
+        <View style={[styles.arrowLine1, { backgroundColor: palette.text }]} />
+        <View style={[styles.arrowLine2, { backgroundColor: palette.text }]} />
       </Animated.View>
     </TouchableOpacity>
   );
@@ -83,7 +85,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 10,
     height: 2,
-    backgroundColor: '#FFFFFF',
     borderRadius: 1,
     transform: [{ rotate: '-45deg' }, { translateY: -4 }]
   },
@@ -91,7 +92,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 10,
     height: 2,
-    backgroundColor: '#FFFFFF',
     borderRadius: 1,
     transform: [{ rotate: '45deg' }, { translateY: 4 }]
   }

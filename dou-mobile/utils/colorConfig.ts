@@ -5,9 +5,8 @@ export type Personality = 'optimizer' | 'versatile' | 'diplomate' | 'mentor';
 
 // Define the structure of a color palette
 export interface ColorPalette {
-  primary: string;
-  secondary: string;
-  background: string;
+  layout: string;
+  page_background:string,
   text: string;
   border: string;
   accent: string;
@@ -16,41 +15,37 @@ export interface ColorPalette {
 
 // Define color palettes for each personality
 const COLOR_PALETTES: Record<Personality, ColorPalette> = {
-  optimizer: {
-    primary: '#0077B6',    // Strong blue - focused, efficient
-    secondary: '#00B4D8',  // Light blue - clarity, precision
-    background: '#E9ECEF', // Light gray - clean, minimal
-    text: '#212529',       // Dark gray - direct, clear
-    border: '#ADB5BD',     // Medium gray - structured
-    accent: '#FF9F1C',     // Orange - energy, action
-    highlight: '#CAF0F8',  // Very light blue - emphasis
+  optimizer: {    
+    layout: '#002e4d', 
+    page_background:'#00192c',
+    text: '#fbfcf9',       
+    border: '#ADB5BD',     
+    accent: '#00192c',     
+    highlight: '#e9a835',  
   },
   versatile: {
-    primary: '#7209B7',    // Purple - adaptable, creative
-    secondary: '#F72585',  // Pink - vibrant, dynamic
-    background: '#F8F9FA', // Off-white - flexible, neutral
-    text: '#343A40',       // Dark gray - balanced
-    border: '#CED4DA',     // Light gray - adaptable
-    accent: '#4CC9F0',     // Bright blue - multifaceted
-    highlight: '#FDE2E6',  // Light pink - subtle emphasis
+    layout: '#49ab53',
+    page_background:'#00492b',
+    text: '#CED4DA',      
+    border: '#efca72',
+    accent: '#e17714',
+    highlight: '#FDE2E6',
   },
   diplomate: {
-    primary: '#2A9D8F',    // Teal - harmony, balance
-    secondary: '#E9C46A',  // Gold - warmth, diplomacy
-    background: '#F1FAEE', // Very light mint - calming
-    text: '#264653',       // Dark teal - trustworthy
-    border: '#B7E4D8',     // Light teal - peaceful
-    accent: '#F4A261',     // Peach - communication, openness
-    highlight: '#E8F8F5',  // Very light teal - gentle emphasis
+    layout: '#b092b1',
+    page_background:'#003c3c',
+    text: '#feefd3',
+    border: '#B7E4D8',
+    accent: '#f1661b',
+    highlight: '#E8F8F5',
   },
   mentor: {
-    primary: '#5E548E',    // Deep purple - wisdom, guidance
-    secondary: '#9C89B8',  // Lavender - supportive, nurturing
-    background: '#F5F5F5', // Light gray - knowledge, clarity
-    text: '#231942',       // Very dark purple - authoritative
-    border: '#DCCFEC',     // Light purple - structure
-    accent: '#FF6B6B',     // Coral red - passion for teaching
-    highlight: '#F0E6F6',  // Very light purple - gentle emphasis
+    layout: '#bb3c20',
+    page_background:'#00494d',
+    text: '#e7d5a4',
+    border: '#e7d5a4',
+    accent: '#203132',
+    highlight: '#e6d5a4',
   },
 };
 

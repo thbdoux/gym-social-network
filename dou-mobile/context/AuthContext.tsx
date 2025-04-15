@@ -38,13 +38,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Define a reusable logout function
   const handleLogout = useCallback(async () => {
     try {
+      console.log('AuthContext: Logging out user', user?.id);
+      
       // STEP 1: Clear token
       await SecureStore.deleteItemAsync('token');
       
-      // STEP 2: Clear all cached queries
-      // First remove specific query categories
+      // STEP 2: Update authentication state FIRST (this will trigger theme reset)
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // STEP 3: Clear all cached queries
+      // First invalidate specific queries
       const allQueryKeys = [
         userKeys.all,
+        userKeys.current(),
         ['posts'], 
         ['programs'],
         ['workouts'],
@@ -53,23 +60,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ['profilePreviews']
       ];
       
-      // Remove each query key specifically
+      // Invalidate each query key specifically
       allQueryKeys.forEach(key => {
-        queryClient.removeQueries({ queryKey: key, exact: false });
+        queryClient.invalidateQueries({ queryKey: key, exact: key === userKeys.current() });
+        queryClient.removeQueries({ queryKey: key, exact: key === userKeys.current() });
       });
       
-      // STEP 3: Perform complete cache purge
+      // STEP 4: Perform complete cache purge
       queryClient.clear();
       
-      // STEP 4: Reset query cache
+      // STEP 5: Reset query cache
       queryClient.resetQueries();
       
-      // STEP 5: Update authentication state
-      setUser(null);
-      setIsAuthenticated(false);
-      
       // STEP 6: Add a small delay to ensure cache operations complete
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // STEP 7: Navigate to login
       router.replace('/login');
@@ -78,7 +82,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Still try to navigate to login in case of error
       router.replace('/login');
     }
-  }, [queryClient]);
+  }, [queryClient, user?.id]);
 
   // Load user data on mount or token change
   useEffect(() => {
@@ -87,11 +91,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const token = await SecureStore.getItemAsync('token');
         if (token) {
           try {
+            // Clear cache before fetching fresh user data
+            queryClient.invalidateQueries({ queryKey: userKeys.current() });
+            
             const userData = await userService.getCurrentUser();
+            console.log('AuthContext: Loaded user data', userData?.id);
             setUser(userData);
             setIsAuthenticated(true);
+            
+            // Make sure the current user query is properly set in cache
+            queryClient.setQueryData(userKeys.current(), userData);
           } catch (error) {
             // If token is invalid or expired, clear it and reset auth state
+            console.error('Error fetching user:', error);
             await SecureStore.deleteItemAsync('token');
             setUser(null);
             setIsAuthenticated(false);
@@ -102,6 +114,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // Redirect to login screen
             router.replace('/login');
           }
+        } else {
+          console.log('AuthContext: No token found');
+          setUser(null);
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('Error loading user:', error);
@@ -129,6 +145,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
+      console.log('AuthContext: Logging in user', username);
+      
       // STEP 1: Clear any existing cache data
       queryClient.clear();
       
@@ -136,9 +154,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const tokenData = await userService.login(username, password);
       await SecureStore.setItemAsync('token', tokenData.access);
       
-      // STEP 3: Clear any potentially cached queries again
+      // STEP 3: Clear any potentially cached queries specifically
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+      queryClient.invalidateQueries({ queryKey: userKeys.current() });
+      
+      // Remove each specific query
       const allQueryKeys = [
         userKeys.all,
+        userKeys.current(),
         ['posts'], 
         ['programs'],
         ['workouts'],
@@ -147,18 +170,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ['profilePreviews']
       ];
       
-      // Remove each query key specifically
       allQueryKeys.forEach(key => {
-        queryClient.removeQueries({ queryKey: key, exact: false });
+        queryClient.invalidateQueries({ queryKey: key });
       });
       
       // STEP 4: Force a fresh fetch of user data
       const userData = await userService.getCurrentUser();
+      console.log('AuthContext: Fetched fresh user data', userData?.id);
+      
+      // STEP 5: Set user and authentication state
       setUser(userData);
       setIsAuthenticated(true);
       
-      // STEP 5: Ensure current user query is properly set in cache
+      // STEP 6: Ensure current user query is properly set in cache with proper settings
       queryClient.setQueryData(userKeys.current(), userData);
+      
+      // STEP 7: Mark all user queries as stale to trigger refetches
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
       
       return true;
     } catch (error) {

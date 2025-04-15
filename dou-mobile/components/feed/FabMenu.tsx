@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface FabMenuItem {
   id: string;
@@ -25,12 +26,14 @@ interface FabMenuProps {
 
 const FabMenu: React.FC<FabMenuProps> = ({ onItemPress }) => {
   const { t } = useLanguage();
+  const { palette } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   
   // Animation values
   const animation = useRef(new Animated.Value(0)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   
+  // Use personality-specific colors for menu items
   const menuItems: FabMenuItem[] = [
     {
       id: 'regular',
@@ -124,7 +127,7 @@ const FabMenu: React.FC<FabMenuProps> = ({ onItemPress }) => {
       <View style={styles.fabMenuContainer} pointerEvents="box-none">
         {menuItems.map((item, index) => {
           // Calculate animations for each menu item
-          const offsetDistance = 80 + (index * 60); // Much larger spacing between items
+          const offsetDistance = 80 + (index * 60);
           
           const itemAnimation = animation.interpolate({
             inputRange: [0, 1],
@@ -161,10 +164,10 @@ const FabMenu: React.FC<FabMenuProps> = ({ onItemPress }) => {
                 onPress={() => handleItemPress(item.id)}
                 activeOpacity={0.8}
               >
-                <Ionicons name={item.icon as any} size={20} color="#FFFFFF" />
+                <Ionicons name={item.icon as any} size={20} color={palette.accent} />
               </TouchableOpacity>
-              <View style={styles.fabItemLabelContainer}>
-                <Text style={styles.fabItemLabel}>{item.label}</Text>
+              <View style={[styles.fabItemLabelContainer, { backgroundColor: palette.accent }]}>
+                <Text style={[styles.fabItemLabel, { color: palette.text }]}>{item.label}</Text>
               </View>
             </Animated.View>
           );
@@ -172,12 +175,12 @@ const FabMenu: React.FC<FabMenuProps> = ({ onItemPress }) => {
         
         {/* Main FAB Button */}
         <TouchableOpacity 
-          style={styles.fab}
+          style={[styles.fab, { backgroundColor: palette.highlight }]}
           onPress={toggleMenu}
           activeOpacity={0.8}
         >
           <Animated.View style={{ transform: [{ rotate: fabRotate }] }}>
-            <Ionicons name="add" size={24} color="#FFFFFF" />
+            <Ionicons name="add" size={24} color={palette.accent} />
           </Animated.View>
         </TouchableOpacity>
       </View>
@@ -202,7 +205,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
@@ -234,7 +236,6 @@ const styles = StyleSheet.create({
   fabItemLabelContainer: {
     position: 'absolute',
     right: 54,
-    backgroundColor: '#1F2937',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -245,7 +246,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   fabItemLabel: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
   },

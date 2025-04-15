@@ -94,8 +94,8 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
         <WorkoutLogCard
           logId={item.id}
           log={item}
-          user=""
-          inFeedMode={false}
+          user={user?.username}
+          inFeedMode={true}
           onFork={undefined}
         />
         {isSelected && (

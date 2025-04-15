@@ -126,7 +126,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({
     if (avatar) {
       return { uri: avatar };
     }
-    return require('../../assets/images/dou.svg'); // Make sure this default image exists
+    return require('../../assets/images/dou.png'); // Make sure this default image exists
   };
 
   // Get initials for avatar fallback
