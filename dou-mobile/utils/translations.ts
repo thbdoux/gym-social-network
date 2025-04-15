@@ -63,7 +63,6 @@ const common = {
     welcome_message_mentor: "Ready to inspire others,",
     welcome_message_versatile: "Ready to master new skills,",
     welcome_message_default: "Ready to crush new records,",
-    
   },
   fr: {
     language: 'Langue',
@@ -615,6 +614,16 @@ const edit_profile = {
     select_gym: 'Select a gym',
     no_preferred_gym: 'No preferred gym',
     add_new_gym : 'Add New Gym',
+    enter_fitness_goals: 'Enter Fitness Goals',
+    select_training_level: 'Training Level',
+    select_personality_type: 'Select a personality type',
+    casual: 'Casual',
+    success: 'Success',
+    profile_updated_successfully: 'Profile updated successfully',
+    logout_confirmation_title: 'Log out',
+    logout_confirmation_message: 'Do you really want to log out?',
+    no_gym_set : 'Gym not specified',
+    edit_your_post: 'Edit your post',
   },
   fr: {
     tap_to_change_photo:'Cliquer pour changer la photo',
@@ -624,6 +633,16 @@ const edit_profile = {
     select_gym: 'Sélectionner une salle de sport',
     no_preferred_gym: 'Pas de préférence',
     add_new_gym : 'Ajouter',
+    enter_fitness_goals: 'Renseigner un objectif sportif',
+    select_training_level: 'Niveau',
+    select_personality_type: 'Type de personnalité',
+    casual: 'Neutre',
+    success: 'Confirmation',
+    profile_updated_successfully: 'Profil modifié avec succès',
+    logout_confirmation_title: 'Déconnexion',
+    logout_confirmation_message: 'Voulez-vous vraiment vous déconnecter?',
+    no_gym_set : 'Salle non spécifiée',
+    edit_your_post: 'Modifier la publication',
   }
 }
 
@@ -797,7 +816,9 @@ const social = {
     add_your_thoughts: 'Add your thoughts...',
     no_comments: 'No comments yet',
     confirm_delete_post: 'Are you sure you want to delete this post?',
-    info: 'Information'
+    info: 'Information',
+    view_profile: 'View Profile',
+    post_options: 'Options',
   },
   fr: {
     friends: 'Amis',
@@ -834,7 +855,9 @@ const social = {
     add_your_thoughts: 'Ajoutez vos pensées...',
     no_comments: 'Pas encore de commentaires',
     confirm_delete_post: 'Êtes-vous sûr de vouloir supprimer cette publication ?',
-    info: 'Information'
+    info: 'Information',
+    view_profile: 'Voir le profil',
+    post_options: 'Options',
   }
 };
 
