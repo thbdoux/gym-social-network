@@ -14,6 +14,7 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    language: 'Language',
     loading: 'Loading...',
     error: 'Error',
     retry: 'Retry',
@@ -65,6 +66,7 @@ const common = {
     
   },
   fr: {
+    language: 'Langue',
     loading: 'Chargement...',
     error: 'Erreur',
     retry: 'Réessayer',
@@ -604,6 +606,52 @@ const analytics = {
   }
 };
 
+const edit_profile = {
+  en: {
+    tap_to_change_photo:'Tap to change photo',
+    username_cannot_be_changed: 'Username cannot be changed',
+    enter_bio: 'Enter a bio',
+    fitness_goals: 'Fitness Goals',
+    select_gym: 'Select a gym',
+    no_preferred_gym: 'No preferred gym',
+    add_new_gym : 'Add New Gym',
+  },
+  fr: {
+    tap_to_change_photo:'Cliquer pour changer la photo',
+    username_cannot_be_changed: 'Le nom d\'utilisateur ne peut être changé',
+    enter_bio: 'Renseigner une bio',
+    fitness_goals: 'Objectifs sportifs',
+    select_gym: 'Sélectionner une salle de sport',
+    no_preferred_gym: 'Pas de préférence',
+    add_new_gym : 'Ajouter',
+  }
+}
+
+const create_gym = {
+  en: {
+    create_new_gym : 'Create a new gym',
+    gym_name: 'Gym name',
+    enter_gym_name: 'Enter a gym name',
+    gym_location: 'Location',
+    enter_gym_location: 'Enter a gym location',
+    enter_gym_description: 'Enter a description of the gym',
+    optional_description: 'Optional',
+    required_fields: 'Required fields',
+    create_gym: 'Create',
+  },
+  fr: {
+    create_new_gym : 'Créer une salle de sport',
+    gym_name: 'Nom de la salle',
+    enter_gym_name: 'Renseigner un nom pour la salle de sport',
+    gym_location: 'Localisation',
+    enter_gym_location: 'Renseigner un lieu',
+    enter_gym_description: 'Décrivez la salle de sport',
+    optional_description: 'Optionnel',
+    required_fields: 'Champs requis',
+    create_gym: 'Créer',
+  }
+}
+
 // Profile-related translations
 const profile = {
   en: {
@@ -612,6 +660,10 @@ const profile = {
     username: 'Username',
     email: 'Email',
     bio: 'Bio',
+    gym:' Gym',
+    workout_calendar: 'Workout Calendar',
+    workout_day: 'Workout Day',
+    today: 'Today',
     training_level: 'Training Level',
     personality_type: 'Personality Type',
     preferred_gym: 'Preferred Gym',
@@ -660,6 +712,10 @@ const profile = {
     username: 'Nom d\'utilisateur',
     email: 'Email',
     bio: 'Bio',
+    gym:'Salle de sport',
+    workout_calendar: 'Calendrier d\'entraînement',
+    workout_day: 'Séance',
+    today: 'Aujourd\'hui',
     training_level: 'Niveau d\'entraînement',
     personality_type: 'Type de personnalité',
     preferred_gym: 'Salle préférée',
@@ -1046,6 +1102,8 @@ const translations: Translations = {
     ...fitness.en,
     ...auth.en,
     ...post_creation.en,
+    ...create_gym.en,
+    ...edit_profile.en,
   },
   fr: {
     ...common.fr,
@@ -1059,6 +1117,8 @@ const translations: Translations = {
     ...fitness.fr,
     ...auth.fr,
     ...post_creation.fr,
+    ...create_gym.fr,
+    ...edit_profile.fr,
   }
 };
 

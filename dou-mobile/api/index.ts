@@ -3,13 +3,14 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { handleApiError } from './utils/errorHandler';
 import { authEvents } from './utils/authEvents';
+import { API_URL } from './config';
 
 /**
  * Configure the base API client with common settings
  */
 const apiClient = axios.create({
-  // baseURL: 'http://172.20.10.2:8000/api', 
-  baseURL: 'http://192.168.1.26:8000/api',
+  // Use the centralized API URL configuration
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
