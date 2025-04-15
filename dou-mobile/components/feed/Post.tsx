@@ -1,5 +1,5 @@
 // components/feed/Post.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -19,6 +19,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext'; // Import theme hook
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
 import ProgramCard from '../workouts/ProgramCard';
+import { getAvatarUrl } from '../../utils/imageUtils'; // Import getAvatarUrl
 
 // Get screen dimensions for bottom sheet
 const { height, width } = Dimensions.get('window');
@@ -35,6 +36,7 @@ interface Comment {
   created_at: string;
   author?: Author;
   user_username?: string;
+  user_profile_picture?: string;
 }
 
 interface Post {
@@ -57,6 +59,7 @@ interface Post {
   workout_log_details?: any;
   user_username: string;
   user_id?: number;
+  user_profile_picture?: string;
   streak?: number;
   achievements?: string[];
   stats?: {
@@ -70,7 +73,7 @@ interface Post {
 interface PostProps {
   post: Post;
   currentUser: string;
-  onLike: (postId: number) => void;
+  onLike: (postId: number, isLiked: boolean) => void;
   onComment: (postId: number, content: string) => void;
   onShare?: (postId: number, content: string) => void;
   onEdit?: (post: Post, newContent: string) => void;
@@ -107,7 +110,18 @@ const Post: React.FC<PostProps> = ({
   const [showMenu, setShowMenu] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareText, setShareText] = useState('');
+  
+  // Use local states for immediate UI updates
   const [liked, setLiked] = useState(post.is_liked);
+  const [localCommentsCount, setLocalCommentsCount] = useState(post.comments_count);
+  const [localComments, setLocalComments] = useState(post.comments || []);
+  
+  // Update local states when post props change
+  useEffect(() => {
+    setLiked(post.is_liked);
+    setLocalCommentsCount(post.comments_count);
+    setLocalComments(post.comments || []);
+  }, [post.is_liked, post.comments_count, post.comments]);
   
   // New state for edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -315,9 +329,38 @@ const Post: React.FC<PostProps> = ({
     setIsEditing(false);
   };
 
+  // Updated to handle like/unlike (dislike) properly
   const handleLike = () => {
+    // Toggle the liked state locally for immediate UI feedback
     setLiked(!liked);
-    onLike(post.id);
+    
+    // Call the onLike function with the post ID and current liked status
+    // so the backend knows whether to like or unlike
+    console.log(post);
+    onLike(post.id, liked);
+  };
+  
+  // Handle comment submission with local state updates
+  const handleCommentSubmit = () => {
+    if (commentText.trim()) {
+      // Call the parent handler
+      onComment(post.id, commentText);
+      
+      // Optimistically update local state for immediate UI feedback
+      const newComment = {
+        id: Date.now(), // Temporary ID until API response
+        content: commentText,
+        created_at: new Date().toISOString(),
+        user_username: currentUser,
+        user_profile_picture: userData?.avatar
+      };
+      
+      setLocalComments([...localComments, newComment]);
+      setLocalCommentsCount(localCommentsCount + 1);
+      
+      // Clear the input
+      setCommentText('');
+    }
   };
   
   // Determine what type of post this is
@@ -361,14 +404,16 @@ const Post: React.FC<PostProps> = ({
         activeOpacity={0.7}
       >
         <View style={styles.sharedPostHeader}>
+          {/* Use avatar image instead of text */}
           <TouchableOpacity 
-            style={[styles.sharedPostAvatar, { backgroundColor: palette.accent }]}
+            style={styles.sharedPostAvatar}
             onPress={handleSharedProfileClick}
             activeOpacity={0.7}
           >
-            <Text style={styles.sharedPostAvatarText}>
-              {originalPost.user_username?.[0]?.toUpperCase() || '?'}
-            </Text>
+            <Image 
+              source={{ uri: getAvatarUrl(originalPost.user_profile_picture) }}
+              style={styles.sharedPostAvatarImage}
+            />
           </TouchableOpacity>
           
           <TouchableOpacity onPress={handleSharedProfileClick} activeOpacity={0.7}>
@@ -418,11 +463,11 @@ const Post: React.FC<PostProps> = ({
   
   const Comments = () => (
     <View style={styles.commentsContainer}>
-      {(post.comments && post.comments.length > 0) ? (
-        post.comments.map(comment => (
+      {(localComments && localComments.length > 0) ? (
+        localComments.map(comment => (
           <View key={comment.id} style={styles.commentItem}>
             <TouchableOpacity 
-              style={[styles.commentAvatar, { backgroundColor: palette.accent }]}
+              style={styles.commentAvatar}
               onPress={(e) => {
                 e.stopPropagation();
                 if (comment.author?.id && onNavigateToProfile) {
@@ -432,9 +477,11 @@ const Post: React.FC<PostProps> = ({
                 }
               }}
             >
-              <Text style={styles.commentAvatarText}>
-                {comment.user_username?.[0]?.toUpperCase() || '?'}
-              </Text>
+              {/* Use getAvatarUrl to display profile picture */}
+              <Image 
+                source={{ uri: getAvatarUrl(comment.user_profile_picture || comment.author?.profile_picture) }}
+                style={styles.commentAvatarImage}
+              />
             </TouchableOpacity>
             
             <View style={[styles.commentBubble, { backgroundColor: 'rgba(31, 41, 55, 0.8)' }]}>
@@ -546,16 +593,17 @@ const Post: React.FC<PostProps> = ({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={[styles.avatarInner, { backgroundColor: palette.accent }]}>
+                <View style={styles.avatarInner}>
                   {userData?.avatar ? (
                     <Image
-                      source={{ uri: userData.avatar }}
+                      source={{ uri: getAvatarUrl(userData.avatar) }}
                       style={styles.avatarImage}
                     />
                   ) : (
-                    <Text style={styles.avatarText}>
-                      {post.user_username?.[0]?.toUpperCase() || '?'}
-                    </Text>
+                    <Image
+                      source={{ uri: getAvatarUrl(post.user_profile_picture) }}
+                      style={styles.avatarImage}
+                    />
                   )}
                 </View>
               </LinearGradient>
@@ -711,15 +759,15 @@ const Post: React.FC<PostProps> = ({
             onPress={handleLike}
           >
             <Ionicons 
-              name={post.is_liked ? "heart" : "heart-outline"} 
+              name={liked ? "heart" : "heart-outline"} 
               size={20} 
-              color={post.is_liked ? "#F87171" : palette.border} 
+              color={liked ? "#F87171" : palette.border} 
             />
             <Text 
               style={[
                 styles.actionText, 
                 { color: palette.border },
-                post.is_liked && styles.likedText
+                liked && styles.likedText
               ]}
             >
               {post.likes_count || 0}
@@ -732,7 +780,7 @@ const Post: React.FC<PostProps> = ({
           >
             <Ionicons name="chatbubble-outline" size={20} color={palette.border} />
             <Text style={[styles.actionText, { color: palette.border }]}>
-              {post.comments_count || 0}
+              {localCommentsCount || 0} {/* Use local state for immediate updates */}
             </Text>
           </TouchableOpacity>
           
@@ -761,10 +809,12 @@ const Post: React.FC<PostProps> = ({
         {/* Comment Input */}
         {showCommentInput && (
           <View style={[styles.commentInputContainer, { borderTopColor: palette.border }]}>
-            <View style={[styles.commentInputAvatar, { backgroundColor: palette.accent }]}>
-              <Text style={styles.commentInputAvatarText}>
-                {currentUser?.[0]?.toUpperCase() || '?'}
-              </Text>
+            <View style={styles.commentInputAvatar}>
+              {/* Use getAvatarUrl for current user avatar in comment input */}
+              <Image 
+                source={{ uri: getAvatarUrl(userData?.avatar) }}
+                style={styles.commentInputAvatarImage}
+              />
             </View>
             
             <View style={styles.commentInputWrapper}>
@@ -784,12 +834,7 @@ const Post: React.FC<PostProps> = ({
                   styles.sendButton,
                   !commentText.trim() && styles.sendButtonDisabled
                 ]}
-                onPress={() => {
-                  if (commentText.trim()) {
-                    onComment(post.id, commentText);
-                    setCommentText('');
-                  }
-                }}
+                onPress={handleCommentSubmit} // Use our updated comment handler
                 disabled={!commentText.trim()}
               >
                 <Ionicons 
@@ -1056,6 +1101,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+    overflow: 'hidden',
+  },
+  sharedPostAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
   },
   sharedPostAvatarText: {
     color: '#FFFFFF',
@@ -1114,6 +1165,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  commentInputAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
   },
   commentInputAvatarText: {
     color: '#FFFFFF',
@@ -1154,6 +1211,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  commentAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
   },
   commentAvatarText: {
     color: '#FFFFFF',

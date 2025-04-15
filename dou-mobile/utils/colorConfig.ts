@@ -16,7 +16,7 @@ export interface ColorPalette {
 // Define color palettes for each personality
 const COLOR_PALETTES: Record<Personality, ColorPalette> = {
   optimizer: {    
-    layout: '#002e4d', 
+    layout: '#00192c', 
     page_background:'#00192c',
     text: '#fbfcf9',       
     border: '#ADB5BD',     
@@ -24,16 +24,16 @@ const COLOR_PALETTES: Record<Personality, ColorPalette> = {
     highlight: '#e9a835',  
   },
   versatile: {
-    layout: '#49ab53',
-    page_background:'#00492b',
+    layout: '#16251a',
+    page_background:'#16251a',
     text: '#CED4DA',      
-    border: '#efca72',
+    border: '#9e995d',
     accent: '#e17714',
     highlight: '#FDE2E6',
   },
   diplomate: {
     layout: '#b092b1',
-    page_background:'#003c3c',
+    page_background:'#3f2243',
     text: '#feefd3',
     border: '#B7E4D8',
     accent: '#f1661b',

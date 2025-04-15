@@ -1,10 +1,9 @@
 // app/(app)/feed.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import {
   View,
   Text,
-  StyleSheet,
   ActivityIndicator,
   SafeAreaView,
   Alert,
@@ -26,6 +25,7 @@ import PostCreationModal from '../../components/feed/PostCreationModal';
 import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
+import { imageManager, useImagePreloading } from '../../utils/imageManager';
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -38,6 +38,9 @@ export default function FeedScreen() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
+  
+  // Preload all personality images
+  const { isLoaded: imagesLoaded } = useImagePreloading(['personality']);
   
   // Create themed styles
   const styles = themedStyles(palette);
@@ -65,6 +68,20 @@ export default function FeedScreen() {
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: forkProgram } = useForkProgram();
 
+  // Memoize the welcome message and image selection
+  const welcomeContent = useMemo(() => {
+    // Get personality type from user (with fallback)
+    const personalityType = (user?.personality_type || 'versatile').toLowerCase();
+    
+    // Get correct message for personality
+    const message = t(`welcome_message_${personalityType}`) || t('welcome_message_default');
+    
+    // Get correct image for personality using our image manager
+    const backgroundImage = imageManager.getLocalImage('personality', personalityType);
+    
+    return { message, backgroundImage };
+  }, [user?.personality_type, t]); // Only recalculate when these values change
+
   // Calculate header animation values - make it disappear completely
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 60],
@@ -89,9 +106,9 @@ export default function FeedScreen() {
     }
   };
 
-  const handleLike = async (postId: number) => {
+  const handleLike = async (postId: number, isLiked: boolean) => {
     try {
-      await likePost(postId);
+      await likePost({ postId, isLiked });  // Pass both parameters in an object
     } catch (err) {
       console.error('Error liking post:', err);
       Alert.alert('Error', 'Failed to like post');
@@ -191,47 +208,17 @@ export default function FeedScreen() {
     { useNativeDriver: false }
   );
 
-  // Custom rendering for the feed content with welcome message at the top
-  const renderHeader = () => {
-    // Determine personality type from user object (with fallback)
-    const personalityType = user?.personality_type || 'versatile';
-    
-    // Define messages and background images for each personality type
-    let message = '';
-    let backgroundImage;
-    
-    switch (personalityType) {
-      case 'optimizer':
-        message = t('welcome_message_optimizer');
-        backgroundImage = require('../../assets/images/optimizer-hawk/feed-no-bg.png');
-        break;
-      case 'versatile':
-        message = t('welcome_message_versatile');
-        backgroundImage = require('../../assets/images/versatile-fox/feed-no-bg.png');
-        break;
-      case 'diplomate':
-        message = t('welcome_message_diplomate');
-        backgroundImage = require('../../assets/images/diplomate-monkey/feed-no-bg.png');
-        break;
-      case 'mentor':
-        message = t('welcome_message_mentor');
-        backgroundImage = require('../../assets/images/mentor-elephant/feed-no-bg.png');
-        break;
-      default:
-        message = t('welcome_message_default');
-        backgroundImage = require('../../assets/images/optimizer-hawk/feed-no-bg.png');
-        break;
-    }
-    
+  // Custom rendering for the feed content with welcome message at the top - memoized
+  const renderHeader = useMemo(() => {
     return (
       <View style={styles.welcomeContainer}>
         <ImageBackground
-          source={backgroundImage}
+          source={welcomeContent.backgroundImage}
           style={styles.welcomeBackground}
           imageStyle={styles.welcomeBackgroundImage}
         >
           <Text style={styles.welcomeText}>
-            {message}
+            {welcomeContent.message}
           </Text>
           <Text style={styles.welcomeUsername}>
             {user?.displayName || user?.username || 'Friend'}?
@@ -239,7 +226,7 @@ export default function FeedScreen() {
         </ImageBackground>
       </View>
     );
-  };
+  }, [welcomeContent, user?.displayName, user?.username, styles]);
 
   // Add a handler for program selection
   const handleProgramSelect = (program: any) => {
@@ -292,10 +279,12 @@ export default function FeedScreen() {
 
         {/* Feed wrapper - includes the welcome message as its header */}
         <View style={styles.feedWrapper}>
-          {postsLoading && !refreshing ? (
+          {(postsLoading && !refreshing) || !imagesLoaded ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={styles.loadingText}>Loading posts...</Text>
+              <Text style={styles.loadingText}>
+                {!imagesLoaded ? 'Loading images...' : 'Loading posts...'}
+              </Text>
             </View>
           ) : (
             <FeedContainer

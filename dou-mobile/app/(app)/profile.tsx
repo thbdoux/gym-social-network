@@ -28,6 +28,8 @@ import { useCurrentUser, useLogout } from '../../hooks/query/useUserQuery';
 import { useGymDisplay } from '../../hooks/query/useGymQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
 import { useUserLogs, useWorkoutStats } from '../../hooks/query/useLogQuery';
+// Import ThemeContext
+import { useTheme } from '../../context/ThemeContext';
 // Add this import at the top with other imports
 import { useFriendsCount, usePostsCount, useWorkoutsCount, useAllCounts } from '../../hooks/query/useUserCountQuery';
 import ProgramCard from '../../components/workouts/ProgramCard';
@@ -45,6 +47,9 @@ export default function ProfileScreen() {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  
+  // Use the theme context
+  const { palette, personality } = useTheme();
   
   // Use React Query hooks
   const { 
@@ -219,19 +224,21 @@ export default function ProfileScreen() {
 
   // Get personality-based gradient for avatar
   const getPersonalityGradient = () => {
-    const personality = profile?.personality_type || 'default';
+    // Use the personality from theme context
+    const userPersonality = personality || 'versatile';
     
-    switch(personality.toLowerCase()) {
+    // Create gradients using the palette colors
+    switch(userPersonality) {
       case 'optimizer':
-        return ['#F59E0B', '#EF4444']; // Amber to Red
-      case 'diplomat':
-        return ['#10B981', '#3B82F6']; // Emerald to Blue
+        return [palette.highlight, palette.accent];
+      case 'diplomate':
+        return [palette.layout, palette.highlight];
       case 'mentor':
-        return ['#6366F1', '#4F46E5']; // Indigo to Dark Indigo
+        return [palette.layout, palette.highlight];
       case 'versatile':
-        return ['#EC4899', '#8B5CF6']; // Pink to Purple
+        return [palette.layout, palette.highlight];
       default:
-        return ['#9333EA', '#D946EF']; // Default Purple Gradient
+        return [palette.layout, palette.highlight];
     }
   };
 
@@ -243,15 +250,15 @@ export default function ProfileScreen() {
   
   if (isLoading && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#a855f7" />
-        <Text style={styles.loadingText}>{t('loading_profile')}</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
+        <ActivityIndicator size="large" color={palette.highlight} />
+        <Text style={[styles.loadingText, { color: palette.text }]}>{t('loading_profile')}</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
       {/* Image Modal */}
@@ -267,11 +274,11 @@ export default function ProfileScreen() {
               style={styles.closeButton}
               onPress={() => setImageModalVisible(false)}
             >
-              <Ionicons name="close-circle" size={30} color="#ffffff" />
+              <Ionicons name="close-circle" size={30} color={palette.text} />
             </TouchableOpacity>
             <Image
               source={{ uri: getAvatarUrl(profile?.avatar, 300) }}
-              style={styles.modalImage}
+              style={[styles.modalImage, { borderColor: palette.highlight }]}
               resizeMode="contain"
             />
           </View>
@@ -293,10 +300,10 @@ export default function ProfileScreen() {
           <View style={styles.optionsContainer}>
             <BlurView intensity={30} tint="dark" style={styles.blurBackground} />
             <TouchableOpacity style={styles.optionItem} onPress={navigateToEditProfile}>
-              <Ionicons name="create-outline" size={24} color="#ffffff" />
-              <Text style={styles.optionText}>{t('edit_profile')}</Text>
+              <Ionicons name="create-outline" size={24} color={palette.text} />
+              <Text style={[styles.optionText, { color: palette.text }]}>{t('edit_profile')}</Text>
             </TouchableOpacity>
-            <View style={styles.optionDivider} />
+            <View style={[styles.optionDivider, { backgroundColor: palette.border }]} />
             <TouchableOpacity style={styles.optionItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={24} color="#ef4444" />
               <Text style={[styles.optionText, { color: '#ef4444' }]}>{t('logout')}</Text>
@@ -311,8 +318,8 @@ export default function ProfileScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#a855f7"
-            colors={['#a855f7']}
+            tintColor={palette.highlight}
+            colors={[palette.highlight]}
           />
         }
       >
@@ -332,7 +339,7 @@ export default function ProfileScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.profileImageInner}>
+                <View style={[styles.profileImageInner, { backgroundColor: palette.page_background }]}>
                   <Image
                     source={{ uri: getAvatarUrl(profile?.avatar, 80) }}
                     style={styles.profileImage}
@@ -346,19 +353,19 @@ export default function ProfileScreen() {
             <View style={styles.profileRightContent}>
               <View style={styles.profileInfo}>
                 <View style={styles.usernameContainer}>
-                  <Text style={styles.profileUsername}>{profile?.username || t('user')}</Text>
+                  <Text style={[styles.profileUsername, { color: palette.text }]}>{profile?.username || t('user')}</Text>
                   <TouchableOpacity 
                     style={styles.optionsButton}
                     onPress={() => setOptionsModalVisible(true)}
                   >
-                    <MaterialCommunityIcons name="dots-vertical" size={24} color="#ffffff" />
+                    <MaterialCommunityIcons name="dots-vertical" size={24} color={palette.text} />
                   </TouchableOpacity>
                 </View>
                 
                 <View style={styles.badgesContainer}>
                   {profile?.personality_type && (
                     <LinearGradient
-                      colors={['#9333EA', '#D946EF']}
+                      colors={[palette.layout, palette.highlight]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.personalityBadge}
@@ -371,7 +378,7 @@ export default function ProfileScreen() {
                   
                   {profile?.preferred_gym && (
                     <LinearGradient
-                      colors={['#3B82F6', '#60A5FA']}
+                      colors={[palette.accent, palette.highlight]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.gymBadge}
@@ -388,19 +395,28 @@ export default function ProfileScreen() {
           
           {/* Stats row (below profile info) */}
           <View style={styles.statsRow}>
-            <TouchableOpacity style={styles.statItem} onPress={navigateToFriends}>
-              <Text style={styles.statValue}>{friendsCount}</Text>
-              <Text style={styles.statLabel}>{t('friends')}</Text>
+            <TouchableOpacity 
+              style={[styles.statItem, { backgroundColor: `${palette.accent}80` }]} 
+              onPress={navigateToFriends}
+            >
+              <Text style={[styles.statValue, { color: palette.text }]}>{friendsCount}</Text>
+              <Text style={[styles.statLabel, { color: `${palette.text}B3` }]}>{t('friends')}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.statItem} onPress={navigateToPosts}>
-              <Text style={styles.statValue}>{postsCount}</Text>
-              <Text style={styles.statLabel}>{t('posts')}</Text>
+            <TouchableOpacity 
+              style={[styles.statItem, { backgroundColor: `${palette.accent}80` }]} 
+              onPress={navigateToPosts}
+            >
+              <Text style={[styles.statValue, { color: palette.text }]}>{postsCount}</Text>
+              <Text style={[styles.statLabel, { color: `${palette.text}B3` }]}>{t('posts')}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.statItem} onPress={navigateToWorkouts}>
-              <Text style={styles.statValue}>{workoutsCount}</Text>
-              <Text style={styles.statLabel}>{t('workouts')}</Text>
+            <TouchableOpacity 
+              style={[styles.statItem, { backgroundColor: `${palette.accent}80` }]} 
+              onPress={navigateToWorkouts}
+            >
+              <Text style={[styles.statValue, { color: palette.text }]}>{workoutsCount}</Text>
+              <Text style={[styles.statLabel, { color: `${palette.text}B3` }]}>{t('workouts')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -410,23 +426,29 @@ export default function ProfileScreen() {
           <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
           
           <View style={styles.calendarHeader}>
-            <Text style={styles.cardTitle}>{t('workout_calendar')}</Text>
+            <Text style={[styles.cardTitle, { color: palette.text }]}>{t('workout_calendar')}</Text>
             <View style={styles.monthSelectorContainer}>
-              <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthButton}>
-                <Ionicons name="chevron-back" size={24} color="#ffffff" />
+              <TouchableOpacity 
+                onPress={() => changeMonth('prev')} 
+                style={[styles.monthButton, { backgroundColor: `${palette.accent}80` }]}
+              >
+                <Ionicons name="chevron-back" size={24} color={palette.text} />
               </TouchableOpacity>
-              <Text style={styles.monthDisplay}>
+              <Text style={[styles.monthDisplay, { color: palette.text }]}>
                 {format(currentMonth, 'MMMM yyyy')}
               </Text>
-              <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthButton}>
-                <Ionicons name="chevron-forward" size={24} color="#ffffff" />
+              <TouchableOpacity 
+                onPress={() => changeMonth('next')} 
+                style={[styles.monthButton, { backgroundColor: `${palette.accent}80` }]}
+              >
+                <Ionicons name="chevron-forward" size={24} color={palette.text} />
               </TouchableOpacity>
             </View>
           </View>
           
           <View style={styles.weekdaysHeader}>
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-              <Text key={index} style={styles.weekdayLabel}>{day}</Text>
+              <Text key={index} style={[styles.weekdayLabel, { color: `${palette.text}B3` }]}>{day}</Text>
             ))}
           </View>
           
@@ -440,8 +462,9 @@ export default function ProfileScreen() {
                   key={index}
                   style={[
                     styles.calendarDay,
-                    isWorkout && styles.workoutDay,
-                    isCurrent && styles.currentDay
+                    { backgroundColor: `${palette.accent}4D` },
+                    isWorkout && [styles.workoutDay, { backgroundColor: `${palette.highlight}4D`, borderColor: `${palette.highlight}80` }],
+                    isCurrent && [styles.currentDay, { backgroundColor: `${palette.highlight}4D`, borderColor: `${palette.highlight}B3` }]
                   ]}
                   onPress={() => {
                     if (isWorkout) {
@@ -454,15 +477,16 @@ export default function ProfileScreen() {
                   <Text 
                     style={[
                       styles.dayNumber,
-                      isWorkout && styles.workoutDayNumber,
-                      isCurrent && styles.currentDayNumber
+                      { color: palette.text },
+                      isWorkout && [styles.workoutDayNumber, { color: palette.text, fontWeight: 'bold' }],
+                      isCurrent && [styles.currentDayNumber, { color: palette.text, fontWeight: 'bold' }]
                     ]}
                   >
                     {format(day, 'd')}
                   </Text>
                   
                   {isWorkout && (
-                    <View style={styles.workoutIndicator} />
+                    <View style={[styles.workoutIndicator, { backgroundColor: palette.highlight }]} />
                   )}
                 </TouchableOpacity>
               );
@@ -471,12 +495,12 @@ export default function ProfileScreen() {
           
           <View style={styles.calendarLegend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} />
-              <Text style={styles.legendText}>{t('workout_day')}</Text>
+              <View style={[styles.legendDot, { backgroundColor: palette.highlight }]} />
+              <Text style={[styles.legendText, { color: `${palette.text}B3` }]}>{t('workout_day')}</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.legendText}>{t('today')}</Text>
+              <View style={[styles.legendDot, { backgroundColor: palette.highlight }]} />
+              <Text style={[styles.legendText, { color: `${palette.text}B3` }]}>{t('today')}</Text>
             </View>
           </View>
         </View>
@@ -485,7 +509,7 @@ export default function ProfileScreen() {
         <View style={styles.chartCard}>
           <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
           
-          <Text style={styles.cardTitle}>{t('training_consistency')}</Text>
+          <Text style={[styles.cardTitle, { color: palette.text }]}>{t('training_consistency')}</Text>
           <View style={styles.chartContainer}>
             <LineChart
               data={{
@@ -493,7 +517,7 @@ export default function ProfileScreen() {
                 datasets: [
                   {
                     data: sessionData.map(item => item.sessions),
-                    color: (opacity = 1) => `rgba(168, 85, 247, ${opacity})`, // Purple color
+                    color: (opacity = 1) => `${palette.highlight}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`,
                     strokeWidth: 3
                   }
                 ]
@@ -512,19 +536,19 @@ export default function ProfileScreen() {
               withShadow={false}
               segments={7}
               chartConfig={{
-                backgroundColor: '#080f19',
-                backgroundGradientFrom: '#080f19',
-                backgroundGradientTo: '#080f19',
+                backgroundColor: palette.page_background,
+                backgroundGradientFrom: palette.page_background,
+                backgroundGradientTo: palette.page_background,
                 decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
+                color: (opacity = 1) => `${palette.text}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`,
+                labelColor: (opacity = 1) => `${palette.text}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`,
                 style: {
                   borderRadius: 16
                 },
                 propsForDots: {
                   r: '6',
                   strokeWidth: '2',
-                  stroke: '#d946ef'
+                  stroke: palette.highlight
                 },
                 propsForHorizontalLabels: {
                   fontSize: 12,
@@ -544,26 +568,27 @@ export default function ProfileScreen() {
         <View style={styles.programContainer}>
           <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
           
-          <Text style={styles.cardTitle}>{t('current_program')}</Text>
+          <Text style={[styles.cardTitle, { color: palette.text }]}>{t('current_program')}</Text>
           
           {profile?.current_program ? (
             <ProgramCard
               programId={profile.current_program.id}
               program={profile.current_program}
               currentUser={profile.username}
+              themePalette={palette}
             />
           ) : (
             <View style={styles.emptyProgram}>
-              <Ionicons name="barbell-outline" size={48} color="#d1d5db" />
-              <Text style={styles.emptyProgramText}>{t('no_active_program')}</Text>
+              <Ionicons name="barbell-outline" size={48} color={palette.border} />
+              <Text style={[styles.emptyProgramText, { color: palette.border }]}>{t('no_active_program')}</Text>
               <TouchableOpacity onPress={() => router.push('/programs')}>
                 <LinearGradient
-                  colors={['#9333EA', '#D946EF']}
+                  colors={[palette.layout, palette.highlight]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.emptyProgramButton}
                 >
-                  <Text style={styles.emptyProgramButtonText}>{t('browse_programs')}</Text>
+                  <Text style={[styles.emptyProgramButtonText, { color: palette.text }]}>{t('browse_programs')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -577,7 +602,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
   },
   scrollContainer: {
     paddingHorizontal: 0, // Full width
@@ -588,10 +612,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#080f19',
   },
   loadingText: {
-    color: '#9ca3af',
     marginTop: 12,
   },
   blurBackground: {
@@ -632,7 +654,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 42, 
-    backgroundColor: '#080f19',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -671,7 +692,6 @@ const styles = StyleSheet.create({
   profileUsername: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
     flex: 1,
   },
   optionsButton: {
@@ -714,17 +734,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     marginHorizontal: 4,
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
     borderRadius: 12,
   },
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ffffff',
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
     fontWeight: '500',
     marginTop: 2,
@@ -753,7 +770,6 @@ const styles = StyleSheet.create({
   monthDisplay: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#ffffff',
     marginHorizontal: 12,
     width: 150,
     textAlign: 'center',
@@ -761,7 +777,6 @@ const styles = StyleSheet.create({
   monthButton: {
     padding: 5,
     borderRadius: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
   },
   weekdaysHeader: {
     flexDirection: 'row',
@@ -774,7 +789,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '500',
-    color: '#9ca3af',
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -789,29 +803,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     margin: 4,
     borderRadius: 16,
-    backgroundColor: 'rgba(31, 41, 55, 0.3)',
     position: 'relative',
   },
   dayNumber: {
     fontSize: 14,
-    color: '#e5e7eb',
   },
   workoutDay: {
-    backgroundColor: 'rgba(168, 85, 247, 0.3)',
     borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.5)',
   },
   workoutDayNumber: {
-    color: '#ffffff',
     fontWeight: 'bold',
   },
   currentDay: {
-    backgroundColor: 'rgba(16, 185, 129, 0.3)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.7)',
   },
   currentDayNumber: {
-    color: '#ffffff',
     fontWeight: 'bold',
   },
   workoutIndicator: {
@@ -820,7 +826,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#d946ef',
   },
   calendarLegend: {
     flexDirection: 'row',
@@ -840,7 +845,6 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#9ca3af',
   },
   
   // Options modal styles
@@ -860,13 +864,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   optionText: {
-    color: '#ffffff',
     fontSize: 16,
     marginLeft: 12,
   },
   optionDivider: {
     height: 1,
-    backgroundColor: 'rgba(75, 85, 99, 0.5)',
   },
   
   chartCard: {
@@ -875,13 +877,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginVertical: 0, // Remove margins
     borderWidth: 0, // Remove border
-    borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 16,
     paddingHorizontal: 8,
   },
@@ -899,7 +899,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 0, // Remove margins
     borderWidth: 0, // Remove border
-    borderColor: 'rgba(55, 65, 81, 0.5)',
     overflow: 'hidden',
   },
   emptyProgram: {
@@ -909,7 +908,6 @@ const styles = StyleSheet.create({
   },
   emptyProgramText: {
     fontSize: 16,
-    color: '#d1d5db',
     marginVertical: 16,
   },
   emptyProgramButton: {
@@ -918,7 +916,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   emptyProgramButtonText: {
-    color: '#fff',
     fontWeight: 'bold',
   },
   modalOverlay: {
@@ -938,7 +935,6 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 20,
     borderWidth: 3,
-    borderColor: '#a855f7',
   },
   closeButton: {
     position: 'absolute',

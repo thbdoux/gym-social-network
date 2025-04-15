@@ -18,6 +18,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
     """Serializer for original posts when shown in shares"""
     comments = CommentSerializer(many=True, read_only=True)
     likes_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
@@ -31,13 +32,16 @@ class OriginalPostSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'content', 'image', 'created_at', 'post_type',
             'user_username','user_id', 'user_profile_picture', 'comments',
-            'likes_count', 'workout_log_details', 'program_details',
+            'likes_count', 'comments_count', 'workout_log_details', 'program_details',
             'workout_invite_details', 'invited_users_details'
         ]
 
     # Copy over the get_* methods from PostSerializer
     def get_likes_count(self, obj):
         return obj.likes.count()
+
+    def get_comments_count(self, obj):
+        return obj.comments.count()
 
     def get_workout_log_details(self, obj):
         if obj.workout_log:
@@ -66,6 +70,7 @@ class PostSerializer(serializers.ModelSerializer):
 
     comments = CommentSerializer(many=True, read_only=True)
     likes_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
@@ -79,6 +84,9 @@ class PostSerializer(serializers.ModelSerializer):
     program_details = serializers.SerializerMethodField()
     workout_invite_details = serializers.SerializerMethodField()
     invited_users_details = serializers.SerializerMethodField()
+
+    def get_comments_count(self, obj):
+        return obj.comments.count()
     
     def get_original_post_details(self, obj):
         if obj.is_share and obj.original_post:
@@ -94,7 +102,7 @@ class PostSerializer(serializers.ModelSerializer):
             'id', 'content', 'image', 'created_at', 'post_type',
             'workout_log', 'program',
             'updated_at', 'user_username', 'user_id','user_profile_picture',
-            'comments', 'likes_count', 'is_liked',
+            'comments', 'likes_count','comments_count', 'is_liked',
             'workout_log_details', 'program_details', 
             'workout_invite_details', 'invited_users_details',
             'is_share', 'original_post', 'shares_count',

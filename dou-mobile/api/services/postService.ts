@@ -68,7 +68,14 @@ const postService = {
     await apiClient.delete(`/posts/${id}/`);
   },
 
-  likePost: async (id: number): Promise<any> => {
+  // Update like method to handle both like and unlike operations
+  likePost: async (id: number, isLiked: boolean): Promise<any> => {
+    // If the post is already liked, send DELETE request to unlike it
+    if (isLiked) {
+      const response = await apiClient.delete(`/posts/${id}/like/`);
+      return response.data;
+    } 
+    // Otherwise, send POST request to like it
     const response = await apiClient.post(`/posts/${id}/like/`);
     return response.data;
   },

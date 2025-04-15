@@ -164,9 +164,9 @@ const FabMenu: React.FC<FabMenuProps> = ({ onItemPress }) => {
                 onPress={() => handleItemPress(item.id)}
                 activeOpacity={0.8}
               >
-                <Ionicons name={item.icon as any} size={20} color={palette.accent} />
+                <Ionicons name={item.icon as any} size={20} color={palette.text} />
               </TouchableOpacity>
-              <View style={[styles.fabItemLabelContainer, { backgroundColor: palette.accent }]}>
+              <View style={[styles.fabItemLabelContainer, { backgroundColor: 'palette.accent' }]}>
                 <Text style={[styles.fabItemLabel, { color: palette.text }]}>{item.label}</Text>
               </View>
             </Animated.View>
@@ -191,7 +191,7 @@ const FabMenu: React.FC<FabMenuProps> = ({ onItemPress }) => {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     zIndex: 1,
   },
   fabMenuContainer: {
@@ -216,15 +216,15 @@ const styles = StyleSheet.create({
   fabMenuItem: {
     position: 'absolute',
     bottom: 0,
-    right: 0,
+    right: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
   fabItemButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 50,
+    height: 50,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   fabItemLabel: {
-    fontSize: 14,
+    fontSize: 22,
     fontWeight: '500',
   },
 });

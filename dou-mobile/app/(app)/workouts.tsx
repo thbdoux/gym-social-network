@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { programKeys } from '../../hooks/query/useProgramQuery';
+// Import ThemeContext
+import { useTheme } from '../../context/ThemeContext';
 
 // Import custom components
 import ViewSelector, { VIEW_TYPES, VIEW_ORDER } from '../../components/workouts/ViewSelector';
@@ -63,6 +65,8 @@ export default function WorkoutsScreen() {
   // Auth and context
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  // Use the theme context
+  const { palette } = useTheme();
   
   // State for UI
   const currentViewRef = useRef(VIEW_TYPES.WORKOUT_HISTORY); 
@@ -642,19 +646,19 @@ export default function WorkoutsScreen() {
   // Render loading state
   if (isLoading() && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
+        <ActivityIndicator size="large" color={palette.highlight} />
+        <Text style={[styles.loadingText, { color: palette.text }]}>Loading...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#080f19" />
-      <View style={styles.container}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.layout }]}>
+      <StatusBar barStyle="light-content" backgroundColor={palette.accent} />
+      <View style={[styles.container, { backgroundColor: palette.page_background }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: palette.border }]}>
           {selectionMode ? (
             // Selection mode header
             <SelectionModeHeader
@@ -680,21 +684,21 @@ export default function WorkoutsScreen() {
                   style={styles.headerButton}
                   onPress={toggleSelectionMode}
                 >
-                  <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
+                  <Ionicons name="ellipsis-horizontal" size={24} color={palette.text} />
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={styles.headerButton}
                   onPress={toggleActionModal}
                 >
-                  <Ionicons name="add" size={24} color="#FFFFFF" />
+                  <Ionicons name="add" size={24} color={palette.text} />
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={styles.headerButton}
                   onPress={() => router.push('/analytics')}
                 >
-                  <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
+                  <Ionicons name="stats-chart" size={22} color={palette.text} />
                 </TouchableOpacity>
               </View>
             </>
@@ -724,6 +728,8 @@ export default function WorkoutsScreen() {
           onAddTemplateToProgram={handleAddTemplateToProgram}
           swipeAnim={swipeAnim}
           contentOpacity={contentOpacity}
+          // Pass theme palette to AnimatedCardList
+          themePalette={palette}
         />
 
         {/* Modals */}
@@ -734,6 +740,7 @@ export default function WorkoutsScreen() {
           onCreateProgram={handleCreateProgram}
           onCreateTemplate={handleCreateTemplate}
           onLogWorkout={handleLogWorkout}
+          themePalette={palette}
         />
 
         <LogWorkoutModal
@@ -742,6 +749,7 @@ export default function WorkoutsScreen() {
           onLogFromProgram={handleLogFromProgram}
           onLogFromTemplate={handleLogFromTemplate}
           onLogFromScratch={handleLogFromScratch}
+          themePalette={palette}
         />
         
         <ProgramSelectionModal
@@ -751,6 +759,7 @@ export default function WorkoutsScreen() {
           activeProgram={activeProgram}
           programsLoading={programsLoading}
           user={user}
+          themePalette={palette}
         />
         
         <TemplateSelectionModal
@@ -760,6 +769,7 @@ export default function WorkoutsScreen() {
           templates={templates}
           templatesLoading={templatesLoading}
           user={user}
+          themePalette={palette}
         />
         
         <DeleteConfirmationModal
@@ -768,6 +778,7 @@ export default function WorkoutsScreen() {
           onConfirm={handleDelete}
           selectedItems={selectedItems}
           currentView={currentView}
+          themePalette={palette}
         />
         
         {/* Wizards */}
@@ -776,6 +787,7 @@ export default function WorkoutsScreen() {
           onSubmit={handleProgramSubmit}
           onClose={handleProgramWizardClose}
           visible={programWizardVisible}
+          themePalette={palette}
         />
 
         <WorkoutTemplateWizard
@@ -783,6 +795,7 @@ export default function WorkoutsScreen() {
           onSubmit={handleWorkoutTemplateSubmit}
           onClose={handleWorkoutTemplateWizardClose}
           visible={workoutTemplateWizardVisible}
+          themePalette={palette}
         />
 
         <WorkoutLogWizard
@@ -796,6 +809,7 @@ export default function WorkoutsScreen() {
           onProgramSelected={(programId) => setSelectedProgramId(programId)}
           onTemplateSelected={(templateId) => setSelectedTemplateId(templateId)}
           programId={selectedProgramId}
+          themePalette={palette}
         />
       </View>
     </SafeAreaView>
@@ -805,21 +819,17 @@ export default function WorkoutsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#080f19',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#080f19',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#080f19',
   },
   loadingText: {
-    color: '#FFFFFF',
     marginTop: 12,
     fontSize: 16,
   },
@@ -830,7 +840,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
   },
   headerButtons: {
     flexDirection: 'row',
