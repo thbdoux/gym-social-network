@@ -1,4 +1,5 @@
 // utils/translations.ts
+import { underDampedSpringCalculations } from 'react-native-reanimated/lib/typescript/animation/springUtils';
 import { SupportedLanguage } from '../context/LanguageContext';
 
 // Define translation structure
@@ -1112,6 +1113,99 @@ const template_wizard = {
   }
 };
 
+const deep_analytics = {
+  en:{
+    workout_analytics: "Workout Analytics",
+    analytics_subtitle: "Track your progress over time",
+    loading_analytics: "Loading your workout data...",
+    no_workout_data: "No workout data available",
+    no_data_for_filters: "No data for current filters",
+    complete_workouts_to_see_analytics: "Complete workouts to see your analytics here",
+    filtered_by: "Filtered by",
+    
+    // Metrics
+    total_weight_lifted: "Total Weight Lifted",
+    avg_weight_per_rep: "Average Weight Per Rep",
+    total_sets: "Total Sets",
+    workout_count: "Workouts Completed",
+    
+    // Filters
+    filters: "Filters",
+    reset: "Reset",
+    time_range: "Time Range",
+    muscle_group: "Muscle Group",
+    exercise: "Exercise",
+    all: "All",
+    
+    // Time ranges
+    four_weeks: "4 Weeks",
+    height_weeks: "8 Weeks",
+    twelves_weeks: "12 Weeks",
+    twentysix_weeks: "6 Months",
+    fiftytwo_weeks: "1 Year",
+    
+    // Muscle groups (lowercase for matching)
+    chest: "Chest",
+    back: "Back",
+    legs: "Legs",
+    shoulders: "Shoulders",
+    arms: "Arms",
+    core: "Core",
+    cardio: "Cardio",
+
+    all_muscles: 'All muscles',
+    sets_per_muscle_group: 'Number of Sets per Muscle Group',
+    muscle_group_breakdown: 'Muscle Group Breakdown :',
+    apply_filters : 'Apply Filters',
+    select_filters: 'Select Filters',
+  },
+  fr: {
+    workout_analytics: "Analytique d'Entraînement",
+    analytics_subtitle: "Suivez vos progrès au fil du temps",
+    loading_analytics: "Chargement de vos données d'entraînement...",
+    no_workout_data: "Aucune donnée d'entraînement disponible",
+    no_data_for_filters: "Aucune donnée pour les filtres actuels",
+    complete_workouts_to_see_analytics: "Complétez des entraînements pour voir vos analyses ici",
+    filtered_by: "Filtré par",
+    
+    // Metrics
+    total_weight_lifted: "Tonnage (kg)",
+    avg_weight_per_rep: "Poids moyen par répétition (kg)",
+    total_sets: "Séries Totales",
+    workout_count: "Entraînements Complétés",
+    
+    // Filters
+    filters: "Filtres",
+    reset: "Réinitialiser",
+    time_range: "Période",
+    muscle_group: "Groupe Musculaire",
+    exercise: "Exercice",
+    all: "Tous",
+    
+    // Time ranges
+    four_weeks: "4 Semaines",
+    height_weeks: "8 Semaines",
+    twelves_weeks: "12 Semaines",
+    twentysix_weeks: "6 Mois",
+    fiftytwo_weeks: "1 an",
+    
+    // Muscle groups (lowercase for matching)
+    chest: "Poitrine",
+    back: "Dos",
+    legs: "Jambes",
+    shoulders: "Épaules",
+    arms: "Bras",
+    core: "Abdominaux",
+    cardio: "Cardio",
+
+    all_muscles: 'Tous les muscles',
+    sets_per_muscle_group: 'Nb. de Séries / Muscle',
+    muscle_group_breakdown: 'Détails :',
+    apply_filters : 'Appliquer',
+    select_filters: 'Filtres',
+  }
+}
+
 const translations: Translations = {
   en: {
     ...common.en,
@@ -1127,6 +1221,7 @@ const translations: Translations = {
     ...post_creation.en,
     ...create_gym.en,
     ...edit_profile.en,
+    ...deep_analytics.en,
   },
   fr: {
     ...common.fr,
@@ -1142,6 +1237,7 @@ const translations: Translations = {
     ...post_creation.fr,
     ...create_gym.fr,
     ...edit_profile.fr,
+    ...deep_analytics.fr,
   }
 };
 
