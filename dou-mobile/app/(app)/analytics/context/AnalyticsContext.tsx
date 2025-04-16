@@ -38,7 +38,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | undefined>(undefined);
   const [selectedExercise, setSelectedExercise] = useState<string | undefined>(undefined);
-  const [timeRange, setTimeRange] = useState<number>(8); // Default to 8 weeks
+  const [timeRange, setTimeRange] = useState<number>(12);
   const [dataError, setDataError] = useState<string | null>(null);
   
   // Run data inspection when logs are loaded

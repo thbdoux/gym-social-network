@@ -1,5 +1,4 @@
-// components/AnalyticsCharts.tsx
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useLanguage } from '../../../../context/LanguageContext';
@@ -8,12 +7,12 @@ import { getMaxMetrics } from '../utils/analyticsUtils';
 import { MetricChart } from './MetricChart';
 import { WeeklySetsPerMuscleChart } from './WeeklySetsPerMuscleChart';
 import { NoDataView } from './NoDataView';
+import { ViewToggle, ViewMode } from './ViewToggle';
+import { AnalyticsTable } from './AnalyticsTable';
 
-// Using memo to prevent unnecessary re-renders
 export const AnalyticsCharts: React.FC = memo(() => {
   const { palette } = useTheme();
   const { t } = useLanguage();
-  
   const { 
     weeklyMetrics, 
     isLoading, 
@@ -21,46 +20,37 @@ export const AnalyticsCharts: React.FC = memo(() => {
     selectedExercise,
     dataError,
   } = useAnalytics();
-  
-  // Calculate max values for chart scaling with memoization
+
+  const [viewMode, setViewMode] = useState<ViewMode>('chart');
+
   const { maxWeight, maxAvgWeight, maxSets } = useMemo(() => 
     getMaxMetrics(weeklyMetrics), 
     [weeklyMetrics]
   );
-  
-  // Find the maximum sets in any week for scaling the sets per muscle chart
+
   const maxSetsPerWeek = useMemo(() => {
     if (!weeklyMetrics || weeklyMetrics.length === 0) return 10;
     return Math.max(...weeklyMetrics.map(week => week.totalSets), 10);
   }, [weeklyMetrics]);
-  
-  // Show data error if any
+
   if (dataError) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={[styles.errorText, { color: palette.text }]}>
-          {dataError}
-        </Text>
-        <Text style={[styles.errorSubtext, { color: palette.text + '80' }]}>
-          {t('try_refreshing')}
-        </Text>
+        <Text style={[styles.errorText, { color: palette.text }]}> {dataError} </Text>
+        <Text style={[styles.errorSubtext, { color: palette.text + '80' }]}> {t('try_refreshing')} </Text>
       </View>
     );
   }
-  
-  // Show loading indicator
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={palette.highlight} />
-        <Text style={[styles.loadingText, { color: palette.text }]}>
-          {t('loading_analytics')}
-        </Text>
+        <Text style={[styles.loadingText, { color: palette.text }]}> {t('loading_analytics')} </Text>
       </View>
     );
   }
-  
-  // Show empty state
+
   if (!weeklyMetrics || weeklyMetrics.length === 0) {
     return (
       <NoDataView 
@@ -72,8 +62,7 @@ export const AnalyticsCharts: React.FC = memo(() => {
       />
     );
   }
-  
-  // Get filter indicator message
+
   const getFilterMessage = () => {
     if (selectedMuscleGroup && selectedExercise) {
       return `${t('filtered_by')}: ${selectedMuscleGroup} / ${selectedExercise}`;
@@ -84,48 +73,48 @@ export const AnalyticsCharts: React.FC = memo(() => {
     }
     return '';
   };
-  
+
   return (
     <View style={styles.container}>
-      {/* Filter indicator */}
+      <ViewToggle currentView={viewMode} onToggle={setViewMode} />
+
       {(selectedMuscleGroup || selectedExercise) && (
         <View style={[styles.filterIndicator, { backgroundColor: palette.highlight + '20' }]}>
-          <Text style={[styles.filterText, { color: palette.text }]}>
-            {getFilterMessage()}
-          </Text>
+          <Text style={[styles.filterText, { color: palette.text }]}> {getFilterMessage()} </Text>
         </View>
       )}
-      
-      <ScrollView 
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Total Weight Lifted Chart */}
-        <MetricChart
-          title={t('total_weight_lifted')}
-          data={weeklyMetrics}
-          metricKey="totalWeightLifted"
-          metricColor={palette.highlight}
-          maxValue={maxWeight * 1.1}
-        />
-        
-        {/* Average Weight per Rep Chart */}
-        <MetricChart
-          title={t('avg_weight_per_rep')}
-          data={weeklyMetrics}
-          metricKey="averageWeightPerRep"
-          metricColor="#f59e0b"
-          maxValue={maxAvgWeight * 1.1}
-        />
-        
-        {/* Sets Per Muscle Group Chart (Weekly) */}
-        <WeeklySetsPerMuscleChart
-          title={t('sets_per_muscle_group')}
-          data={weeklyMetrics}
-          maxValue={maxSetsPerWeek * 1.1}
-        />
-      </ScrollView>
+
+      {viewMode === 'chart' ? (
+        <ScrollView 
+          style={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <MetricChart
+            title={t('total_weight_lifted')}
+            data={weeklyMetrics}
+            metricKey="totalWeightLifted"
+            metricColor={palette.highlight}
+            maxValue={maxWeight * 1.1}
+          />
+
+          <MetricChart
+            title={t('avg_weight_per_rep')}
+            data={weeklyMetrics}
+            metricKey="averageWeightPerRep"
+            metricColor="#f59e0b"
+            maxValue={maxAvgWeight * 1.1}
+          />
+
+          <WeeklySetsPerMuscleChart
+            title={t('sets_per_muscle_group')}
+            data={weeklyMetrics}
+            maxValue={maxSetsPerWeek * 1.1}
+          />
+        </ScrollView>
+      ) : (
+        <AnalyticsTable />
+      )}
     </View>
   );
 });
@@ -138,7 +127,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20, // Add some bottom padding for better scrolling experience
+    paddingBottom: 20,
   },
   loadingContainer: {
     flex: 1,
