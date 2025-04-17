@@ -2,6 +2,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from . import views
+
 from .views import (
     UserViewSet, 
     UserProfileView, 
@@ -39,4 +41,12 @@ urlpatterns = [
     # Add to urlpatterns
     path('<int:user_id>/friends/count/', get_user_friends_count, name='user-friends-count'),
     path('<int:user_id>/counts/', get_user_all_counts, name='user-all-counts'),
+    # New auth endpoints
+    path('register/', views.register_user, name='register'),
+    path('verify-email/', views.verify_email, name='verify-email'),
+    path('resend-verification/', views.resend_verification, name='resend-verification'),
+    path('social-auth/', views.social_auth_callback, name='social-auth'),
+    
+    # Include dj-rest-auth URLs
+    path('auth/', include('dj_rest_auth.urls')),
 ]

@@ -265,49 +265,60 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
   }, [currentStep, scores, personalityResult]);
 
   // Handle registration completion
-  const handleRegistration = async () => {
-    if (!registrationData) {
-      setError(t('registration_error'));
-      return;
-    }
+  // Update the handleRegistration function in PersonalityWizard.tsx
+
+const handleRegistration = async () => {
+  if (!registrationData) {
+    setError(t('registration_error'));
+    return;
+  }
+  
+  setIsSubmitting(true);
+  setError('');
+  
+  try {
+    // Register user with personality type - using the correct method name 'register'
+    await userService.register({
+      username: registrationData.username,
+      email: registrationData.email,
+      password: registrationData.password,
+      training_level: 'beginner',
+      personality_type: personalityResult || 'versatile',
+      language_preference: 'en', // Default language
+      fitness_goals: '', // Empty initially
+      bio: '' // Empty initially
+    });
     
-    setIsSubmitting(true);
-    setError('');
+    // After successful registration, we should check if email verification is required
+    // For now, we'll try to log in immediately
+    const success = await login(registrationData.username, registrationData.password);
     
-    try {
-      // Register user with personality type
-      await userService.registerUser({
-        username: registrationData.username,
-        email: registrationData.email,
-        password: registrationData.password,
-        training_level: 'beginner',
-        personality_type: personalityResult || 'versatile'
-      });
-      
-      // Login the user
-      const success = await login(registrationData.username, registrationData.password);
-      
-      if (success) {
-        // Navigate to feed
+    if (success) {
+      // If email verification is required, user may need to be redirected to verification page
+      if (!success.email_verified) {
+        router.replace('/verify-email-reminder');
+      } else {
+        // Navigate to feed if verification not required or already verified
         router.replace('/(app)/feed');
-      } else {
-        throw new Error('Login failed after registration');
       }
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      if (err.response?.data?.username) {
-        setError(t('username_taken'));
-      } else if (err.response?.data?.email) {
-        setError(t('email_registered'));
-      } else {
-        setError(Object.values(err.response?.data || {}).flat().join('\n') || t('registration_failed'));
-      }
-      
-      // Go back to registration form
-      setCurrentStep(7);
-      setIsSubmitting(false);
+    } else {
+      throw new Error('Login failed after registration');
     }
-  };
+  } catch (err: any) {
+    console.error('Registration error:', err);
+    if (err.response?.data?.username) {
+      setError(t('username_taken'));
+    } else if (err.response?.data?.email) {
+      setError(t('email_registered'));
+    } else {
+      setError(Object.values(err.response?.data || {}).flat().join('\n') || t('registration_failed'));
+    }
+    
+    // Go back to registration form
+    setCurrentStep(7);
+    setIsSubmitting(false);
+  }
+};
   
   // When registration data is available and personality is determined, register
   useEffect(() => {

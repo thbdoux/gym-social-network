@@ -33,6 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
             'password',
             'current_password',
             'email', 
+            'email_verified',
             'training_level', 
             'personality_type',
             'language_preference',
@@ -40,7 +41,11 @@ class UserSerializer(serializers.ModelSerializer):
             'bio',
             'avatar',
             'preferred_gym',
-            'current_program' 
+            'current_program', 
+            'profile_picture',
+            'profile_picture_url',
+            'google_id',
+            'instagram_id',
         ]
         extra_kwargs = {
             'password': {'write_only': True},
@@ -50,6 +55,8 @@ class UserSerializer(serializers.ModelSerializer):
             'avatar': {'required': False},
             'preferred_gym': {'required': False},
             'language_preference': {'required': False},
+            'google_id': {'read_only': True},
+            'instagram_id': {'read_only': True},
         }
         
     def create(self, validated_data):
@@ -73,6 +80,11 @@ class UserSerializer(serializers.ModelSerializer):
         # Handle password change if provided
         current_password = validated_data.pop('current_password', None)
         new_password = validated_data.pop('password', None)
+
+        if 'email' in validated_data and validated_data['email'] != instance.email:
+            instance.email_verified = False
+            instance.verification_token = None
+            # You might want to trigger sending a new verification email here... TODO
         
         if current_password and new_password:
             if not instance.check_password(current_password):

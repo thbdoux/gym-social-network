@@ -6,11 +6,34 @@ import userService from '../api/services/userService';
 import { useQueryClient } from '@tanstack/react-query';
 import { userKeys } from '../hooks/query/useUserQuery';
 import { authEvents } from '../api/utils/authEvents';
+// import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
+
+// Initialize GoogleSignin with the correct client IDs
+// You'll need to replace these with your actual client IDs from Google Cloud Console
+// GoogleSignin.configure({
+//   // The web client ID is required for all platforms
+//   webClientId: '38465928219-lnt8gkdkhn1id2vh93a54j41h8516op9.apps.googleusercontent.com',
+  
+//   // Only include iOS client ID when running on iOS
+//   ...(Platform.OS === 'ios' && {
+//     iosClientId: '38465928219-ouf41lc4o75ruaspr62s7o0bqr99fi22.apps.googleusercontent.com',
+//   }),
+  
+//   // Only include Android client ID when running on Android
+//   ...(Platform.OS === 'android' && {
+//     androidClientId: '123456789012-androidabcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
+//   }),
+  
+//   offlineAccess: true,
+//   forceCodeForRefreshToken: true,
+// });
 
 interface User {
   id: number;
   username: string;
   email: string;
+  email_verified: boolean;
   [key: string]: any;
 }
 
@@ -21,6 +44,9 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
+  registerUser: (userData: any) => Promise<{ success: boolean; message: string }>;
+  // googleLogin: () => Promise<boolean>;
+  resendVerification: (email: string) => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -35,20 +61,136 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
 
+  // Social login handler - sends the token to our backend
+  const handleSocialLogin = async (provider: string, token: string) => {
+    try {
+      console.log(`Sending ${provider} token to backend...`);
+      const response = await userService.socialLogin(provider, token);
+      
+      if (response?.access) {
+        // Store the JWT token
+        await SecureStore.setItemAsync('token', response.access);
+        
+        // Update user state
+        setUser(response.user);
+        setIsAuthenticated(true);
+        
+        // Cache the user data
+        queryClient.setQueryData(userKeys.current(), response.user);
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`${provider} login error:`, error);
+      return false;
+    }
+  };
+
+  // Google login implementation
+  // const googleLogin = async (): Promise<boolean> => {
+  //   try {
+  //     setIsLoading(true);
+      
+  //     // Make sure Google Play Services are available (Android only)
+  //     if (Platform.OS === 'android') {
+  //       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  //     }
+      
+  //     // Check if user is already signed in
+  //     const isSignedIn = await GoogleSignin.isSignedIn();
+  //     if (isSignedIn) {
+  //       await GoogleSignin.signOut();
+  //     }
+      
+  //     console.log('Starting Google Sign-In...');
+      
+  //     // Perform Google Sign-In
+  //     const userInfo = await GoogleSignin.signIn();
+  //     console.log('Google Sign-In successful, getting token...');
+      
+  //     // Get the ID token to send to our backend
+  //     const { idToken } = await GoogleSignin.getTokens();
+      
+  //     if (idToken) {
+  //       console.log('Got Google ID token, authenticating with backend...');
+  //       // Send the ID token to your backend for verification
+  //       return await handleSocialLogin('google', idToken);
+  //     } else {
+  //       console.error('No ID token received from Google');
+  //       return false;
+  //     }
+  //   } catch (error: any) {
+  //     // Handle specific Google Sign-In errors
+  //     if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+  //       console.log('User cancelled the login flow');
+  //     } else if (error.code === statusCodes.IN_PROGRESS) {
+  //       console.log('Sign in is in progress already');
+  //     } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+  //       console.log('Play services not available or outdated');
+  //     } else {
+  //       console.error('Google sign in error:', error);
+  //     }
+  //     return false;
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  // Register new user
+  const registerUser = async (userData: any): Promise<{ success: boolean; message: string }> => {
+    try {
+      setIsLoading(true);
+      await userService.register(userData);
+      return {
+        success: true,
+        message: "Registration successful! Please check your email to verify your account."
+      };
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.detail || "Registration failed. Please try again."
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Resend verification email
+  const resendVerification = async (email: string): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      await userService.resendVerification(email);
+      return true;
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Define a reusable logout function
   const handleLogout = useCallback(async () => {
     try {
       console.log('AuthContext: Logging out user', user?.id);
       
+      // Sign out from Google if signed in
+      // const isSignedIn = await GoogleSignin.isSignedIn();
+      // if (isSignedIn) {
+      //   await GoogleSignin.signOut();
+      //   console.log('Signed out from Google');
+      // }
+      
       // STEP 1: Clear token
       await SecureStore.deleteItemAsync('token');
       
-      // STEP 2: Update authentication state FIRST (this will trigger theme reset)
+      // STEP 2: Update authentication state
       setUser(null);
       setIsAuthenticated(false);
       
       // STEP 3: Clear all cached queries
-      // First invalidate specific queries
       const allQueryKeys = [
         userKeys.all,
         userKeys.current(),
@@ -60,13 +202,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ['profilePreviews']
       ];
       
-      // Invalidate each query key specifically
+      // Invalidate each query key
       allQueryKeys.forEach(key => {
         queryClient.invalidateQueries({ queryKey: key, exact: key === userKeys.current() });
         queryClient.removeQueries({ queryKey: key, exact: key === userKeys.current() });
       });
       
-      // STEP 4: Perform complete cache purge
+      // STEP 4: Complete cache purge
       queryClient.clear();
       
       // STEP 5: Reset query cache
@@ -99,8 +241,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUser(userData);
             setIsAuthenticated(true);
             
-            // Make sure the current user query is properly set in cache
+            // Cache the user data
             queryClient.setQueryData(userKeys.current(), userData);
+            
+            // Check if email is verified, if not, redirect to verification screen
+            if (userData && !userData.email_verified) {
+              router.push('/verify-email-reminder');
+            }
           } catch (error) {
             // If token is invalid or expired, clear it and reset auth state
             console.error('Error fetching user:', error);
@@ -108,7 +255,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUser(null);
             setIsAuthenticated(false);
             
-            // Also clear any cached data
+            // Clear any cached data
             queryClient.clear();
             
             // Redirect to login screen
@@ -142,6 +289,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => unsubscribe();
   }, [handleLogout]);
 
+  // Regular username/password login
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
@@ -154,25 +302,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const tokenData = await userService.login(username, password);
       await SecureStore.setItemAsync('token', tokenData.access);
       
-      // STEP 3: Clear any potentially cached queries specifically
+      // STEP 3: Clear any potentially cached queries
       queryClient.invalidateQueries({ queryKey: userKeys.all });
       queryClient.invalidateQueries({ queryKey: userKeys.current() });
-      
-      // Remove each specific query
-      const allQueryKeys = [
-        userKeys.all,
-        userKeys.current(),
-        ['posts'], 
-        ['programs'],
-        ['workouts'],
-        ['logs'],
-        ['gyms'],
-        ['profilePreviews']
-      ];
-      
-      allQueryKeys.forEach(key => {
-        queryClient.invalidateQueries({ queryKey: key });
-      });
       
       // STEP 4: Force a fresh fetch of user data
       const userData = await userService.getCurrentUser();
@@ -182,11 +314,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       setIsAuthenticated(true);
       
-      // STEP 6: Ensure current user query is properly set in cache with proper settings
+      // STEP 6: Cache the user data
       queryClient.setQueryData(userKeys.current(), userData);
       
-      // STEP 7: Mark all user queries as stale to trigger refetches
-      queryClient.invalidateQueries({ queryKey: userKeys.all });
+      // STEP 7: Check email verification status
+      if (userData && !userData.email_verified) {
+        router.push('/verify-email-reminder');
+        return true;
+      }
       
       return true;
     } catch (error) {
@@ -209,7 +344,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading, 
         login, 
         logout,
-        setUser 
+        setUser,
+        registerUser,
+        // googleLogin,
+        resendVerification
       }}
     >
       {children}

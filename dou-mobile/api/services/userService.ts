@@ -6,6 +6,7 @@ interface User {
   id: number;
   username: string;
   email: string;
+  email_verified?: boolean;
   [key: string]: any;
 }
 
@@ -14,12 +15,21 @@ interface LoginResponse {
   refresh?: string;
 }
 
+interface SocialLoginResponse {
+  access: string;
+  refresh?: string;
+  user: User;
+}
+
 interface RegisterUserData {
   username: string;
   password: string;
   email: string;
   training_level?: string;
   personality_type?: string;
+  language_preference?: string;
+  fitness_goals?: string;
+  bio?: string;
 }
 
 /**
@@ -103,8 +113,9 @@ const userService = {
     return response.data;
   },
 
-  registerUser: async (userData: RegisterUserData): Promise<User> => {
-    const response = await apiClient.post('/users/', userData);
+  // Updated register method that uses new endpoint
+  register: async (userData: RegisterUserData): Promise<any> => {
+    const response = await apiClient.post('/users/register/', userData);
     return response.data;
   },
 
@@ -121,7 +132,6 @@ const userService = {
     return [];
   },
 
-
   /**
    * Check friendship status between current user and another user
    * @param userId - The ID of the user to check friendship status with
@@ -137,6 +147,77 @@ const userService = {
     }
   },
 
+  // NEW METHODS FOR SOCIAL AUTH AND EMAIL VERIFICATION
+
+  /**
+   * Social login with external providers like Google or Instagram
+   * @param provider - The social provider (google, instagram)
+   * @param accessToken - OAuth access token from the provider
+   */
+  socialLogin: async (provider: string, accessToken: string): Promise<SocialLoginResponse> => {
+    const response = await apiClient.post('/users/social-auth/', { 
+      provider, 
+      access_token: accessToken 
+    });
+    return response.data;
+  },
+
+  /**
+   * Verify email with token received from verification email
+   * @param token - Verification token
+   * @param email - User email address
+   */
+  verifyEmail: async (token: string, email: string): Promise<any> => {
+    const response = await apiClient.post('/users/verify-email/', { token, email });
+    return response.data;
+  },
+
+  /**
+   * Resend verification email to user
+   * @param email - Email address to send verification email to
+   */
+  resendVerification: async (email: string): Promise<any> => {
+    const response = await apiClient.post('/users/resend-verification/', { email });
+    return response.data;
+  },
+  
+  /**
+   * Check if email is already registered
+   * @param email - Email to check
+   */
+  checkEmailExists: async (email: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.post('/users/check-email/', { email });
+      return response.data.exists;
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Request password reset
+   * @param email - User's email address
+   */
+  requestPasswordReset: async (email: string): Promise<any> => {
+    const response = await apiClient.post('/users/password-reset/', { email });
+    return response.data;
+  },
+
+  /**
+   * Reset password with token
+   * @param token - Reset token
+   * @param email - User email
+   * @param newPassword - New password
+   */
+  resetPassword: async (token: string, email: string, newPassword: string): Promise<any> => {
+    const response = await apiClient.post('/users/password-reset-confirm/', { 
+      token, 
+      email, 
+      new_password: newPassword 
+    });
+    return response.data;
+  }
 };
 
 export default userService;

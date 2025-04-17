@@ -1,11 +1,8 @@
 // app/(auth)/_layout.tsx
 import React from 'react';
 import { Stack } from 'expo-router';
-import { useColorScheme } from 'react-native';
 
 export default function AuthLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Stack
       screenOptions={{
@@ -28,6 +25,19 @@ export default function AuthLayout() {
         options={{
           title: 'Create Account',
           animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen
+        name="verify-email"
+        options={{
+          title: 'Verify Email',
+        }}
+      />
+      <Stack.Screen
+        name="verify-email-reminder"
+        options={{
+          title: 'Verify Email Reminder',
+          gestureEnabled: false,
         }}
       />
     </Stack>

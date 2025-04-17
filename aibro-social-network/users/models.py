@@ -1,6 +1,7 @@
 # users/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.crypto import get_random_string
 
 class User(AbstractUser):
     """Extended user model with fitness-specific fields"""
@@ -34,6 +35,27 @@ class User(AbstractUser):
                                       null=True, related_name='active_users')
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=100, blank=True, null=True)
+    verification_token_created = models.DateTimeField(null=True, blank=True)
+    
+    # Social authentication fields
+    google_id = models.CharField(max_length=100, blank=True, null=True)
+    instagram_id = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Additional profile fields
+    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
+    profile_picture_url = models.URLField(blank=True, null=True)  # For social media images
+
+    def generate_verification_token(self):
+        """Generate a unique token for email verification"""
+        import datetime
+        self.verification_token = get_random_string(64)
+        self.verification_token_created = datetime.datetime.now()
+        self.save(update_fields=['verification_token', 'verification_token_created'])
+        return self.verification_token
+    
 
 class Friendship(models.Model):
     """Represents a friendship between users"""

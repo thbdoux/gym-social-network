@@ -25,7 +25,8 @@ export default function LoginScreen() {
     password: '',
   });
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [socialLoading, setSocialLoading] = useState('');
+  const { login, googleLogin } = useAuth();
   
   // Track focused input for animation
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
@@ -58,6 +59,21 @@ export default function LoginScreen() {
   // Navigate to personality wizard when register is clicked
   const handleNavigateToRegister = () => {
     router.push('/personality-wizard');
+  };
+  
+  // Google login
+  const handleGoogleLogin = async () => {
+    setSocialLoading('google');
+    try {
+      const success = await googleLogin();
+      if (!success) {
+        Alert.alert(t('error'), t('google_login_failed'));
+      }
+    } catch (err) {
+      Alert.alert(t('error'), `${t('error')} ${t('google_login')}`);
+    } finally {
+      setSocialLoading('');
+    }
   };
 
   return (
@@ -143,6 +159,31 @@ export default function LoginScreen() {
               </View>
             )}
           </TouchableOpacity>
+          
+          {/* Social Login Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>{t('or_continue_with')}</Text>
+            <View style={styles.divider} />
+          </View>
+          
+          {/* Social Login Button */}
+          <View style={styles.socialButtonsContainer}>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handleGoogleLogin}
+              disabled={!!socialLoading}
+            >
+              {socialLoading === 'google' ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                  <Text style={styles.socialButtonText}>{t('google')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
 
           {/* Toggle Login/Register */}
           <TouchableOpacity
@@ -176,7 +217,45 @@ export default function LoginScreen() {
   );
 }
 
+// Add these to existing styles
 const styles = StyleSheet.create({
+  // Existing styles...
+  
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(75, 85, 99, 0.3)',
+  },
+  dividerText: {
+    color: '#9CA3AF',
+    paddingHorizontal: 10,
+    fontSize: 14,
+  },
+  socialButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DB4437', // Google red
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    width: '100%',
+  },
+  socialButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   container: {
     flex: 1,
     backgroundColor: '#080f19',

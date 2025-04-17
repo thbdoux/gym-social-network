@@ -5,3 +5,10 @@ djangorestframework-simplejwt  # For JWT authentication
 python-dotenv  # For loading .env files
 Pillow  # For image handling (ImageField)
 drf-nested-routers
+django-allauth
+dj-rest-auth
+django-cors-headers
+django-templated-mail
+requests
+cryptography
+google-auth

@@ -2,7 +2,7 @@
 // Centralized API configuration
 
 // This is the base API URL without the /api endpoint
-export const API_BASE_URL = 'http://192.168.1.26:8000';
+export const API_BASE_URL = 'http://192.168.0.14:8000';
 
 // This is the full API URL used for API requests 
 export const API_URL = `${API_BASE_URL}/api`;

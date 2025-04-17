@@ -11,7 +11,7 @@ from .serializers import (UserSerializer, FriendshipSerializer,
                         FriendRequestSerializer)
                         
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -19,8 +19,290 @@ from django.db import transaction
 from workouts.models import Program
 import logging
 
+from django.utils import timezone
+from datetime import timedelta
+from .services import send_verification_email
+
+from .throttling import RegistrationRateThrottle
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from django.conf import settings
+import requests
+import json
+import logging
+
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+
+# Custom registration view with throttling
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_user(request):
+    throttle = RegistrationRateThrottle()
+    if not throttle.allow_request(request, None):
+        return Response(
+            {"detail": "Too many registration attempts. Please try again later."},
+            status=status.HTTP_429_TOO_MANY_REQUESTS
+        )
+    
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        user.is_active = True  # User is active but email not verified
+        user.email_verified = False
+        user.save()
+        
+        # Send verification email
+        send_verification_email(user)
+        
+        return Response(
+            {"detail": "User registered successfully. Please check your email to verify your account."},
+            status=status.HTTP_201_CREATED
+        )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Email verification view
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def verify_email(request):
+    token = request.data.get('token') or request.query_params.get('token')
+    email = request.data.get('email') or request.query_params.get('email')
+    
+    if not token or not email:
+        return Response(
+            {"detail": "Invalid verification data. Token and email are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = User.objects.get(email=email, verification_token=token)
+        
+        # Check if token is expired (24 hours)
+        if user.verification_token_created < timezone.now() - timedelta(hours=24):
+            return Response(
+                {"detail": "Verification token has expired. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user.email_verified = True
+        user.verification_token = None
+        user.save()
+        
+        return Response(
+            {"detail": "Email successfully verified. You can now login."},
+            status=status.HTTP_200_OK
+        )
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "Invalid verification data."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+# Resend verification email
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_verification(request):
+    email = request.data.get('email')
+    if not email:
+        return Response(
+            {"detail": "Email is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = User.objects.get(email=email)
+        if user.email_verified:
+            return Response(
+                {"detail": "Email is already verified."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Send verification email
+        send_verification_email(user)
+        
+        return Response(
+            {"detail": "Verification email has been sent."},
+            status=status.HTTP_200_OK
+        )
+    except User.DoesNotExist:
+        # For security, don't reveal if email exists
+        return Response(
+            {"detail": "If this email exists in our system, a verification email has been sent."},
+            status=status.HTTP_200_OK
+        )
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def social_auth_callback(request):
+    """
+    Handle social authentication callbacks from mobile app
+    Supports Google authentication with ID tokens
+    """
+    provider = request.data.get('provider')
+    token = request.data.get('access_token')
+    
+    if not provider or not token:
+        return Response(
+            {"detail": "Provider and access_token are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    logger.info(f"Processing social auth for provider: {provider}")
+    
+    if provider == 'google':
+        try:
+            # Verify the Google ID token
+            user_data = verify_google_token(token)
+            
+            if not user_data:
+                return Response(
+                    {"detail": "Invalid Google token."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if email is verified by Google
+            if not user_data.get('email_verified', False):
+                return Response(
+                    {"detail": "Email not verified with Google."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            email = user_data.get('email')
+            google_id = user_data.get('sub')  # 'sub' is Google's unique user ID
+            
+            if not email or not google_id:
+                return Response(
+                    {"detail": "Email and Google ID are required."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Try to find existing user by email or Google ID
+            try:
+                # First try to find user by Google ID
+                user = User.objects.get(google_id=google_id)
+                logger.info(f"Found existing user by Google ID: {user.username}")
+            except User.DoesNotExist:
+                try:
+                    # Then try to find by email
+                    user = User.objects.get(email=email)
+                    # Update Google ID if not already set
+                    if not user.google_id:
+                        user.google_id = google_id
+                        # Update profile picture if available
+                        if user_data.get('picture'):
+                            user.profile_picture_url = user_data.get('picture')
+                        user.save()
+                        logger.info(f"Updated existing user with Google ID: {user.username}")
+                except User.DoesNotExist:
+                    # Create new user if not found
+                    logger.info(f"Creating new user for Google auth: {email}")
+                    
+                    # Generate a username from the email
+                    username = email.split('@')[0]
+                    base_username = username
+                    counter = 1
+                    
+                    # Ensure username is unique
+                    while User.objects.filter(username=username).exists():
+                        username = f"{base_username}{counter}"
+                        counter += 1
+                    
+                    # Create the new user
+                    user = User.objects.create_user(
+                        username=username,
+                        email=email,
+                        # Use a secure random password since they'll use Google to sign in
+                        password=User.objects.make_random_password(length=32),
+                        google_id=google_id,
+                        email_verified=True,  # Google already verified the email
+                        # Set profile information
+                        profile_picture_url=user_data.get('picture'),
+                        # Default values for required fields
+                        training_level='beginner',
+                        personality_type='casual',
+                    )
+                    
+                    # You might want to set a default name for the user
+                    first_name = user_data.get('given_name', '')
+                    last_name = user_data.get('family_name', '')
+                    if first_name:
+                        user.first_name = first_name
+                        if last_name:
+                            user.last_name = last_name
+                        user.save()
+            
+            # Generate JWT tokens for the user
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh = RefreshToken.for_user(user)
+            
+            # Return tokens and user data
+            from .serializers import UserSerializer
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'user': UserSerializer(user).data
+            })
+            
+        except Exception as e:
+            logger.exception(f"Error in Google authentication: {e}")
+            return Response(
+                {"detail": f"Authentication error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    # Handle other providers like Instagram in the future
+    
+    return Response(
+        {"detail": f"Provider {provider} not supported."},
+        status=status.HTTP_400_BAD_REQUEST
+    )
+
+def verify_google_token(token):
+    """
+    Verify a Google ID token
+    There are two ways to verify: using google-auth library (preferred)
+    or using Google's tokeninfo endpoint (fallback)
+    """
+    try:
+        # Method 1: Using google-auth library (recommended)
+        try:
+            # CLIENT_ID should be the web client ID from Google Cloud Console
+            client_id = settings.SOCIALACCOUNT_PROVIDERS['google']['APP']['client_id']
+            
+            # Create a Request object for token verification
+            request = google_requests.Request()
+            
+            # Verify the token
+            id_info = id_token.verify_oauth2_token(token, request, client_id)
+            
+            # Check issuer
+            if id_info['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                logger.warning(f"Invalid issuer: {id_info['iss']}")
+                return None
+            
+            logger.info(f"Successfully verified Google token for: {id_info.get('email')}")
+            return id_info
+            
+        except Exception as e:
+            logger.warning(f"Failed to verify token using google-auth: {e}")
+            # Fall back to Method 2
+            
+        # Method 2: Using Google's tokeninfo endpoint (fallback)
+        response = requests.get(f'https://oauth2.googleapis.com/tokeninfo?id_token={token}')
+        
+        if response.status_code == 200:
+            user_data = response.json()
+            logger.info(f"Successfully verified Google token using tokeninfo endpoint")
+            return user_data
+            
+        logger.error(f"Failed to verify Google token: {response.status_code} - {response.text}")
+        return None
+        
+    except Exception as e:
+        logger.exception(f"Error verifying Google token: {e}")
+        return None
 
 # Add this at the appropriate location in views.py
 
