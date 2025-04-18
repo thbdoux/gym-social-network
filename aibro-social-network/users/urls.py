@@ -29,6 +29,10 @@ urlpatterns = [
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
+    path('register/', views.register_user, name='register'),
+    path('verify-email/', views.verify_email, name='verify-email'),
+    path('resend-verification/', views.resend_verification, name='resend-verification'),
+    path('social-auth/', views.social_auth_callback, name='social-auth'),
     path('update-language/', update_language_preference, name='update-language-preference'),
     path('<int:user_id>/friendship-status/', check_friendship_status, name='friendship-status'),
     path('<int:user_id>/profile-preview/', get_user_profile_preview, name='user-profile-preview'),
@@ -42,10 +46,6 @@ urlpatterns = [
     path('<int:user_id>/friends/count/', get_user_friends_count, name='user-friends-count'),
     path('<int:user_id>/counts/', get_user_all_counts, name='user-all-counts'),
     # New auth endpoints
-    path('register/', views.register_user, name='register'),
-    path('verify-email/', views.verify_email, name='verify-email'),
-    path('resend-verification/', views.resend_verification, name='resend-verification'),
-    path('social-auth/', views.social_auth_callback, name='social-auth'),
     
     # Include dj-rest-auth URLs
     path('auth/', include('dj_rest_auth.urls')),

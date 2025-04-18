@@ -36,7 +36,7 @@ class User(AbstractUser):
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
-    email_verified = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=True) # set to False in the future
     verification_token = models.CharField(max_length=100, blank=True, null=True)
     verification_token_created = models.DateTimeField(null=True, blank=True)
     

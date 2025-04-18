@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  // Social login handler - sends the token to our backend
+  // Social login handler - commented out for now
   const handleSocialLogin = async (provider: string, token: string) => {
     try {
       console.log(`Sending ${provider} token to backend...`);
@@ -144,7 +144,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await userService.register(userData);
       return {
         success: true,
-        message: "Registration successful! Please check your email to verify your account."
+        message: "Registration successful! You can now log in."
+        // Changed from: "Registration successful! Please check your email to verify your account."
       };
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -176,7 +177,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('AuthContext: Logging out user', user?.id);
       
-      // Sign out from Google if signed in
+      // Sign out from Google if signed in - commented out for now
       // const isSignedIn = await GoogleSignin.isSignedIn();
       // if (isSignedIn) {
       //   await GoogleSignin.signOut();
@@ -244,10 +245,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // Cache the user data
             queryClient.setQueryData(userKeys.current(), userData);
             
-            // Check if email is verified, if not, redirect to verification screen
-            if (userData && !userData.email_verified) {
-              router.push('/verify-email-reminder');
-            }
+            // Comment out email verification check for development
+            // if (userData && !userData.email_verified) {
+            //   router.push('/verify-email-reminder');
+            // }
           } catch (error) {
             // If token is invalid or expired, clear it and reset auth state
             console.error('Error fetching user:', error);
@@ -317,11 +318,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // STEP 6: Cache the user data
       queryClient.setQueryData(userKeys.current(), userData);
       
-      // STEP 7: Check email verification status
-      if (userData && !userData.email_verified) {
-        router.push('/verify-email-reminder');
-        return true;
-      }
+      // STEP 7: Comment out email verification check for development
+      // if (userData && !userData.email_verified) {
+      //   router.push('/verify-email-reminder');
+      //   return true;
+      // }
       
       return true;
     } catch (error) {

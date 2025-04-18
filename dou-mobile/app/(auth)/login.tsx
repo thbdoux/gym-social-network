@@ -26,7 +26,8 @@ export default function LoginScreen() {
   });
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState('');
-  const { login, googleLogin } = useAuth();
+  // const { login, googleLogin } = useAuth();
+  const { login } = useAuth();
   
   // Track focused input for animation
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
@@ -62,19 +63,19 @@ export default function LoginScreen() {
   };
   
   // Google login
-  const handleGoogleLogin = async () => {
-    setSocialLoading('google');
-    try {
-      const success = await googleLogin();
-      if (!success) {
-        Alert.alert(t('error'), t('google_login_failed'));
-      }
-    } catch (err) {
-      Alert.alert(t('error'), `${t('error')} ${t('google_login')}`);
-    } finally {
-      setSocialLoading('');
-    }
-  };
+  // const handleGoogleLogin = async () => {
+  //   setSocialLoading('google');
+  //   try {
+  //     const success = await googleLogin();
+  //     if (!success) {
+  //       Alert.alert(t('error'), t('google_login_failed'));
+  //     }
+  //   } catch (err) {
+  //     Alert.alert(t('error'), `${t('error')} ${t('google_login')}`);
+  //   } finally {
+  //     setSocialLoading('');
+  //   }
+  // };
 
   return (
     <KeyboardAvoidingView
@@ -168,7 +169,7 @@ export default function LoginScreen() {
           </View>
           
           {/* Social Login Button */}
-          <View style={styles.socialButtonsContainer}>
+          {/* <View style={styles.socialButtonsContainer}>
             <TouchableOpacity
               style={styles.socialButton}
               onPress={handleGoogleLogin}
@@ -183,7 +184,7 @@ export default function LoginScreen() {
                 </>
               )}
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {/* Toggle Login/Register */}
           <TouchableOpacity

@@ -51,7 +51,7 @@ def register_user(request):
     if serializer.is_valid():
         user = serializer.save()
         user.is_active = True  # User is active but email not verified
-        user.email_verified = False
+        user.email_verified = True # for development
         user.save()
         
         # Send verification email
