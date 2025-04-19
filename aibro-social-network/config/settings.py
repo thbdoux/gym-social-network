@@ -159,11 +159,11 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/hour',  # Limit anonymous requests
-        'user': '100/hour',  # Limit authenticated user requests
-        'registration': '5/day',  # Specific limit for registrations
-    },
+    # 'DEFAULT_THROTTLE_RATES': {
+    #     'anon': '20/hour',  # Limit anonymous requests
+    #     'user': '100000000/hour',  # Limit authenticated user requests
+    #     'registration': '5/day',  # Specific limit for registrations
+    # },
 }
 
 # Social Authentication settings

@@ -13,7 +13,7 @@ export interface ColorPalette {
   highlight: string;
 }
 
-// Define specialized component color palettes
+// Enhanced workout palette with pattern properties
 export interface WorkoutPalette {
   background: string;
   text: string;
@@ -22,37 +22,22 @@ export interface WorkoutPalette {
   border: string;
   badge_bg: string;
   action_bg: string;
+  // New pattern properties
+  pattern_opacity: number;
+  pattern_color: string;
+  pattern_secondary_color: string;
+  // Visual identity properties
+  card_identity: 'template' | 'program' | 'log' | 'program_workout';
 }
 
-export interface ProgramPalette {
-  background: string;
-  text: string;
-  text_secondary: string;
-  highlight: string;
-  border: string;
-  badge_bg: string;
-  action_bg: string;
-}
+// Program palette with the same pattern enhancements
+export interface ProgramPalette extends WorkoutPalette {}
 
-export interface WorkoutLogPalette {
-  background: string;
-  text: string;
-  text_secondary: string;
-  highlight: string;
-  border: string;
-  badge_bg: string;
-  action_bg: string;
-}
+// Workout log palette with the same pattern enhancements
+export interface WorkoutLogPalette extends WorkoutPalette {}
 
-export interface ProgramWorkoutPalette {
-  background: string;
-  text: string;
-  text_secondary: string;
-  highlight: string;
-  border: string;
-  badge_bg: string;
-  action_bg: string;
-}
+// Program workout palette with the same pattern enhancements
+export interface ProgramWorkoutPalette extends WorkoutPalette {}
 
 // Define color palettes for each personality
 const COLOR_PALETTES: Record<Personality, ColorPalette> = {
@@ -90,163 +75,227 @@ const COLOR_PALETTES: Record<Personality, ColorPalette> = {
   },
 };
 
-// Define workout palettes with slight personality modifications
+// Define workout palettes with pattern properties
 const WORKOUT_PALETTES: Record<Personality, WorkoutPalette> = {
   optimizer: {    
-    background: '#0ea5e9',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#0c4a6e',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(255, 255, 255, 0.2)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  versatile: {
-    background: '#0ea5e9',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#0c4a6e',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(255, 255, 255, 0.2)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  diplomate: {
-    background: '#0ea5e9',
+    background: '#0c4a6e', // Deeper blue for better contrast with patterns
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.8)',
-    highlight: '#0b4568',
+    highlight: '#38bdf8', // Lighter blue for highlights
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(255, 255, 255, 0.2)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.15,
+    pattern_color: '#7dd3fc',
+    pattern_secondary_color: '#0ea5e9',
+    card_identity: 'template',
+  },
+  versatile: {    
+    background: '#0c4a6e',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.7)',
+    highlight: '#38bdf8',
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(255, 255, 255, 0.2)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.12,
+    pattern_color: '#7dd3fc',
+    pattern_secondary_color: '#0ea5e9',
+    card_identity: 'template',
+  },
+  diplomate: {
+    background: '#0c4a6e',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.8)',
+    highlight: '#38bdf8',
     border: 'rgba(255, 255, 255, 0.25)',
     badge_bg: 'rgba(255, 255, 255, 0.25)',
     action_bg: 'rgba(255, 255, 255, 0.95)',
+    pattern_opacity: 0.1,
+    pattern_color: '#7dd3fc',
+    pattern_secondary_color: '#0ea5e9',
+    card_identity: 'template',
   },
   mentor: {
-    background: '#0ea5e9',
+    background: '#0c4a6e',
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#0d4c72',
+    highlight: '#38bdf8',
     border: 'rgba(255, 255, 255, 0.2)',
     badge_bg: 'rgba(255, 255, 255, 0.2)',
     action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.18,
+    pattern_color: '#7dd3fc',
+    pattern_secondary_color: '#0ea5e9',
+    card_identity: 'template',
   },
 };
 
-// Define program palettes with slight personality modifications
+// Define program palettes with pattern properties
 const PROGRAM_PALETTES: Record<Personality, ProgramPalette> = {
   optimizer: {    
-    background: '#7e22ce',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#4a1472',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(200, 0, 240, 0.7)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  versatile: {
-    background: '#7e22ce',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#4a1472',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(200, 0, 240, 0.7)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  diplomate: {
-    background: '#7e22ce',
+    background: '#4c1d95', // Deeper purple for better contrast
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.8)',
-    highlight: '#4d1589',
+    highlight: '#c084fc', // Lighter purple for highlights
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(200, 0, 240, 0.7)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.15,
+    pattern_color: '#d8b4fe',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program',
+  },
+  versatile: {
+    background: '#4c1d95',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.7)',
+    highlight: '#c084fc',
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(200, 0, 240, 0.7)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.12,
+    pattern_color: '#d8b4fe',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program',
+  },
+  diplomate: {
+    background: '#4c1d95',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.8)',
+    highlight: '#c084fc',
     border: 'rgba(255, 255, 255, 0.25)',
     badge_bg: 'rgba(210, 0, 255, 0.7)',
     action_bg: 'rgba(255, 255, 255, 0.95)',
+    pattern_opacity: 0.1,
+    pattern_color: '#d8b4fe',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program',
   },
   mentor: {
-    background: '#7e22ce',
+    background: '#4c1d95',
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#45136f',
+    highlight: '#c084fc',
     border: 'rgba(255, 255, 255, 0.2)',
     badge_bg: 'rgba(200, 0, 240, 0.7)',
     action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.18,
+    pattern_color: '#d8b4fe',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program',
   },
 };
 
-// Define workout log palettes with slight personality modifications
+// Define workout log palettes with pattern properties
 const WORKOUT_LOG_PALETTES: Record<Personality, WorkoutLogPalette> = {
   optimizer: {    
-    background: '#16a34a',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#166534',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(60, 200, 0, 0.7)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  versatile: {
-    background: '#16a34a',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#166534',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(60, 200, 0, 0.7)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  diplomate: {
-    background: '#16a34a',
+    background: '#14532d', // Deeper green for better contrast
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.8)',
-    highlight: '#15803d',
+    highlight: '#4ade80', // Lighter green for highlights
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(60, 200, 0, 0.7)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.15,
+    pattern_color: '#86efac',
+    pattern_secondary_color: '#22c55e',
+    card_identity: 'log',
+  },
+  versatile: {
+    background: '#14532d',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.7)',
+    highlight: '#4ade80',
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(60, 200, 0, 0.7)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.12,
+    pattern_color: '#86efac',
+    pattern_secondary_color: '#22c55e',
+    card_identity: 'log',
+  },
+  diplomate: {
+    background: '#14532d',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.8)',
+    highlight: '#4ade80',
     border: 'rgba(255, 255, 255, 0.25)',
     badge_bg: 'rgba(60, 210, 0, 0.7)',
     action_bg: 'rgba(255, 255, 255, 0.95)',
+    pattern_opacity: 0.1,
+    pattern_color: '#86efac',
+    pattern_secondary_color: '#22c55e',
+    card_identity: 'log',
   },
   mentor: {
-    background: '#16a34a',
+    background: '#14532d',
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#14532d',
+    highlight: '#4ade80',
     border: 'rgba(255, 255, 255, 0.2)',
     badge_bg: 'rgba(60, 200, 0, 0.7)',
     action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.18,
+    pattern_color: '#86efac',
+    pattern_secondary_color: '#22c55e',
+    card_identity: 'log',
   },
 };
 
-// Define program workout palettes (usually a combo of program and workout styles)
+// Define program workout palettes (combo of program and workout styles)
 const PROGRAM_WORKOUT_PALETTES: Record<Personality, ProgramWorkoutPalette> = {
   optimizer: {    
-    background: '#9333ea',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#581c87',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(170, 0, 220, 0.7)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  versatile: {
-    background: '#9333ea',
-    text: '#ffffff',
-    text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#581c87',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(170, 0, 220, 0.7)',
-    action_bg: 'rgba(255, 255, 255, 0.9)',
-  },
-  diplomate: {
-    background: '#9333ea',
+    background: '#5b21b6', // Somewhere between workout and program
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.8)',
-    highlight: '#6b21a8',
+    highlight: '#a78bfa',
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(170, 0, 220, 0.7)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.15,
+    pattern_color: '#c4b5fd',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program_workout',
+  },
+  versatile: {
+    background: '#5b21b6',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.7)',
+    highlight: '#a78bfa',
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(170, 0, 220, 0.7)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.12,
+    pattern_color: '#c4b5fd',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program_workout',
+  },
+  diplomate: {
+    background: '#5b21b6',
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.8)',
+    highlight: '#a78bfa',
     border: 'rgba(255, 255, 255, 0.25)',
     badge_bg: 'rgba(180, 0, 235, 0.7)',
     action_bg: 'rgba(255, 255, 255, 0.95)',
+    pattern_opacity: 0.1,
+    pattern_color: '#c4b5fd',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program_workout',
   },
   mentor: {
-    background: '#9333ea',
+    background: '#5b21b6',
     text: '#ffffff',
     text_secondary: 'rgba(255, 255, 255, 0.7)',
-    highlight: '#4c1d95',
+    highlight: '#a78bfa',
     border: 'rgba(255, 255, 255, 0.2)',
     badge_bg: 'rgba(170, 0, 220, 0.7)',
     action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.18,
+    pattern_color: '#c4b5fd',
+    pattern_secondary_color: '#8b5cf6',
+    card_identity: 'program_workout',
   },
 };
 

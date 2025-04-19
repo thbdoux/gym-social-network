@@ -1,10 +1,11 @@
 // components/workouts/ActionModal.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '../../context/LanguageContext';
+import { router } from 'expo-router';
 
 interface ActionModalProps {
   visible: boolean;
@@ -13,6 +14,7 @@ interface ActionModalProps {
   onCreateProgram: () => void;
   onCreateTemplate: () => void;
   onLogWorkout: () => void;
+  themePalette: any;
 }
 
 const ActionModal: React.FC<ActionModalProps> = ({
@@ -21,7 +23,8 @@ const ActionModal: React.FC<ActionModalProps> = ({
   onClose,
   onCreateProgram,
   onCreateTemplate,
-  onLogWorkout
+  onLogWorkout,
+  themePalette
 }) => {
   const { t } = useLanguage();
 
@@ -53,6 +56,12 @@ const ActionModal: React.FC<ActionModalProps> = ({
     }
   };
 
+  // Handle start real-time workout
+  const handleStartRealtimeWorkout = () => {
+    onClose();
+    router.push('/realtime-workout?source=custom');
+  };
+
   return (
     <Modal
       visible={visible}
@@ -81,26 +90,26 @@ const ActionModal: React.FC<ActionModalProps> = ({
           </LinearGradient>
           
           {/* Modal Content */}
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: themePalette?.card_background || 'rgba(31, 41, 55, 0.8)' }]}>
             {/* Modal Content for Workout History View Options */}
             {currentView === 'workout_history' && (
               <>
+                {/* NEW: Real-time workout logging option */}
                 <TouchableOpacity
-                  style={styles.modalOption}
-                  onPress={() => {
-                    onClose();
-                    // This will be implemented later
-                    Alert.alert(t('coming_soon'), t('feature_coming_soon'));
-                  }}
+                  style={[styles.modalOption, styles.highlightedOption]}
+                  onPress={handleStartRealtimeWorkout}
                 >
                   <View style={styles.modalOptionIcon}>
-                    <Ionicons name="play-circle" size={24} color="#16a34a" />
+                    <Ionicons name="stopwatch-outline" size={24} color="#16a34a" />
                   </View>
                   <View style={styles.modalOptionText}>
-                    <Text style={styles.modalOptionTitle}>{t('start_workout')}</Text>
+                    <Text style={styles.modalOptionTitle}>{t('realtime_workout')}</Text>
                     <Text style={styles.modalOptionDescription}>
-                      {t('start_new_workout_session')}
+                      {t('track_workout_in_realtime')}
                     </Text>
+                  </View>
+                  <View style={styles.newFeatureBadge}>
+                    <Text style={styles.newFeatureText}>{t('new')}</Text>
                   </View>
                 </TouchableOpacity>
                 
@@ -203,7 +212,6 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     padding: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
   },
   modalOption: {
     flexDirection: 'row',
@@ -213,6 +221,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'rgba(17, 24, 39, 0.6)',
     marginBottom: 10,
+    position: 'relative',
+  },
+  highlightedOption: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#16a34a',
+    backgroundColor: 'rgba(22, 163, 74, 0.15)',
   },
   modalOptionIcon: {
     width: 44,
@@ -236,6 +250,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#D1D5DB',
   },
+  newFeatureBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  newFeatureText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  }
 });
 
 export default ActionModal;

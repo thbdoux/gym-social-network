@@ -1,5 +1,5 @@
 // context/ThemeContext.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useCurrentUser } from '../hooks/query/useUserQuery';
 import { 
   ColorPalette, 
@@ -58,9 +58,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   
   // Track user ID changes to force theme updates
   const [lastUserId, setLastUserId] = useState<number | null>(null);
+  // Use ref to prevent multiple refetches
+  const isRefetchingRef = useRef(false);
 
-  // Function to reset theme to default
-  const resetTheme = () => {
+  // Function to reset theme to default - use useCallback to memoize
+  const resetTheme = useCallback(() => {
     console.log('ThemeContext: Resetting theme to default');
     setPersonality('versatile');
     setPalette(defaultPalette);
@@ -68,7 +70,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProgramPalette(defaultProgramPalette);
     setWorkoutLogPalette(defaultWorkoutLogPalette);
     setProgramWorkoutPalette(defaultProgramWorkoutPalette);
-  };
+  }, []);
 
   // Reset theme when auth state changes to not authenticated
   useEffect(() => {
@@ -77,20 +79,33 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       resetTheme();
       setLastUserId(null);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, resetTheme]);
 
-  // Force refetch when auth user changes
+  // Force refetch when auth user changes - with safety mechanism to prevent loops
   useEffect(() => {
-    if (authUser?.id && authUser.id !== lastUserId) {
+    if (authUser?.id && 
+        authUser.id !== lastUserId && 
+        !isRefetchingRef.current) {
+      
       console.log('ThemeContext: User ID changed, forcing refetch', authUser.id);
-      // Store new user ID
+      
+      // Set the flag before any async operations
+      isRefetchingRef.current = true;
+      
+      // Update last user ID immediately to prevent re-runs
       setLastUserId(authUser.id);
-      // Force refetch from server
-      refetch();
+      
+      // Use setTimeout to ensure state updates before refetch
+      setTimeout(() => {
+        refetch().finally(() => {
+          // Reset flag when done
+          isRefetchingRef.current = false;
+        });
+      }, 0);
     }
   }, [authUser?.id, lastUserId, refetch]);
 
-  // Update theme when user data changes
+  // Update theme when user data changes - simplified dependencies
   useEffect(() => {
     console.log('ThemeContext: User data changed', user?.personality_type, isLoading, isAuthenticated);
     
@@ -117,7 +132,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.log('ThemeContext: No personality set, using default');
       resetTheme();
     }
-  }, [user, user?.personality_type, isLoading, isAuthenticated]);
+  }, [user, isLoading, isAuthenticated, resetTheme]); // Simplified dependency array
 
   return (
     <ThemeContext.Provider value={{ 

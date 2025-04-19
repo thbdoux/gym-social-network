@@ -152,6 +152,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   const handleFork = (e: any) => {
     e.stopPropagation();
     if (onFork) {
+
       onFork(program?.id);
     }
   };

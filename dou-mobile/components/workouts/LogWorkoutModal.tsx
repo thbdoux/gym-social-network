@@ -12,6 +12,7 @@ interface LogWorkoutModalProps {
   onLogFromProgram: () => void;
   onLogFromTemplate: () => void;
   onLogFromScratch: () => void;
+  themePalette: any;
 }
 
 const LogWorkoutModal: React.FC<LogWorkoutModalProps> = ({
@@ -19,7 +20,8 @@ const LogWorkoutModal: React.FC<LogWorkoutModalProps> = ({
   onClose,
   onLogFromProgram,
   onLogFromTemplate,
-  onLogFromScratch
+  onLogFromScratch,
+  themePalette
 }) => {
   const { t } = useLanguage();
 
@@ -35,7 +37,7 @@ const LogWorkoutModal: React.FC<LogWorkoutModalProps> = ({
           <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
           
           <LinearGradient
-            colors={['#16a34a', '#22c55e']}
+            colors={[themePalette.accent, themePalette.highlight]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.modalHeaderGradient}
@@ -49,47 +51,53 @@ const LogWorkoutModal: React.FC<LogWorkoutModalProps> = ({
             </TouchableOpacity>
           </LinearGradient>
           
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: themePalette.card_background }]}>
             <TouchableOpacity
-              style={styles.modalOption}
+              style={[styles.modalOption, { backgroundColor: `${themePalette.accent}15` }]}
               onPress={onLogFromProgram}
             >
-              <View style={styles.modalOptionIcon}>
-                <Ionicons name="albums-outline" size={24} color="#16a34a" />
+              <View style={[styles.modalOptionIcon, { backgroundColor: `${themePalette.accent}20` }]}>
+                <Ionicons name="albums-outline" size={24} color={themePalette.accent} />
               </View>
               <View style={styles.modalOptionText}>
-                <Text style={styles.modalOptionTitle}>{t('from_program')}</Text>
-                <Text style={styles.modalOptionDescription}>
+                <Text style={[styles.modalOptionTitle, { color: themePalette.text }]}>
+                  {t('from_program')}
+                </Text>
+                <Text style={[styles.modalOptionDescription, { color: themePalette.text_secondary }]}>
                   {t('log_from_current_program')}
                 </Text>
               </View>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.modalOption}
+              style={[styles.modalOption, { backgroundColor: `${themePalette.accent}15` }]}
               onPress={onLogFromTemplate}
             >
-              <View style={styles.modalOptionIcon}>
-                <Ionicons name="document-text-outline" size={24} color="#16a34a" />
+              <View style={[styles.modalOptionIcon, { backgroundColor: `${themePalette.accent}20` }]}>
+                <Ionicons name="document-text-outline" size={24} color={themePalette.accent} />
               </View>
               <View style={styles.modalOptionText}>
-                <Text style={styles.modalOptionTitle}>{t('from_template')}</Text>
-                <Text style={styles.modalOptionDescription}>
+                <Text style={[styles.modalOptionTitle, { color: themePalette.text }]}>
+                  {t('from_template')}
+                </Text>
+                <Text style={[styles.modalOptionDescription, { color: themePalette.text_secondary }]}>
                   {t('log_from_workout_template')}
                 </Text>
               </View>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.modalOption}
+              style={[styles.modalOption, { backgroundColor: `${themePalette.accent}15` }]}
               onPress={onLogFromScratch}
             >
-              <View style={styles.modalOptionIcon}>
-                <Ionicons name="create-outline" size={24} color="#16a34a" />
+              <View style={[styles.modalOptionIcon, { backgroundColor: `${themePalette.accent}20` }]}>
+                <Ionicons name="create-outline" size={24} color={themePalette.accent} />
               </View>
               <View style={styles.modalOptionText}>
-                <Text style={styles.modalOptionTitle}>{t('from_scratch')}</Text>
-                <Text style={styles.modalOptionDescription}>
+                <Text style={[styles.modalOptionTitle, { color: themePalette.text }]}>
+                  {t('from_scratch')}
+                </Text>
+                <Text style={[styles.modalOptionDescription, { color: themePalette.text_secondary }]}>
                   {t('create_new_workout_log')}
                 </Text>
               </View>
@@ -141,7 +149,6 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     padding: 20,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
   },
   modalOption: {
     flexDirection: 'row',
@@ -149,14 +156,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   modalOptionIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -167,13 +172,11 @@ const styles = StyleSheet.create({
   modalOptionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 4,
   },
   modalOptionDescription: {
     fontSize: 13,
-    color: '#D1D5DB',
-  },
+  }
 });
 
 export default LogWorkoutModal;
