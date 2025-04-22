@@ -20,6 +20,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { programKeys } from '../../hooks/query/useProgramQuery';
 // Import ThemeContext
 import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
+
 
 // Import custom components
 import ViewSelector, { VIEW_TYPES, VIEW_ORDER } from '../../components/workouts/ViewSelector';
@@ -67,6 +69,7 @@ export default function WorkoutsScreen() {
   const { user } = useAuth();
   // Use the theme context
   const { palette } = useTheme();
+  const styles = themedStyles(palette);
   
   // State for UI
   const currentViewRef = useRef(VIEW_TYPES.WORKOUT_HISTORY); 
@@ -704,9 +707,9 @@ export default function WorkoutsScreen() {
             </>
           )}
         </View>
-        
         {/* Swipe Indicator */}
         <SwipeIndicator currentView={currentView} />
+        
         
         {/* Card List with Animation & Swipe Handler */}
         <AnimatedCardList
@@ -816,13 +819,15 @@ export default function WorkoutsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const themedStyles = createThemedStyles((palette) => ({
   safeArea: {
     flex: 1,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: palette.page_background,
   },
   container: {
     flex: 1,
+    backgroundColor: palette.page_background,
   },
   loadingContainer: {
     flex: 1,
@@ -838,8 +843,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingBottom: 12,
+    borderBottomWidth: 0,
+    backgroundColor: palette.layout,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -848,10 +854,10 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     width: 40,
-    height: 40,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 20,
     marginLeft: 8,
   },
-});
+}));

@@ -28,6 +28,8 @@ import { useCreateLog } from '../../hooks/query/useLogQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
 import { useWorkoutTemplate } from '../../hooks/query/useWorkoutQuery';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 
 // Import custom components
 import RealtimeExerciseCard from '../../components/workouts/RealtimeExerciseCard';
@@ -38,6 +40,8 @@ import WorkoutCompleteModal from '../../components/workouts/WorkoutCompleteModal
 export default function RealtimeWorkoutLogger() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { palette } = useTheme();
+  const styles = themedStyles(palette);
   const { mutateAsync: createLog } = useCreateLog();
   
   // Get search params from URL
@@ -1093,7 +1097,7 @@ export default function RealtimeWorkoutLogger() {
   );
 }
 
-const styles = StyleSheet.create({
+const themedStyles = createThemedStyles((palette) => ({
 
     modalContainer: {
         flex: 1,
@@ -1424,4 +1428,4 @@ const styles = StyleSheet.create({
   bottomPadding: {
     height: 80,
   }
-});
+}));

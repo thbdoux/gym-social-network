@@ -16,7 +16,7 @@ export default function AppLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: {
-            backgroundColor: palette.background,
+            backgroundColor: palette.page_background,
           },
           animation: 'slide_from_right',
           animationDuration: 200,
@@ -30,6 +30,6 @@ export default function AppLayout() {
 const themedStyles = createThemedStyles((palette) => ({
   container: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: palette.page_background,
   },
 }));

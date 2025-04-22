@@ -43,7 +43,7 @@ export interface ProgramWorkoutPalette extends WorkoutPalette {}
 const COLOR_PALETTES: Record<Personality, ColorPalette> = {
   optimizer: {    
     layout: '#102a43', // Deeper navy blue - analytical, focused
-    page_background: '#102a43',
+    page_background: '#081521',
     text: '#f0f4f8',       
     border: '#829ab1',     
     accent: '#334e68',     
@@ -51,15 +51,15 @@ const COLOR_PALETTES: Record<Personality, ColorPalette> = {
   },
   versatile: {
     layout: '#2d3730', // Earthy, natural green - adventurous
-    page_background: '#2d3730',
+    page_background: '#141c16',
     text: '#e6ebef',      
     border: '#b4c4ae',
     accent: '#386641', // Forest green - adventure, outdoors
     highlight: '#6b9080', // Softer green highlight
   },
   diplomate: {
-    layout: '#4a3f54', // Warm purple - friendly but not childish
-    page_background: '#4a3f54',
+    page_background: '#2a2430', // Warm purple - friendly but not childish
+    layout: '#4a3f54',
     text: '#f8f0fb',
     border: '#c4addc',
     accent: '#8367c7', // Playful purple - social, fun
@@ -67,7 +67,7 @@ const COLOR_PALETTES: Record<Personality, ColorPalette> = {
   },
   mentor: {
     layout: '#5e352a', // Warm brown-red - authoritative, trustworthy
-    page_background: '#5e352a',
+    page_background: '#301b15',
     text: '#f9f4ef',
     border: '#d6ccc2',
     accent: '#9b2226', // Deep red - coaching, guidance

@@ -30,6 +30,7 @@ import { useProgram } from '../../hooks/query/useProgramQuery';
 import { useUserLogs, useWorkoutStats } from '../../hooks/query/useLogQuery';
 // Import ThemeContext
 import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 // Add this import at the top with other imports
 import { useFriendsCount, usePostsCount, useWorkoutsCount, useAllCounts } from '../../hooks/query/useUserCountQuery';
 import ProgramCard from '../../components/workouts/ProgramCard';
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
   
   // Use the theme context
   const { palette, personality } = useTheme();
-  
+  const styles = themedStyles(palette);
   // Use React Query hooks
   const { 
     data: profile, 
@@ -597,7 +598,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const themedStyles = createThemedStyles((palette) => ({
   container: {
     flex: 1,
   },
@@ -940,4 +941,4 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
   },
-});
+}));

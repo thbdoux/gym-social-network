@@ -15,7 +15,9 @@ import { usePostsFeed } from '../../hooks/query/usePostQuery';
 import { useFriends } from '../../hooks/query/useUserQuery';
 import { useUsers } from '../../hooks/query/useUserQuery';
 import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../context/ThemeContext'; // Import the theme hook
+import { useTheme } from '../../context/ThemeContext'; 
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
+import { FEED_VIEW_TYPES } from './FeedViewSelector';
 
 interface Post {
   id: number;
@@ -47,6 +49,7 @@ interface FeedContainerProps {
   contentContainerStyle?: object;
   scrollEventThrottle?: number;
   ListHeaderComponent?: React.ReactElement | (() => React.ReactElement) | null;
+  filterMode?: string; // Prop for view filtering
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
@@ -66,10 +69,12 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   contentContainerStyle,
   scrollEventThrottle = 16,
   ListHeaderComponent,
+  filterMode = FEED_VIEW_TYPES.FRIENDS, // Default to friends view
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
-  const { palette } = useTheme(); // Use the theme context
+  const { palette } = useTheme();
+  const styles = themedStyles(palette);
   
   // Use React Query hooks
   const { 
@@ -106,7 +111,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     return userData;
   }, [allUsers]);
   
-  // Create a set of friend usernames - fixed to prevent recreation
+  // Create a set of friend usernames
   const friendUsernames = useMemo(() => {
     const usernameSet = new Set<string>();
     
@@ -128,20 +133,29 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     return usernameSet;
   }, [friends, currentUser]);
   
-  // Filter posts to only show friends' posts and current user's posts
-  // Fixed to prevent infinite update loop
+  // Filter posts based on selected view mode
   useEffect(() => {
     // Skip effect if data isn't loaded yet
     if (postsLoading || friendsLoading) return;
     
-    const filtered = posts.filter(post => 
-      post && post.user_username && friendUsernames.has(post.user_username)
-    );
+    let filtered;
+    
+    if (filterMode === FEED_VIEW_TYPES.FRIENDS) {
+      // Friends view: only show posts from friends
+      filtered = posts.filter(post => 
+        post && post.user_username && friendUsernames.has(post.user_username)
+      );
+    } else {
+      // Discover view: show all posts
+      filtered = posts.filter(post => 
+        post && post.user_username && !friendUsernames.has(post.user_username)
+      );
+    }
     
     // Only update state if the filtered posts have actually changed
-    setFilteredPosts(filtered.length > 0 ? filtered : posts);
+    setFilteredPosts(filtered.length > 0 ? filtered : []);
     
-  }, [posts, friendUsernames, postsLoading, friendsLoading]);
+  }, [posts, friendUsernames, postsLoading, friendsLoading, filterMode]);
   
   // Handle manual refresh
   const handleRefresh = async () => {
@@ -181,12 +195,22 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 
   if (filteredPosts.length === 0) {
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: palette.layout }]}>
-        <Text style={[styles.emptyTitle, { color: palette.text }]}>No posts yet</Text>
-        <Text style={[styles.emptyText, { color: palette.border }]}>
-          Connect with friends or create your first post!
-        </Text>
-      </View>
+      <>
+        {/* Still render the ListHeaderComponent even when no posts are available */}
+        {ListHeaderComponent && (
+          typeof ListHeaderComponent === 'function' 
+            ? ListHeaderComponent() 
+            : ListHeaderComponent
+        )}
+        <View style={[styles.emptyContainer, { backgroundColor: palette.page_background }]}>
+          <Text style={[styles.emptyTitle, { color: palette.text }]}>No posts yet</Text>
+          <Text style={[styles.emptyText, { color: palette.border }]}>
+            {filterMode === FEED_VIEW_TYPES.FRIENDS 
+              ? "Connect with friends or create your first post!" 
+              : "There are no posts to discover yet. Be the first to post!"}
+          </Text>
+        </View>
+      </>
     );
   }
 
@@ -234,7 +258,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const themedStyles = createThemedStyles((palette) => ({
   listContainer: {
     paddingHorizontal: 0,
     paddingTop: 0,
@@ -245,6 +269,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    backgroundColor: palette.page_background,
   },
   loadingText: {
     marginTop: 8,
@@ -253,7 +278,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 0,
+    marginTop: 0,
+    backgroundColor: palette.page_background,
   },
   emptyTitle: {
     fontSize: 18,
@@ -272,6 +299,7 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 12,
     borderWidth: 1,
+    backgroundColor: palette.page_background,
   },
   errorTitle: {
     fontSize: 18,
@@ -283,6 +311,6 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     lineHeight: 20,
   },
-});
+}));
 
 export default FeedContainer;

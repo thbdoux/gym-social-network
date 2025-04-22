@@ -1,6 +1,6 @@
 // app/(app)/feed.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
 import FabMenu from '../../components/feed/FabMenu';
 import SidebarButton from '../../components/navigation/SidebarButton';
 import PostCreationModal from '../../components/feed/PostCreationModal';
+import FeedViewSelector, { FEED_VIEW_TYPES } from '../../components/feed/FeedViewSelector';
+import { usePreventRemove } from '../../hooks/usePreventRemove';
 import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
@@ -31,15 +33,24 @@ import { imageManager, useImagePreloading } from '../../utils/imageManager';
 
 export default function FeedScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { t } = useLanguage();
   const { palette, personality } = useTheme();
+  
+  // Use the prevent remove hook to avoid the navigation issue
+  usePreventRemove(true);
+  
+  // State management
   const [refreshing, setRefreshing] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
+  
+  // View selector state
+  const [currentFeedView, setCurrentFeedView] = useState(FEED_VIEW_TYPES.FRIENDS);
   
   // Preload all personality images
   const { isLoaded: imagesLoaded } = useImagePreloading(['personality']);
@@ -70,6 +81,13 @@ export default function FeedScreen() {
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: forkProgram } = useForkProgram();
 
+  const changeView = (viewType: string) => {
+    setCurrentFeedView(viewType);
+    
+    // Reset scroll position when changing views
+    scrollY.setValue(0);
+  };
+
   // Memoize the welcome message and image selection
   const welcomeContent = useMemo(() => {
     // Get personality type from user (with fallback)
@@ -82,7 +100,7 @@ export default function FeedScreen() {
     const backgroundImage = imageManager.getLocalImage('personality', personalityType);
     
     return { message, backgroundImage };
-  }, [user?.personality_type, t]); // Only recalculate when these values change
+  }, [user?.personality_type, t]);
 
   // Calculate header animation values - make it disappear completely
   const headerHeight = scrollY.interpolate({
@@ -108,9 +126,9 @@ export default function FeedScreen() {
     }
   };
 
-  const handleLike = async (postId: number, isLiked: boolean) => {
+  const handleLike = async (postId: number) => {
     try {
-      await likePost({ postId, isLiked });  // Pass both parameters in an object
+      await likePost({ postId });
     } catch (err) {
       console.error('Error liking post:', err);
       Alert.alert('Error', 'Failed to like post');
@@ -149,7 +167,6 @@ export default function FeedScreen() {
     }
   };
   
-  // Add edit post handler
   const handleEditPost = async (post: any, newContent: string) => {
     try {
       // await editPost({ postId: post.id, content: newContent });
@@ -174,31 +191,26 @@ export default function FeedScreen() {
     setShowFriendsModal(true);
   };
   
-  // Handle profile click - opens modal
   const handleProfileClick = (userId: number) => {
     setSelectedUserId(userId);
     setShowProfileModal(true);
   };
   
-  // New handler to navigate to user profile page
   const handleNavigateToProfile = (userId: number) => {
     router.push(`/user/${userId}`);
   };
   
-  // FAB Menu handlers
   const handleFabItemPress = (itemId: string) => {
     setSelectedPostType(itemId);
     setShowPostModal(true);
   };
   
-  // Handle post modal close
   const handleModalClose = () => {
     setShowPostModal(false);
     // Reset back to regular after modal closes
     setTimeout(() => setSelectedPostType('regular'), 300);
   };
   
-  // Handle post created
   const handlePostCreated = (newPost: any) => {
     // Refresh posts feed after creating a new post
     refetchPosts();
@@ -210,25 +222,34 @@ export default function FeedScreen() {
     { useNativeDriver: false }
   );
 
-  // Custom rendering for the feed content with welcome message at the top - memoized
-  const renderHeader = useMemo(() => {
+  // Custom rendering for the feed header with welcome message
+  const renderWelcomeHeader = useMemo(() => {
     return (
-      <View style={styles.welcomeContainer}>
-        <ImageBackground
-          source={welcomeContent.backgroundImage}
-          style={styles.welcomeBackground}
-          imageStyle={styles.welcomeBackgroundImage}
-        >
-          <Text style={styles.welcomeText}>
-            {welcomeContent.message}
-          </Text>
-          <Text style={styles.welcomeUsername}>
-            {user?.displayName || user?.username || 'Friend'}?
-          </Text>
-        </ImageBackground>
+      <View>
+        {/* Welcome message */}
+        <View style={styles.welcomeContainer}>
+          <ImageBackground
+            source={welcomeContent.backgroundImage}
+            style={styles.welcomeBackground}
+            imageStyle={styles.welcomeBackgroundImage}
+          >
+            <Text style={styles.welcomeText}>
+              {welcomeContent.message}
+            </Text>
+            <Text style={styles.welcomeUsername}>
+              {user?.displayName || user?.username || 'Friend'}?
+            </Text>
+          </ImageBackground>
+        </View>
+        
+        {/* Feed view selector tabs */}
+        <FeedViewSelector
+          currentView={currentFeedView}
+          changeView={changeView}
+        />
       </View>
     );
-  }, [welcomeContent, user?.displayName, user?.username, styles]);
+  }, [welcomeContent, user?.displayName, user?.username, styles, currentFeedView]);
 
   // Add a handler for program selection
   const handleProgramSelect = (program: any) => {
@@ -260,7 +281,7 @@ export default function FeedScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Only the logo header animates out */}
+        {/* Header with logo only (view selector removed) */}
         <Animated.View 
           style={[
             styles.header,
@@ -271,57 +292,63 @@ export default function FeedScreen() {
           ]}
         >
           <View style={styles.headerContent}>
-            <View style={styles.headerLeft} />
-            <HeaderLogoWithSVG />
+            <View style={styles.headerLeft}>
+              {/* View selector has been removed from here */}
+            </View>
+            <View style={styles.headerCenter}>
+              <HeaderLogoWithSVG />
+            </View>
             <View style={styles.headerRight}>
               <SidebarButton />
             </View>
           </View>
         </Animated.View>
 
-        {/* Feed wrapper - includes the welcome message as its header */}
+        {/* Feed wrapper - includes the welcome message and tabs as its header */}
         <View style={styles.feedWrapper}>
-        {postsError ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={40} color={palette.error} />
-            <Text style={styles.errorText}>
-              {t('error_loading_feed')}
-            </Text>
-            <TouchableOpacity 
-              style={styles.retryButton}
-              onPress={() => refetchPosts()}
-            >
-              <Text style={styles.retryButtonText}>{t('retry')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (postsLoading && !refreshing) || !imagesLoaded ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={palette.primary} />
-            <Text style={styles.loadingText}>
-              {!imagesLoaded ? t('loading_images') : t('loading_posts')}
-            </Text>
-          </View>
-        ) : (
-          <FeedContainer
-            onLike={handleLike}
-            onComment={handleComment}
-            onShare={handleShare}
-            onDelete={handleDeletePost}
-            onEdit={handleEditPost}
-            onProgramSelect={handleProgramSelect}
-            onForkProgram={handleForkProgram}
-            onProfileClick={handleProfileClick}
-            onNavigateToProfile={handleNavigateToProfile}
-            onPostClick={handlePostClick}
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            contentContainerStyle={styles.feedContentContainer}
-            ListHeaderComponent={renderHeader}
-          />
-        )}
+          {postsError ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={40} color={palette.error} />
+              <Text style={styles.errorText}>
+                {t('error_loading_feed')}
+              </Text>
+              <TouchableOpacity 
+                style={styles.retryButton}
+                onPress={() => refetchPosts()}
+              >
+                <Text style={styles.retryButtonText}>{t('retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (postsLoading && !refreshing) || !imagesLoaded ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={palette.primary} />
+              <Text style={styles.loadingText}>
+                {!imagesLoaded ? t('loading_images') : t('loading_posts')}
+              </Text>
+            </View>
+          ) : (
+            <FeedContainer
+              onLike={handleLike}
+              onComment={handleComment}
+              onShare={handleShare}
+              onDelete={handleDeletePost}
+              onEdit={handleEditPost}
+              onProgramSelect={handleProgramSelect}
+              onForkProgram={handleForkProgram}
+              onProfileClick={handleProfileClick}
+              onNavigateToProfile={handleNavigateToProfile}
+              onPostClick={handlePostClick}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={styles.feedContentContainer}
+              ListHeaderComponent={renderWelcomeHeader}
+              filterMode={currentFeedView} // Pass the current view to FeedContainer
+            />
+          )}
         </View>
+        
       </SafeAreaView>
       
       {/* Friends Modal */}
@@ -361,6 +388,7 @@ const themedStyles = createThemedStyles((palette) => ({
   container: {
     flex: 1,
     backgroundColor: palette.layout,
+    borderRadius: 12,
   },
   safeArea: {
     flex: 1,
@@ -379,6 +407,14 @@ const themedStyles = createThemedStyles((palette) => ({
   },
   headerLeft: {
     width: 40,
+    alignItems: 'flex-start',
+  },
+  headerCenter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerRight: {
     width: 40,
@@ -457,7 +493,7 @@ const themedStyles = createThemedStyles((palette) => ({
     borderRadius: 8,
   },
   retryButtonText: {
-    color: palette.background,
+    color: palette.page_background,
     fontWeight: '600',
   },
 }));

@@ -18,9 +18,9 @@ class PostViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Update existing queryset to include shares info
         return Post.objects.filter(
-            Q(user=self.request.user) |
-            Q(user__in=self.request.user.friends.all()) |
-            Q(user__preferred_gym=self.request.user.preferred_gym)
+            # Q(user=self.request.user) |
+            # Q(user__in=self.request.user.friends.all()) |
+            # Q(user__preferred_gym=self.request.user.preferred_gym)
         ).distinct().select_related(
             'user', 'workout_log', 'program', 'original_post'  # Added program to select_related
         ).prefetch_related(

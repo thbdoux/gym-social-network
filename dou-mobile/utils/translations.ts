@@ -15,6 +15,7 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    discover: "Discover",
     language: 'Language',
     loading: 'Loading...',
     error: 'Error',
@@ -68,6 +69,7 @@ const common = {
     have_liked: 'have sent doux',
   },
   fr: {
+    discover:'Découvrir',
     language: 'Langue',
     loading: 'Chargement...',
     error: 'Erreur',

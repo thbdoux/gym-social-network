@@ -19,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 
 interface TabIconProps {
   name: string;
@@ -28,6 +29,7 @@ interface TabIconProps {
 
 const TabIcon: React.FC<TabIconProps> = ({ name, active, onPress }) => {
   const { palette } = useTheme();
+  const styles = themedStyles(palette);
   const scale = useSharedValue(1);
   const color = useSharedValue(active ? 1 : 0);
   
@@ -119,6 +121,7 @@ const BottomTabBar: React.FC = () => {
   const pathname = usePathname();
   const { user } = useAuth();
   const { palette } = useTheme();
+  const styles = themedStyles(palette);
   
   // Post Creation Modal state
   const [showPostModal, setShowPostModal] = useState(false);
@@ -143,13 +146,7 @@ const BottomTabBar: React.FC = () => {
   return (
     <>
       {/* Bottom Tab Bar */}
-      <View style={[
-        styles.container, 
-        { 
-          backgroundColor: palette.layout,
-          borderTopColor: palette.text,
-        }
-      ]}>
+      <View style={styles.container}>
         {/* Left side */}
         <View style={styles.tabSide}>
           <TabIcon
@@ -193,15 +190,17 @@ const BottomTabBar: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const themedStyles = createThemedStyles((palette) => ({
   container: {
     flexDirection: 'row',
-    height: Platform.OS === 'ios' ? 84 : 64,
+    height: Platform.OS === 'ios' ? 70 : 64,
     paddingBottom: Platform.OS === 'ios' ? 24 : 8,
     justifyContent: 'space-between',
     borderTopWidth: 1,
     paddingHorizontal: 20,
-    position: 'relative'
+    position: 'relative',
+    backgroundColor: palette.layout,
+    borderTopColor: palette.layout,
   },
   tabSide: {
     flexDirection: 'row',
@@ -299,6 +298,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-});
+}));
 
 export default BottomTabBar;
