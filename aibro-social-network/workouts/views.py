@@ -705,7 +705,6 @@ def get_user_workouts_count(request, user_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-# Add to workouts/views.py
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_logs_by_username(request, username):
@@ -721,10 +720,34 @@ def get_user_logs_by_username(request, username):
             'exercises', 'exercises__sets'
         )
         
-        serializer = WorkoutLogSerializer(logs, many=True)
-        return Response(serializer.data)
+        # Create a list to hold serialized logs
+        serialized_logs = []
+        
+        # Try to serialize each log individually
+        for log in logs:
+            try:
+                serializer = WorkoutLogSerializer(log)
+                serialized_logs.append(serializer.data)
+            except Exception as e:
+                # Log the error but continue with other logs
+                logger.error(f"Error serializing log {log.id}: {str(e)}")
+                # Add a minimal version of the log with error info
+                serialized_logs.append({
+                    "id": log.id,
+                    "name": log.name,
+                    "date": log.date,
+                    "error": "Could not fully load this workout log due to data issues"
+                })
+        
+        return Response(serialized_logs)
     except User.DoesNotExist:
         return Response(
             {"detail": "User not found"},
             status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.exception(f"Error in get_user_logs_by_username: {str(e)}")
+        return Response(
+            {"detail": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

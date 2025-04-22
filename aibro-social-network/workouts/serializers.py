@@ -25,13 +25,16 @@ class ExerciseTemplateSerializer(serializers.ModelSerializer):
     def get_superset_paired_exercise(self, obj):
         if obj.superset_with is not None:
             try:
-                paired_exercise = obj.workout.exercises.get(order=obj.superset_with)
-                return {
-                    'id': paired_exercise.id,
-                    'name': paired_exercise.name,
-                    'order': paired_exercise.order
-                }
-            except ExerciseTemplate.DoesNotExist:
+                paired_exercise = obj.workout.exercises.filter(order=obj.superset_with).first()
+                if paired_exercise:
+                    return {
+                        'id': paired_exercise.id,
+                        'name': paired_exercise.name,
+                        'order': paired_exercise.order
+                    }
+            except Exception as e:
+                # Log the error but don't break the API
+                print(f"Error finding paired exercise: {e}")
                 return None
         return None
 

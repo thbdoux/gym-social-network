@@ -64,6 +64,8 @@ const common = {
     welcome_message_mentor: "Ready to inspire others,",
     welcome_message_versatile: "Ready to master new skills,",
     welcome_message_default: "Ready to crush new records,",
+    has_liked: 'has sent a dou',
+    have_liked: 'have sent doux',
   },
   fr: {
     language: 'Langue',
@@ -115,6 +117,8 @@ const common = {
     welcome_message_mentor: "Prêt à inspirer le monde,",
     welcome_message_versatile: "Prêt à explorer,",
     welcome_message_default: "Prêt à battre des records,",
+    has_liked: 'a envoyé un dou',
+    have_liked: 'ont envoyé des doux',
   }
 };
 
@@ -1895,7 +1899,7 @@ const realtime_logger = {
     
     // Workout Completion
     "complete_workout": "Terminer l'Entraînement",
-    "completed": "complété",
+    "completed": "Terminé",
     "incomplete_exercises_warning": "Certains exercices ne sont pas entièrement complétés",
     "incomplete_workout": "Entraînement Incomplet",
     "incomplete_workout_confirm": "Il reste encore des séries non complétées dans votre entraînement. Voulez-vous quand même l'enregistrer?",

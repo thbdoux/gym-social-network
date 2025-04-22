@@ -278,6 +278,12 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             
             {log.completed ? (
               <View style={styles.completedBadge}>
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={16} 
+                  color={workoutLogPalette.highlight} 
+                  style={styles.checkIcon}
+                />
                 <Text style={[styles.completedText, { color: workoutLogPalette.highlight }]}>
                   {t('completed')}
                 </Text>
@@ -518,6 +524,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1,
     elevation: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkIcon: {
+    marginRight: 4,
   },
   pendingBadge: {
     paddingHorizontal: 8,

@@ -96,6 +96,17 @@ class PostViewSet(viewsets.ModelViewSet):
         # Use default permissions for other actions
         return [permissions.IsAuthenticated(), IsAuthorOrReadOnly()]
 
+    @action(detail=True, methods=['GET'])
+    def likers(self, request, pk=None):
+        """Get users who liked the post"""
+        post = self.get_object()
+        likes = post.likes.all().select_related('user')
+        users = [like.user for like in likes]
+        
+        from users.serializers import UserSerializer
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
+        
     @action(detail=True, methods=['post'])
     def comment(self, request, pk=None):
         """Add a comment to the post"""
@@ -272,3 +283,4 @@ def get_user_posts_count(request, user_id):
             {"detail": "User not found"},
             status=status.HTTP_404_NOT_FOUND
         )
+

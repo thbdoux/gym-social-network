@@ -9,7 +9,9 @@ import {
   Alert,
   Animated,
   ImageBackground,
+  TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useHeaderAnimation } from '../../context/HeaderAnimationContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -279,33 +281,46 @@ export default function FeedScreen() {
 
         {/* Feed wrapper - includes the welcome message as its header */}
         <View style={styles.feedWrapper}>
-          {(postsLoading && !refreshing) || !imagesLoaded ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={styles.loadingText}>
-                {!imagesLoaded ? 'Loading images...' : 'Loading posts...'}
-              </Text>
-            </View>
-          ) : (
-            <FeedContainer
-              onLike={handleLike}
-              onComment={handleComment}
-              onShare={handleShare}
-              onDelete={handleDeletePost}
-              onEdit={handleEditPost}
-              onProgramSelect={handleProgramSelect}
-              onForkProgram={handleForkProgram}
-              onProfileClick={handleProfileClick}
-              onNavigateToProfile={handleNavigateToProfile}
-              onPostClick={handlePostClick}
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              contentContainerStyle={styles.feedContentContainer}
-              ListHeaderComponent={renderHeader}
-            />
-          )}
+        {postsError ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={40} color={palette.error} />
+            <Text style={styles.errorText}>
+              {t('error_loading_feed')}
+            </Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => refetchPosts()}
+            >
+              <Text style={styles.retryButtonText}>{t('retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (postsLoading && !refreshing) || !imagesLoaded ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={palette.primary} />
+            <Text style={styles.loadingText}>
+              {!imagesLoaded ? t('loading_images') : t('loading_posts')}
+            </Text>
+          </View>
+        ) : (
+          <FeedContainer
+            onLike={handleLike}
+            onComment={handleComment}
+            onShare={handleShare}
+            onDelete={handleDeletePost}
+            onEdit={handleEditPost}
+            onProgramSelect={handleProgramSelect}
+            onForkProgram={handleForkProgram}
+            onProfileClick={handleProfileClick}
+            onNavigateToProfile={handleNavigateToProfile}
+            onPostClick={handlePostClick}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={styles.feedContentContainer}
+            ListHeaderComponent={renderHeader}
+          />
+        )}
         </View>
       </SafeAreaView>
       
@@ -422,5 +437,27 @@ const themedStyles = createThemedStyles((palette) => ({
     textShadowColor: 'rgba(0, 0, 0, 2)',
     textShadowOffset: {width: -1, height: 1},
     textShadowRadius: 10
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 10,
+    marginBottom: 20,
+    color: withAlpha(palette.text, 0.7),
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: palette.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: palette.background,
+    fontWeight: '600',
   },
 }));

@@ -230,6 +230,7 @@ export default function PostDetailScreen() {
         <Post
           post={post}
           currentUser={currentUser}
+          userData={user}
           onLike={handleLike}
           onComment={handleComment}
           onShare={handleShare}

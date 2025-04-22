@@ -652,11 +652,11 @@ export default function RealtimeWorkoutLogger() {
   const handleSubmitWorkout = async (additionalData: any = {}) => {
     try {
       // Format workout data for submission
-      const formattedExercises = exercises.map(exercise => ({
+      const formattedExercises = exercises.map((exercise,index) => ({
         name: exercise.name,
         equipment: exercise.equipment || '',
         notes: exercise.notes || '',
-        order: exercise.order || 0,
+        order: index,
         superset_with: exercise.superset_with || null,
         is_superset: !!exercise.is_superset,
         sets: exercise.sets.map((set: any, idx: number) => ({

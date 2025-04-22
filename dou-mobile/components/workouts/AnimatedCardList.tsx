@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   cardContainer: {
-    marginBottom: 16,
+    marginBottom: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,

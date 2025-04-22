@@ -4,7 +4,7 @@ from .models import Post, Comment, Like
 
 class CommentSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
-    user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
+    user_profile_picture = serializers.ImageField(source='user.avatar', read_only=True)
     
     class Meta:
         model = Comment
@@ -21,7 +21,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
     comments_count = serializers.SerializerMethodField()
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_id = serializers.IntegerField(source='user.id', read_only=True)
-    user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
+    user_profile_picture = serializers.ImageField(source='user.avatar', read_only=True)
     workout_log_details = serializers.SerializerMethodField()
     program_details = serializers.SerializerMethodField()
     workout_invite_details = serializers.SerializerMethodField()
@@ -73,7 +73,7 @@ class PostSerializer(serializers.ModelSerializer):
     comments_count = serializers.SerializerMethodField()
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_id = serializers.IntegerField(source='user.id', read_only=True)
-    user_profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
+    user_profile_picture = serializers.ImageField(source='user.avatar', read_only=True)
     is_liked = serializers.SerializerMethodField()
     shares_count = serializers.IntegerField(source='share_count', read_only=True)
     original_post_details = serializers.SerializerMethodField()

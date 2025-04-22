@@ -20,6 +20,9 @@ import { useTheme } from '../../context/ThemeContext'; // Import theme hook
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
 import ProgramCard from '../workouts/ProgramCard';
 import { getAvatarUrl } from '../../utils/imageUtils'; // Import getAvatarUrl
+import { usePostLikers } from '../../hooks/query/usePostQuery';
+
+import { useUser } from '../../hooks/query/useUserQuery';
 
 // Get screen dimensions for bottom sheet
 const { height, width } = Dimensions.get('window');
@@ -37,6 +40,12 @@ interface Comment {
   author?: Author;
   user_username?: string;
   user_profile_picture?: string;
+}
+
+interface LikerUser {
+  id: number;
+  username: string;
+  avatar?: string;
 }
 
 interface Post {
@@ -116,6 +125,10 @@ const Post: React.FC<PostProps> = ({
   const [localCommentsCount, setLocalCommentsCount] = useState(post.comments_count);
   const [localComments, setLocalComments] = useState(post.comments || []);
   
+  console.log(localComments)
+  // New state for likers
+  const { data: likers = [], isLoading: isLoadingLikers } = usePostLikers(post.id);
+
   // Update local states when post props change
   useEffect(() => {
     setLiked(post.is_liked);
@@ -126,6 +139,7 @@ const Post: React.FC<PostProps> = ({
   // New state for edit mode
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(post.content);
+
 
   // Format date to display relative time for recent dates
   const formatDate = (dateString) => {
@@ -286,6 +300,15 @@ const Post: React.FC<PostProps> = ({
     } else if (post.user_id && onProfileClick) {
       // Fallback to modal if navigation isn't provided
       onProfileClick(post.user_id);
+    }
+  };
+
+  // Handle clicking on a liker's profile
+  const handleLikerProfileClick = (userId: number) => {
+    if (onNavigateToProfile) {
+      onNavigateToProfile(userId);
+    } else if (onProfileClick) {
+      onProfileClick(userId);
     }
   };
 
@@ -751,6 +774,32 @@ const Post: React.FC<PostProps> = ({
             </>
           )}
         </View>
+
+        {/* Likers Preview - New section */}
+        {post.likes_count > 0 && (
+          <View style={styles.likersContainer}>
+            <View style={styles.likersAvatarsContainer}>
+              {likers.slice(0, 3).map((liker, index) => (
+                <TouchableOpacity
+                  key={liker.id}
+                  onPress={() => handleLikerProfileClick(liker.id)}
+                  style={[
+                    styles.likerAvatarWrapper,
+                    { marginLeft: index > 0 ? -12 : 0 }
+                  ]}
+                >
+                  <Image
+                    source={{ uri: getAvatarUrl(liker.avatar) }}
+                    style={styles.likerAvatar}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.likersText, { color: palette.text }]}>
+              {post.likes_count} {post.likes_count === 1 ? t('has_liked') : t('have_liked')}
+            </Text>
+          </View>
+        )}
         
         {/* Action Buttons */}
         <View style={[styles.actionsContainer, { borderTopColor: palette.border }]}>
@@ -805,6 +854,7 @@ const Post: React.FC<PostProps> = ({
             </Text>
           </TouchableOpacity>
         </View>
+        
         
         {/* Comment Input */}
         {showCommentInput && (
@@ -914,13 +964,13 @@ const Post: React.FC<PostProps> = ({
 
 const styles = StyleSheet.create({
   postWrapper: {
-    marginBottom: 6,
+    marginBottom: 0,
     position: 'relative',
   },
   container: {
-    borderRadius: 12,
+    borderRadius: 0,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderBottomWidth: 0.4,
     position: 'relative',
   },
   blurBackground: {
@@ -944,7 +994,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   header: {
-    padding: 20,
+    padding : 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -1062,13 +1112,13 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 12,
+    paddingBottom: 0,
   },
   postText: {
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 8, // Reduced margin between text and cards
+    marginBottom: 0, // Reduced margin between text and cards
   },
   programCardContainer: {
     marginTop: 0, // Reduced margin between text and program card
@@ -1132,15 +1182,16 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingVertical: 12,
+    borderTopWidth: 0,
+    // borderBottomWidth: 0.4,
+    paddingVertical: 6,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   actionText: {
     marginLeft: 6,
@@ -1152,8 +1203,35 @@ const styles = StyleSheet.create({
   disabledText: {
     color: '#6B7280',
   },
+  // Likers section - New styles
+  likersContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  likersAvatarsContainer: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  likerAvatarWrapper: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#111827',
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  likerAvatar: {
+    width: '100%',
+    height: '100%',
+  },
+  likersText: {
+    fontSize: 12,
+  },
   commentInputContainer: {
-    padding: 16,
+    padding: 8,
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
@@ -1197,8 +1275,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   commentsContainer: {
-    padding: 16,
-    paddingTop: 8,
+    padding: 8,
+    paddingTop: 0,
   },
   commentItem: {
     flexDirection: 'row',
@@ -1210,6 +1288,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 12,
     marginRight: 12,
     overflow: 'hidden',
   },

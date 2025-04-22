@@ -12,7 +12,8 @@ export const postKeys = {
   all: ['posts'],
   feed: () => [...postKeys.all, 'feed'],
   post: (id) => [...postKeys.all, id],
-  infinite: (limit = 10) => [...postKeys.feed(), 'infinite', limit]
+  infinite: (limit = 10) => [...postKeys.feed(), 'infinite', limit],
+  likers: (postId) => [...postKeys.post(postId), 'likers']
 };
 
 // Get the feed posts
@@ -223,5 +224,19 @@ export const useInfinitePosts = (limit = 10) => {
       // Return the next page number
       return allPages.length + 1;
     },
+  });
+};
+
+/**
+ * Hook to fetch users who liked a post
+ * @param postId The ID of the post
+ * @returns Query result with likers data
+ */
+ export const usePostLikers = (postId) => {
+  return useQuery({
+    queryKey: postKeys.likers(postId),
+    queryFn: () => postService.getLikers(postId),
+    enabled: !!postId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 };

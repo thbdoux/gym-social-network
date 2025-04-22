@@ -29,6 +29,11 @@ interface Comment {
     profile_picture?: string;
   };
 }
+interface Liker {
+  id: number;
+  username: string;
+  profile_picture?: string;
+}
 
 /**
  * Service for social posts API operations
@@ -88,7 +93,16 @@ const postService = {
   sharePost: async (id: number, content: string = ''): Promise<Post> => {
     const response = await apiClient.post(`/posts/${id}/share/`, { content });
     return response.data;
-  }
+  },
+  /**
+   * Get users who liked a post
+   * @param postId The ID of the post
+   * @returns Array of users who liked the post
+   */
+   getLikers: async (postId: number): Promise<Liker[]> => {
+    const response = await apiClient.get(`/posts/${postId}/likers/`);
+    return response.data;
+  },
 };
 
 export default postService;
