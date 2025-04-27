@@ -4,8 +4,6 @@ import { View, StyleSheet, SafeAreaView, StatusBar, Text, ActivityIndicator, Tou
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { AnalyticsProvider } from './context/AnalyticsContext';
-import { AnalyticsHeader } from './components/AnalyticsHeader';
-import { AnalyticsFilter } from './components/AnalyticsFilter';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { useLanguage } from '../../../context/LanguageContext';
 import { testCustomDateParsing } from './utils/debugUtils';
@@ -78,8 +76,6 @@ export default function AnalyticsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.layout }}>
       <StatusBar barStyle="light-content" />
       
-      <AnalyticsHeader />
-      
       {/* Debug mode toggle - hidden in tap gesture */}
       <TouchableOpacity 
         style={styles.debugButton} 
@@ -100,7 +96,6 @@ export default function AnalyticsScreen() {
           </View>
         ) : (
           <AnalyticsProvider>
-            <AnalyticsFilter />
             <AnalyticsCharts />
           </AnalyticsProvider>
         )}

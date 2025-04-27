@@ -1,6 +1,6 @@
 // components/AnalyticsTable.tsx
 import React, { memo, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Animated } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useLanguage } from '../../../../context/LanguageContext';
@@ -9,7 +9,7 @@ import { NoDataView } from './NoDataView';
 import { formatWeight, formatPercentChange } from '../utils/analyticsUtils';
 
 // Define table column types
-type SortColumn = 'date' | 'totalWeightLifted' | 'totalSets' | 'workoutCount';
+type SortColumn = 'date' | 'totalWeightLifted' | 'totalSets' | 'averageWeightPerRep';
 type SortDirection = 'asc' | 'desc';
 
 export const AnalyticsTable = memo(() => {
@@ -19,12 +19,15 @@ export const AnalyticsTable = memo(() => {
     weeklyMetrics, 
     selectedMuscleGroup, 
     selectedExercise,
-    timeRange,
   } = useAnalytics();
   
   // Sort state
   const [sortColumn, setSortColumn] = useState<SortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
+  // Animation values for row highlights
+  const [highlightedRowIndex, setHighlightedRowIndex] = useState<number | null>(null);
+  const highlightAnim = useMemo(() => new Animated.Value(0), []);
   
   // Handle sorting
   const handleSort = (column: SortColumn) => {
@@ -36,6 +39,20 @@ export const AnalyticsTable = memo(() => {
       setSortColumn(column);
       setSortDirection('desc');
     }
+  };
+  
+  // Handle row press - highlight the row briefly
+  const handleRowPress = (index: number) => {
+    setHighlightedRowIndex(index);
+    highlightAnim.setValue(1);
+    
+    Animated.timing(highlightAnim, {
+      toValue: 0,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start(() => {
+      setHighlightedRowIndex(null);
+    });
   };
   
   // Sort the data
@@ -55,8 +72,8 @@ export const AnalyticsTable = memo(() => {
         case 'totalSets':
           comparison = a.totalSets - b.totalSets;
           break;
-        case 'workoutCount':
-          comparison = a.workoutCount - b.workoutCount;
+        case 'averageWeightPerRep':
+          comparison = a.averageWeightPerRep - b.averageWeightPerRep;
           break;
       }
       
@@ -66,7 +83,7 @@ export const AnalyticsTable = memo(() => {
 
   // Table header component
   const TableHeader = () => (
-    <View style={[styles.tableHeader, { backgroundColor: palette.border + '20' }]}>
+    <View style={[styles.tableHeader, { backgroundColor: palette.highlight + '10' }]}>
       <TouchableOpacity 
         style={[styles.headerCell, styles.dateCell]} 
         onPress={() => handleSort('date')}
@@ -97,10 +114,10 @@ export const AnalyticsTable = memo(() => {
       
       <TouchableOpacity 
         style={[styles.headerCell, styles.metricCell]} 
-        onPress={() => handleSort('totalSets')}
+        onPress={() => handleSort('averageWeightPerRep')}
       >
-        <Text style={[styles.headerText, { color: palette.text }]}>{t('sets')}</Text>
-        {sortColumn === 'totalSets' && (
+        <Text style={[styles.headerText, { color: palette.text }]}>{t('avg_weight')}</Text>
+        {sortColumn === 'averageWeightPerRep' && (
           <Feather 
             name={sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'} 
             size={14} 
@@ -111,10 +128,10 @@ export const AnalyticsTable = memo(() => {
       
       <TouchableOpacity 
         style={[styles.headerCell, styles.metricCell]} 
-        onPress={() => handleSort('workoutCount')}
+        onPress={() => handleSort('totalSets')}
       >
-        <Text style={[styles.headerText, { color: palette.text }]}>{t('workouts')}</Text>
-        {sortColumn === 'workoutCount' && (
+        <Text style={[styles.headerText, { color: palette.text }]}>{t('sets')}</Text>
+        {sortColumn === 'totalSets' && (
           <Feather 
             name={sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'} 
             size={14} 
@@ -128,6 +145,7 @@ export const AnalyticsTable = memo(() => {
   // Table row component
   const renderItem = ({ item, index }: { item: any, index: number }) => {
     const isEven = index % 2 === 0;
+    const isHighlighted = highlightedRowIndex === index;
     
     // Get color for trend indicator
     const getTrendColor = (trend?: string) => {
@@ -143,63 +161,62 @@ export const AnalyticsTable = memo(() => {
       return 'minus';
     };
     
+    // Interpolate highlight color
+    const backgroundColor = isHighlighted
+      ? highlightAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [isEven ? palette.border + '10' : 'transparent', palette.highlight + '20']
+        })
+      : isEven ? palette.border + '10' : 'transparent';
+    
     return (
-      <View style={[
+      <Animated.View style={[
         styles.tableRow, 
-        isEven && { backgroundColor: palette.border + '10' }
+        { backgroundColor }
       ]}>
-        <View style={[styles.cell, styles.dateCell]}>
-          <Text style={[styles.cellText, { color: palette.text }]}>{item.label}</Text>
-        </View>
-        
-        <View style={[styles.cell, styles.metricCell]}>
-          <Text style={[styles.cellText, { color: palette.text }]}>
-            {formatWeight(item.totalWeightLifted)}
-          </Text>
-          {item.percentChangeFromPrevious !== undefined && (
-            <View style={styles.trendContainer}>
-              <Feather 
-                name={getTrendIcon(item.trend)} 
-                size={12} 
-                color={getTrendColor(item.trend)} 
-              />
-              <Text style={[styles.trendText, { color: getTrendColor(item.trend) }]}>
-                {formatPercentChange(item.percentChangeFromPrevious)}
-              </Text>
-            </View>
-          )}
-        </View>
-        
-        <View style={[styles.cell, styles.metricCell]}>
-          <Text style={[styles.cellText, { color: palette.text }]}>
-            {item.totalSets}
-          </Text>
-        </View>
-        
-        <View style={[styles.cell, styles.metricCell]}>
-          <Text style={[styles.cellText, { color: palette.text }]}>
-            {item.workoutCount}
-          </Text>
-        </View>
-      </View>
+        <TouchableOpacity 
+          style={styles.rowTouchable}
+          onPress={() => handleRowPress(index)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.cell, styles.dateCell]}>
+            <Text style={[styles.cellText, { color: palette.text, fontWeight: '500' }]}>{item.label}</Text>
+          </View>
+          
+          <View style={[styles.cell, styles.metricCell]}>
+            <Text style={[styles.cellText, { color: palette.text }]}>
+              {formatWeight(item.totalWeightLifted)}
+            </Text>
+            {item.percentChangeFromPrevious !== undefined && (
+              <View style={styles.trendContainer}>
+                <Feather 
+                  name={getTrendIcon(item.trend)} 
+                  size={12} 
+                  color={getTrendColor(item.trend)} 
+                />
+                <Text style={[styles.trendText, { color: getTrendColor(item.trend) }]}>
+                  {formatPercentChange(item.percentChangeFromPrevious)}
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={[styles.cell, styles.metricCell]}>
+            <Text style={[styles.cellText, { color: palette.text }]}>
+              {formatWeight(item.averageWeightPerRep)}
+            </Text>
+          </View>
+          
+          <View style={[styles.cell, styles.metricCell]}>
+            <Text style={[styles.cellText, { color: palette.text }]}>
+              {item.totalSets}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
-  // Filter info component
-  const FilterInfo = () => {
-    if (!selectedMuscleGroup && !selectedExercise) return null;
-    
-    return (
-      <View style={styles.filterInfo}>
-        <Text style={[styles.filterText, { color: palette.text + '80' }]}>
-          {t('filtered_by')}: 
-          {selectedMuscleGroup ? ` ${selectedMuscleGroup}` : ''} 
-          {selectedExercise ? ` / ${selectedExercise}` : ''}
-        </Text>
-      </View>
-    );
-  };
-  
   // Show no data view if no metrics available
   if (!weeklyMetrics || weeklyMetrics.length === 0) {
     return (
@@ -209,8 +226,6 @@ export const AnalyticsTable = memo(() => {
   
   return (
     <View style={styles.container}>
-      <FilterInfo />
-      
       <View style={styles.tableContainer}>
         <TableHeader />
         
@@ -221,54 +236,10 @@ export const AnalyticsTable = memo(() => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={<View style={{ height: 20 }} />}
+          ItemSeparatorComponent={() => (
+            <View style={[styles.separator, { backgroundColor: palette.border + '20' }]} />
+          )}
         />
-      </View>
-      
-      {/* Muscle Group Distribution Section */}
-      <View style={[styles.sectionContainer, { marginTop: 20 }]}>
-        <Text style={[styles.sectionTitle, { color: palette.text }]}>
-          {t('muscle_group_distribution')}
-        </Text>
-        
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.muscleGroupTable}>
-          <View>
-            {/* Muscle Group Table Header */}
-            <View style={[styles.muscleGroupRow, { backgroundColor: palette.border + '20' }]}>
-              <Text style={[styles.muscleGroupHeaderCell, { color: palette.text, width: 120 }]}>
-                {t('muscle_group')}
-              </Text>
-              <Text style={[styles.muscleGroupHeaderCell, { color: palette.text, width: 80 }]}>
-                {t('sets')}
-              </Text>
-            </View>
-            
-            {/* Muscle Group Table Rows */}
-            {sortedData.length > 0 && 
-              Object.entries(sortedData[0].setsPerMuscleGroup)
-                .filter(([_, count]) => count > 0)
-                .sort(([_, countA], [__, countB]) => countB - countA)
-                .map(([muscleGroup, count], index) => {
-                  const isEven = index % 2 === 0;
-                  return (
-                    <View 
-                      key={muscleGroup}
-                      style={[
-                        styles.muscleGroupRow, 
-                        isEven && { backgroundColor: palette.border + '10' }
-                      ]}
-                    >
-                      <Text style={[styles.muscleGroupCell, { color: palette.text, width: 120 }]}>
-                        {muscleGroup.charAt(0).toUpperCase() + muscleGroup.slice(1)}
-                      </Text>
-                      <Text style={[styles.muscleGroupCell, { color: palette.text, width: 80 }]}>
-                        {count}
-                      </Text>
-                    </View>
-                  );
-                })
-            }
-          </View>
-        </ScrollView>
       </View>
     </View>
   );
@@ -288,9 +259,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   tableContainer: {
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     flex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    marginTop: 8,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -315,15 +289,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tableRow: {
-    flexDirection: 'row',
     paddingVertical: 12,
     paddingHorizontal: 8,
+  },
+  rowTouchable: {
+    flexDirection: 'row',
   },
   cell: {
     justifyContent: 'center',
   },
   cellText: {
     fontSize: 14,
+  },
+  separator: {
+    height: 1,
   },
   listContent: {
     flexGrow: 1,
@@ -336,28 +315,5 @@ const styles = StyleSheet.create({
   trendText: {
     fontSize: 10,
     marginLeft: 2,
-  },
-  sectionContainer: {
-    paddingHorizontal: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  muscleGroupTable: {
-    marginBottom: 16,
-  },
-  muscleGroupRow: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  muscleGroupHeaderCell: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  muscleGroupCell: {
-    fontSize: 14,
-  },
+  }
 });

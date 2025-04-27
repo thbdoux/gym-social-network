@@ -1,13 +1,15 @@
 // components/MetricChart.tsx
-import React, { memo, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import React, { memo, useState, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { WeeklyMetrics, formatWeight } from '../utils/analyticsUtils';
+import { format, parse, isFirstDayOfMonth, parseISO, isSameMonth, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - 16; // Using full width with minimal margin
-const CHART_HEIGHT = 140; // Optimized height
+const DEFAULT_CHART_HEIGHT = 180; // Reduced height for more compact display
 
 interface MetricChartProps {
   title: string;
@@ -16,9 +18,12 @@ interface MetricChartProps {
   metricColor: string;
   maxValue: number;
   formatValue?: (value: number) => string;
+  height?: number; // Optional custom height
+  showFullLabels?: boolean; // Show full date labels
+  showMonthlyXAxis?: boolean; // New prop for monthly x-axis display
 }
 
-// Improved MetricChart with better tooltips and axis
+// Enhanced MetricChart using react-native-chart-kit
 export const MetricChart: React.FC<MetricChartProps> = memo(({
   title,
   data,
@@ -26,131 +31,285 @@ export const MetricChart: React.FC<MetricChartProps> = memo(({
   metricColor,
   maxValue,
   formatValue = (value) => formatWeight(value),
+  height = DEFAULT_CHART_HEIGHT,
+  showFullLabels = false,
+  showMonthlyXAxis = false,
 }) => {
   const { palette } = useTheme();
   const { t } = useLanguage();
-  const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  // Only use the most recent weeks for display (show at most 8 weeks)
-  const displayData = data.length > 8 ? data.slice(-8) : data;
-  const barWidth = Math.min(38, (CHART_WIDTH) / displayData.length - 8); 
+  // Calculate chart width based on data points - each point needs minimum 40px for readability
+  const chartWidth = Math.max(SCREEN_WIDTH, data.length * 40);
   
   // Calculate value for most recent week
   const currentValue = data.length > 0 ? data[data.length - 1][metricKey] as number : 0;
   
-  // Calculate change from previous week
-  let change = 0;
-  if (data.length >= 2) {
-    const previousValue = data[data.length - 2][metricKey] as number;
-    if (previousValue > 0) {
-      change = ((currentValue - previousValue) / previousValue) * 100;
+  // Calculate y-axis values for better scale representation
+  const yAxisValues = useMemo(() => {
+    const values = data.map(item => item[metricKey] as number);
+    const maxVal = Math.max(...values, 1); // Ensure at least 1 to avoid division by zero
+    
+    // Calculate step size based on max value (4-5 steps)
+    const step = Math.ceil(maxVal / 4);
+    
+    // Generate y-axis values starting from 0 and going up
+    const yValues = [];
+    for (let i = 0; i <= 4; i++) {
+      yValues.push(i * step);
     }
-  }
+    
+    return yValues;
+  }, [data, metricKey]);
 
-  // Calculate average growth over time
-  let avgGrowth = 0;
-  let growthPoints = 0;
-  if (data.length >= 3) {
-    for (let i = 1; i < data.length; i++) {
-      const current = data[i][metricKey] as number;
-      const previous = data[i-1][metricKey] as number;
-      if (previous > 0) {
-        avgGrowth += ((current - previous) / previous) * 100;
-        growthPoints++;
+  // Enhanced X-axis labels for month display with labels in the middle of each month
+  const { labels, weekDividers, monthMiddleIndices } = useMemo(() => {
+    if (!showMonthlyXAxis || data.length === 0) {
+      // Use the original label processing for non-monthly view
+      return {
+        labels: data.map(item => {
+          if (showFullLabels) return item.label;
+          const parts = item.label.split(' ');
+          return parts.length >= 2 ? parts[0].charAt(0) + parts[1] : item.label;
+        }),
+        weekDividers: [],
+        monthMiddleIndices: []
+      };
+    }
+
+    // For monthly view with week dividers, we need more sophisticated processing
+    const allLabels: string[] = [];
+    const weekDividers: number[] = [];
+    const monthMiddleIndices: number[] = [];
+    
+    // First pass: identify month boundaries and collect all dates
+    const monthBoundaries: { month: string, startIndex: number, endIndex: number }[] = [];
+    let currentMonth: string | null = null;
+    let monthStartIndex = 0;
+    
+    data.forEach((item, index) => {
+      const date = item.startDate;
+      const monthKey = format(date, 'yyyy-MM');
+      
+      // Create a divider for each week (except the first)
+      if (index > 0) {
+        weekDividers.push(index);
       }
-    }
-    if (growthPoints > 0) {
-      avgGrowth = avgGrowth / growthPoints;
-    }
-  }
-  
-  // Handle bar click
-  const handleBarPress = (index: number) => {
-    if (selectedBarIndex === index) {
-      setSelectedBarIndex(null);
-    } else {
-      setSelectedBarIndex(index);
-    }
+      
+      // Track month boundaries
+      if (currentMonth !== monthKey) {
+        if (currentMonth !== null) {
+          // End the previous month
+          monthBoundaries.push({
+            month: currentMonth,
+            startIndex: monthStartIndex,
+            endIndex: index - 1
+          });
+        }
+        
+        // Start a new month
+        currentMonth = monthKey;
+        monthStartIndex = index;
+      }
+      
+      // For the last data point, close the final month
+      if (index === data.length - 1 && currentMonth !== null) {
+        monthBoundaries.push({
+          month: currentMonth,
+          startIndex: monthStartIndex,
+          endIndex: index
+        });
+      }
+    });
+    
+    // Second pass: Compute middle points of months and set up labels
+    monthBoundaries.forEach(({ month, startIndex, endIndex }) => {
+      const midIndex = Math.floor((startIndex + endIndex) / 2);
+      monthMiddleIndices.push(midIndex);
+    });
+    
+    // Create the final labels array
+    data.forEach((_, index) => {
+      // Check if this index is a month middle point
+      const isMonthMiddle = monthMiddleIndices.includes(index);
+      
+      if (isMonthMiddle) {
+        // Get the month name for this middle point
+        const monthDate = data[index].startDate;
+        allLabels.push(format(monthDate, 'MMM'));
+      } else {
+        // Empty string for non-month-middle entries
+        allLabels.push('');
+      }
+    });
+    
+    return {
+      labels: allLabels,
+      weekDividers,
+      monthMiddleIndices
+    };
+  }, [data, showFullLabels, showMonthlyXAxis]);
+
+  // Prepare decorator function to draw week dividers
+  const decoratorFunction = useMemo(() => {
+    return () => {
+      if (!showMonthlyXAxis || weekDividers.length === 0) {
+        return null;
+      }
+      
+      // Draw vertical divider lines at week boundaries
+      return weekDividers.map((index) => {
+        // Calculate x position
+        const xPosition = (chartWidth / data.length) * index;
+        
+        return (
+          <View 
+            key={`divider-${index}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: xPosition,
+              width: 1,
+              height: height - 30, // Leave space for labels
+              backgroundColor: palette.border + '40', // Lighter color for week dividers
+              zIndex: 1
+            }}
+          />
+        );
+      });
+    };
+  }, [showMonthlyXAxis, weekDividers, chartWidth, data.length, height, palette.border]);
+
+  // Prepare data for chart-kit format with corrected Y-axis orientation
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        data: data.map(item => item[metricKey] as number),
+        color: () => metricColor,
+        strokeWidth: 2
+      }
+    ]
+  };
+
+  // Get tooltip label based on selected point
+  const getTooltipLabel = (index: number | null) => {
+    if (index === null || index >= data.length) return '';
+    const value = data[index][metricKey] as number;
+    return formatValue(value);
+  };
+
+  // Handle data point selection for tooltip
+  const handleDataPointClick = (data: any) => {
+    setSelectedPointIndex(data.index);
   };
   
   return (
-    <View style={[styles.container, { backgroundColor: palette.page_background }]}>
-      <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: palette.text }]}>{title}</Text>
-        <View style={styles.currentValueContainer}>
-          {/* Trending insight with icon instead of static value */}
-          <View style={styles.trendContainer}>
-            <Text style={[
-              styles.trendValue, 
-              { color: avgGrowth >= 0 ? '#4ade80' : '#f87171' }
-            ]}>
-              {avgGrowth >= 0 ? '↑' : '↓'} {Math.abs(avgGrowth).toFixed(1)}%
-            </Text>
-            <Text style={[styles.trendLabel, { color: palette.text + '80' }]}>
-              {avgGrowth >= 0 ? t('growing') : t('declining')}
-            </Text>
-          </View>
+    <View style={styles.container}>
+      {title && (
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: palette.text }]}>{title}</Text>
         </View>
+      )}
+      
+      {/* Chart Container with Y-axis and legends */}
+      <View style={styles.chartWithYAxis}>
+        {/* Y-axis labels (custom) - Positioned in correct order (0 at bottom) */}
+        <View style={styles.yAxisContainer}>
+          {[...yAxisValues].reverse().map((value, index) => (
+            <Text 
+              key={`y-${index}`} 
+              style={[styles.yAxisLabel, { color: palette.text + '80' }]}
+            >
+              {formatValue(value)}
+            </Text>
+          ))}
+        </View>
+        
+        {/* Chart Container with horizontal scroll */}
+        <ScrollView 
+          horizontal 
+          ref={scrollViewRef}
+          showsHorizontalScrollIndicator={true}
+          contentContainerStyle={[styles.chartContainer, { width: chartWidth }]}
+          onContentSizeChange={() => {
+            // Scroll to the right end if there's a lot of data
+            if (data.length > 8 && scrollViewRef.current) {
+              scrollViewRef.current.scrollToEnd({ animated: false });
+            }
+          }}
+        >
+          <LineChart
+            data={chartData}
+            width={chartWidth}
+            height={height}
+            yAxisLabel=""
+            yAxisSuffix=""
+            withInnerLines={!showMonthlyXAxis} // Hide default grid if using monthly view
+            withVerticalLines={!showMonthlyXAxis} // We'll draw our own vertical lines
+            withHorizontalLines={true}
+            withVerticalLabels={true}
+            withHorizontalLabels={false} // We'll use our custom y-axis labels
+            fromZero={true} // Force chart to start from zero
+            chartConfig={{
+              backgroundColor: palette.page_background,
+              backgroundGradientFrom: palette.page_background,
+              backgroundGradientTo: palette.page_background,
+              decimalPlaces: 0,
+              color: (opacity = 1) => metricColor + (opacity * 255).toString(16).padStart(2, '0'),
+              labelColor: () => palette.text + '90',
+              style: {
+                borderRadius: 16,
+              },
+              propsForDots: {
+                r: "4",
+                strokeWidth: "2",
+                stroke: metricColor
+              },
+              propsForBackgroundLines: {
+                strokeDasharray: '',
+                stroke: palette.border + '40'
+              },
+              propsForLabels: {
+                fontSize: 10,
+                fontWeight: 'bold', // Bold month names
+              },
+              formatYLabel: (value) => formatValue(parseFloat(value)),
+            }}
+            bezier
+            style={styles.chart}
+            onDataPointClick={handleDataPointClick}
+            decorator={decoratorFunction}
+          />
+          
+          {/* Add tooltip after chart */}
+          {selectedPointIndex !== null && (
+            <View
+              style={[
+                styles.tooltip,
+                { 
+                  left: (chartWidth / data.length) * (selectedPointIndex + 0.5),
+                  backgroundColor: palette.highlight 
+                }
+              ]}
+            >
+              <Text style={styles.tooltipText}>
+                {data[selectedPointIndex].label}: {getTooltipLabel(selectedPointIndex)}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       </View>
       
-      {/* Chart Container */}
-      <View style={styles.chartContainer}>
-        {/* Bars Container */}
-        <View style={styles.graphContainer}>
-          {displayData.map((week, index) => {
-            const value = week[metricKey] as number;
-            // Ensure minimum visible height and scale properly
-            const barHeight = Math.max(4, (value / maxValue) * CHART_HEIGHT);
-            const isSelected = selectedBarIndex === index;
-            
-            return (
-              <View key={`bar-${index}`} style={styles.barColumn}>
-                {/* Always show value above bar */}
-                <View style={[
-                  styles.barValue, 
-                  { 
-                    backgroundColor: 'transparent',
-                  }
-                ]}>
-                  <Text style={[styles.barValueText, { color: palette.text + 'A0' }]}>
-                    {formatValue(value)}
-                  </Text>
-                </View>
-                
-                {/* Bar */}
-                <TouchableOpacity
-                  onPress={() => handleBarPress(index)}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.barTouchable,
-                    { height: CHART_HEIGHT }
-                  ]}
-                >
-                  <View 
-                    style={[
-                      styles.bar, 
-                      { 
-                        backgroundColor: isSelected ? metricColor : metricColor + '90',
-                        height: barHeight,
-                        width: barWidth,
-                        bottom: 0
-                      }
-                    ]} 
-                  />
-                </TouchableOpacity>
-                
-                {/* X-axis Label */}
-                <Text 
-                  style={[styles.xAxisLabel, { color: isSelected ? palette.text : palette.text + '80' }]}
-                  numberOfLines={1}
-                >
-                  {week.label}
-                </Text>
-              </View>
-            );
-          })}
+      {/* Legend */}
+      {selectedPointIndex !== null && (
+        <View style={styles.legendContainer}>
+          <Text style={[styles.legendText, { color: palette.text }]}>
+            {data[selectedPointIndex].label}: {getTooltipLabel(selectedPointIndex)}
+          </Text>
         </View>
-      </View>
+      )}
     </View>
   );
 });
@@ -158,104 +317,63 @@ export const MetricChart: React.FC<MetricChartProps> = memo(({
 const styles = StyleSheet.create({
   container: {
     borderRadius: 12,
-    padding: 6,
+    padding: 2,
     marginBottom: 0,
-    marginHorizontal: 8,
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  currentValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  trendContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-  },
-  trendValue: {
     fontSize: 14,
     fontWeight: '600',
   },
-  trendLabel: {
-    fontSize: 10,
-    fontWeight: '400',
+  chartWithYAxis: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  yAxisContainer: {
+    width: 30,
+    height: DEFAULT_CHART_HEIGHT,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingRight: 4,
+    paddingVertical: 10,
+  },
+  yAxisLabel: {
+    fontSize: 8,
+    textAlign: 'right',
   },
   chartContainer: {
-    height: CHART_HEIGHT + 40, // Extra space for values above bars and x-axis labels
-    flexDirection: 'row',
-    top:30,
-    paddingBottom: 4,
+    minHeight: DEFAULT_CHART_HEIGHT,
   },
-  graphContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: CHART_HEIGHT,
-  },
-  barColumn: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    height: '100%',
-    position: 'relative',
-  },
-  barTouchable: {
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  bar: {
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    position: 'absolute',
-  },
-  barValue: {
-    marginBottom: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  barValueText: {
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  xAxisLabel: {
-    fontSize: 10,
-    marginTop: 4,
-    textAlign: 'center',
+  chart: {
+    borderRadius: 12,
+    paddingRight: 0,
   },
   tooltip: {
     position: 'absolute',
-    top: -36,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.8)',
     borderRadius: 8,
-    zIndex: 10,
-    minWidth: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 6,
+    top: 50,
+    transform: [{ translateX: -40 }],
+    zIndex: 100,
   },
   tooltipText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
-  tooltipArrow: {
-    position: 'absolute',
-    bottom: -8,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
+  legendContainer: {
+    alignItems: 'center',
+    marginTop: 4,
   },
+  legendText: {
+    fontSize: 12,
+    fontWeight: '500',
+  }
 });

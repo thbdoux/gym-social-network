@@ -1,5 +1,5 @@
 // utils/analyticsUtils.ts
-import { format, endOfWeek, subWeeks, isValid } from 'date-fns';
+import { format, endOfWeek, subWeeks, isValid, startOfWeek } from 'date-fns';
 import { getPrimaryMuscleGroup } from './muscleMapping';
 
 // Define interfaces that match the Django models and serializers
@@ -80,6 +80,7 @@ export interface MuscleGroupMetrics {
 
 // Enhanced date parser that handles a wide variety of formats
 export function parseDate(dateString: string): Date | null {
+  // console.log(dateString);
   if (!dateString) return null;
   
   // Clean up the input string
@@ -115,6 +116,7 @@ export function parseDate(dateString: string): Date | null {
           date.getDate() === first && 
           date.getMonth() === second - 1 && 
           date.getFullYear() === year) {
+        // console.log(date);
         return date;
       }
     }
@@ -128,7 +130,9 @@ export function parseDate(dateString: string): Date | null {
           date.getDate() === second && 
           date.getMonth() === first - 1 && 
           date.getFullYear() === year) {
+        // console.log(date);
         return date;
+        
       }
     }
   }
@@ -149,6 +153,7 @@ export function parseDate(dateString: string): Date | null {
           date.getDate() === day && 
           date.getMonth() === month - 1 && 
           date.getFullYear() === year) {
+        console.log(date);
         return date;
       }
     }
@@ -289,17 +294,25 @@ export const calculateWeeklyMetrics = (
     const today = new Date();
     const weeks: Date[] = [];
     
-    // Generate week start dates
+    // Generate week start dates properly
     for (let i = 0; i < actualNumWeeks; i++) {
-      weeks.push(subWeeks(today, i));
+      // Get a date from i weeks ago
+      const dateFromPast = subWeeks(today, i);
+      
+      // Find the start of that week (Monday)
+      const weekStart = startOfWeek(dateFromPast, { weekStartsOn: 1 });
+      
+      weeks.push(weekStart);
     }
     
     // Sort weeks in chronological order
     weeks.sort((a, b) => a.getTime() - b.getTime());
+    console.log(weeks);
     
     // Calculate metrics for each week
     const weeklyMetrics = weeks.map(weekStart => {
       const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+      console.log(weekStart, weekEnd);
       
       // Filter logs for this week
       const weekLogs = completedLogs.filter(log => {
@@ -309,6 +322,7 @@ export const calculateWeeklyMetrics = (
           const logDate = parseDate(log.date);
           if (!logDate) return false;
           
+          // console.log(weekStart, weekEnd);
           return logDate >= weekStart && logDate <= weekEnd;
         } catch (err) {
           console.warn('Error processing date:', err);
@@ -337,7 +351,6 @@ export const calculateWeeklyMetrics = (
           
           // Get muscle group for this exercise
           const exerciseMuscleGroup = exercise.muscle_group || getPrimaryMuscleGroup(exercise.name);
-          
           // Skip if doesn't match filters
           if (
             (selectedMuscleGroup && exerciseMuscleGroup !== selectedMuscleGroup) ||

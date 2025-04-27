@@ -125,7 +125,6 @@ const Post: React.FC<PostProps> = ({
   const [localCommentsCount, setLocalCommentsCount] = useState(post.comments_count);
   const [localComments, setLocalComments] = useState(post.comments || []);
   
-  console.log(localComments)
   // New state for likers
   const { data: likers = [], isLoading: isLoadingLikers } = usePostLikers(post.id);
 
@@ -359,7 +358,6 @@ const Post: React.FC<PostProps> = ({
     
     // Call the onLike function with the post ID and current liked status
     // so the backend knows whether to like or unlike
-    console.log(post);
     onLike(post.id, liked);
   };
   

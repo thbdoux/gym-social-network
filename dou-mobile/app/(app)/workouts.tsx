@@ -28,7 +28,7 @@ import ViewSelector, { VIEW_TYPES, VIEW_ORDER } from '../../components/workouts/
 import SwipeIndicator from '../../components/workouts/SwipeIndicator';
 import AnimatedCardList from '../../components/workouts/AnimatedCardList';
 import SelectionModeHeader from '../../components/workouts/SelectionModeHeader';
-import ActionModal from '../../components/workouts/ActionModal';
+import WorkoutsFabMenu from '../../components/workouts/WorkoutsFabMenu'; // Import the new FAB menu
 import LogWorkoutModal from '../../components/workouts/LogWorkoutModal';
 import ProgramSelectionModal from '../../components/workouts/ProgramSelectionModal';
 import TemplateSelectionModal from '../../components/workouts/TemplateSelectionModal';
@@ -77,7 +77,6 @@ export default function WorkoutsScreen() {
   
   const [viewSelectorVisible, setViewSelectorVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [actionModalVisible, setActionModalVisible] = useState(false);
   
   // Selection mode state
   const [selectionMode, setSelectionMode] = useState(false);
@@ -204,11 +203,6 @@ export default function WorkoutsScreen() {
   // Toggle view selector
   const toggleViewSelector = () => {
     setViewSelectorVisible(!viewSelectorVisible);
-  };
-
-  // Toggle action modal
-  const toggleActionModal = () => {
-    setActionModalVisible(!actionModalVisible);
   };
 
   // Function to navigate to the next view in the circular order
@@ -398,15 +392,18 @@ export default function WorkoutsScreen() {
     }
   };
   
-  // Action handlers
+  // Action handlers for FAB menu
   const handleCreateProgram = () => {
     setProgramWizardVisible(true);
-    setActionModalVisible(false);
   };
 
   const handleCreateTemplate = () => {
     setWorkoutTemplateWizardVisible(true);
-    setActionModalVisible(false);
+  };
+  
+  // New handler for real-time workout
+  const handleStartRealtimeWorkout = () => {
+    router.push('/realtime-workout?source=custom');
   };
   
   // Handle program wizard submission
@@ -450,7 +447,6 @@ export default function WorkoutsScreen() {
   };
 
   const handleLogWorkout = () => {
-    setActionModalVisible(false);
     setLogWorkoutModalVisible(true);
   };
 
@@ -690,12 +686,7 @@ export default function WorkoutsScreen() {
                   <Ionicons name="ellipsis-horizontal" size={24} color={palette.text} />
                 </TouchableOpacity>
                 
-                <TouchableOpacity 
-                  style={styles.headerButton}
-                  onPress={toggleActionModal}
-                >
-                  <Ionicons name="add" size={24} color={palette.text} />
-                </TouchableOpacity>
+                {/* Removed the "+" button from here */}
                 
                 <TouchableOpacity 
                   style={styles.headerButton}
@@ -735,17 +726,20 @@ export default function WorkoutsScreen() {
           themePalette={palette}
         />
 
-        {/* Modals */}
-        <ActionModal
-          visible={actionModalVisible}
+        {/* FAB Menu */}
+        <WorkoutsFabMenu
           currentView={currentView}
-          onClose={() => setActionModalVisible(false)}
           onCreateProgram={handleCreateProgram}
           onCreateTemplate={handleCreateTemplate}
           onLogWorkout={handleLogWorkout}
+          onLogFromProgram={handleLogFromProgram}
+          onLogFromTemplate={handleLogFromTemplate}
+          onLogFromScratch={handleLogFromScratch}
+          onStartRealtimeWorkout={handleStartRealtimeWorkout}
           themePalette={palette}
         />
 
+        {/* Modals */}
         <LogWorkoutModal
           visible={logWorkoutModalVisible}
           onClose={() => setLogWorkoutModalVisible(false)}
@@ -850,7 +844,7 @@ const themedStyles = createThemedStyles((palette) => ({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 130,
+    minWidth: 90, // Reduced from 130 since we removed one button
   },
   headerButton: {
     width: 40,

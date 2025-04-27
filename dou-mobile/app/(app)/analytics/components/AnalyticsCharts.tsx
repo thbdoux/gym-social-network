@@ -1,14 +1,17 @@
-import React, { memo, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+// components/AnalyticsCharts.tsx
+import React, { memo, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Animated } from 'react-native';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { useAnalytics } from '../context/AnalyticsContext';
-import { getMaxMetrics } from '../utils/analyticsUtils';
-import { MetricChart } from './MetricChart';
-import { WeeklySetsPerMuscleChart } from './WeeklySetsPerMuscleChart';
 import { NoDataView } from './NoDataView';
 import { ViewToggle, ViewMode } from './ViewToggle';
 import { AnalyticsTable } from './AnalyticsTable';
+import { AnalyticsViewMode } from './ViewSelectionDropdown';
+import { ComparisonView } from './ComparisonView';
+import { MetricDeepDiveView } from './MetricDeepDiveView';
+import { AnalyticsHeader } from './AnalyticsHeader';
+import { AnalyticsFilter } from './AnalyticsFilter';
 
 export const AnalyticsCharts: React.FC = memo(() => {
   const { palette } = useTheme();
@@ -16,22 +19,52 @@ export const AnalyticsCharts: React.FC = memo(() => {
   const { 
     weeklyMetrics, 
     isLoading, 
+    dataError,
     selectedMuscleGroup,
     selectedExercise,
-    dataError,
+    resetFilters
   } = useAnalytics();
 
+  // View state
   const [viewMode, setViewMode] = useState<ViewMode>('chart');
-
-  const { maxWeight, maxAvgWeight, maxSets } = useMemo(() => 
-    getMaxMetrics(weeklyMetrics), 
-    [weeklyMetrics]
-  );
-
-  const maxSetsPerWeek = useMemo(() => {
-    if (!weeklyMetrics || weeklyMetrics.length === 0) return 10;
-    return Math.max(...weeklyMetrics.map(week => week.totalSets), 10);
-  }, [weeklyMetrics]);
+  const [analyticsView, setAnalyticsView] = useState<AnalyticsViewMode>('comparison');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  
+  // Scroll animation state - ensure it's properly initialized
+  const scrollY = useRef<Animated.Value>(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // Heights for animations
+  const headerHeight = 50; // Main header height
+  const toggleHeight = 60; // View toggle height
+  const totalHeaderHeight = headerHeight + toggleHeight;
+  
+  // Check if there are active filters
+  const hasActiveFilters = !!selectedMuscleGroup || !!selectedExercise;
+  
+  // Toggle filter modal
+  const toggleFilterModal = () => {
+    setShowFilterModal(!showFilterModal);
+  };
+  
+  // Navigation function for switching between views with animation
+  const navigateToView = (view: AnalyticsViewMode) => {
+    // Skip animation if going to the same view
+    if (view === analyticsView) return;
+    
+    // Animate scroll to top first
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: true });
+      
+      // Wait for scroll animation to complete before changing view
+      setTimeout(() => {
+        setAnalyticsView(view);
+      }, 300);
+    } else {
+      // If scrollView ref not available, just change view
+      setAnalyticsView(view);
+    }
+  };
 
   if (dataError) {
     return (
@@ -54,66 +87,108 @@ export const AnalyticsCharts: React.FC = memo(() => {
   if (!weeklyMetrics || weeklyMetrics.length === 0) {
     return (
       <NoDataView 
-        message={
-          selectedMuscleGroup || selectedExercise
-            ? t('no_data_for_filters')
-            : t('no_workout_data')
-        }
+        message={t('no_workout_data')}
       />
     );
   }
 
-  const getFilterMessage = () => {
-    if (selectedMuscleGroup && selectedExercise) {
-      return `${t('filtered_by')}: ${selectedMuscleGroup} / ${selectedExercise}`;
-    } else if (selectedMuscleGroup) {
-      return `${t('filtered_by')}: ${selectedMuscleGroup}`;
-    } else if (selectedExercise) {
-      return `${t('filtered_by')}: ${selectedExercise}`;
+  const renderChartView = () => {
+    switch (analyticsView) {
+      case 'comparison':
+        return <ComparisonView onMetricPress={navigateToView} />;
+      case 'total-weight':
+        return <MetricDeepDiveView metricType="totalWeightLifted" />;
+      case 'average-weight':
+        return <MetricDeepDiveView metricType="averageWeightPerRep" />;
+      case 'sets-analysis':
+        return <MetricDeepDiveView metricType="totalSets" />;
+      default:
+        return <ComparisonView onMetricPress={navigateToView} />;
     }
-    return '';
   };
 
   return (
     <View style={styles.container}>
-      <ViewToggle currentView={viewMode} onToggle={setViewMode} />
+      {/* Animated Header at the top with filter buttons */}
+      <AnalyticsHeader 
+        scrollY={scrollY} 
+        analyticsView={analyticsView} 
+        onViewChange={navigateToView}
+        headerHeight={headerHeight}
+        viewMode={viewMode}
+        onToggleFilter={toggleFilterModal}
+        onResetFilters={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
+      
+      {/* Full-width View Toggle - also animates on scroll */}
+      <Animated.View style={[
+        styles.toggleContainer,
+        { 
+          transform: [{ 
+            translateY: scrollY.interpolate({
+              inputRange: [0, toggleHeight],
+              outputRange: [headerHeight, headerHeight - toggleHeight],
+              extrapolate: 'clamp'
+            }) 
+          }],
+          opacity: scrollY.interpolate({
+            inputRange: [0, toggleHeight / 2, toggleHeight],
+            outputRange: [1, 0.5, 0],
+            extrapolate: 'clamp'
+          }),
+        }
+      ]}>
+        <ViewToggle 
+          currentView={viewMode} 
+          onToggle={setViewMode}
+        />
+      </Animated.View>
 
-      {(selectedMuscleGroup || selectedExercise) && (
-        <View style={[styles.filterIndicator, { backgroundColor: palette.highlight + '20' }]}>
-          <Text style={[styles.filterText, { color: palette.text }]}> {getFilterMessage()} </Text>
-        </View>
-      )}
-
-      {viewMode === 'chart' ? (
-        <ScrollView 
-          style={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <MetricChart
-            title={t('total_weight_lifted')}
-            data={weeklyMetrics}
-            metricKey="totalWeightLifted"
-            metricColor={palette.highlight}
-            maxValue={maxWeight * 1.1}
-          />
-
-          <MetricChart
-            title={t('avg_weight_per_rep')}
-            data={weeklyMetrics}
-            metricKey="averageWeightPerRep"
-            metricColor="#f59e0b"
-            maxValue={maxAvgWeight * 1.1}
-          />
-
-          <WeeklySetsPerMuscleChart
-            title={t('sets_per_muscle_group')}
-            data={weeklyMetrics}
-            maxValue={maxSetsPerWeek * 1.1}
-          />
-        </ScrollView>
-      ) : (
-        <AnalyticsTable />
+      {/* Content Area - Scrollable */}
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollContent}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false } // Set to false to avoid the error
+        )}
+      >
+        {/* Add padding to account for the header and toggle heights */}
+        <View style={{ height: totalHeaderHeight }} />
+        
+        {/* Display active filters indicator when filters are applied */}
+        {hasActiveFilters && (
+          <View style={[styles.filtersIndicator, { backgroundColor: palette.highlight + '10' }]}>
+            <Text style={[styles.filterLabel, { color: palette.text }]} numberOfLines={1}>
+              {t('filtering_by')}: {selectedMuscleGroup || ''} 
+              {selectedMuscleGroup && selectedExercise ? ' / ' : ''}
+              {selectedExercise || ''}
+            </Text>
+          </View>
+        )}
+        
+        {viewMode === 'chart' ? (
+          renderChartView()
+        ) : (
+          <AnalyticsTable />
+        )}
+        
+        {/* Add padding to bottom for better scrolling */}
+        <View style={{ height: 20 }} />
+      </ScrollView>
+      
+      {/* Filter Modal - Show only when toggled */}
+      {showFilterModal && (
+        <AnalyticsFilter
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          isModalVisible={showFilterModal}
+          closeModal={() => setShowFilterModal(false)}
+        />
       )}
     </View>
   );
@@ -122,12 +197,33 @@ export const AnalyticsCharts: React.FC = memo(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
-  scrollContainer: {
-    flex: 1,
+  toggleContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0, // Position below header
+    zIndex: 90,
   },
   scrollContent: {
-    paddingBottom: 20,
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 16,
+  },
+  filtersIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    marginHorizontal: 8,
+    borderRadius: 6,
+  },
+  filterLabel: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   loadingContainer: {
     flex: 1,
@@ -154,16 +250,5 @@ const styles = StyleSheet.create({
   errorSubtext: {
     fontSize: 14,
     textAlign: 'center',
-  },
-  filterIndicator: {
-    borderRadius: 8,
-    padding: 8,
-    margin: 8,
-    marginBottom: 0,
-  },
-  filterText: {
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
+  }
 });
