@@ -80,7 +80,6 @@ export interface MuscleGroupMetrics {
 
 // Enhanced date parser that handles a wide variety of formats
 export function parseDate(dateString: string): Date | null {
-  // console.log(dateString);
   if (!dateString) return null;
   
   // Clean up the input string
@@ -116,7 +115,6 @@ export function parseDate(dateString: string): Date | null {
           date.getDate() === first && 
           date.getMonth() === second - 1 && 
           date.getFullYear() === year) {
-        // console.log(date);
         return date;
       }
     }
@@ -130,7 +128,6 @@ export function parseDate(dateString: string): Date | null {
           date.getDate() === second && 
           date.getMonth() === first - 1 && 
           date.getFullYear() === year) {
-        // console.log(date);
         return date;
         
       }
@@ -153,7 +150,6 @@ export function parseDate(dateString: string): Date | null {
           date.getDate() === day && 
           date.getMonth() === month - 1 && 
           date.getFullYear() === year) {
-        console.log(date);
         return date;
       }
     }
@@ -307,12 +303,10 @@ export const calculateWeeklyMetrics = (
     
     // Sort weeks in chronological order
     weeks.sort((a, b) => a.getTime() - b.getTime());
-    console.log(weeks);
     
     // Calculate metrics for each week
     const weeklyMetrics = weeks.map(weekStart => {
       const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-      console.log(weekStart, weekEnd);
       
       // Filter logs for this week
       const weekLogs = completedLogs.filter(log => {
@@ -321,8 +315,6 @@ export const calculateWeeklyMetrics = (
         try {
           const logDate = parseDate(log.date);
           if (!logDate) return false;
-          
-          // console.log(weekStart, weekEnd);
           return logDate >= weekStart && logDate <= weekEnd;
         } catch (err) {
           console.warn('Error processing date:', err);
