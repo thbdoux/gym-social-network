@@ -25,5 +25,6 @@ urlpatterns = [
     path('api/posts/', include('posts.urls')),
     path('api/workouts/', include('workouts.urls')),
     path('api/gyms/', include('gyms.urls')),
+    path('api/notifications/', include('notifications.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

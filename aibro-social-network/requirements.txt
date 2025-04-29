@@ -12,3 +12,5 @@ django-templated-mail
 requests
 cryptography
 google-auth
+channels
+channels-redis

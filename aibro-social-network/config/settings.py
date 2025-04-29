@@ -19,6 +19,7 @@ ALLOWED_HOSTS = ['*']  # Configure properly in production
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
     'users.apps.UsersConfig',
     # 
     'django.contrib.admin',
@@ -37,7 +38,6 @@ INSTALLED_APPS = [
     'posts.apps.PostsConfig',
     'workouts.apps.WorkoutsConfig',
     'gyms.apps.GymsConfig',
-
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -45,7 +45,21 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.instagram',
     'dj_rest_auth',
     'dj_rest_auth.registration',
+    'channels',
+    'notifications.apps.NotificationsConfig',
 ]
+
+ASGI_APPLICATION = 'config.asgi.application'
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.getenv('REDIS_URL', 'redis://localhost:6379/0')],
+            "capacity": 1500,  # Default is 100
+            "expiry": 10,  # Default is 60
+        },
+    },
+}
 
 # dj-rest-auth settings
 REST_USE_JWT = True
@@ -233,9 +247,16 @@ CORS_ALLOW_ALL_ORIGINS = True  # Only for development
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
     },
     'root': {
@@ -248,9 +269,19 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
-        'workouts': {  # Add this for your app
+        'workouts': {
             'handlers': ['console'],
             'level': 'DEBUG',
+        },
+        'channels': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'daphne': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
         },
     },
 }

@@ -20,14 +20,16 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
+import { useNotificationCount } from '../../hooks/query/useNotificationQuery';
 
 interface TabIconProps {
   name: string;
   active: boolean;
   onPress: () => void;
+  showBadge?: boolean;
 }
 
-const TabIcon: React.FC<TabIconProps> = ({ name, active, onPress }) => {
+const TabIcon: React.FC<TabIconProps> = ({ name, active, onPress, showBadge = false }) => {
   const { palette } = useTheme();
   const styles = themedStyles(palette);
   const scale = useSharedValue(1);
@@ -70,6 +72,7 @@ const TabIcon: React.FC<TabIconProps> = ({ name, active, onPress }) => {
       <Animated.View style={[styles.tabIconContainer, animatedStyle]}>
         <View style={[active && [styles.activeIndicator, { backgroundColor: palette.text }]]} />
         <Ionicons name={iconName} size={22} color={iconColor} />
+        {showBadge && <View style={styles.badge} />}
       </Animated.View>
     </TouchableOpacity>
   );
@@ -122,6 +125,7 @@ const BottomTabBar: React.FC = () => {
   const { user } = useAuth();
   const { palette } = useTheme();
   const styles = themedStyles(palette);
+  const { data: notificationCount } = useNotificationCount();
   
   // Post Creation Modal state
   const [showPostModal, setShowPostModal] = useState(false);
@@ -143,6 +147,9 @@ const BottomTabBar: React.FC = () => {
     console.log('Post created:', newPost);
   };
   
+  // Check if we have unread notifications
+  const hasUnreadNotifications = notificationCount && notificationCount.unread > 0;
+  
   return (
     <>
       {/* Bottom Tab Bar */}
@@ -156,9 +163,10 @@ const BottomTabBar: React.FC = () => {
           />
           
           <TabIcon
-            name="sparkles"
-            active={pathname === '/ai-coach'}
-            onPress={() => navigateTo('/ai-coach')}
+            name="notifications"
+            active={pathname === '/notifications'}
+            onPress={() => navigateTo('/notifications')}
+            showBadge={hasUnreadNotifications}
           />
         </View>
         
@@ -234,6 +242,17 @@ const themedStyles = createThemedStyles((palette) => ({
   },
   iconStyle: {
     fontSize: 22,
+  },
+  badge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: palette.error,
+    borderWidth: 1,
+    borderColor: palette.layout,
   },
 
   fabButtonContainer: {

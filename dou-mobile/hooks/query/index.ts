@@ -8,3 +8,4 @@ export * from './useWorkoutQuery';
 export * from './useLogQuery';
 export * from './useGymQuery';
 export * from './useProfilePreviewQuery';
+export * from './useNotificationQuery';

@@ -8,6 +8,7 @@ import { AuthProvider } from '../context/AuthContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { HeaderAnimationProvider } from '../context/HeaderAnimationContext';
 import { ThemeProvider } from '../context/ThemeContext';
+import { NotificationProvider } from '../context/NotificationContext';
 import { View } from 'react-native';
 
 // Keep the splash screen visible while we fetch resources
@@ -43,12 +44,14 @@ export default function RootLayout() {
       <LanguageProvider>
         <AuthProvider>
           <ThemeProvider>
-            <HeaderAnimationProvider>
-              <StatusBar style="light" />
-              <View style={{ flex: 1, backgroundColor: '#080f19' }}>
-                <Slot />
-              </View>
-            </HeaderAnimationProvider>
+            <NotificationProvider>
+              <HeaderAnimationProvider>
+                <StatusBar style="light" />
+                <View style={{ flex: 1, backgroundColor: '#080f19' }}>
+                  <Slot />
+                </View>
+              </HeaderAnimationProvider>
+            </NotificationProvider>
           </ThemeProvider>
         </AuthProvider>
       </LanguageProvider>

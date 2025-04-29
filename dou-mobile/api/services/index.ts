@@ -7,6 +7,7 @@ import postService from './postService';
 import userService from './userService';
 import profilePreviewService from './profilePreviewService';
 import userCountService from './userCountService';
+import notificationService from './notificationService';
 
 // Re-export services
 export { default as workoutService } from './workoutService';
@@ -17,6 +18,7 @@ export { default as postService } from './postService';
 export { default as userService } from './userService';
 export { default as profilePreviewService } from './profilePreviewService';
 export { default as userCountService } from './userCountService';
+export { default as notificationService } from './notificationService';
 
 // Also export as a combined object
 export default {
@@ -27,5 +29,6 @@ export default {
   postService,
   userService,
   profilePreviewService,
-  userCountService
+  userCountService,
+  notificationService
 };
