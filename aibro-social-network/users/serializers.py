@@ -42,8 +42,6 @@ class UserSerializer(serializers.ModelSerializer):
             'avatar',
             'preferred_gym',
             'current_program', 
-            'profile_picture',
-            'profile_picture_url',
             'google_id',
             'instagram_id',
         ]

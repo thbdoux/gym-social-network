@@ -72,9 +72,49 @@ const userService = {
            Array.isArray(response.data.results) ? response.data.results : [];
   },
 
-  updateUser: async (updates: Partial<User>): Promise<User> => {
-    const response = await apiClient.patch('/users/me/', updates);
-    return response.data;
+  updateUser: async (updates: Partial<User> | FormData): Promise<User> => {
+    try {
+      let response;
+      
+      // Check if updates is FormData (for file uploads)
+      if (updates instanceof FormData) {
+        console.log('Using FormData for update');
+        
+        // For FormData with file uploads, explicit configuration is needed
+        response = await apiClient.patch('/users/me/', updates, {
+          headers: {
+            'Accept': 'application/json',
+            // Don't set Content-Type header - let Axios set it with boundary
+            // 'Content-Type': 'multipart/form-data',
+          },
+          // Add this to make axios handle the FormData correctly
+          transformRequest: (data, headers) => {
+            // Remove Content-Type header to let browser set it
+            delete headers['Content-Type'];
+            return data;
+          }
+        });
+      } else {
+        // For regular JSON data
+        console.log('Using JSON for update:', JSON.stringify(updates));
+        response = await apiClient.patch('/users/me/', updates);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('API Error Response:', JSON.stringify({
+          data: error.response.data,
+          headers: error.response.headers,
+          status: error.response.status
+        }));
+      }
+      
+      throw error;
+    }
   },
   
   updateLanguagePreference: async (language: string): Promise<User> => {

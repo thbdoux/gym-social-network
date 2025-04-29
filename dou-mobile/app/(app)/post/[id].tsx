@@ -99,10 +99,9 @@ export default function PostDetailScreen() {
   };
   
   // Add handlers for post actions
-  const handleLike = async (postId: number) => {
+  const handleLike = async (postId: number, isLiked: boolean) => {
     try {
-      await likePost(postId);
-      refetch(); // Refresh post data
+      await likePost({ postId, isLiked });
     } catch (err) {
       console.error('Error liking post:', err);
       Alert.alert('Error', 'Failed to like post');

@@ -24,12 +24,14 @@ import { BlurView } from 'expo-blur';
 
 // Custom hooks
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useCurrentUser, useUpdateUser } from '../../hooks/query/useUserQuery';
 import { useGyms, useGymDisplay } from '../../hooks/query/useGymQuery';
 import { getAvatarUrl } from '../../utils/imageUtils';
 
 export default function EditProfileScreen() {
   const { t } = useLanguage();
+  const { palette, personality } = useTheme();
   const { data: profile, isLoading: profileLoading } = useCurrentUser();
   const { mutateAsync: updateUser, isLoading: updateLoading } = useUpdateUser();
   const { data: gyms, isLoading: gymsLoading } = useGyms();
@@ -79,33 +81,83 @@ export default function EditProfileScreen() {
       quality: 0.8,
     });
     
-    if (!result.cancelled && result.uri) {
-      setNewAvatarUri(result.uri);
+    // Log result for debugging
+    console.log('ImagePicker result:', JSON.stringify(result));
+    
+    // The newer API returns an assets array and uses "canceled" (not cancelled)
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      console.log('Setting new avatar URI to:', result.assets[0].uri);
+      setNewAvatarUri(result.assets[0].uri);
     }
   };
   
   // Handle form submission
+  // In edit-profile.tsx - Replace the handleSubmit function
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     
     try {
-      // Prepare update data
-      const updateData = {
-        bio,
-        fitness_goals: fitnessGoals,
-        training_level: trainingLevel,
-        personality_type: personalityType,
-        preferred_gym: preferredGym,
-      };
-      
-      // If there's a new avatar, add it to update data
+      // If there's a new avatar, we need to use FormData
       if (newAvatarUri) {
-        // In a real app, you would upload the image to server
-        // For now, let's assume we're just setting the URI
-        updateData.avatar = newAvatarUri;
+        console.log('New avatar selected, using FormData for upload');
+        
+        // Create FormData for file upload
+        const formData = new FormData();
+        
+        // Add all text fields to FormData - convert all values to strings
+        formData.append('bio', bio || '');
+        formData.append('fitness_goals', fitnessGoals || '');
+        formData.append('training_level', trainingLevel || '');
+        formData.append('personality_type', personalityType || '');
+        
+        // Add preferred_gym (nullable) if it exists
+        if (preferredGym !== null) {
+          formData.append('preferred_gym', preferredGym.toString());
+        }
+        
+        // Get file extension
+        const uriParts = newAvatarUri.split('.');
+        const fileType = uriParts[uriParts.length - 1].toLowerCase();
+        
+        // Prepare file information
+        const fileName = `avatar-${Date.now()}.${fileType}`;
+        const fileType2 = fileType === 'jpg' ? 'jpeg' : fileType;
+        
+        // Create the file object with the correct structure for React Native
+        const fileObject = {
+          uri: Platform.OS === 'ios' ? newAvatarUri.replace('file://', '') : newAvatarUri,
+          name: fileName,
+          type: `image/${fileType2}`
+        };
+        
+        // Log the file object for debugging
+        console.log('File object for upload:', JSON.stringify(fileObject));
+        
+        // Append file to FormData with the correct field name
+        formData.append('avatar', fileObject);
+        
+        // Log the formData keys (this won't show values but helps debugging)
+        // Note: FormData logging is limited in React Native
+        console.log('FormData entries:');
+        for (let [key, value] of Object.entries(formData._parts || [])) {
+          console.log(`${key}: ${JSON.stringify(value)}`);
+        }
+        
+        // Use the formData version for the update
+        await updateUser(formData);
+      } else {
+        // No new avatar, just use regular JSON
+        const updateData = {
+          bio,
+          fitness_goals: fitnessGoals,
+          training_level: trainingLevel,
+          personality_type: personalityType,
+          preferred_gym: preferredGym,
+        };
+        
+        await updateUser(updateData);
       }
-      
-      await updateUser(updateData);
       
       Alert.alert(
         t('success'),
@@ -114,6 +166,20 @@ export default function EditProfileScreen() {
       );
     } catch (error) {
       console.error('Error updating profile:', error);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('API Error Response:', JSON.stringify({
+          data: error.response.data,
+          headers: error.response.headers,
+          status: error.response.status
+        }));
+      } else if (error.request) {
+        console.error('Request was made but no response was received', error.request);
+      } else {
+        console.error('Error message:', error.message);
+      }
+      
       Alert.alert(t('error'), t('failed_to_update_profile'));
     } finally {
       setIsSubmitting(false);
@@ -138,23 +204,26 @@ export default function EditProfileScreen() {
   // Get preferred gym display text
   const { displayText: gymDisplayText, gym } = useGymDisplay(profile?.id, preferredGym);
   
+  // Get gradient colors from theme
+  const gradientColors = [palette.primary, palette.secondary];
+  
   // Render loading state
   if (profileLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#a855f7" />
-        <Text style={styles.loadingText}>{t('loading_profile')}</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: palette.background }]}>
+        <ActivityIndicator size="large" color={palette.primary} />
+        <Text style={[styles.loadingText, { color: palette.text }]}>{t('loading_profile')}</Text>
       </View>
     );
   }
   
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
       <LinearGradient
-        colors={['#9333EA', '#D946EF']}
+        colors={gradientColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
@@ -194,31 +263,47 @@ export default function EditProfileScreen() {
                 }}
                 style={styles.avatar}
               />
-              <View style={styles.editAvatarButton}>
+              <View style={[styles.editAvatarButton, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]}>
                 <Ionicons name="camera" size={20} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
-            <Text style={styles.changePhotoText}>{t('tap_to_change_photo')}</Text>
+            <Text style={[styles.changePhotoText, { color: palette.primary }]}>{t('tap_to_change_photo')}</Text>
           </View>
           
           {/* Username (read-only) */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('username')}</Text>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>{t('username')}</Text>
             <TextInput
-              style={[styles.textInput, styles.readOnlyInput]}
+              style={[
+                styles.textInput, 
+                styles.readOnlyInput, 
+                { 
+                  backgroundColor: palette.inputBackground,
+                  borderColor: palette.border,
+                  color: palette.text
+                }
+              ]}
               value={username}
               editable={false}
             />
-            <Text style={styles.inputHint}>{t('username_cannot_be_changed')}</Text>
+            <Text style={[styles.inputHint, { color: palette.text }]}>{t('username_cannot_be_changed')}</Text>
           </View>
           
           {/* Bio */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('bio')}</Text>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>{t('bio')}</Text>
             <TextInput
-              style={[styles.textInput, styles.multilineInput]}
+              style={[
+                styles.textInput, 
+                styles.multilineInput,
+                { 
+                  backgroundColor: palette.inputBackground,
+                  borderColor: palette.border,
+                  color: palette.text
+                }
+              ]}
               placeholder={t('enter_bio')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={palette.text}
               value={bio}
               onChangeText={setBio}
               multiline
@@ -229,11 +314,19 @@ export default function EditProfileScreen() {
           
           {/* Fitness Goals */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('fitness_goals')}</Text>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>{t('fitness_goals')}</Text>
             <TextInput
-              style={[styles.textInput, styles.multilineInput]}
+              style={[
+                styles.textInput, 
+                styles.multilineInput,
+                { 
+                  backgroundColor: palette.inputBackground,
+                  borderColor: palette.border,
+                  color: palette.text
+                }
+              ]}
               placeholder={t('enter_fitness_goals')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={palette.text}
               value={fitnessGoals}
               onChangeText={setFitnessGoals}
               multiline
@@ -244,43 +337,61 @@ export default function EditProfileScreen() {
           
           {/* Training Level */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('training_level')}</Text>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>{t('training_level')}</Text>
             <TouchableOpacity 
-              style={styles.pickerButton}
+              style={[
+                styles.pickerButton,
+                { 
+                  backgroundColor: palette.inputBackground,
+                  borderColor: palette.border
+                }
+              ]}
               onPress={() => setTrainingLevelModalVisible(true)}
             >
-              <Text style={styles.pickerButtonText}>
+              <Text style={[styles.pickerButtonText, { color: palette.text }]}>
                 {trainingLevel ? t(trainingLevel.toLowerCase()) : t('select_training_level')}
               </Text>
-              <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
+              <Ionicons name="chevron-down" size={20} color={palette.text} />
             </TouchableOpacity>
           </View>
           
           {/* Personality Type */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('personality_type')}</Text>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>{t('personality_type')}</Text>
             <TouchableOpacity 
-              style={styles.pickerButton}
+              style={[
+                styles.pickerButton,
+                { 
+                  backgroundColor: palette.inputBackground,
+                  borderColor: palette.border
+                }
+              ]}
               onPress={() => setPersonalityModalVisible(true)}
             >
-              <Text style={styles.pickerButtonText}>
+              <Text style={[styles.pickerButtonText, { color: palette.text }]}>
                 {personalityType ? t(personalityType.toLowerCase()) : t('select_personality_type')}
               </Text>
-              <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
+              <Ionicons name="chevron-down" size={20} color={palette.text} />
             </TouchableOpacity>
           </View>
           
           {/* Preferred Gym */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('preferred_gym')}</Text>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>{t('preferred_gym')}</Text>
             <TouchableOpacity 
-              style={styles.pickerButton}
+              style={[
+                styles.pickerButton,
+                { 
+                  backgroundColor: palette.inputBackground,
+                  borderColor: palette.border
+                }
+              ]}
               onPress={() => setGymModalVisible(true)}
             >
-              <Text style={styles.pickerButtonText}>
+              <Text style={[styles.pickerButtonText, { color: palette.text }]}>
                 {preferredGym ? gymDisplayText : t('select_gym')}
               </Text>
-              <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
+              <Ionicons name="chevron-down" size={20} color={palette.text} />
             </TouchableOpacity>
           </View>
           
@@ -288,7 +399,8 @@ export default function EditProfileScreen() {
           <TouchableOpacity
             style={[
               styles.submitButton,
-              isSubmitting && styles.submitButtonDisabled
+              { backgroundColor: palette.primary },
+              isSubmitting && { backgroundColor: `${palette.primary}80` } // Add transparency for disabled state
             ]}
             onPress={handleSubmit}
             disabled={isSubmitting}
@@ -313,16 +425,22 @@ export default function EditProfileScreen() {
         onRequestClose={() => setTrainingLevelModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: palette.modalBackground }]}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
-            <Text style={styles.modalTitle}>{t('select_training_level')}</Text>
+            <Text style={[styles.modalTitle, { color: palette.text }]}>{t('select_training_level')}</Text>
             
             {trainingLevels.map((level) => (
               <TouchableOpacity
                 key={level.value}
                 style={[
                   styles.modalOption,
-                  trainingLevel === level.value && styles.modalOptionSelected
+                  trainingLevel === level.value && [
+                    styles.modalOptionSelected,
+                    { 
+                      backgroundColor: `${palette.primary}20`,
+                      borderColor: `${palette.primary}40`
+                    }
+                  ]
                 ]}
                 onPress={() => {
                   setTrainingLevel(level.value);
@@ -332,22 +450,23 @@ export default function EditProfileScreen() {
                 <Text 
                   style={[
                     styles.modalOptionText,
-                    trainingLevel === level.value && styles.modalOptionTextSelected
+                    { color: palette.text },
+                    trainingLevel === level.value && { color: palette.primary, fontWeight: 'bold' }
                   ]}
                 >
                   {level.label}
                 </Text>
                 {trainingLevel === level.value && (
-                  <Ionicons name="checkmark" size={20} color="#a855f7" />
+                  <Ionicons name="checkmark" size={20} color={palette.primary} />
                 )}
               </TouchableOpacity>
             ))}
             
             <TouchableOpacity
-              style={styles.modalCancelButton}
+              style={[styles.modalCancelButton, { borderTopColor: palette.border }]}
               onPress={() => setTrainingLevelModalVisible(false)}
             >
-              <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+              <Text style={[styles.modalCancelText, { color: palette.danger }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -361,16 +480,22 @@ export default function EditProfileScreen() {
         onRequestClose={() => setPersonalityModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: palette.modalBackground }]}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
-            <Text style={styles.modalTitle}>{t('select_personality_type')}</Text>
+            <Text style={[styles.modalTitle, { color: palette.text }]}>{t('select_personality_type')}</Text>
             
             {personalityTypes.map((type) => (
               <TouchableOpacity
                 key={type.value}
                 style={[
                   styles.modalOption,
-                  personalityType === type.value && styles.modalOptionSelected
+                  personalityType === type.value && [
+                    styles.modalOptionSelected,
+                    { 
+                      backgroundColor: `${palette.primary}20`,
+                      borderColor: `${palette.primary}40`
+                    }
+                  ]
                 ]}
                 onPress={() => {
                   setPersonalityType(type.value);
@@ -380,22 +505,23 @@ export default function EditProfileScreen() {
                 <Text 
                   style={[
                     styles.modalOptionText,
-                    personalityType === type.value && styles.modalOptionTextSelected
+                    { color: palette.text },
+                    personalityType === type.value && { color: palette.primary, fontWeight: 'bold' }
                   ]}
                 >
                   {type.label}
                 </Text>
                 {personalityType === type.value && (
-                  <Ionicons name="checkmark" size={20} color="#a855f7" />
+                  <Ionicons name="checkmark" size={20} color={palette.primary} />
                 )}
               </TouchableOpacity>
             ))}
             
             <TouchableOpacity
-              style={styles.modalCancelButton}
+              style={[styles.modalCancelButton, { borderTopColor: palette.border }]}
               onPress={() => setPersonalityModalVisible(false)}
             >
-              <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+              <Text style={[styles.modalCancelText, { color: palette.danger }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -409,18 +535,23 @@ export default function EditProfileScreen() {
         onRequestClose={() => setGymModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
-            <Text style={styles.modalTitle}>{t('select_gym')}</Text>
+          <View style={[styles.modalContent, { backgroundColor: palette.layout }]}>
+            <Text style={[styles.modalTitle, { color: palette.text }]}>{t('select_gym')}</Text>
             
             {gymsLoading ? (
-              <ActivityIndicator size="small" color="#a855f7" style={styles.modalLoading} />
+              <ActivityIndicator size="small" color={palette.primary} style={styles.modalLoading} />
             ) : (
               <ScrollView style={styles.modalScroll}>
                 <TouchableOpacity
                   style={[
                     styles.modalOption,
-                    preferredGym === null && styles.modalOptionSelected
+                    preferredGym === null && [
+                      styles.modalOptionSelected,
+                      { 
+                        backgroundColor: `${palette.highlight}20`,
+                        borderColor: `${palette.highlight}40`
+                      }
+                    ]
                   ]}
                   onPress={() => {
                     setPreferredGym(null);
@@ -430,13 +561,14 @@ export default function EditProfileScreen() {
                   <Text 
                     style={[
                       styles.modalOptionText,
-                      preferredGym === null && styles.modalOptionTextSelected
+                      { color: palette.text },
+                      preferredGym === null && { color: palette.primary, fontWeight: 'bold' }
                     ]}
                   >
                     {t('no_preferred_gym')}
                   </Text>
                   {preferredGym === null && (
-                    <Ionicons name="checkmark" size={20} color="#a855f7" />
+                    <Ionicons name="checkmark" size={20} color={palette.primary} />
                   )}
                 </TouchableOpacity>
                 
@@ -445,7 +577,13 @@ export default function EditProfileScreen() {
                     key={gym.id}
                     style={[
                       styles.modalOption,
-                      preferredGym === gym.id && styles.modalOptionSelected
+                      preferredGym === gym.id && [
+                        styles.modalOptionSelected,
+                        { 
+                          backgroundColor: `${palette.primary}20`,
+                          borderColor: `${palette.primary}40`
+                        }
+                      ]
                     ]}
                     onPress={() => {
                       setPreferredGym(gym.id);
@@ -456,38 +594,44 @@ export default function EditProfileScreen() {
                       <Text 
                         style={[
                           styles.modalOptionText,
-                          preferredGym === gym.id && styles.modalOptionTextSelected
+                          { color: palette.text },
+                          preferredGym === gym.id && { color: palette.primary, fontWeight: 'bold' }
                         ]}
                       >
                         {gym.name}
                       </Text>
-                      <Text style={styles.gymLocationText}>{gym.location}</Text>
+                      <Text style={[styles.gymLocationText, { color: palette.text }]}>
+                        {gym.location}
+                      </Text>
                     </View>
                     
                     {preferredGym === gym.id && (
-                      <Ionicons name="checkmark" size={20} color="#a855f7" />
+                      <Ionicons name="checkmark" size={20} color={palette.primary} />
                     )}
                   </TouchableOpacity>
                 ))}
                 
                 <TouchableOpacity
-                  style={styles.addGymButton}
+                  style={[
+                    styles.addGymButton, 
+                    { backgroundColor: `${palette.primary}20` }
+                  ]}
                   onPress={() => {
                     setGymModalVisible(false);
                     router.push('/workout-log/create-gym');
                   }}
                 >
-                  <Ionicons name="add-circle" size={20} color="#a855f7" />
-                  <Text style={styles.addGymText}>{t('add_new_gym')}</Text>
+                  <Ionicons name="add-circle" size={20} color={palette.primary} />
+                  <Text style={[styles.addGymText, { color: palette.primary }]}>{t('add_new_gym')}</Text>
                 </TouchableOpacity>
               </ScrollView>
             )}
             
             <TouchableOpacity
-              style={styles.modalCancelButton}
+              style={[styles.modalCancelButton, { borderTopColor: palette.border }]}
               onPress={() => setGymModalVisible(false)}
             >
-              <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+              <Text style={[styles.modalCancelText, { color: palette.danger }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -499,7 +643,6 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#080f19',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
@@ -509,10 +652,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#080f19',
   },
   loadingText: {
-    color: '#9ca3af',
     marginTop: 12,
   },
   blurBackground: {
@@ -582,7 +723,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -591,7 +731,6 @@ const styles = StyleSheet.create({
   },
   changePhotoText: {
     fontSize: 14,
-    color: '#a855f7',
   },
   
   // Input styles
@@ -601,21 +740,15 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ffffff',
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#1F2937',
     borderRadius: 8,
-    color: '#ffffff',
     fontSize: 15,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   readOnlyInput: {
-    backgroundColor: 'rgba(31, 41, 55, 0.5)',
-    color: '#9ca3af',
   },
   multilineInput: {
     minHeight: 100,
@@ -623,7 +756,6 @@ const styles = StyleSheet.create({
   },
   inputHint: {
     fontSize: 12,
-    color: '#9ca3af',
     marginTop: 4,
     fontStyle: 'italic',
   },
@@ -631,14 +763,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1F2937',
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   pickerButtonText: {
-    color: '#ffffff',
     fontSize: 15,
   },
   
@@ -647,14 +776,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#a855f7',
     borderRadius: 8,
     padding: 14,
     marginTop: 10,
     marginBottom: 24,
-  },
-  submitButtonDisabled: {
-    backgroundColor: 'rgba(168, 85, 247, 0.4)',
   },
   submitButtonIcon: {
     marginRight: 8,
@@ -675,7 +800,6 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    backgroundColor: '#1F2937',
     borderRadius: 12,
     padding: 20,
     maxHeight: '80%',
@@ -686,7 +810,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -700,24 +823,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalOptionSelected: {
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.3)',
   },
   modalOptionText: {
     fontSize: 16,
-    color: '#FFFFFF',
-  },
-  modalOptionTextSelected: {
-    color: '#a855f7',
-    fontWeight: 'bold',
   },
   gymModalOption: {
     flex: 1,
   },
   gymLocationText: {
     fontSize: 12,
-    color: '#9ca3af',
     marginTop: 2,
   },
   modalCancelButton: {
@@ -725,11 +840,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalCancelText: {
     fontSize: 16,
-    color: '#ef4444',
     fontWeight: '500',
   },
   modalLoading: {
@@ -742,12 +855,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 8,
     marginBottom: 16,
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
     borderRadius: 8,
   },
   addGymText: {
     fontSize: 14,
-    color: '#a855f7',
     marginLeft: 8,
   },
 });

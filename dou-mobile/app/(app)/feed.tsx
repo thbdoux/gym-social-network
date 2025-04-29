@@ -25,7 +25,6 @@ import FabMenu from '../../components/feed/FabMenu';
 import SidebarButton from '../../components/navigation/SidebarButton';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import FeedViewSelector, { FEED_VIEW_TYPES } from '../../components/feed/FeedViewSelector';
-import { usePreventRemove } from '../../hooks/usePreventRemove';
 import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
@@ -38,9 +37,6 @@ export default function FeedScreen() {
   const { t } = useLanguage();
   const { palette, personality } = useTheme();
   
-  // Use the prevent remove hook to avoid the navigation issue
-  usePreventRemove(true);
-  
   // State management
   const [refreshing, setRefreshing] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
@@ -52,7 +48,7 @@ export default function FeedScreen() {
   // View selector state
   const [currentFeedView, setCurrentFeedView] = useState(FEED_VIEW_TYPES.FRIENDS);
   
-  // Preload all personality images
+  // Preload personality images - will now only load once thanks to our improved imageManager
   const { isLoaded: imagesLoaded } = useImagePreloading(['personality']);
   
   // Create themed styles
@@ -126,9 +122,9 @@ export default function FeedScreen() {
     }
   };
 
-  const handleLike = async (postId: number) => {
+  const handleLike = async (postId: number, isLiked: boolean) => {
     try {
-      await likePost({ postId });
+      await likePost({ postId, isLiked });
     } catch (err) {
       console.error('Error liking post:', err);
       Alert.alert('Error', 'Failed to like post');

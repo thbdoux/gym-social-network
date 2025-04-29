@@ -43,10 +43,6 @@ class User(AbstractUser):
     # Social authentication fields
     google_id = models.CharField(max_length=100, blank=True, null=True)
     instagram_id = models.CharField(max_length=100, blank=True, null=True)
-    
-    # Additional profile fields
-    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
-    profile_picture_url = models.URLField(blank=True, null=True)  # For social media images
 
     def generate_verification_token(self):
         """Generate a unique token for email verification"""

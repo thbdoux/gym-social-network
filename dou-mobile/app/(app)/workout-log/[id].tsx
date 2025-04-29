@@ -23,6 +23,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useGym } from '../../../hooks/query/useGymQuery';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext'; // Import ThemeContext
+import { createThemedStyles, withAlpha } from '../../../utils/createThemedStyles';
 import {
   useLog,
   useUpdateLog,
@@ -41,8 +42,11 @@ export default function WorkoutLogDetailScreen() {
   const { id } = useLocalSearchParams();
   const logId = typeof id === 'string' ? parseInt(id, 10) : 0;
   
+  
+  
   // Get theme context
   const { workoutLogPalette, palette } = useTheme();
+  const styles = themedStyles(palette);
   
   // State for workout log details
   const [logName, setLogName] = useState('');
@@ -1371,7 +1375,7 @@ export default function WorkoutLogDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const themedStyles = createThemedStyles((palette) => ({
   safeArea: {
     flex: 1,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
@@ -1767,4 +1771,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.7)',
   },
-});
+}));

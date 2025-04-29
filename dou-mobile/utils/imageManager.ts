@@ -30,6 +30,12 @@ class ImageManager {
   // Store for remote image cache info
   private remoteCache: Record<string, CachedImage> = {};
   
+  // Track which categories have been preloaded
+  private preloadedCategories: Set<ImageCategory> = new Set();
+  
+  // Cache for already loaded local image objects
+  private loadedImageCache: Record<string, any> = {};
+  
   // Directory for cached images
   private cacheDirectory = FileSystem.cacheDirectory + 'images/';
   
@@ -75,18 +81,38 @@ class ImageManager {
   
   /**
    * Get a local image that was registered with the manager
+   * Now returns the cached loaded image object if available
    */
-  public getLocalImage(category: ImageCategory, name: string): number {
+  public getLocalImage(category: ImageCategory, name: string): any {
     const key = `${category}/${name}`;
-    const image = this.localAssets[key];
     
-    if (!image) {
-      console.warn(`Image not found: ${key}. Using default.`);
-      // Return default image based on category
-      return this.getDefaultForCategory(category);
+    // Check if we already have the loaded image in cache
+    if (this.loadedImageCache[key]) {
+      return this.loadedImageCache[key];
     }
     
-    return image;
+    // Get the image require reference
+    const imageRef = this.localAssets[key];
+    
+    if (!imageRef) {
+      console.warn(`Image not found: ${key}. Using default.`);
+      // Get default image based on category
+      const defaultRef = this.getDefaultForCategory(category);
+      // Cache and return it
+      this.loadedImageCache[key] = defaultRef;
+      return defaultRef;
+    }
+    
+    // Cache the image reference for future use
+    this.loadedImageCache[key] = imageRef;
+    return imageRef;
+  }
+  
+  /**
+   * Check if a category has been preloaded
+   */
+  public isCategoryPreloaded(category: ImageCategory): boolean {
+    return this.preloadedCategories.has(category);
   }
   
   /**
@@ -94,18 +120,51 @@ class ImageManager {
    */
   public async preloadAllLocalImages(): Promise<void> {
     const imageModules = Object.values(this.localAssets);
-    await Asset.loadAsync(imageModules);
+    
+    // Load all images and get their loaded assets
+    const loadedAssets = await Asset.loadAsync(imageModules);
+    
+    // Cache the loaded assets in our image cache for faster access
+    Object.entries(this.localAssets).forEach(([key, value], index) => {
+      this.loadedImageCache[key] = value;
+    });
+    
+    // Mark all categories as preloaded
+    const categories = new Set<ImageCategory>();
+    Object.keys(this.localAssets).forEach(key => {
+      const category = key.split('/')[0] as ImageCategory;
+      categories.add(category);
+    });
+    
+    categories.forEach(category => {
+      this.preloadedCategories.add(category);
+    });
   }
   
   /**
    * Preload specific local images by category
    */
   public async preloadLocalImagesByCategory(category: ImageCategory): Promise<void> {
-    const categoryImages = Object.entries(this.localAssets)
-      .filter(([key]) => key.startsWith(category))
-      .map(([_, value]) => value);
+    // Skip if this category is already preloaded
+    if (this.preloadedCategories.has(category)) {
+      return;
+    }
     
+    const categoryEntries = Object.entries(this.localAssets)
+      .filter(([key]) => key.startsWith(category));
+    
+    const categoryImages = categoryEntries.map(([_, value]) => value);
+    
+    // Load the assets
     await Asset.loadAsync(categoryImages);
+    
+    // Cache the loaded assets in our image cache for faster access
+    categoryEntries.forEach(([key, value]) => {
+      this.loadedImageCache[key] = value;
+    });
+    
+    // Mark this category as preloaded
+    this.preloadedCategories.add(category);
   }
   
   /**
@@ -185,6 +244,16 @@ class ImageManager {
             delete this.remoteCache[key];
           }
         }
+        
+        // Remove from loaded image cache
+        for (const key of Object.keys(this.loadedImageCache)) {
+          if (key.startsWith(category)) {
+            delete this.loadedImageCache[key];
+          }
+        }
+        
+        // Reset preload state for this category
+        this.preloadedCategories.delete(category);
       } else {
         // Clear all cache
         const dirInfo = await FileSystem.getInfoAsync(this.cacheDirectory);
@@ -193,8 +262,12 @@ class ImageManager {
           await this.setupCacheDirectory();
         }
         
-        // Clear memory cache
+        // Clear all memory caches
         this.remoteCache = {};
+        this.loadedImageCache = {};
+        
+        // Reset all preload states
+        this.preloadedCategories.clear();
       }
     } catch (error) {
       console.error('Error clearing image cache:', error);
@@ -306,12 +379,25 @@ export function useImagePreloading(categories?: ImageCategory[]): { isLoaded: bo
     async function loadImages() {
       try {
         if (categories && categories.length > 0) {
-          // Load specific categories
+          // Check if all requested categories are already preloaded
+          const allCategoriesPreloaded = categories.every(category => 
+            imageManager.isCategoryPreloaded(category)
+          );
+          
+          // If all categories are already preloaded, skip loading
+          if (allCategoriesPreloaded) {
+            setIsLoaded(true);
+            return;
+          }
+          
+          // Load only categories that aren't already preloaded
           for (const category of categories) {
-            await imageManager.preloadLocalImagesByCategory(category);
+            if (!imageManager.isCategoryPreloaded(category)) {
+              await imageManager.preloadLocalImagesByCategory(category);
+            }
           }
         } else {
-          // Load all images
+          // Load all images if no specific categories requested
           await imageManager.preloadAllLocalImages();
         }
         setIsLoaded(true);
