@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../hooks/useAuth';
-import Post from '../../components/feed/Post';
+import { useAuth } from '../../../hooks/useAuth';
+import Post from '../../../components/feed/Post';
 import { 
   usePost, 
   useLikePost, 
@@ -21,10 +21,10 @@ import {
   useSharePost, 
   useDeletePost,
   useUpdatePost
-} from '../../hooks/query/usePostQuery';
-import { useLanguage } from '../../context/LanguageContext';
-import { useTheme } from '../../context/ThemeContext'; // Add theme context
-import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
+} from '../../../hooks/query/usePostQuery';
+import { useLanguage } from '../../../context/LanguageContext';
+import { useTheme } from '../../../context/ThemeContext'; // Add theme context
+import ProfilePreviewModal from '../../../components/profile/ProfilePreviewModal';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -265,9 +265,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 0,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     // Border color now comes from theme
   },
   headerTitle: {

@@ -139,6 +139,9 @@ const Post: React.FC<PostProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(post.content);
 
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
 
   // Format date to display relative time for recent dates
   const formatDate = (dateString) => {
@@ -283,10 +286,38 @@ const Post: React.FC<PostProps> = ({
 
   // Handle clicking on the post content area
   const handlePostClick = () => {
-    // Only navigate if we're not in detail mode and a handler is provided
-    if (!detailMode && onPostClick) {
-      onPostClick(post.id);
-    }
+    // Animate the touch feedback
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 0.98,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0.9,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => {
+      // Only navigate if we're not in detail mode and a handler is provided
+      if (!detailMode && onPostClick) {
+        onPostClick(post.id);
+      }
+    });
   };
 
   // Handle clicking on username or profile picture
