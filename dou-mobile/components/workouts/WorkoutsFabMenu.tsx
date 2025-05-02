@@ -25,6 +25,8 @@ interface WorkoutsFabMenuProps {
   currentView: string;
   onCreateProgram: () => void;
   onCreateTemplate: () => void;
+  onCreateGroupWorkout: () => void;
+  onCreateGroupWorkoutFromTemplate: () => void;
   onLogWorkout: () => void;
   onLogFromProgram: () => void;
   onLogFromTemplate: () => void;
@@ -37,6 +39,8 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
   currentView,
   onCreateProgram,
   onCreateTemplate,
+  onCreateGroupWorkout,
+  onCreateGroupWorkoutFromTemplate,
   onLogWorkout,
   onLogFromProgram,
   onLogFromTemplate,
@@ -105,6 +109,23 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
             action: onCreateTemplate
           }
         ];
+      case VIEW_TYPES.GROUP_WORKOUTS:
+        return [
+          {
+            id: 'create_group_workout',
+            label: t('create_group_workout'),
+            icon: 'add-circle',
+            color: '#f97316',
+            action: onCreateGroupWorkout
+          },
+          {
+            id: 'create_from_template',
+            label: t('from_template'),
+            icon: 'document-text-outline',
+            color: '#f97316',
+            action: onCreateGroupWorkoutFromTemplate
+          }
+        ];
       default:
         return [];
     }
@@ -170,6 +191,8 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
         return '#16a34a';
       case VIEW_TYPES.TEMPLATES:
         return '#2563eb';
+      case VIEW_TYPES.GROUP_WORKOUTS:
+        return '#f97316';
       default:
         return themePalette.highlight;
     }

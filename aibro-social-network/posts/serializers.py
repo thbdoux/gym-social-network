@@ -26,6 +26,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
     program_details = serializers.SerializerMethodField()
     workout_invite_details = serializers.SerializerMethodField()
     invited_users_details = serializers.SerializerMethodField()
+    group_workout_details = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -33,7 +34,7 @@ class OriginalPostSerializer(serializers.ModelSerializer):
             'id', 'content', 'image', 'created_at', 'post_type',
             'user_username','user_id', 'user_profile_picture', 'comments',
             'likes_count', 'comments_count', 'workout_log_details', 'program_details',
-            'workout_invite_details', 'invited_users_details'
+            'workout_invite_details', 'invited_users_details','group_workout_details',
         ]
 
     # Copy over the get_* methods from PostSerializer
@@ -53,6 +54,12 @@ class OriginalPostSerializer(serializers.ModelSerializer):
         if obj.program:
             from workouts.serializers import ProgramSerializer
             return ProgramSerializer(obj.program).data
+        return None
+
+    def get_group_workout_details(self, obj):
+        if obj.group_workout:
+            from workouts.group_workout_serializers import GroupWorkoutSerializer
+            return GroupWorkoutSerializer(obj.group_workout, context=self.context).data
         return None
 
     def get_workout_invite_details(self, obj):
@@ -84,6 +91,7 @@ class PostSerializer(serializers.ModelSerializer):
     program_details = serializers.SerializerMethodField()
     workout_invite_details = serializers.SerializerMethodField()
     invited_users_details = serializers.SerializerMethodField()
+    group_workout_details = serializers.SerializerMethodField()
 
     def get_comments_count(self, obj):
         return obj.comments.count()
@@ -96,6 +104,7 @@ class PostSerializer(serializers.ModelSerializer):
             ).data
         return None
 
+
     class Meta:
         model = Post
         fields = [
@@ -104,7 +113,7 @@ class PostSerializer(serializers.ModelSerializer):
             'updated_at', 'user_username', 'user_id','user_profile_picture',
             'comments', 'likes_count','comments_count', 'is_liked',
             'workout_log_details', 'program_details', 
-            'workout_invite_details', 'invited_users_details',
+            'workout_invite_details', 'invited_users_details','group_workout_details',
             'is_share', 'original_post', 'shares_count',
             'original_post_details', 'shared_by'
         ]
@@ -141,6 +150,11 @@ class PostSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def get_group_workout_details(self, obj):
+        if obj.group_workout:
+            from workouts.group_workout_serializers import GroupWorkoutSerializer
+            return GroupWorkoutSerializer(obj.group_workout, context=self.context).data
+        return None
     def get_invited_users_details(self, obj):
         from users.serializers import UserSerializer
         return UserSerializer(obj.invited_users.all(), many=True).data
@@ -158,12 +172,13 @@ class PostSerializer(serializers.ModelSerializer):
 class PostCreateSerializer(serializers.ModelSerializer):
     program_id = serializers.IntegerField(required=False, write_only=True)
     workout_log_id = serializers.IntegerField(required=False, write_only=True)
+    group_workout_id = serializers.IntegerField(required=False, write_only=True)
     
     class Meta:
         model = Post
         fields = [
             'id','content', 'image', 'post_type', 
-            'program_id', 'workout_log_id'
+            'program_id', 'workout_log_id','group_workout_id'
         ]
         read_only_fields = ['id']
     
@@ -171,6 +186,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
         # Extract IDs
         program_id = validated_data.pop('program_id', None)
         workout_log_id = validated_data.pop('workout_log_id', None)
+        group_workout_id = validated_data.pop('group_workout_id', None)
         
         # Get the user from context
         user = self.context['request'].user
@@ -211,5 +227,15 @@ class PostCreateSerializer(serializers.ModelSerializer):
                 print(f"Successfully linked post {post.id} to workout log {workout_log_id}")
             except Exception as e:
                 print(f"Error linking workout log: {str(e)}")
+
+        if group_workout_id:
+            try:
+                from workouts.group_workouts import GroupWorkout
+                group_workout = GroupWorkout.objects.get(id=group_workout_id)
+                post.group_workout = group_workout
+                post.save()
+                print(f"Successfully linked post {post.id} to group workout {group_workout_id}")
+            except Exception as e:
+                print(f"Error linking group workout: {str(e)}")
         
         return post

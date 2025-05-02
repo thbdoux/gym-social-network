@@ -2102,6 +2102,182 @@ const notifs = {
   },
 };
 
+const group_workout = {
+  en: {
+    // Group Workout Navigation & Views
+"group_workouts": "Group Workouts",
+"group_info": "Group Info",
+"participants": "Participants",
+"schedule": "Schedule",
+
+// Actions & Buttons
+"create_group_workout": "Create Group Workout",
+"update_group_workout": "Update Group Workout",
+"from_template": "From Template",
+"join": "Join",
+"joined": "Joined",
+"leave": "Leave",
+"request_join": "Request to Join",
+"requested": "Requested",
+"manage": "Manage",
+"accept_invite": "Accept Invite",
+"declined": "Declined",
+"removed": "Removed",
+"request_rejected": "Request Rejected",
+
+// Group Workout Properties
+"visibility": "Visibility",
+"public": "Public",
+"private": "Private",
+"upon-request": "Upon Request",
+"public_workout_description": "Anyone can see and join this workout",
+"private_workout_description": "Only invited users can join this workout",
+"max_participants": "Max Participants",
+"group_full": "Group Full",
+"group_workout_max_participants_reached": "This group workout has reached its maximum number of participants",
+"difficulty_level": "Difficulty Level",
+
+// Form Fields & Labels
+"group_workout_name": "Group Workout Name",
+"enter_group_workout_name": "Enter group workout name",
+"enter_group_workout_description": "Enter description (optional)",
+"invited_users": "Invited Users",
+"workout_at_home": "Workout at Home",
+"enter_custom_location": "Enter custom location",
+"select_group_workout": "Select Group Workout",
+"search_group_workouts": "Search group workouts",
+"select_template_for_group_workout": "Select Template for Group Workout",
+
+// Time & Date
+"days_left": "{{count}} days left",
+"hours_left": "{{count}} hours left",
+"starting_soon": "Starting soon",
+"workout_passed": "Workout passed",
+"minutes": "minutes",
+
+// Status
+"scheduled": "Scheduled",
+"in_progress": "In Progress",
+"completed": "Completed",
+"cancelled": "Cancelled",
+
+// Participant Management
+"invite_participants": "Invite Participants",
+"search_users": "Search users",
+"searching": "Searching...",
+"search_results": "Search Results",
+"no_users_found": "No users found",
+"at_least_one_participant": "At least one participant is required",
+"no_participants_yet": "No participants yet",
+"created_by": "Created by",
+"creator": "Creator",
+"cannot_remove_creator": "Cannot remove the creator",
+"leave_as_creator": "Leave as Creator",
+"leave_as_creator_warning": "If you leave as creator, the group workout will be transferred to another participant or cancelled if no other participants.",
+"leave_anyway": "Leave Anyway",
+
+// Empty States
+"no_group_workouts_yet": "No group workouts yet",
+"no_group_workouts_found": "No group workouts found",
+"create_your_first_group_workout": "Create your first group workout to exercise with friends",
+"loading_group_workouts": "Loading group workouts...",
+
+// Confirmation & Errors
+"date_required": "Date is required",
+"time_required": "Time is required",
+"workout_name_required": "Workout name is required",
+"failed_to_search_users": "Failed to search users",
+"ok": "OK",
+"cancel": "Cancel"
+  },
+  fr:{
+    // Group Workout Navigation & Views
+"group_workouts": "Entraînements de Groupe",
+"group_info": "Infos du Groupe",
+"participants": "Participants",
+"schedule": "Horaire",
+
+// Actions & Buttons
+"create_group_workout": "Créer un Entraînement de Groupe",
+"update_group_workout": "Mettre à Jour l'Entraînement de Groupe",
+"from_template": "À Partir d'un Modèle",
+"join": "Rejoindre",
+"joined": "Rejoint",
+"leave": "Quitter",
+"request_join": "Demander à Rejoindre",
+"requested": "Demandé",
+"manage": "Gérer",
+"accept_invite": "Accepter l'Invitation",
+"declined": "Refusé",
+"removed": "Retiré",
+"request_rejected": "Demande Rejetée",
+
+// Group Workout Properties
+"visibility": "Visibilité",
+"public": "Public",
+"private": "Privé",
+"upon-request": "Sur Demande",
+"public_workout_description": "Tout le monde peut voir et rejoindre cet entraînement",
+"private_workout_description": "Seuls les utilisateurs invités peuvent rejoindre cet entraînement",
+"max_participants": "Nombre Maximum de Participants",
+"group_full": "Groupe Complet",
+"group_workout_max_participants_reached": "Cet entraînement de groupe a atteint son nombre maximum de participants",
+"difficulty_level": "Niveau de Difficulté",
+
+// Form Fields & Labels
+"group_workout_name": "Nom de l'Entraînement de Groupe",
+"enter_group_workout_name": "Entrez le nom de l'entraînement de groupe",
+"enter_group_workout_description": "Entrez une description (optionnel)",
+"invited_users": "Utilisateurs Invités",
+"workout_at_home": "Entraînement à Domicile",
+"enter_custom_location": "Entrez un lieu personnalisé",
+"select_group_workout": "Sélectionner un Entraînement de Groupe",
+"search_group_workouts": "Rechercher des entraînements de groupe",
+"select_template_for_group_workout": "Sélectionner un Modèle pour l'Entraînement de Groupe",
+
+// Time & Date
+"days_left": "{{count}} jours restants",
+"hours_left": "{{count}} heures restantes",
+"starting_soon": "Commence bientôt",
+"workout_passed": "Entraînement terminé",
+"minutes": "minutes",
+
+// Status
+"scheduled": "Programmé",
+"in_progress": "En Cours",
+"completed": "Terminé",
+"cancelled": "Annulé",
+
+// Participant Management
+"invite_participants": "Inviter des Participants",
+"search_users": "Rechercher des utilisateurs",
+"searching": "Recherche en cours...",
+"search_results": "Résultats de Recherche",
+"no_users_found": "Aucun utilisateur trouvé",
+"at_least_one_participant": "Au moins un participant est requis",
+"no_participants_yet": "Pas encore de participants",
+"created_by": "Créé par",
+"creator": "Créateur",
+"cannot_remove_creator": "Impossible de retirer le créateur",
+"leave_as_creator": "Quitter en tant que Créateur",
+"leave_as_creator_warning": "Si vous quittez en tant que créateur, l'entraînement de groupe sera transféré à un autre participant ou annulé s'il n'y a pas d'autres participants.",
+"leave_anyway": "Quitter Quand Même",
+
+// Empty States
+"no_group_workouts_yet": "Pas encore d'entraînements de groupe",
+"no_group_workouts_found": "Aucun entraînement de groupe trouvé",
+"create_your_first_group_workout": "Créez votre premier entraînement de groupe pour vous exercer avec des amis",
+"loading_group_workouts": "Chargement des entraînements de groupe...",
+
+// Confirmation & Errors
+"date_required": "La date est requise",
+"time_required": "L'heure est requise",
+"workout_name_required": "Le nom de l'entraînement est requis",
+"failed_to_search_users": "Échec de la recherche d'utilisateurs",
+"ok": "OK",
+"cancel": "Annuler"
+  }
+}
 const translations: Translations = {
   en: {
     ...common.en,
@@ -2121,6 +2297,7 @@ const translations: Translations = {
     ...exercises.en,
     ...realtime_logger.en,
     ...notifs.en,
+    ...group_workout.en,
   },
   fr: {
     ...common.fr,
@@ -2140,6 +2317,7 @@ const translations: Translations = {
     ...exercises.fr,
     ...realtime_logger.fr,
     ...notifs.fr,
+    ...group_workout.fr,
   }
 };
 

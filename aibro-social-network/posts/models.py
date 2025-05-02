@@ -7,6 +7,7 @@ class Post(models.Model):
         ('workout_log', 'Workout Log Share'),
         ('program', 'Program Share'),
         ('workout_invite', 'Workout Invitation'),
+        ('group_workout', 'Group Workout Invitation'),
         ('shared', 'Shared Post')
     ]
     
@@ -20,6 +21,8 @@ class Post(models.Model):
                                   null=True, blank=True, related_name='posts')
     program = models.ForeignKey('workouts.Program', on_delete=models.CASCADE,
                               null=True, blank=True, related_name='posts')
+    group_workout = models.ForeignKey('workouts.GroupWorkout', on_delete=models.CASCADE,
+                                null=True, blank=True, related_name='posts')
     workout_instance = models.ForeignKey('workouts.WorkoutInstance', on_delete=models.CASCADE,
                                        null=True, blank=True, related_name='invites')
     planned_date = models.DateTimeField(null=True, blank=True)

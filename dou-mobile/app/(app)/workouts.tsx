@@ -32,12 +32,14 @@ import WorkoutsFabMenu from '../../components/workouts/WorkoutsFabMenu'; // Impo
 import LogWorkoutModal from '../../components/workouts/LogWorkoutModal';
 import ProgramSelectionModal from '../../components/workouts/ProgramSelectionModal';
 import TemplateSelectionModal from '../../components/workouts/TemplateSelectionModal';
+import GroupWorkoutSelectionModal from '../../components/workouts/GroupWorkoutSelectionModal';
 import DeleteConfirmationModal from '../../components/workouts/DeleteConfirmationModal';
 
 // Import Wizards
 import ProgramWizard, { ProgramFormData } from '../../components/workouts/ProgramWizard';
 import WorkoutTemplateWizard, { WorkoutTemplateFormData } from '../../components/workouts/WorkoutTemplateWizard';
 import WorkoutLogWizard, { WorkoutLogFormData } from '../../components/workouts/WorkoutLogWizard';
+import GroupWorkoutWizard, { GroupWorkoutFormData } from '../../components/workouts/GroupWorkoutWizard';
 
 // Import React Query hooks
 import { 
@@ -60,6 +62,17 @@ import {
   useDeleteWorkoutTemplate,
   useCreateWorkoutTemplate
 } from '../../hooks/query/useWorkoutQuery';
+import {
+  useGroupWorkouts,
+  useUserCreatedGroupWorkouts,
+  useUserJoinedGroupWorkouts,
+  useGroupWorkout,
+  useCreateGroupWorkout,
+  useUpdateGroupWorkout,
+  useDeleteGroupWorkout,
+  useJoinGroupWorkout,
+  useLeaveGroupWorkout
+} from '../../hooks/query/useGroupWorkoutQuery';
 
 const { width } = Dimensions.get('window');
 
@@ -87,6 +100,7 @@ export default function WorkoutsScreen() {
   const [programWizardVisible, setProgramWizardVisible] = useState(false);
   const [workoutTemplateWizardVisible, setWorkoutTemplateWizardVisible] = useState(false);
   const [workoutLogWizardVisible, setWorkoutLogWizardVisible] = useState(false);
+  const [groupWorkoutWizardVisible, setGroupWorkoutWizardVisible] = useState(false);
   
   // Workout logging state
   const [logWorkoutModalVisible, setLogWorkoutModalVisible] = useState(false);
@@ -96,20 +110,25 @@ export default function WorkoutsScreen() {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<number | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   
+  // Group workout state
+  const [fromTemplate, setFromTemplate] = useState(false);
+  const [selectedGroupWorkoutId, setSelectedGroupWorkoutId] = useState<number | null>(null);
+  
   // Selection modal states
   const [programSelectionModalVisible, setProgramSelectionModalVisible] = useState(false);
   const [templateSelectionModalVisible, setTemplateSelectionModalVisible] = useState(false);
+  const [groupWorkoutSelectionModalVisible, setGroupWorkoutSelectionModalVisible] = useState(false);
 
   // For selected program/template data
   const { data: selectedProgram } = useProgram(selectedProgramId);
   const { data: selectedTemplate } = useWorkoutTemplate(selectedTemplateId);
+  const { data: selectedGroupWorkout } = useGroupWorkout(selectedGroupWorkoutId);
   
   // For active program data
   const { 
     data: activeProgram,
     refetch: refetchActiveProgram
   } = useProgram(user?.current_program?.id);
-  
   
   // Use React Query hooks
   const { 
@@ -118,7 +137,6 @@ export default function WorkoutsScreen() {
     refetch: refetchPrograms 
   } = useUserPrograms();
   
-
   const {
     data: logs = [],
     isLoading: logsLoading,
@@ -130,6 +148,13 @@ export default function WorkoutsScreen() {
     isLoading: templatesLoading,
     refetch: refetchTemplates
   } = useWorkoutTemplates();
+  
+  // Group workout queries
+  const {
+    data: groupWorkouts = [],
+    isLoading: groupWorkoutsLoading,
+    refetch: refetchGroupWorkouts
+  } = useUserCreatedGroupWorkouts(user?.id);
 
   // Animation values for swipe transitions
   const swipeAnim = useRef(new Animated.Value(0)).current;
@@ -149,6 +174,12 @@ export default function WorkoutsScreen() {
   const { mutateAsync: deleteLog } = useDeleteLog();
   const { mutateAsync: deleteWorkoutTemplate } = useDeleteWorkoutTemplate();
   const { mutateAsync: createWorkoutTemplate } = useCreateWorkoutTemplate();
+  
+  // Group workout mutations
+  const { mutateAsync: createGroupWorkout } = useCreateGroupWorkout();
+  const { mutateAsync: deleteGroupWorkout } = useDeleteGroupWorkout();
+  const { mutateAsync: joinGroupWorkout } = useJoinGroupWorkout();
+  const { mutateAsync: leaveGroupWorkout } = useLeaveGroupWorkout();
 
   // Get data based on current view with proper filtering
   const getCurrentData = () => {
@@ -159,6 +190,8 @@ export default function WorkoutsScreen() {
         return logs.filter(log => log.username === user?.username);
       case VIEW_TYPES.TEMPLATES:
         return templates.filter(template => template.creator_username === user?.username);
+      case VIEW_TYPES.GROUP_WORKOUTS:
+        return groupWorkouts;
       default:
         return [];
     }
@@ -173,6 +206,8 @@ export default function WorkoutsScreen() {
         return logsLoading;
       case VIEW_TYPES.TEMPLATES:
         return templatesLoading;
+      case VIEW_TYPES.GROUP_WORKOUTS:
+        return groupWorkoutsLoading;
       default:
         return false;
     }
@@ -192,13 +227,16 @@ export default function WorkoutsScreen() {
         case VIEW_TYPES.TEMPLATES:
           await refetchTemplates();
           break;
+        case VIEW_TYPES.GROUP_WORKOUTS:
+          await refetchGroupWorkouts();
+          break;
       }
     } catch (error) {
       console.error(`Error refreshing ${currentView}:`, error);
     } finally {
       setRefreshing(false);
     }
-  }, [currentView, refetchPrograms, refetchLogs, refetchTemplates]);
+  }, [currentView, refetchPrograms, refetchLogs, refetchTemplates, refetchGroupWorkouts]);
 
   // Toggle view selector
   const toggleViewSelector = () => {
@@ -392,6 +430,26 @@ export default function WorkoutsScreen() {
     }
   };
   
+  // Handle joining a group workout
+  const handleJoinGroupWorkout = async (groupWorkoutId) => {
+    try {
+      await joinGroupWorkout({ id: groupWorkoutId, message: '' });
+      await refetchGroupWorkouts();
+    } catch (error) {
+      console.error("Error joining group workout:", error);
+    }
+  };
+  
+  // Handle leaving a group workout
+  const handleLeaveGroupWorkout = async (groupWorkoutId) => {
+    try {
+      await leaveGroupWorkout(groupWorkoutId);
+      await refetchGroupWorkouts();
+    } catch (error) {
+      console.error("Error leaving group workout:", error);
+    }
+  };
+  
   // Action handlers for FAB menu
   const handleCreateProgram = () => {
     setProgramWizardVisible(true);
@@ -399,6 +457,18 @@ export default function WorkoutsScreen() {
 
   const handleCreateTemplate = () => {
     setWorkoutTemplateWizardVisible(true);
+  };
+  
+  // New handler for group workouts
+  const handleCreateGroupWorkout = () => {
+    setFromTemplate(false);
+    setSelectedTemplateId(null);
+    setGroupWorkoutWizardVisible(true);
+  };
+  
+  const handleCreateGroupWorkoutFromTemplate = () => {
+    setFromTemplate(true);
+    setTemplateSelectionModalVisible(true);
   };
   
   // New handler for real-time workout
@@ -437,6 +507,22 @@ export default function WorkoutsScreen() {
     }
   };
   
+  // Handle group workout wizard submission
+  const handleGroupWorkoutSubmit = async (formData: GroupWorkoutFormData) => {
+    try {
+      await createGroupWorkout(formData);
+      setGroupWorkoutWizardVisible(false);
+      
+      await refetchGroupWorkouts();
+      
+      if (currentView !== VIEW_TYPES.GROUP_WORKOUTS) {
+        setCurrentView(VIEW_TYPES.GROUP_WORKOUTS);
+      }
+    } catch (error) {
+      console.error("Error creating group workout:", error);
+    }
+  };
+  
   // Handle wizard closes
   const handleProgramWizardClose = () => {
     setProgramWizardVisible(false);
@@ -444,6 +530,12 @@ export default function WorkoutsScreen() {
   
   const handleWorkoutTemplateWizardClose = () => {
     setWorkoutTemplateWizardVisible(false);
+  };
+  
+  const handleGroupWorkoutWizardClose = () => {
+    setGroupWorkoutWizardVisible(false);
+    setFromTemplate(false);
+    setSelectedTemplateId(null);
   };
 
   const handleLogWorkout = () => {
@@ -522,10 +614,18 @@ export default function WorkoutsScreen() {
   // Handle template selection
   const handleTemplateSelected = (template) => {
     setTemplateSelectionModalVisible(false);
-    setLogFromProgram(false);
-    setLogFromTemplate(true);
-    setSelectedTemplateId(template.id);
-    setWorkoutLogWizardVisible(true);
+    
+    if (fromTemplate) {
+      // For creating group workout from template
+      setSelectedTemplateId(template.id);
+      setGroupWorkoutWizardVisible(true);
+    } else {
+      // For logging workout from template
+      setLogFromProgram(false);
+      setLogFromTemplate(true);
+      setSelectedTemplateId(template.id);
+      setWorkoutLogWizardVisible(true);
+    }
   };
 
   // Handle workout log wizard submit
@@ -625,6 +725,13 @@ export default function WorkoutsScreen() {
           }
           await refetchTemplates();
           break;
+        case VIEW_TYPES.GROUP_WORKOUTS:
+          // Delete selected group workouts
+          for (const groupWorkoutId of selectedItems) {
+            await deleteGroupWorkout(groupWorkoutId);
+          }
+          await refetchGroupWorkouts();
+          break;
       }
       
       // Exit selection mode and close confirmation
@@ -720,6 +827,8 @@ export default function WorkoutsScreen() {
           onForkWorkoutLog={handleForkWorkoutLog}
           onForkTemplate={handleForkTemplate}
           onAddTemplateToProgram={handleAddTemplateToProgram}
+          onJoinGroupWorkout={handleJoinGroupWorkout}
+          onLeaveGroupWorkout={handleLeaveGroupWorkout}
           swipeAnim={swipeAnim}
           contentOpacity={contentOpacity}
           // Pass theme palette to AnimatedCardList
@@ -731,6 +840,8 @@ export default function WorkoutsScreen() {
           currentView={currentView}
           onCreateProgram={handleCreateProgram}
           onCreateTemplate={handleCreateTemplate}
+          onCreateGroupWorkout={handleCreateGroupWorkout}
+          onCreateGroupWorkoutFromTemplate={handleCreateGroupWorkoutFromTemplate}
           onLogWorkout={handleLogWorkout}
           onLogFromProgram={handleLogFromProgram}
           onLogFromTemplate={handleLogFromTemplate}
@@ -761,10 +872,30 @@ export default function WorkoutsScreen() {
         
         <TemplateSelectionModal
           visible={templateSelectionModalVisible}
-          onClose={() => setTemplateSelectionModalVisible(false)}
+          onClose={() => {
+            setTemplateSelectionModalVisible(false);
+            if (fromTemplate) {
+              setFromTemplate(false);
+            }
+          }}
           onTemplateSelected={handleTemplateSelected}
           templates={templates}
           templatesLoading={templatesLoading}
+          user={user}
+          themePalette={palette}
+          modalTitle={fromTemplate ? 'Select Template for Group Workout' : 'Select Template'}
+        />
+        
+        <GroupWorkoutSelectionModal
+          visible={groupWorkoutSelectionModalVisible}
+          onClose={() => setGroupWorkoutSelectionModalVisible(false)}
+          onGroupWorkoutSelected={(groupWorkout) => {
+            setSelectedGroupWorkoutId(groupWorkout.id);
+            setGroupWorkoutSelectionModalVisible(false);
+            setGroupWorkoutWizardVisible(true);
+          }}
+          groupWorkouts={groupWorkouts}
+          groupWorkoutsLoading={groupWorkoutsLoading}
           user={user}
           themePalette={palette}
         />
@@ -807,6 +938,17 @@ export default function WorkoutsScreen() {
           onTemplateSelected={(templateId) => setSelectedTemplateId(templateId)}
           programId={selectedProgramId}
           themePalette={palette}
+        />
+        
+        <GroupWorkoutWizard
+          groupWorkout={selectedGroupWorkoutId ? selectedGroupWorkout : null}
+          fromTemplate={fromTemplate}
+          template={fromTemplate && selectedTemplateId ? selectedTemplate : null}
+          onSubmit={handleGroupWorkoutSubmit}
+          onClose={handleGroupWorkoutWizardClose}
+          visible={groupWorkoutWizardVisible}
+          onTemplateSelected={(templateId) => setSelectedTemplateId(templateId)}
+          user={user}
         />
       </View>
     </SafeAreaView>

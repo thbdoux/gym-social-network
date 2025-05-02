@@ -13,6 +13,7 @@ import EmptyStateView from './EmptyStateView';
 import ProgramCard from './ProgramCard';
 import WorkoutLogCard from './WorkoutLogCard';
 import WorkoutCard from './WorkoutCard';
+import GroupWorkoutCard from './GroupWorkoutCard';
 
 const { width } = Dimensions.get('window');
 
@@ -33,8 +34,11 @@ interface AnimatedCardListProps {
   onForkWorkoutLog?: (log: any) => void;
   onForkTemplate?: (template: any) => void;
   onAddTemplateToProgram?: (template: any) => void;
+  onJoinGroupWorkout?: (groupWorkoutId: number) => void;
+  onLeaveGroupWorkout?: (groupWorkoutId: number) => void;
   swipeAnim: Animated.Value;
   contentOpacity: Animated.Value;
+  themePalette?: any;
 }
 
 const AnimatedCardList: React.FC<AnimatedCardListProps> = ({
@@ -54,8 +58,11 @@ const AnimatedCardList: React.FC<AnimatedCardListProps> = ({
   onForkWorkoutLog,
   onForkTemplate,
   onAddTemplateToProgram,
+  onJoinGroupWorkout,
+  onLeaveGroupWorkout,
   swipeAnim,
-  contentOpacity
+  contentOpacity,
+  themePalette
 }) => {
   // Create PanResponder for swipe gestures
   const panResponder = useRef(
@@ -106,6 +113,27 @@ const AnimatedCardList: React.FC<AnimatedCardListProps> = ({
       }
     })
   ).current;
+
+  // Handle participate button press for group workouts
+  const handleParticipatePress = (groupWorkoutId: number) => {
+    const groupWorkout = data.find(item => item.id === groupWorkoutId);
+    
+    if (!groupWorkout) return;
+    
+    if (groupWorkout.is_creator) {
+      // Navigate to manage group workout
+      // router.push(`/group-workout/${groupWorkoutId}`);
+      return;
+    }
+    
+    if (groupWorkout.current_user_status === 'joined' || groupWorkout.current_user_status === 'invited') {
+      // User is already a participant - call leave function
+      onLeaveGroupWorkout && onLeaveGroupWorkout(groupWorkoutId);
+    } else {
+      // User is not a participant - call join function
+      onJoinGroupWorkout && onJoinGroupWorkout(groupWorkoutId);
+    }
+  };
 
   return (
     <Animated.View 
@@ -186,6 +214,22 @@ const AnimatedCardList: React.FC<AnimatedCardListProps> = ({
                     isSelected={selectedItems.includes(template.id)}
                     onSelect={() => onItemSelect(template.id)}
                     onLongPress={() => onItemLongPress(template.id)}
+                  />
+                </View>
+              ))
+            }
+            
+            {currentView === 'group_workouts' && 
+              data.map((groupWorkout) => (
+                <View key={`group-workout-${groupWorkout.id}`} style={styles.cardContainer}>
+                  <GroupWorkoutCard
+                    groupWorkoutId={groupWorkout.id}
+                    groupWorkout={groupWorkout}
+                    onParticipatePress={handleParticipatePress}
+                    selectionMode={selectionMode}
+                    isSelected={selectedItems.includes(groupWorkout.id)}
+                    onSelect={() => onItemSelect(groupWorkout.id)}
+                    onLongPress={() => onItemLongPress(groupWorkout.id)}
                   />
                 </View>
               ))

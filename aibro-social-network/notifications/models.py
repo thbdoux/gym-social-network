@@ -17,6 +17,15 @@ class Notification(models.Model):
         ('goal_achieved', 'Goal Achieved'),
         ('mention', 'Mention'),
         ('gym_announcement', 'Gym Announcement'),
+        ('workout_invitation', 'Workout Invitation'),
+        ('workout_join', 'Workout Join'),
+        ('workout_join_request', 'Workout Join Request'),
+        ('workout_request_approved', 'Workout Request Approved'),
+        ('workout_request_rejected', 'Workout Request Rejected'),
+        ('workout_cancelled', 'Workout Cancelled'),
+        ('workout_removed', 'Removed from Workout'),
+        ('workout_completed', 'Workout Completed'),
+
     ]
     
     recipient = models.ForeignKey(

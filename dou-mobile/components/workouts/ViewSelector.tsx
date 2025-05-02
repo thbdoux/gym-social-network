@@ -8,14 +8,16 @@ import { useLanguage } from '../../context/LanguageContext';
 export const VIEW_TYPES = {
   PROGRAMS: 'programs',
   WORKOUT_HISTORY: 'workout_history',
-  TEMPLATES: 'templates'
+  TEMPLATES: 'templates',
+  GROUP_WORKOUTS: 'group_workouts'
 };
 
 // Define order of views for swiping
 export const VIEW_ORDER = [
   VIEW_TYPES.PROGRAMS,
   VIEW_TYPES.WORKOUT_HISTORY, 
-  VIEW_TYPES.TEMPLATES
+  VIEW_TYPES.TEMPLATES,
+  VIEW_TYPES.GROUP_WORKOUTS,
 ];
 
 interface ViewSelectorProps {
@@ -42,6 +44,8 @@ const ViewSelector: React.FC<ViewSelectorProps> = ({
         return t('workout_history');
       case VIEW_TYPES.TEMPLATES:
         return t('templates');
+      case VIEW_TYPES.GROUP_WORKOUTS:
+        return t('group_workouts');
       default:
         return '';
     }
@@ -114,6 +118,24 @@ const ViewSelector: React.FC<ViewSelectorProps> = ({
             </Text>
             {currentView === VIEW_TYPES.TEMPLATES && (
               <Ionicons name="checkmark" size={20} color="#2563eb" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[
+              styles.dropdownItem, 
+              currentView === VIEW_TYPES.GROUP_WORKOUTS && styles.activeDropdownItem
+            ]}
+            onPress={() => changeView(VIEW_TYPES.GROUP_WORKOUTS)}
+          >
+            <Text style={[
+              styles.dropdownText, 
+              currentView === VIEW_TYPES.GROUP_WORKOUTS && styles.activeDropdownText
+            ]}>
+              {t('group_workouts')}
+            </Text>
+            {currentView === VIEW_TYPES.GROUP_WORKOUTS && (
+              <Ionicons name="checkmark" size={20} color="#f97316" />
             )}
           </TouchableOpacity>
         </View>

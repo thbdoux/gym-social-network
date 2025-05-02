@@ -1,5 +1,12 @@
 # workouts/models.py
 from django.db import models
+# Add this at the end of workouts/models.py
+from .group_workouts import (
+    GroupWorkout, 
+    GroupWorkoutParticipant, 
+    GroupWorkoutJoinRequest, 
+    GroupWorkoutMessage
+)
 
 class BaseExercise(models.Model):
     """Base abstract model for exercises"""
