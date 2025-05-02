@@ -28,7 +28,7 @@ export const useAuth = () => {
       // Clear any stale data before redirecting
       queryClient.clear();
       
-      router.replace('/login');
+      // router.replace('/login');
       return false;
     }
     return true;

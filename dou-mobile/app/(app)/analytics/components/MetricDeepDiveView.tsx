@@ -226,3 +226,5 @@ const styles = StyleSheet.create({
     marginHorizontal: -8, // Expand the chart to use the full card width
   }
 });
+
+export default MetricDeepDiveView;

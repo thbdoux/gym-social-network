@@ -75,7 +75,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Reset theme when auth state changes to not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
-      console.log('ThemeContext: User logged out, resetting theme');
       resetTheme();
       setLastUserId(null);
     }
@@ -86,8 +85,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (authUser?.id && 
         authUser.id !== lastUserId && 
         !isRefetchingRef.current) {
-      
-      console.log('ThemeContext: User ID changed, forcing refetch', authUser.id);
       
       // Set the flag before any async operations
       isRefetchingRef.current = true;
@@ -107,15 +104,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Update theme when user data changes - simplified dependencies
   useEffect(() => {
-    console.log('ThemeContext: User data changed', user?.personality_type, isLoading, isAuthenticated);
-    
     if (user && user.personality_type) {
       // Check if the personality type is valid
       const userPersonality = user.personality_type.toLowerCase() as Personality;
       
       // Make sure it's a valid personality type
       if (['optimizer', 'versatile', 'diplomate', 'mentor'].includes(userPersonality)) {
-        console.log('ThemeContext: Setting personality to', userPersonality);
         setPersonality(userPersonality);
         setPalette(getColorPalette(userPersonality));
         setWorkoutPalette(getWorkoutPalette(userPersonality));
@@ -123,13 +117,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setWorkoutLogPalette(getWorkoutLogPalette(userPersonality));
         setProgramWorkoutPalette(getProgramWorkoutPalette(userPersonality));
       } else {
-        // Fallback to default
-        console.log('ThemeContext: Invalid personality type, using default');
         resetTheme();
       }
     } else if (!isLoading && isAuthenticated) {
-      // If user data is loaded but no personality is set (for authenticated users)
-      console.log('ThemeContext: No personality set, using default');
       resetTheme();
     }
   }, [user, isLoading, isAuthenticated, resetTheme]); // Simplified dependency array

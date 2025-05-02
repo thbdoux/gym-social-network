@@ -244,11 +244,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             
             // Cache the user data
             queryClient.setQueryData(userKeys.current(), userData);
-            
-            // Comment out email verification check for development
-            // if (userData && !userData.email_verified) {
-            //   router.push('/verify-email-reminder');
-            // }
+          
           } catch (error) {
             // If token is invalid or expired, clear it and reset auth state
             console.error('Error fetching user:', error);
@@ -294,36 +290,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      console.log('AuthContext: Logging in user', username);
-      
-      // STEP 1: Clear any existing cache data
+
       queryClient.clear();
-      
-      // STEP 2: Login and get token
       const tokenData = await userService.login(username, password);
       await SecureStore.setItemAsync('token', tokenData.access);
-      
-      // STEP 3: Clear any potentially cached queries
+
       queryClient.invalidateQueries({ queryKey: userKeys.all });
       queryClient.invalidateQueries({ queryKey: userKeys.current() });
       
-      // STEP 4: Force a fresh fetch of user data
       const userData = await userService.getCurrentUser();
-      console.log('AuthContext: Fetched fresh user data', userData?.id);
       
-      // STEP 5: Set user and authentication state
       setUser(userData);
       setIsAuthenticated(true);
       
-      // STEP 6: Cache the user data
       queryClient.setQueryData(userKeys.current(), userData);
-      
-      // STEP 7: Comment out email verification check for development
-      // if (userData && !userData.email_verified) {
-      //   router.push('/verify-email-reminder');
-      //   return true;
-      // }
-      
       return true;
     } catch (error) {
       console.error('Login error:', error);

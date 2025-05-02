@@ -347,3 +347,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
   }
 });
+
+export default TopExercisesChart;

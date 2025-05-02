@@ -317,3 +317,5 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   }
 });
+
+export default AnalyticsTable;
