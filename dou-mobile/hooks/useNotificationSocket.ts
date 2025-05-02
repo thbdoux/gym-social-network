@@ -20,7 +20,7 @@ export const useNotificationSocket = () => {
   const connectSocket = useCallback(async () => {
     // Only try to connect if user is authenticated
     if (!isAuthenticated || !user) {
-      console.log('Not connecting WebSocket: User not authenticated');
+      // console.log('Not connecting WebSocket: User not authenticated');
       return;
     }
     
@@ -43,12 +43,12 @@ export const useNotificationSocket = () => {
       
       // Create WebSocket connection with token
       const wsUrl = `ws://${baseUrl}/ws/notifications/?token=${token}`;
-      console.log('Connecting to WebSocket:', wsUrl);
+      // console.log('Connecting to WebSocket:', wsUrl);
       
       const socket = new WebSocket(wsUrl);
       
       socket.onopen = () => {
-        console.log('WebSocket connected successfully');
+        // console.log('WebSocket connected successfully');
         setIsConnected(true);
         setConnectionAttempts(0); // Reset connection attempts on success
       };
@@ -56,7 +56,7 @@ export const useNotificationSocket = () => {
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received notification:', data);
+          // console.log('Received notification:', data);
           
           // Update last received message
           setLastMessage(data);
@@ -76,12 +76,12 @@ export const useNotificationSocket = () => {
       };
       
       socket.onclose = (event) => {
-        console.log(`WebSocket disconnected with code: ${event.code}, reason: ${event.reason}`);
+        // console.log(`WebSocket disconnected with code: ${event.code}, reason: ${event.reason}`);
         setIsConnected(false);
         
         // Try to reconnect if not a normal closure and under max attempts
         if (event.code !== 1000 && connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
-          console.log(`Attempting to reconnect (${connectionAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+          // console.log(`Attempting to reconnect (${connectionAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
           setConnectionAttempts(prev => prev + 1);
           setTimeout(connectSocket, RECONNECT_DELAY);
         }
@@ -95,7 +95,6 @@ export const useNotificationSocket = () => {
   
   const disconnectSocket = useCallback(() => {
     if (socketRef.current) {
-      console.log('Manually disconnecting WebSocket');
       socketRef.current.close(1000, 'User logout or page change');
       socketRef.current = null;
       setIsConnected(false);
@@ -104,7 +103,6 @@ export const useNotificationSocket = () => {
   
   const sendMessage = useCallback((message) => {
     if (socketRef.current && isConnected) {
-      console.log('Sending WebSocket message:', message);
       socketRef.current.send(JSON.stringify(message));
     } else {
       console.warn('Cannot send message: WebSocket not connected');
@@ -129,10 +127,8 @@ export const useNotificationSocket = () => {
   // Connect when authenticated, disconnect when not
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log('User authenticated, connecting WebSocket');
       connectSocket();
     } else {
-      console.log('User not authenticated, disconnecting WebSocket');
       disconnectSocket();
     }
     

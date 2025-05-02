@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
+  Text,
   TouchableOpacity, 
   StyleSheet, 
   Platform
@@ -22,14 +23,22 @@ import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 import { useNotificationCount } from '../../hooks/query/useNotificationQuery';
 
+// Updated TabIcon component in BottomTabBar.tsx
 interface TabIconProps {
   name: string;
   active: boolean;
   onPress: () => void;
   showBadge?: boolean;
+  badgeCount?: number; // New prop for displaying the notification count
 }
 
-const TabIcon: React.FC<TabIconProps> = ({ name, active, onPress, showBadge = false }) => {
+const TabIcon: React.FC<TabIconProps> = ({ 
+  name, 
+  active, 
+  onPress, 
+  showBadge = false, 
+  badgeCount = 0 
+}) => {
   const { palette } = useTheme();
   const styles = themedStyles(palette);
   const scale = useSharedValue(1);
@@ -72,7 +81,19 @@ const TabIcon: React.FC<TabIconProps> = ({ name, active, onPress, showBadge = fa
       <Animated.View style={[styles.tabIconContainer, animatedStyle]}>
         <View style={[active && [styles.activeIndicator, { backgroundColor: palette.text }]]} />
         <Ionicons name={iconName} size={22} color={iconColor} />
-        {showBadge && <View style={styles.badge} />}
+        
+        {/* Updated badge display with count */}
+        {showBadge && (
+          badgeCount > 0 ? (
+            <View style={styles.badgeWithCount}>
+              <Text style={styles.badgeText}>
+                {badgeCount > 99 ? '99+' : badgeCount}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.badge} />
+          )
+        )}
       </Animated.View>
     </TouchableOpacity>
   );
@@ -119,6 +140,7 @@ const FabButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
   );
 };
 
+// Updated BottomTabBar component with notification counter
 const BottomTabBar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -147,8 +169,9 @@ const BottomTabBar: React.FC = () => {
     console.log('Post created:', newPost);
   };
   
-  // Check if we have unread notifications
+  // Check if we have unread notifications and get the count
   const hasUnreadNotifications = notificationCount && notificationCount.unread > 0;
+  const unreadCount = notificationCount ? notificationCount.unread : 0;
   
   return (
     <>
@@ -167,6 +190,7 @@ const BottomTabBar: React.FC = () => {
             active={pathname === '/notifications'}
             onPress={() => navigateTo('/notifications')}
             showBadge={hasUnreadNotifications}
+            badgeCount={unreadCount}
           />
         </View>
         
@@ -197,7 +221,7 @@ const BottomTabBar: React.FC = () => {
     </>
   );
 };
-
+// Add these styles to themedStyles in BottomTabBar.tsx
 const themedStyles = createThemedStyles((palette) => ({
   container: {
     flexDirection: 'row',
@@ -254,7 +278,29 @@ const themedStyles = createThemedStyles((palette) => ({
     borderWidth: 1,
     borderColor: palette.layout,
   },
-
+  // New style for badge with count
+  badgeWithCount: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: palette.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: palette.layout,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  
+  // Rest of the styles remain the same
   fabButtonContainer: {
     width: 56,
     height: 56,
@@ -274,8 +320,6 @@ const themedStyles = createThemedStyles((palette) => ({
     shadowRadius: 8,
     elevation: 5,
   },
-
-  // FAB Menu styles
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

@@ -2037,6 +2037,71 @@ const realtime_logger = {
   }
 };
 
+// utils/translations.ts
+const notifs = {
+  en: {
+    // General
+    'notifications': 'Notifications',
+    'mark_all_as_read': 'Mark all as read',
+    'show_all_notifications': 'Show all notifications',
+    'show_unread_only': 'Show unread only',
+    'connecting_to_notifications': 'Connecting to notifications...',
+    'no_notifications_yet': 'No notifications yet',
+    'accept': 'Accept',
+    'decline': 'Decline',
+    'anonymous': 'Someone',
+    
+    // Section headers
+    'notification.section.today': 'Today',
+    'notification.section.yesterday': 'Yesterday',
+    'notification.section.this_week': 'This Week',
+    'notification.section.earlier': 'Earlier',
+    
+    // Notification types
+    'notification.like': '{username} liked your post',
+    'notification.comment': '{username} commented on your post: "{content}"',
+    'notification.share': '{username} shared your post',
+    'notification.friend_request': '{username} sent you a friend request',
+    'notification.friend_accept': '{username} accepted your friend request',
+    'notification.program_fork': '{username} forked your program',
+    'notification.workout_milestone': 'You reached a new milestone in your workout: {content}',
+    'notification.goal_achieved': 'Congratulations! You achieved your goal: {content}',
+    'notification.mention': '{username} mentioned you in a comment: "{content}"',
+    'notification.gym_announcement': 'Announcement from your gym: {content}',
+  },
+  
+  fr: {
+    // General
+    'notifications': 'Notifications',
+    'mark_all_as_read': 'Tout marquer comme lu',
+    'show_all_notifications': 'Afficher toutes les notifications',
+    'show_unread_only': 'Afficher uniquement les non lues',
+    'connecting_to_notifications': 'Connexion aux notifications...',
+    'no_notifications_yet': 'Pas encore de notifications',
+    'accept': 'Accepter',
+    'decline': 'Refuser',
+    'anonymous': 'Quelqu\'un',
+    
+    // Section headers
+    'notification.section.today': 'Aujourd\'hui',
+    'notification.section.yesterday': 'Hier',
+    'notification.section.this_week': 'Cette Semaine',
+    'notification.section.earlier': 'Plus Ancien',
+    
+    // Notification types
+    'notification.like': '{username} a aimé votre publication',
+    'notification.comment': '{username} a commenté votre publication: "{content}"',
+    'notification.share': '{username} a partagé votre publication',
+    'notification.friend_request': '{username} vous a envoyé une demande d\'ami',
+    'notification.friend_accept': '{username} a accepté votre demande d\'ami',
+    'notification.program_fork': '{username} a dupliqué votre programme',
+    'notification.workout_milestone': 'Vous avez atteint un nouveau palier dans votre entraînement: {content}',
+    'notification.goal_achieved': 'Félicitations! Vous avez atteint votre objectif: {content}',
+    'notification.mention': '{username} vous a mentionné dans un commentaire: "{content}"',
+    'notification.gym_announcement': 'Annonce de votre salle de sport: {content}',
+  },
+};
+
 const translations: Translations = {
   en: {
     ...common.en,
@@ -2055,6 +2120,7 @@ const translations: Translations = {
     ...deep_analytics.en,
     ...exercises.en,
     ...realtime_logger.en,
+    ...notifs.en,
   },
   fr: {
     ...common.fr,
@@ -2073,6 +2139,7 @@ const translations: Translations = {
     ...deep_analytics.fr,
     ...exercises.fr,
     ...realtime_logger.fr,
+    ...notifs.fr,
   }
 };
 

@@ -2,6 +2,7 @@
 import apiClient from '../index';
 import { extractData } from '../utils/responseParser';
 
+// api/services/notificationService.ts
 interface Notification {
   id: number;
   notification_type: string;
@@ -16,6 +17,9 @@ interface Notification {
   created_at: string;
   content_type?: string;
   object_id?: number;
+  post_id?: number;               // New field
+  content_preview?: any;          // New field for structured content
+  post_type?: string;             // New field
 }
 
 interface NotificationPreference {

@@ -27,7 +27,7 @@ def handle_post_comment(sender, instance, created, **kwargs):
             recipient=instance.post.user,
             notification_type='comment',
             sender=instance.user,
-            content=f"{instance.user.username} commented on your post: '{instance.content[:50]}...'",
+            content=instance.content,
             related_object=instance.post
         )
 
@@ -73,7 +73,7 @@ def handle_program_fork(sender, instance, created, **kwargs):
             recipient=instance.forked_from.creator,
             notification_type='program_fork',
             sender=instance.creator,
-            content=f"{instance.creator.username} forked your program '{instance.forked_from.name}'",
+            content=instance.forked_from.name,
             related_object=instance
         )
 
