@@ -389,7 +389,6 @@ const Post: React.FC<PostProps> = ({
     
     // Call the onLike function with the post ID and current liked status
     // so the backend knows whether to like or unlike
-    console.log(post);
     onLike(post.id, liked);
   };
   

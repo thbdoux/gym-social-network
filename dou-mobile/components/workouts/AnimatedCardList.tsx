@@ -114,24 +114,40 @@ const AnimatedCardList: React.FC<AnimatedCardListProps> = ({
     })
   ).current;
 
-  // Handle participate button press for group workouts
+  // Enhanced function to handle participation actions for group workouts
   const handleParticipatePress = (groupWorkoutId: number) => {
     const groupWorkout = data.find(item => item.id === groupWorkoutId);
     
     if (!groupWorkout) return;
     
+    // If user is the creator, no participation actions needed
     if (groupWorkout.is_creator) {
-      // Navigate to manage group workout
-      // router.push(`/group-workout/${groupWorkoutId}`);
       return;
     }
     
-    if (groupWorkout.current_user_status === 'joined' || groupWorkout.current_user_status === 'invited') {
-      // User is already a participant - call leave function
-      onLeaveGroupWorkout && onLeaveGroupWorkout(groupWorkoutId);
-    } else {
-      // User is not a participant - call join function
-      onJoinGroupWorkout && onJoinGroupWorkout(groupWorkoutId);
+    // Handle based on current user status
+    switch (groupWorkout.current_user_status) {
+      case 'joined':
+        // User is already joined - leave the workout
+        onLeaveGroupWorkout && onLeaveGroupWorkout(groupWorkoutId);
+        break;
+      case 'invited':
+        // User is invited - accept the invitation (join)
+        onJoinGroupWorkout && onJoinGroupWorkout(groupWorkoutId);
+        break;
+      case 'request_pending':
+        // Request is pending - do nothing (already requested)
+        break;
+      case 'declined':
+      case 'removed':
+      case 'request_rejected':
+        // These states might need special handling - for now, try to join again
+        onJoinGroupWorkout && onJoinGroupWorkout(groupWorkoutId);
+        break;
+      default:
+        // Not participating yet - join or request to join
+        onJoinGroupWorkout && onJoinGroupWorkout(groupWorkoutId);
+        break;
     }
   };
 
@@ -220,8 +236,8 @@ const AnimatedCardList: React.FC<AnimatedCardListProps> = ({
             }
             
             {currentView === 'group_workouts' && 
-              data.map((groupWorkout) => (
-                <View key={`group-workout-${groupWorkout.id}`} style={styles.cardContainer}>
+              data.map((groupWorkout, index) => (
+                <View key={`group-workout-${groupWorkout.id}-${index}`} style={styles.cardContainer}>
                   <GroupWorkoutCard
                     groupWorkoutId={groupWorkout.id}
                     groupWorkout={groupWorkout}

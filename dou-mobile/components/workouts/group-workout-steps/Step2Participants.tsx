@@ -8,12 +8,14 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import { useLanguage } from '../../../context/LanguageContext';
 import { GroupWorkoutFormData } from '../GroupWorkoutWizard';
 import { Ionicons } from '@expo/vector-icons';
-import { useUsers, useFriends } from '../../../hooks/query/useUserQuery';
+import { useUsers, useFriends, useUser } from '../../../hooks/query/useUserQuery';
+import { getAvatarUrl } from '../../../utils/imageUtils';
 
 type Step2ParticipantsProps = {
   formData: GroupWorkoutFormData;
@@ -26,7 +28,7 @@ type UserType = {
   id: number;
   username: string;
   display_name?: string;
-  avatar_url?: string | null;
+  avatar?: string | null;
   [key: string]: any;
 };
 
@@ -36,14 +38,52 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserType[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [invitedUsers, setInvitedUsers] = useState<string[]>(formData.invited_users || []);
+  const [invitedUsers, setInvitedUsers] = useState<number[]>(formData.invited_users || []);
   
   // Get list of participants (creator + invited users)
-  const participantsList = formData.participants || [user?.username];
+  const participantIds = formData.participants || [user?.id];
+  const [participantsDetails, setParticipantsDetails] = useState<any[]>(formData.participants_details || [user]);
 
   // Use React Query hooks to fetch users and friends
   const { data: allUsers = [], isLoading: usersLoading } = useUsers();
   const { data: friends = [], isLoading: friendsLoading } = useFriends();
+  
+  // Fetch participant details for users that don't have full details
+  useEffect(() => {
+    // Only load details for participants that we don't already have details for
+    const participantsToLoad = participantIds.filter(id => 
+      !participantsDetails.some(p => p.id === id)
+    );
+    
+    if (participantsToLoad.length > 0) {
+      const loadParticipantDetails = async () => {
+        const loadedDetails = await Promise.all(
+          participantsToLoad.map(async (id) => {
+            try {
+              // Find in already loaded users or fetch
+              const userFromList = allUsers.find(u => u.id === id);
+              if (userFromList) return userFromList;
+              
+              // If not found, use useUser hook (assuming it returns a promise-based API)
+              return await useUser(id).data;
+            } catch (err) {
+              console.error(`Failed to load user ${id}:`, err);
+              return { id, username: `User ${id}` };
+            }
+          })
+        );
+        
+        setParticipantsDetails(prev => [...prev, ...loadedDetails]);
+        
+        // Update form data with the loaded details
+        updateFormData({
+          participants_details: [...participantsDetails, ...loadedDetails]
+        });
+      };
+      
+      loadParticipantDetails();
+    }
+  }, [participantIds]);
   
   // Search users when query changes
   useEffect(() => {
@@ -56,12 +96,12 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
           user.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
           user.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
         );
-        console.log(results);
+
         // Filter out already invited users and the creator
         const filteredResults = results.filter(
-          (u: UserType) => !participantsList.includes(u.username) && 
-                 !invitedUsers.includes(u.username) &&
-                 u.username !== formData.creator_username
+          (u: UserType) => !participantIds.includes(u.id) && 
+                 !invitedUsers.includes(u.id) &&
+                 u.id !== user.id
         );
         
         setSearchResults(filteredResults);
@@ -74,20 +114,27 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
     } else {
       setSearchResults([]);
     }
-  }, [searchQuery, allUsers, participantsList, invitedUsers]);
+  }, [searchQuery, allUsers, participantIds, invitedUsers]);
   
   // Invite user
-  const handleInviteUser = (username: string) => {
-    const newInvitedUsers = [...invitedUsers, username];
+  const handleInviteUser = (userId: number, userObj: UserType) => {
+    const newInvitedUsers = [...invitedUsers, userId];
     setInvitedUsers(newInvitedUsers);
     
     // Calculate participants: creator (always first) + invited users
-    const newParticipants = [user?.username, ...newInvitedUsers];
+    const newParticipants = [user?.id, ...newInvitedUsers];
+    
+    // Add the user object to the participants details
+    const newParticipantsDetails = [...participantsDetails];
+    if (!newParticipantsDetails.some(p => p.id === userId)) {
+      newParticipantsDetails.push(userObj);
+    }
     
     // Update form data
     updateFormData({
       invited_users: newInvitedUsers,
-      participants: newParticipants
+      participants: newParticipants,
+      participants_details: newParticipantsDetails
     });
     
     // Clear search results and query
@@ -96,35 +143,40 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
   };
   
   // Remove user
-  const handleRemoveUser = (username: string) => {
+  const handleRemoveUser = (userId: number) => {
     // Cannot remove creator (first participant)
-    if (username === formData.creator_username) {
+    if (userId === user.id) {
       Alert.alert(t('error'), t('cannot_remove_creator'));
       return;
     }
     
     // Remove from invited users
-    const newInvitedUsers = invitedUsers.filter(u => u !== username);
+    const newInvitedUsers = invitedUsers.filter(id => id !== userId);
     setInvitedUsers(newInvitedUsers);
     
     // Remove from participants
-    const newParticipants = participantsList.filter(p => p !== username);
+    const newParticipants = participantIds.filter(id => id !== userId);
+    
+    // Remove from participant details
+    const newParticipantsDetails = participantsDetails.filter(p => p.id !== userId);
     
     // Update form data
     updateFormData({
       invited_users: newInvitedUsers,
-      participants: newParticipants
+      participants: newParticipants,
+      participants_details: newParticipantsDetails
     });
   };
   
   // Render friend suggestion item
-  const renderFriendSuggestionItem = ({ item }: { item: UserType }) => {
+  const renderFriendSuggestionItem = ({ item }) => {
     // Skip if already invited or is the creator
-    console.log(item);
+    const friendUser = item.friend || item;
+    
     if (
-      participantsList.includes(item.friend?.username) || 
-      invitedUsers.includes(item.friend?.username) ||
-      item.friend?.username === formData.creator_username
+      participantIds.includes(friendUser.id) || 
+      invitedUsers.includes(friendUser.id) ||
+      friendUser.id === user.id
     ) {
       return null;
     }
@@ -132,18 +184,18 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
     return (
       <TouchableOpacity
         style={styles.friendSuggestionItem}
-        onPress={() => handleInviteUser(item.friend?.username)}
+        onPress={() => handleInviteUser(friendUser.id, friendUser)}
       >
-        <View style={styles.participantAvatar}>
-          <Text style={styles.participantInitial}>
-            {(item.friend?.display_name || item.friend?.username)}
-          </Text>
-        </View>
+        <Image 
+          source={{ uri: getAvatarUrl(friendUser.avatar) }} 
+          style={styles.avatar} 
+          defaultSource={require('../../../assets/images/dou.png')}
+        />
         <View style={styles.userInfo}>
           <Text style={styles.displayName}>
-            {item.friend?.display_name || item.friend?.username}
+            {friendUser.display_name || friendUser.username}
           </Text>
-          <Text style={styles.username}>@{item.friend?.username}</Text>
+          <Text style={styles.username}>@{friendUser.username}</Text>
         </View>
         <Ionicons name="add-circle" size={24} color="#f97316" />
       </TouchableOpacity>
@@ -151,22 +203,18 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
   };
   
   // Render invited user item
-  const renderParticipantItem = ({ item, index }: { item: string; index: number }) => {
-    const isCreator = item === formData.creator_username;
-    
-    // Find full user object
-    const userObj = allUsers.find((u: UserType) => u.username === item);
-    const displayName = userObj?.display_name || item;
+  const renderParticipantItem = ({ item }) => {
+    const isCreator = item.id === user.id;
     
     return (
       <View style={styles.participantItem}>
-        <View style={styles.participantAvatar}>
-          <Text style={styles.participantInitial}>
-            {displayName.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        <Image 
+          source={{ uri: getAvatarUrl(item.avatar) }} 
+          style={styles.avatar}
+          defaultSource={require('../../../assets/images/dou.png')}
+        />
         <Text style={styles.participantName}>
-          {displayName}
+          {item.display_name || item.username}
           {isCreator && (
             <Text style={styles.creatorBadge}> • {t('creator')}</Text>
           )}
@@ -175,7 +223,7 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
         {!isCreator && (
           <TouchableOpacity
             style={styles.removeButton}
-            onPress={() => handleRemoveUser(item)}
+            onPress={() => handleRemoveUser(item.id)}
           >
             <Ionicons name="close-circle" size={20} color="#EF4444" />
           </TouchableOpacity>
@@ -185,16 +233,16 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
   };
   
   // Render search result item
-  const renderSearchResultItem = ({ item }: { item: UserType }) => (
+  const renderSearchResultItem = ({ item }) => (
     <TouchableOpacity
       style={styles.searchResultItem}
-      onPress={() => handleInviteUser(item.username)}
+      onPress={() => handleInviteUser(item.id, item)}
     >
-      <View style={styles.participantAvatar}>
-        <Text style={styles.participantInitial}>
-          {(item.display_name || item.username).charAt(0).toUpperCase()}
-        </Text>
-      </View>
+      <Image 
+        source={{ uri: getAvatarUrl(item.avatar) }} 
+        style={styles.avatar} 
+        defaultSource={require('../../../assets/images/dou.png')}
+      />
       <View style={styles.userInfo}>
         <Text style={styles.displayName}>{item.display_name || item.username}</Text>
         <Text style={styles.username}>@{item.username}</Text>
@@ -236,6 +284,23 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
         </View>
       )}
       
+      {/* Friend suggestions - Vertical layout */}
+      {!isSearching && searchQuery.length === 0 && friends.length > 0 && (
+        <View style={styles.friendSuggestionsContainer}>
+          <Text style={styles.friendSuggestionsTitle}>
+            {t('friend_suggestions')}
+          </Text>
+          <FlatList
+            data={friends}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderFriendSuggestionItem}
+            style={styles.friendSuggestionsList}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.friendSuggestionsContent}
+          />
+        </View>
+      )}
+      
       {/* Search results */}
       {isSearching ? (
         <View style={styles.loadingContainer}>
@@ -265,39 +330,21 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
         </>
       )}
       
-      {/* Friend suggestions */}
-      {!isSearching && searchQuery.length === 0 && friends.length > 0 && (
-        <View style={styles.friendSuggestionsContainer}>
-          <Text style={styles.friendSuggestionsTitle}>
-            {t('friend_suggestions')}
-          </Text>
-          <FlatList
-            data={friends}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderFriendSuggestionItem}
-            style={styles.friendSuggestionsList}
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            nestedScrollEnabled={true}
-          />
-        </View>
-      )}
-      
       {/* Participants list */}
       <View style={styles.participantsContainer}>
         <View style={styles.participantsHeader}>
           <Text style={styles.participantsTitle}>
-            {t('participants')} ({participantsList.length})
+            {t('participants')} ({participantsDetails.length})
           </Text>
           {errors.participants && (
             <Text style={styles.errorText}>{errors.participants}</Text>
           )}
         </View>
         
-        {participantsList.length > 0 ? (
+        {participantsDetails.length > 0 ? (
           <FlatList
-            data={participantsList}
-            keyExtractor={(item) => item}
+            data={participantsDetails}
+            keyExtractor={(item) => item.id.toString()}
             renderItem={renderParticipantItem}
             style={styles.participantsList}
             nestedScrollEnabled={true}
@@ -357,18 +404,22 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginLeft: 8,
   },
-  // Friend suggestions
+  // Friend suggestions - vertical layout
   friendSuggestionsContainer: {
     marginBottom: 24,
+    maxHeight: 300,
   },
   friendSuggestionsTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#9CA3AF',
     marginBottom: 8,
     marginLeft: 4,
   },
   friendSuggestionsList: {
+    maxHeight: 280,
+  },
+  friendSuggestionsContent: {
     paddingBottom: 8,
   },
   friendSuggestionItem: {
@@ -377,10 +428,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2937',
     padding: 12,
     borderRadius: 12,
-    marginRight: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#374151',
-    width: 200,
   },
   // Search results
   searchResultsContainer: {
@@ -388,7 +438,7 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   searchResultsTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#9CA3AF',
     marginBottom: 8,
@@ -456,19 +506,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#374151',
   },
-  participantAvatar: {
+  avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: '#374151',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 12,
-  },
-  participantInitial: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   participantName: {
     flex: 1,

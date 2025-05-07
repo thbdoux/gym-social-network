@@ -27,7 +27,7 @@ export interface WorkoutPalette {
   pattern_color: string;
   pattern_secondary_color: string;
   // Visual identity properties
-  card_identity: 'template' | 'program' | 'log' | 'program_workout';
+  card_identity: 'template' | 'program' | 'log' | 'program_workout' | 'group_workout'
 }
 
 // Program palette with the same pattern enhancements
@@ -38,6 +38,8 @@ export interface WorkoutLogPalette extends WorkoutPalette {}
 
 // Program workout palette with the same pattern enhancements
 export interface ProgramWorkoutPalette extends WorkoutPalette {}
+
+export interface GroupWorkoutPalette extends WorkoutPalette {}
 
 // Define color palettes for each personality
 const COLOR_PALETTES: Record<Personality, ColorPalette> = {
@@ -297,6 +299,67 @@ const PROGRAM_WORKOUT_PALETTES: Record<Personality, ProgramWorkoutPalette> = {
     pattern_secondary_color: '#4527a0',
     card_identity: 'program_workout',
   },
+};
+
+
+const GROUP_WORKOUT_PALETTES: Record<Personality, GroupWorkoutPalette> = {
+  optimizer: {    
+    background: '#7d4b16', // Professional amber for group workouts
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.85)',
+    highlight: '#ffb74d', // Clean, precise amber highlight
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(230, 140, 0, 0.7)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.12,
+    pattern_color: '#ffe0b2',
+    pattern_secondary_color: '#ef6c00',
+    card_identity: 'template',
+  },
+  versatile: {    
+    background: '#7e5525', // Energetic amber
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.8)',
+    highlight: '#ffcc80', // Dynamic, fresh amber
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(240, 150, 20, 0.6)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.10,
+    pattern_color: '#ffe8c9',
+    pattern_secondary_color: '#f57c00',
+    card_identity: 'template',
+  },
+  diplomate: {
+    background: '#825b2c', // Social, collaborative amber
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.85)',
+    highlight: '#ffd699', // Friendly, inviting amber
+    border: 'rgba(255, 255, 255, 0.25)',
+    badge_bg: 'rgba(245, 160, 30, 0.6)',
+    action_bg: 'rgba(255, 255, 255, 0.95)',
+    pattern_opacity: 0.09,
+    pattern_color: '#ffecda',
+    pattern_secondary_color: '#ff8f00',
+    card_identity: 'template',
+  },
+  mentor: {
+    background: '#784c1f', // Guiding, motivational amber
+    text: '#ffffff',
+    text_secondary: 'rgba(255, 255, 255, 0.85)',
+    highlight: '#ffb259', // Encouraging amber
+    border: 'rgba(255, 255, 255, 0.2)',
+    badge_bg: 'rgba(220, 130, 10, 0.6)',
+    action_bg: 'rgba(255, 255, 255, 0.9)',
+    pattern_opacity: 0.12,
+    pattern_color: '#ffd9a8',
+    pattern_secondary_color: '#e65100',
+    card_identity: 'template',
+  },
+};
+
+// Finally, add this getter function
+export const getGroupWorkoutPalette = (personality: Personality): GroupWorkoutPalette => {
+  return GROUP_WORKOUT_PALETTES[personality];
 };
 
 // Function to get the entire color palette for a personality

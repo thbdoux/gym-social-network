@@ -67,7 +67,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
   onLongPress
 }) => {
   const { t } = useLanguage();
-  const { workoutPalette } = useTheme();
+  const { groupWorkoutPalette } = useTheme();
   
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
@@ -196,16 +196,19 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
       case 'private':
         return { bg: 'rgba(107, 114, 128, 0.2)', text: '#6B7280' }; // Gray
       default:
-        return { bg: 'rgba(107, 114, 128, 0.2)', text: '#6B7280' }; // Default gray
+        return { bg: 'rgba(107, 114, 124, 0.2)', text: '#6B7280' }; // Default gray
     }
+  };
+  
+  // Get role badge color
+  const getRoleBadgeColor = (isCreator: boolean): { bg: string, text: string } => {
+    return isCreator 
+      ? { bg: 'rgba(236, 72, 153, 0.2)', text: '#EC4899' }  // Pink for creator
+      : { bg: 'rgba(139, 92, 246, 0.2)', text: '#8B5CF6' }; // Purple for participant
   };
   
   // Get participation action text based on user status and workout settings
   const getParticipationActionText = (): string => {
-    if (groupWorkout.is_creator) {
-      return t('manage');
-    }
-    
     switch (groupWorkout.current_user_status) {
       case 'joined':
         return t('joined');
@@ -239,7 +242,8 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
   
   // Check if user can participate
   const canParticipate = (): boolean => {
-    if (groupWorkout.is_creator) return true;
+    // Return false if user is creator
+    if (groupWorkout.is_creator) return false;
     if (!groupWorkout.is_active) return false;
     if (groupWorkout.is_full && groupWorkout.current_user_status !== 'joined' && groupWorkout.current_user_status !== 'invited') return false;
     
@@ -286,6 +290,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
   // Status colors
   const statusColors = getStatusColor(groupWorkout.status);
   const privacyColors = getPrivacyColor(groupWorkout.privacy);
+  const roleBadgeColors = getRoleBadgeColor(groupWorkout.is_creator);
   
   // Participant avatars - limit to max 5 for display
   const displayParticipants = groupWorkout.participants?.slice(0, 5) || [];
@@ -311,8 +316,8 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
         delayLongPress={200}
         style={[
           styles.container,
-          { backgroundColor: workoutPalette.background },
-          isSelected && [styles.selectedContainer, { borderColor: workoutPalette.text }]
+          { backgroundColor: groupWorkoutPalette.background },
+          isSelected && [styles.selectedContainer, { borderColor: groupWorkoutPalette.text }]
         ]}
       >
         {/* Selection indicator */}
@@ -320,7 +325,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
           <View style={styles.selectionIndicator}>
             <View style={[
               styles.checkbox,
-              isSelected && [styles.checkboxSelected, { backgroundColor: workoutPalette.background }]
+              isSelected && [styles.checkboxSelected, { backgroundColor: groupWorkoutPalette.background }]
             ]}>
               {isSelected && (
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
@@ -335,9 +340,16 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
           <View style={styles.topRow}>
             <View style={styles.badgesContainer}>
               {/* Event Badge */}
-              <View style={[styles.eventBadge, { backgroundColor: workoutPalette.badge_bg }]}>
-                <Text style={[styles.eventBadgeText, { color: workoutPalette.text }]}>
+              <View style={[styles.eventBadge, { backgroundColor: groupWorkoutPalette.badge_bg }]}>
+                <Text style={[styles.eventBadgeText, { color: groupWorkoutPalette.text }]}>
                   {t('group_workout')}
+                </Text>
+              </View>
+              
+              {/* Role Badge - New! */}
+              <View style={[styles.roleBadge, { backgroundColor: roleBadgeColors.bg }]}>
+                <Text style={[styles.roleBadgeText, { color: roleBadgeColors.text }]}>
+                  {groupWorkout.is_creator ? t('creator') : t('participant')}
                 </Text>
               </View>
               
@@ -371,14 +383,14 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
           </View>
           
           {/* Workout title */}
-          <Text style={[styles.title, { color: workoutPalette.text }]} numberOfLines={1}>
+          <Text style={[styles.title, { color: groupWorkoutPalette.text }]} numberOfLines={1}>
             {groupWorkout.title}
           </Text>
           
           {/* Date */}
           <View style={styles.dateRow}>
-            <Ionicons name="calendar-outline" size={14} color={workoutPalette.text_secondary} />
-            <Text style={[styles.dateText, { color: workoutPalette.text }]}>
+            <Ionicons name="calendar-outline" size={14} color={groupWorkoutPalette.text_secondary} />
+            <Text style={[styles.dateText, { color: groupWorkoutPalette.text }]}>
               {formatDate(groupWorkout.scheduled_time)}
             </Text>
           </View>
@@ -386,8 +398,8 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
           {/* Gym location */}
           {groupWorkout.gym_details && (
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color={workoutPalette.text_secondary} />
-              <Text style={[styles.locationText, { color: workoutPalette.text_secondary }]} numberOfLines={1}>
+              <Ionicons name="location-outline" size={14} color={groupWorkoutPalette.text_secondary} />
+              <Text style={[styles.locationText, { color: groupWorkoutPalette.text_secondary }]} numberOfLines={1}>
                 {groupWorkout.gym_details.name} - {groupWorkout.gym_details.location}
               </Text>
             </View>
@@ -395,8 +407,8 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
           
           {/* Creator info */}
           <View style={styles.creatorRow}>
-            <Ionicons name="person-outline" size={14} color={workoutPalette.text_secondary} />
-            <Text style={[styles.creatorText, { color: workoutPalette.text_secondary }]}>
+            <Ionicons name="person-outline" size={14} color={groupWorkoutPalette.text_secondary} />
+            <Text style={[styles.creatorText, { color: groupWorkoutPalette.text_secondary }]}>
               {t('created_by')} {groupWorkout.creator_details.username}
             </Text>
           </View>
@@ -405,7 +417,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
         {/* Participants */}
         <View style={styles.participantsContainer}>
           <View style={styles.participantsHeader}>
-            <Text style={[styles.participantsTitle, { color: workoutPalette.text_secondary }]}>
+            <Text style={[styles.participantsTitle, { color: groupWorkoutPalette.text_secondary }]}>
               {t('participants')} ({groupWorkout.participants_count}/{groupWorkout.max_participants > 0 ? groupWorkout.max_participants : '∞'})
             </Text>
           </View>
@@ -436,7 +448,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
                 )}
               </>
             ) : (
-              <Text style={[styles.noParticipantsText, { color: workoutPalette.text_secondary }]}>
+              <Text style={[styles.noParticipantsText, { color: groupWorkoutPalette.text_secondary }]}>
                 {t('no_participants_yet')}
               </Text>
             )}
@@ -448,19 +460,19 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
           {/* Spacer */}
           <View style={styles.spacer} />
           
-          {/* Participate button */}
-          {!selectionMode && (
+          {/* Participate button - only for non-creators */}
+          {!selectionMode && !groupWorkout.is_creator && (
             <TouchableOpacity 
               style={[
                 styles.participateButton, 
-                { backgroundColor: canParticipate() ? workoutPalette.action_bg : 'rgba(107, 114, 128, 0.2)' },
+                { backgroundColor: canParticipate() ? groupWorkoutPalette.action_bg : 'rgba(107, 114, 128, 0.2)' },
               ]}
               onPress={handleParticipatePress}
               disabled={!canParticipate()}
             >
               <Text style={[
                 styles.participateText, 
-                { color: canParticipate() ? workoutPalette.highlight : '#6B7280' }
+                { color: canParticipate() ? groupWorkoutPalette.highlight : '#6B7280' }
               ]}>
                 {getParticipationActionText()}
               </Text>
@@ -525,6 +537,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   privacyBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  roleBadgeText: {
     fontSize: 12,
     fontWeight: '600',
   },

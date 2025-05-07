@@ -2040,66 +2040,81 @@ const realtime_logger = {
 // utils/translations.ts
 const notifs = {
   en: {
-    // General
-    'notifications': 'Notifications',
-    'mark_all_as_read': 'Mark all as read',
-    'show_all_notifications': 'Show all notifications',
-    'show_unread_only': 'Show unread only',
-    'connecting_to_notifications': 'Connecting to notifications...',
-    'no_notifications_yet': 'No notifications yet',
-    'accept': 'Accept',
-    'decline': 'Decline',
-    'anonymous': 'Someone',
+    // General notification terms
+    notifications: "Notifications",
+    mark_all_as_read: "Mark all as read",
+    show_all_notifications: "Show all notifications",
+    show_unread_only: "Show unread only",
+    connecting_to_notifications: "Connecting to notifications...",
+    no_notifications_yet: "No notifications yet",
+    accept: "Accept",
+    decline: "Decline",
     
-    // Section headers
-    'notification.section.today': 'Today',
-    'notification.section.yesterday': 'Yesterday',
-    'notification.section.this_week': 'This Week',
-    'notification.section.earlier': 'Earlier',
+    // Notification sections
+    "notification.section.today": "Today",
+    "notification.section.yesterday": "Yesterday",
+    "notification.section.this_week": "This Week",
+    "notification.section.earlier": "Earlier",
     
     // Notification types
-    'notification.like': '{username} liked your post',
-    'notification.comment': '{username} commented on your post: "{content}"',
-    'notification.share': '{username} shared your post',
-    'notification.friend_request': '{username} sent you a friend request',
-    'notification.friend_accept': '{username} accepted your friend request',
-    'notification.program_fork': '{username} forked your program',
-    'notification.workout_milestone': 'You reached a new milestone in your workout: {content}',
-    'notification.goal_achieved': 'Congratulations! You achieved your goal: {content}',
-    'notification.mention': '{username} mentioned you in a comment: "{content}"',
-    'notification.gym_announcement': 'Announcement from your gym: {content}',
+    "notification.like": "{{username}} liked your post",
+    "notification.comment": "{{username}} commented on your post: {{content}}",
+    "notification.share": "{{username}} shared your post",
+    "notification.friend_request": "{{username}} sent you a friend request",
+    "notification.friend_accept": "{{username}} accepted your friend request",
+    "notification.program_fork": "{{username}} forked your workout program {{content}}",
+    "notification.workout_milestone": "Congratulations! You've completed your {{content}} workout",
+    "notification.goal_achieved": "Goal achieved! You've reached {{content}}",
+    "notification.mention": "{{username}} mentioned you in a post",
+    "notification.gym_announcement": "Announcement from {{content}}: {{username}}",
+    "notification.workout_invitation": "{{username}} invited you to join a workout",
+    "notification.workout_join": "{{username}} joined your group workout",
+    "notification.workout_join_request": "{{username}} requested to join your group workout",
+    "notification.workout_request_approved": "Your request to join {{username}}'s workout was approved",
+    "notification.workout_request_rejected": "Your request to join {{username}}'s workout was declined",
+    "notification.workout_cancelled": "The group workout {{content}} has been cancelled",
+    "notification.workout_removed": "You were removed from {{username}}'s group workout",
+    "notification.workout_completed": "Your group workout has been marked as completed",
+    "notification.workout_leave": "{username} left your group workout"
   },
-  
   fr: {
-    // General
-    'notifications': 'Notifications',
-    'mark_all_as_read': 'Tout marquer comme lu',
-    'show_all_notifications': 'Afficher toutes les notifications',
-    'show_unread_only': 'Afficher uniquement les non lues',
-    'connecting_to_notifications': 'Connexion aux notifications...',
-    'no_notifications_yet': 'Pas encore de notifications',
-    'accept': 'Accepter',
-    'decline': 'Refuser',
-    'anonymous': 'Quelqu\'un',
+    // General notification terms
+    notifications: "Notifications",
+    mark_all_as_read: "Marquer tout comme lu",
+    show_all_notifications: "Afficher toutes les notifications",
+    show_unread_only: "Afficher uniquement les non lus",
+    connecting_to_notifications: "Connexion aux notifications...",
+    no_notifications_yet: "Pas encore de notifications",
+    accept: "Accepter",
+    decline: "Refuser",
     
-    // Section headers
-    'notification.section.today': 'Aujourd\'hui',
-    'notification.section.yesterday': 'Hier',
-    'notification.section.this_week': 'Cette Semaine',
-    'notification.section.earlier': 'Plus Ancien',
+    // Notification sections
+    "notification.section.today": "Aujourd'hui",
+    "notification.section.yesterday": "Hier",
+    "notification.section.this_week": "Cette Semaine",
+    "notification.section.earlier": "Plus Ancien",
     
     // Notification types
-    'notification.like': '{username} a aimé votre publication',
-    'notification.comment': '{username} a commenté votre publication: "{content}"',
-    'notification.share': '{username} a partagé votre publication',
-    'notification.friend_request': '{username} vous a envoyé une demande d\'ami',
-    'notification.friend_accept': '{username} a accepté votre demande d\'ami',
-    'notification.program_fork': '{username} a dupliqué votre programme',
-    'notification.workout_milestone': 'Vous avez atteint un nouveau palier dans votre entraînement: {content}',
-    'notification.goal_achieved': 'Félicitations! Vous avez atteint votre objectif: {content}',
-    'notification.mention': '{username} vous a mentionné dans un commentaire: "{content}"',
-    'notification.gym_announcement': 'Annonce de votre salle de sport: {content}',
-  },
+    "notification.like": "{username} a aimé votre publication",
+    "notification.comment": "{username} a commenté votre publication: {content}",
+    "notification.share": "{username} a partagé votre publication",
+    "notification.friend_request": "{username} vous a envoyé une demande d'ami",
+    "notification.friend_accept": "{username} a accepté votre demande d'ami",
+    "notification.program_fork": "{username} a dupliqué votre programme d'entraînement {content}",
+    "notification.workout_milestone": "Félicitations! Vous avez terminé votre {content}ème entraînement",
+    "notification.goal_achieved": "Objectif atteint! Vous avez atteint {content}",
+    "notification.mention": "{username} vous a mentionné dans une publication",
+    "notification.gym_announcement": "Annonce de {content}: {username}",
+    "notification.workout_invitation": "{username} vous a invité à rejoindre un entraînement",
+    "notification.workout_join": "{username} a rejoint votre entraînement de groupe",
+    "notification.workout_join_request": "{username} a demandé à rejoindre votre entraînement de groupe",
+    "notification.workout_request_approved": "Votre demande pour rejoindre l'entraînement de {username} a été approuvée",
+    "notification.workout_request_rejected": "Votre demande pour rejoindre l'entraînement de {username} a été refusée",
+    "notification.workout_cancelled": "L'entraînement de groupe {content} a été annulé",
+    "notification.workout_removed": "Vous avez été retiré de l'entraînement de groupe de {username}",
+    "notification.workout_completed": "Votre entraînement de groupe a été marqué comme terminé",
+    "notification.workout_leave": "{username} a quitté votre entraînement de groupe"
+  }
 };
 
 const group_workout = {

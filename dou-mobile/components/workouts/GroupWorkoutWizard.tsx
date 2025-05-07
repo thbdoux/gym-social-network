@@ -18,32 +18,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Import Steps
 import Step1GroupInfo from './group-workout-steps/Step1GroupInfo';
 import Step2Participants from './group-workout-steps/Step2Participants';
-import Step3Schedule from './group-workout-steps/Step3Schedule'; // Renamed from Step4Schedule
-
-// Import types
-import { Exercise } from './WorkoutTemplateWizard';
+import Step3Schedule from './group-workout-steps/Step3Schedule';
 
 // Define group workout form data type to match API expectations
 export type GroupWorkoutFormData = {
-  title: string; // Changed from 'name' to match API
+  title: string;
   description?: string;
-  creator?: number; // Added to store creator ID
-  creator_username?: string; // Keep for UI display
-  scheduled_time?: string; // Will store combined date+time in ISO format
+  creator?: number;
+  creator_username?: string;
+  scheduled_time?: string;
   // UI helper fields that will be combined into scheduled_time
   scheduled_date: Date;
   time_string: string;
   duration_minutes: number;
   location?: string;
-  gym?: number | null; // Changed from gym_id to match API
+  gym?: number | null;
   gym_name?: string;
-  difficulty_level: string;
-  privacy: 'public' | 'upon-request' | 'private'; // Changed from is_public boolean to match API
+  privacy: 'public' | 'upon-request' | 'private';
   max_participants: number;
-  participants: string[];
-  invited_users: string[];
-  exercises: Exercise[];
-  workout_template?: number | null; // Changed from template_id to match API
+  participants: number[]; // Changed from string[] to number[] to match API expectations
+  participants_details?: any[]; // Added to store full user details
+  invited_users: number[]; // Changed from string[] to number[]
+  workout_template?: number | null;
   tags?: string[];
 };
 
@@ -85,29 +81,33 @@ const GroupWorkoutWizard = ({
     
     // Base form data
     const formData: GroupWorkoutFormData = {
-      title: '', // Changed from 'name'
+      title: '',
       description: '',
-      creator: user?.id, // Store creator ID
+      creator: user?.id,
       creator_username: user?.username || '',
       scheduled_date: oneHourLater,
       time_string: formatTime(oneHourLater),
       duration_minutes: 60,
       location: '',
-      gym: null, // Changed from gym_id
+      gym: null,
       gym_name: '',
-      difficulty_level: 'moderate',
-      privacy: 'public', // Changed from is_public boolean
+      privacy: 'public',
       max_participants: 8,
-      participants: [user?.username || ''],
+      participants: [user?.id], // Changed to use ID instead of username
+      participants_details: [user], // Initialize with creator details
       invited_users: [],
-      exercises: [],
-      workout_template: null // Changed from template_id
+      workout_template: null
     };
     
     // Pre-fill data from existing group workout if available
     if (groupWorkout) {
       // Parse scheduled_time into date and time
       const scheduledDate = new Date(groupWorkout.scheduled_time);
+      
+      // Extract participants from the group workout
+      const participantIds = groupWorkout.participants ? 
+        groupWorkout.participants.map(p => p.user) : [user?.id];
+      
       return {
         ...formData,
         title: groupWorkout.title || '',
@@ -117,7 +117,9 @@ const GroupWorkoutWizard = ({
         privacy: groupWorkout.privacy || 'public',
         gym: groupWorkout.gym || null,
         workout_template: groupWorkout.workout_template || null,
-        // Add other fields from the API response
+        max_participants: groupWorkout.max_participants || 8,
+        participants: participantIds,
+        participants_details: groupWorkout.participants || [user]
       };
     }
     
@@ -128,8 +130,6 @@ const GroupWorkoutWizard = ({
         title: template.name || '',
         description: template.description || '',
         duration_minutes: template.estimated_duration || 60,
-        difficulty_level: template.difficulty_level || 'moderate',
-        exercises: template.exercises ? [...template.exercises] : [],
         workout_template: template.id || null
       };
     }
@@ -161,7 +161,7 @@ const GroupWorkoutWizard = ({
     }
   };
   
-  // Define steps in the wizard - REMOVED THE EXERCISE STEP
+  // Define steps in the wizard
   const steps = [
     { name: t('group_info'), component: Step1GroupInfo },
     { name: t('participants'), component: Step2Participants },
@@ -222,13 +222,14 @@ const GroupWorkoutWizard = ({
     
     const apiData = {
       ...formData,
-      scheduled_time: dateObj.toISOString(), // Format the combined date and time
+      scheduled_time: dateObj.toISOString(),
     };
     
     // Remove UI-only fields
     delete apiData.scheduled_date;
     delete apiData.time_string;
     delete apiData.creator_username;
+    delete apiData.participants_details;
     
     // Clean up null/undefined values
     return Object.fromEntries(
@@ -274,7 +275,7 @@ const GroupWorkoutWizard = ({
         {/* Header with integrated progress bar */}
         <View style={styles.header}>
           <LinearGradient
-            colors={['#f97316', '#fb923c']} // Orange gradient for group workout theme
+            colors={['#f97316', '#fb923c']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerGradient}
@@ -385,6 +386,7 @@ const GroupWorkoutWizard = ({
     </Modal>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

@@ -149,12 +149,45 @@ export default function WorkoutsScreen() {
     refetch: refetchTemplates
   } = useWorkoutTemplates();
   
-  // Group workout queries
   const {
-    data: groupWorkouts = [],
-    isLoading: groupWorkoutsLoading,
-    refetch: refetchGroupWorkouts
+    data: createdGroupWorkouts = [],
+    isLoading: createdGroupWorkoutsLoading,
+    refetch: refetchCreatedGroupWorkouts
   } = useUserCreatedGroupWorkouts(user?.id);
+  
+  const {
+    data: joinedGroupWorkouts = [],
+    isLoading: joinedGroupWorkoutsLoading,
+    refetch: refetchJoinedGroupWorkouts
+  } = useUserJoinedGroupWorkouts();
+  
+  const getAllGroupWorkouts = () => {
+    const workoutsMap = new Map();
+    
+    // First add all created workouts to the map
+    createdGroupWorkouts.forEach(workout => {
+      workoutsMap.set(workout.id, {
+        ...workout,
+        // Ensure is_creator is true even if it wasn't set properly
+        is_creator: true
+      });
+    });
+    
+    // Then add joined workouts only if they don't already exist in the map
+    joinedGroupWorkouts.forEach(workout => {
+      // Skip if this workout is already in the map (already processed as a created workout)
+      if (!workoutsMap.has(workout.id)) {
+        workoutsMap.set(workout.id, {
+          ...workout,
+          // Ensure is_creator is false for workouts only in the joined list
+          is_creator: false
+        });
+      }
+    });
+    
+    // Convert the Map values back to an array
+    return Array.from(workoutsMap.values());
+  };
 
   // Animation values for swipe transitions
   const swipeAnim = useRef(new Animated.Value(0)).current;
@@ -191,7 +224,7 @@ export default function WorkoutsScreen() {
       case VIEW_TYPES.TEMPLATES:
         return templates.filter(template => template.creator_username === user?.username);
       case VIEW_TYPES.GROUP_WORKOUTS:
-        return groupWorkouts;
+        return getAllGroupWorkouts();
       default:
         return [];
     }
@@ -207,7 +240,7 @@ export default function WorkoutsScreen() {
       case VIEW_TYPES.TEMPLATES:
         return templatesLoading;
       case VIEW_TYPES.GROUP_WORKOUTS:
-        return groupWorkoutsLoading;
+        return createdGroupWorkoutsLoading || joinedGroupWorkoutsLoading;
       default:
         return false;
     }
@@ -228,7 +261,10 @@ export default function WorkoutsScreen() {
           await refetchTemplates();
           break;
         case VIEW_TYPES.GROUP_WORKOUTS:
-          await refetchGroupWorkouts();
+          await Promise.all([
+            refetchCreatedGroupWorkouts(),
+            refetchJoinedGroupWorkouts()
+          ]);
           break;
       }
     } catch (error) {
@@ -236,7 +272,7 @@ export default function WorkoutsScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [currentView, refetchPrograms, refetchLogs, refetchTemplates, refetchGroupWorkouts]);
+  }, [currentView, refetchPrograms, refetchLogs, refetchTemplates, refetchCreatedGroupWorkouts, refetchJoinedGroupWorkouts]);
 
   // Toggle view selector
   const toggleViewSelector = () => {
@@ -894,8 +930,8 @@ export default function WorkoutsScreen() {
             setGroupWorkoutSelectionModalVisible(false);
             setGroupWorkoutWizardVisible(true);
           }}
-          groupWorkouts={groupWorkouts}
-          groupWorkoutsLoading={groupWorkoutsLoading}
+          groupWorkouts={getAllGroupWorkouts()}
+          groupWorkoutsLoading={createdGroupWorkoutsLoading || joinedGroupWorkoutsLoading}
           user={user}
           themePalette={palette}
         />

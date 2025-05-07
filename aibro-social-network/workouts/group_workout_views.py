@@ -34,9 +34,8 @@ class GroupWorkoutViewSet(viewsets.ModelViewSet):
     ordering = ['-scheduled_time']
     
     def get_serializer_class(self):
-        if self.action in ['retrieve', 'messages', 'join_requests']:
-            return GroupWorkoutDetailSerializer
-        return GroupWorkoutSerializer
+        return GroupWorkoutDetailSerializer
+       
     
     def get_queryset(self):
         user = self.request.user
@@ -158,6 +157,37 @@ class GroupWorkoutViewSet(viewsets.ModelViewSet):
             "message": f"Invited {invited_count} users to the group workout."
         })
     
+    # Add this to your GroupWorkoutViewSet in group_workout_views.py
+
+    @action(detail=True, methods=['get'])
+    def participants(self, request, pk=None):
+        """Get all participants for a group workout with optional status filter"""
+        group_workout = self.get_object()
+        
+        # Check permission (creator or participant)
+        is_participant = GroupWorkoutParticipant.objects.filter(
+            group_workout=group_workout,
+            user=request.user,
+            status='joined'
+        ).exists()
+        
+        if not is_participant and request.user != group_workout.creator:
+            return Response(
+                {"detail": "You must be a participant to view participants."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Optional status filter
+        status_filter = request.query_params.get('status')
+        participants = group_workout.participants.all()
+        
+        if status_filter:
+            participants = participants.filter(status=status_filter)
+        
+        serializer = GroupWorkoutParticipantSerializer(participants, many=True)
+        return Response(serializer.data)
+
+        
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
         """Join a group workout"""

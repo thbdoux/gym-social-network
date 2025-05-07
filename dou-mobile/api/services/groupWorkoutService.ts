@@ -202,7 +202,45 @@ const groupWorkoutService = {
     });
     
     return response.data;
-  }
+  },
+
+  // Get participants for a specific group workout
+  getGroupWorkoutParticipants: async (id: number): Promise<GroupWorkoutParticipant[]> => {
+    const response = await apiClient.get(`/workouts/group-workouts/${id}/`);
+    // Extract participants from the detailed response
+    return response.data.participants || [];
+  },
+
+  // Get a filtered list of participants by status
+  getGroupWorkoutParticipantsByStatus: async (id: number, status: string): Promise<GroupWorkoutParticipant[]> => {
+    const participants = await groupWorkoutService.getGroupWorkoutParticipants(id);
+    return participants.filter(participant => participant.status === status);
+  },
+
+  // Get only joined participants
+  getJoinedParticipants: async (id: number): Promise<GroupWorkoutParticipant[]> => {
+    return groupWorkoutService.getGroupWorkoutParticipantsByStatus(id, 'joined');
+  },
+
+  // Check if a user is a participant in a group workout
+  isUserParticipant: async (groupWorkoutId: number, userId: number): Promise<boolean> => {
+    const participants = await groupWorkoutService.getGroupWorkoutParticipants(groupWorkoutId);
+    return participants.some(p => p.user === userId && p.status === 'joined');
+  },
+
+  // Update participant status
+  updateParticipantStatus: async (
+    groupWorkoutId: number,
+    userId: number,
+    newStatus: 'joined' | 'invited' | 'declined' | 'removed'
+  ): Promise<any> => {
+    // This is a custom endpoint we'd need to add to the backend
+    const response = await apiClient.put(`/workouts/group-workouts/${groupWorkoutId}/update_participant_status/`, {
+      user_id: userId,
+      status: newStatus
+    });
+    return response.data;
+  },
 };
 
 export default groupWorkoutService;

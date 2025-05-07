@@ -1,5 +1,5 @@
 // app/(app)/notifications.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { runOnJS } from 'react-native-reanimated';
 import { 
   View, 
@@ -21,6 +21,9 @@ import {
 } from '../../hooks/query/useNotificationQuery';
 import { useUser } from '../../hooks/query/useUserQuery';
 import { usePost } from '../../hooks/query/usePostQuery';
+import { groupWorkoutService } from '../../api/services';
+// Add these imports at the top of the file
+import { useGroupWorkoutJoinRequests } from '../../hooks/query/useGroupWorkoutQuery';
 import { useNotificationSocket } from '../../hooks/useNotificationSocket';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -33,7 +36,7 @@ import { getAvatarUrl } from '../../utils/imageUtils';
 
 // Component to display content preview based on notification type
 const ContentPreview = ({ notification, postData }) => {
-  const { palette, workoutPalette, programPalette, workoutLogPalette, programWorkoutPalette } = useTheme();
+  const { palette, workoutPalette, programPalette, workoutLogPalette, programWorkoutPalette, groupWorkoutPalette } = useTheme();
   const styles = themedStyles(palette);
   const { t } = useLanguage();
   
@@ -48,6 +51,8 @@ const ContentPreview = ({ notification, postData }) => {
         return workoutLogPalette;
       case 'program_workout':
         return programWorkoutPalette;
+      case 'group_workout':
+        return groupWorkoutPalette;
       default:
         return null;
     }
@@ -122,7 +127,7 @@ const ContentPreview = ({ notification, postData }) => {
       return (
         <View style={styles.contentPreview}>
           <View style={styles.postIconContainer}>
-            <Ionicons name="document-text" size={20} color={palette.text_secondary} />
+            <Ionicons name="document-text" size={20} color={palette.text} />
           </View>
         </View>
       );
@@ -133,7 +138,7 @@ const ContentPreview = ({ notification, postData }) => {
       return (
         <View style={styles.contentPreview}>
           <View style={styles.profileIconContainer}>
-            <Ionicons name="person" size={20} color={palette.text_secondary} />
+            <Ionicons name="person" size={20} color={palette.text} />
           </View>
         </View>
       );
@@ -182,11 +187,78 @@ const ContentPreview = ({ notification, postData }) => {
       return (
         <View style={styles.contentPreview}>
           <View style={styles.gymIconContainer}>
-            <Ionicons name="business" size={20} color={palette.text_secondary} />
+            <Ionicons name="business" size={20} color={palette.text} />
           </View>
         </View>
       );
-      
+
+    case 'workout_invitation':
+      // Group workout invite preview with workout palette
+      return (
+        <View style={[
+          styles.contentPreview,
+          { backgroundColor: workoutPalette.background }
+        ]}>
+          <View style={styles.typeIconContainer}>
+            <Ionicons name="people" size={22} color={workoutPalette.highlight} />
+          </View>
+        </View>
+      );
+    
+    case 'workout_join':
+    case 'workout_join_request':
+    case 'workout_request_approved':
+    case 'workout_request_rejected':
+      return (
+        <View style={[
+          styles.contentPreview,
+          { backgroundColor: groupWorkoutPalette.background }
+        ]}>
+          <View style={styles.typeIconContainer}>
+            <Ionicons name="people" size={22} color={groupWorkoutPalette.highlight} />
+          </View>
+        </View>
+      );
+    case 'workout_cancelled':
+      case 'workout_removed':
+        // Cancelled workout preview
+        return (
+          <View style={[
+            styles.contentPreview,
+            { backgroundColor: workoutPalette.background }
+          ]}>
+            <View style={styles.typeIconContainer}>
+              <Ionicons name="calendar-outline" size={22} color={workoutPalette.highlight} />
+            </View>
+          </View>
+        );
+        
+      case 'workout_completed':
+        // Completed workout preview
+        return (
+          <View style={[
+            styles.contentPreview,
+            { backgroundColor: workoutLogPalette.background }
+          ]}>
+            <View style={styles.achievementIconContainer}>
+              <Ionicons name="checkmark-done-circle" size={20} color={workoutLogPalette.highlight} />
+            </View>
+          </View>
+        );
+
+      case 'workout_leave':
+        // Use the same preview style as other group workout notifications
+        return (
+          <View style={[
+            styles.contentPreview,
+            { backgroundColor: groupWorkoutPalette.background }
+          ]}>
+            <View style={styles.typeIconContainer}>
+              <Ionicons name="exit-outline" size={22} color={groupWorkoutPalette.highlight} />
+            </View>
+          </View>
+        );
+    
     default:
       // Default empty preview
       return null;
@@ -232,6 +304,24 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
         return 'at';
       case 'gym_announcement':
         return 'megaphone';
+      case 'workout_invitation':
+        return 'fitness';
+      case 'workout_join':
+        return 'log-in';
+      case 'workout_join_request':
+        return 'enter';
+      case 'workout_request_approved':
+        return 'checkmark-circle';
+      case 'workout_request_rejected':
+        return 'close-circle';
+      case 'workout_cancelled':
+        return 'calendar-outline';
+      case 'workout_removed':
+        return 'exit';
+      case 'workout_completed':
+        return 'checkmark-done-circle';
+      case 'workout_leave':
+        return 'exit-outline';
       default:
         return 'notifications';
     }
@@ -258,12 +348,29 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
         return palette.info;
       case 'gym_announcement':
         return palette.warning;
+      case 'workout_invitation':
+      case 'workout_join':
+      case 'workout_join_request':
+        return palette.highlight;
+      case 'workout_request_approved':
+        return '#34C759'; // Green for approvals
+      case 'workout_request_rejected':
+      case 'workout_cancelled':
+      case 'workout_removed':
+        return '#FF3B30'; // Red for rejections/cancellations
+      case 'workout_completed':
+        return '#5AC8FA'; // Blue for completions
+      case 'workout_leave':
+        return palette.highlight;
       default:
         return palette.primary;
     }
   };
   
-  const hasActions = notification.notification_type === 'friend_request' && !notification.is_read;
+  const hasActions = (notification.notification_type === 'friend_request' || 
+  notification.notification_type === 'workout_invitation' ||
+  notification.notification_type === 'workout_join_request') && 
+  !notification.is_read;
   
   // Handle navigation to related content
   const handlePress = () => {
@@ -286,23 +393,27 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
     // Only navigate if there are no actions (like accept/decline buttons)
     if (!hasActions) {
       // Navigate based on notification type
-      if (notification.notification_type === 'like' || 
-          notification.notification_type === 'comment' || 
-          notification.notification_type === 'share') {
+      if (['like', 'comment', 'share', 'mention'].includes(notification.notification_type)) {
         if (notification.object_id) {
           router.push(`/post/${notification.object_id}`);
         }
-      } else if (notification.notification_type === 'friend_request') {
+      } else if (['friend_request', 'friend_accept'].includes(notification.notification_type)) {
         router.push('/friends');
       } else if (notification.notification_type === 'program_fork') {
         if (notification.object_id) {
           router.push(`/program/${notification.object_id}`);
         }
-      } else if (notification.notification_type === 'workout_milestone' ||
-                notification.notification_type === 'goal_achieved') {
+      } else if (['workout_milestone', 'goal_achieved', 'workout_completed'].includes(notification.notification_type)) {
         router.push('/workouts');
       } else if (notification.notification_type === 'gym_announcement') {
         router.push('/gyms');
+      } else if (['workout_invitation', 'workout_join', 'workout_join_request', 
+              'workout_request_approved', 'workout_request_rejected', 
+              'workout_cancelled', 'workout_removed', 'workout_leave',
+              'workout_completed'].includes(notification.notification_type)) {
+        if (notification.object_id) {
+        router.push(`/group-workout/${notification.object_id}`);
+        }
       }
     }
   };
@@ -310,18 +421,92 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
   // Format timestamp
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: false });
   
-  // Handle accept friend request
+  // Handle accept friend request or workout invitation/join request
   const handleAccept = () => {
-    // Implement accept friend request logic
+    // Mark notification as read first
     onMarkAsRead(notification.id);
-    // Add your API call here
+    
+    // Check notification type and take appropriate action
+    if (notification.notification_type === 'friend_request') {
+      // Existing friend request accept logic
+      // API call for accepting friend request
+    } else if (notification.notification_type === 'workout_invitation') {
+      // Call joinGroupWorkout API for the workout
+      if (notification.object_id) {
+        try {
+          // Join the group workout
+          groupWorkoutService.joinGroupWorkout(notification.object_id)
+            .then(() => {
+              // Navigate to the group workout page after successful join
+              setTimeout(() => {
+                router.push(`/group-workout/${notification.object_id}`);
+              }, 300);
+            })
+            .catch(error => {
+              console.error('Error joining group workout:', error);
+            });
+        } catch (error) {
+          console.error('Error accepting group workout invitation:', error);
+        }
+      }
+    } else if (notification.notification_type === 'workout_join_request') {
+      // Call approveGroupWorkoutRequest API
+      if (notification.object_id) {
+        try {
+          groupWorkoutService.approveGroupWorkoutRequest(notification.object_id, notification.sender.id)
+            .then(() => {
+              setTimeout(() => {
+                router.push(`/group-workout/${notification.object_id}`);
+              }, 300);
+            })
+            .catch(error => {
+              console.error('Error approving workout join request:', error);
+            });
+        } catch (error) {
+          console.error('Error approving workout join request:', error);
+        }
+      }
+    }
   };
   
-  // Handle decline friend request
+    // Update the handleDecline function
   const handleDecline = () => {
-    // Implement decline friend request logic
+    // Mark notification as read
     onMarkAsRead(notification.id);
-    // Add your API call here
+    
+    // Check notification type and take appropriate action
+    if (notification.notification_type === 'friend_request') {
+      // Existing friend request decline logic
+      // API call for declining friend request
+    } else if (notification.notification_type === 'workout_invitation') {
+      // Call appropriate API to decline the workout invitation
+      if (notification.object_id) {
+        try {
+          // We can use updateParticipantStatus to set status to 'declined'
+          groupWorkoutService.updateParticipantStatus(
+            notification.object_id,
+            notification.recipient || notification.user_id, // recipient ID
+            'declined'
+          ).catch(error => {
+            console.error('Error declining group workout invitation:', error);
+          });
+        } catch (error) {
+          console.error('Error declining group workout invitation:', error);
+        }
+      }
+    } else if (notification.notification_type === 'workout_join_request') {
+      // Call rejectGroupWorkoutRequest API
+      if (notification.object_id) {
+        try {
+          groupWorkoutService.rejectGroupWorkoutRequest(notification.object_id, notification.sender.id)
+            .catch(error => {
+              console.error('Error rejecting workout join request:', error);
+            });
+        } catch (error) {
+          console.error('Error rejecting workout join request:', error);
+        }
+      }
+    }
   };
   
   // Get user information from userData if available, otherwise fallback to notification data

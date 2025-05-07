@@ -264,66 +264,6 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
         </View>
       </View>
       
-      {/* Duration card */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="hourglass-outline" size={20} color="#f97316" />
-          <Text style={styles.cardTitle}>{t('duration')}</Text>
-        </View>
-        
-        <View style={styles.durationContainer}>
-          <TouchableOpacity
-            style={styles.durationButton}
-            onPress={() => handleDurationChange(formData.duration_minutes - 15)}
-            disabled={formData.duration_minutes <= 15}
-          >
-            <Ionicons 
-              name="remove" 
-              size={24} 
-              color={formData.duration_minutes <= 15 ? '#6B7280' : '#FFFFFF'} 
-            />
-          </TouchableOpacity>
-          
-          <View style={styles.durationDisplayContainer}>
-            <Text style={styles.durationDisplay}>{formData.duration_minutes}</Text>
-            <Text style={styles.durationUnit}>{t('minutes')}</Text>
-          </View>
-          
-          <TouchableOpacity
-            style={styles.durationButton}
-            onPress={() => handleDurationChange(formData.duration_minutes + 15)}
-            disabled={formData.duration_minutes >= 180}
-          >
-            <Ionicons 
-              name="add" 
-              size={24} 
-              color={formData.duration_minutes >= 180 ? '#6B7280' : '#FFFFFF'} 
-            />
-          </TouchableOpacity>
-        </View>
-        
-        {/* Quick duration selectors */}
-        <View style={styles.quickDurationContainer}>
-          {[30, 45, 60, 90].map(duration => (
-            <TouchableOpacity
-              key={duration}
-              style={[
-                styles.quickDurationButton,
-                formData.duration_minutes === duration && styles.quickDurationButtonSelected
-              ]}
-              onPress={() => handleDurationChange(duration)}
-            >
-              <Text style={[
-                styles.quickDurationText,
-                formData.duration_minutes === duration && styles.quickDurationTextSelected
-              ]}>
-                {duration}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-      
       {/* Location card */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
@@ -427,6 +367,66 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
         </TouchableOpacity>
       </View>
       
+      {/* Duration card - moved below location and made smaller */}
+      <View style={styles.smallCard}>
+        <View style={styles.cardHeader}>
+          <Ionicons name="hourglass-outline" size={20} color="#f97316" />
+          <Text style={styles.cardTitle}>{t('duration')}</Text>
+        </View>
+        
+        <View style={styles.durationContainer}>
+          <TouchableOpacity
+            style={styles.durationButton}
+            onPress={() => handleDurationChange(formData.duration_minutes - 15)}
+            disabled={formData.duration_minutes <= 15}
+          >
+            <Ionicons 
+              name="remove" 
+              size={20} 
+              color={formData.duration_minutes <= 15 ? '#6B7280' : '#FFFFFF'} 
+            />
+          </TouchableOpacity>
+          
+          <View style={styles.durationDisplayContainer}>
+            <Text style={styles.durationDisplay}>{formData.duration_minutes}</Text>
+            <Text style={styles.durationUnit}>{t('minutes')}</Text>
+          </View>
+          
+          <TouchableOpacity
+            style={styles.durationButton}
+            onPress={() => handleDurationChange(formData.duration_minutes + 15)}
+            disabled={formData.duration_minutes >= 180}
+          >
+            <Ionicons 
+              name="add" 
+              size={20} 
+              color={formData.duration_minutes >= 180 ? '#6B7280' : '#FFFFFF'} 
+            />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Quick duration selectors */}
+        <View style={styles.quickDurationContainer}>
+          {[30, 45, 60, 90].map(duration => (
+            <TouchableOpacity
+              key={duration}
+              style={[
+                styles.quickDurationButton,
+                formData.duration_minutes === duration && styles.quickDurationButtonSelected
+              ]}
+              onPress={() => handleDurationChange(duration)}
+            >
+              <Text style={[
+                styles.quickDurationText,
+                formData.duration_minutes === duration && styles.quickDurationTextSelected
+              ]}>
+                {duration}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      
       {/* Gym selector modal */}
       <Modal
         visible={gymSelectorVisible}
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingVertical: 16,
-    paddingBottom: 32, // Extra padding for better scrolling
+    paddingBottom: 32,
   },
   rowContainer: {
     flexDirection: 'row',
@@ -521,13 +521,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#374151',
   },
+  smallCard: {
+    backgroundColor: '#1F2937',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
   halfCard: {
     width: '48%',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cardTitle: {
     fontSize: 16,
@@ -551,41 +559,41 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   inputError: {
-    borderColor: '#EF4444', // red-500
+    borderColor: '#EF4444',
   },
   errorText: {
     color: '#EF4444',
     fontSize: 12,
     marginTop: 4,
   },
-  // Duration styles
+  // Duration styles - smaller version
   durationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    marginBottom: 16,
+    paddingVertical: 6,
+    marginBottom: 12,
   },
   durationButton: {
-    width: 48,
-    height: 48,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#374151',
-    borderRadius: 24,
+    borderRadius: 18,
   },
   durationDisplayContainer: {
     alignItems: 'center',
   },
   durationDisplay: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   durationUnit: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#9CA3AF',
-    marginTop: 4,
+    marginTop: 2,
   },
   quickDurationContainer: {
     flexDirection: 'row',
@@ -593,11 +601,11 @@ const styles = StyleSheet.create({
   },
   quickDurationButton: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 6,
     backgroundColor: '#111827',
     borderRadius: 8,
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     borderWidth: 1,
     borderColor: '#374151',
   },
@@ -606,7 +614,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CA3AF',
   },
   quickDurationText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#D1D5DB',
   },
   quickDurationTextSelected: {
@@ -631,8 +639,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   locationOptionSelected: {
-    backgroundColor: '#7c2d12', // Dark orange background for better contrast
-    borderColor: '#f97316', // Orange border
+    backgroundColor: '#7c2d12',
+    borderColor: '#f97316',
   },
   locationOptionText: {
     fontSize: 16,

@@ -9,10 +9,12 @@ import {
   ProgramPalette,
   WorkoutLogPalette,
   ProgramWorkoutPalette,
+  GroupWorkoutPalette, // Add GroupWorkoutPalette import
   getWorkoutPalette,
   getProgramPalette,
   getWorkoutLogPalette,
-  getProgramWorkoutPalette
+  getProgramWorkoutPalette,
+  getGroupWorkoutPalette // Add getGroupWorkoutPalette import
 } from '../utils/colorConfig';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,6 +25,7 @@ interface ThemeContextType {
   programPalette: ProgramPalette;
   workoutLogPalette: WorkoutLogPalette;
   programWorkoutPalette: ProgramWorkoutPalette;
+  groupWorkoutPalette: GroupWorkoutPalette; // Add groupWorkoutPalette to context type
   personality: Personality | null;
   isLoading: boolean;
   resetTheme: () => void;
@@ -33,6 +36,7 @@ const defaultWorkoutPalette = getWorkoutPalette('versatile');
 const defaultProgramPalette = getProgramPalette('versatile');
 const defaultWorkoutLogPalette = getWorkoutLogPalette('versatile');
 const defaultProgramWorkoutPalette = getProgramWorkoutPalette('versatile');
+const defaultGroupWorkoutPalette = getGroupWorkoutPalette('versatile'); // Add default GroupWorkoutPalette
 
 const ThemeContext = createContext<ThemeContextType>({
   palette: defaultPalette,
@@ -40,6 +44,7 @@ const ThemeContext = createContext<ThemeContextType>({
   programPalette: defaultProgramPalette,
   workoutLogPalette: defaultWorkoutLogPalette,
   programWorkoutPalette: defaultProgramWorkoutPalette,
+  groupWorkoutPalette: defaultGroupWorkoutPalette, // Add to context default value
   personality: null,
   isLoading: true,
   resetTheme: () => {}, // Add a reset function to the context
@@ -53,6 +58,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [programPalette, setProgramPalette] = useState<ProgramPalette>(defaultProgramPalette);
   const [workoutLogPalette, setWorkoutLogPalette] = useState<WorkoutLogPalette>(defaultWorkoutLogPalette);
   const [programWorkoutPalette, setProgramWorkoutPalette] = useState<ProgramWorkoutPalette>(defaultProgramWorkoutPalette);
+  const [groupWorkoutPalette, setGroupWorkoutPalette] = useState<GroupWorkoutPalette>(defaultGroupWorkoutPalette); // Add state
   const [personality, setPersonality] = useState<Personality | null>(null);
   const queryClient = useQueryClient();
   
@@ -70,6 +76,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProgramPalette(defaultProgramPalette);
     setWorkoutLogPalette(defaultWorkoutLogPalette);
     setProgramWorkoutPalette(defaultProgramWorkoutPalette);
+    setGroupWorkoutPalette(defaultGroupWorkoutPalette); // Add reset for groupWorkoutPalette
   }, []);
 
   // Reset theme when auth state changes to not authenticated
@@ -116,6 +123,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setProgramPalette(getProgramPalette(userPersonality));
         setWorkoutLogPalette(getWorkoutLogPalette(userPersonality));
         setProgramWorkoutPalette(getProgramWorkoutPalette(userPersonality));
+        setGroupWorkoutPalette(getGroupWorkoutPalette(userPersonality)); // Add setting groupWorkoutPalette
       } else {
         resetTheme();
       }
@@ -131,6 +139,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       programPalette,
       workoutLogPalette,
       programWorkoutPalette,
+      groupWorkoutPalette, // Add to provider value
       personality, 
       isLoading,
       resetTheme 
