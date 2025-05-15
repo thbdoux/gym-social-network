@@ -20,6 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { programKeys } from '../../hooks/query/useProgramQuery';
 // Import ThemeContext
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 
 
@@ -35,6 +36,7 @@ import TemplateSelectionModal from '../../components/workouts/TemplateSelectionM
 import GroupWorkoutSelectionModal from '../../components/workouts/GroupWorkoutSelectionModal';
 import DeleteConfirmationModal from '../../components/workouts/DeleteConfirmationModal';
 
+import WorkoutTabs from '@/components/workouts/WorkoutTabs';
 // Import Wizards
 import ProgramWizard, { ProgramFormData } from '../../components/workouts/ProgramWizard';
 import WorkoutTemplateWizard, { WorkoutTemplateFormData } from '../../components/workouts/WorkoutTemplateWizard';
@@ -81,6 +83,7 @@ export default function WorkoutsScreen() {
   // Auth and context
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { t } = useLanguage();
   // Use the theme context
   const { palette } = useTheme();
   const styles = themedStyles(palette);
@@ -830,12 +833,14 @@ export default function WorkoutsScreen() {
           ) : (
             // Normal header
             <>
+              <Text style={styles.screenTitle}>{t('workouts')}</Text>
+{/*               
               <ViewSelector
                 currentView={currentView}
                 viewSelectorVisible={viewSelectorVisible}
                 toggleViewSelector={toggleViewSelector}
                 changeView={changeView}
-              />
+              /> */}
               
               <View style={styles.headerButtons}>
                 <TouchableOpacity 
@@ -857,6 +862,14 @@ export default function WorkoutsScreen() {
             </>
           )}
         </View>
+        {!selectionMode && (
+          <View style={styles.tabContainer}>
+            <WorkoutTabs
+              currentView={currentView}
+              onChangeView={changeView}
+            />
+          </View>
+        )}
         {/* Swipe Indicator */}
         <SwipeIndicator currentView={currentView} />
         
@@ -1047,5 +1060,61 @@ const themedStyles = createThemedStyles((palette) => ({
     alignItems: 'center',
     borderRadius: 20,
     marginLeft: 8,
+  },
+
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  activeTab: {
+    opacity: 1,
+  },
+  inactiveTab: {
+    opacity: 0.6,
+  },
+  tabIcon: {
+    marginBottom: 4,
+  },
+  tabText: {
+    fontSize: 12,
+    color: palette.text,
+    fontWeight: '500',
+  },
+  activeTabText: {
+    fontWeight: 'bold',
+    color: palette.text,
+  },
+  inactiveTabText: {
+    color: withAlpha(palette.text, 0.7),
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    width: '25%',
+    borderRadius: 1.5,
+  },
+  indicatorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 4,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: palette.text,
+    marginLeft: 8,
+  },
+  tabContainer: {
+    paddingTop: 8,
+    backgroundColor: palette.layout,
+    elevation: 3, // For Android shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
   },
 }));
