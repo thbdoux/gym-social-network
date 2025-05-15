@@ -244,9 +244,11 @@ const GroupWorkoutWizard = ({
         // Prepare the data for API submission
         const finalData = prepareDataForSubmission();
         console.log('Submitting group workout form data:', finalData);
+        // Store invited users before submission
+        const invitedUsersToProcess = [...formData.invited_users];
         
         // Submit the form data
-        onSubmit(finalData as GroupWorkoutFormData);
+        onSubmit(finalData as GroupWorkoutFormData, invitedUsersToProcess);
       } catch (error) {
         console.error('Error preparing data for submission:', error);
         Alert.alert(

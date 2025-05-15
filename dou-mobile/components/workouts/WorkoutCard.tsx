@@ -252,22 +252,6 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
         <View style={styles.cardContent}>
           {/* Top row with type, difficulty and weekday if instance */}
           <View style={styles.topRow}>
-            <View style={styles.typeContainer}>
-              <View style={[styles.typeBadge, { backgroundColor: workoutPalette.badge_bg }]}>
-                <Text style={[styles.typeText, { color: workoutPalette.text }]}>
-                  {isTemplate ? t('template') : t('workout')}
-                </Text>
-              </View>
-              
-              {workout.difficulty_level && (
-                <View style={styles.difficultyContainer}>
-                  <Text style={[styles.difficultyText, { color: workoutPalette.text_secondary }]}>
-                    {getDifficultyIndicator(workout.difficulty_level)} {t(workout.difficulty_level.toLowerCase())}
-                  </Text>
-                </View>
-              )}
-            </View>
-            
             {!isTemplate && workout.preferred_weekday !== undefined && (
               <View style={styles.weekdayBadge}>
                 <Text style={[styles.weekdayText, { color: workoutPalette.highlight }]}>
@@ -339,7 +323,7 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
         </View>
         
         {/* Exercise bubbles */}
-        {exerciseCount > 0 && (
+        {/* {exerciseCount > 0 && (
           <View style={styles.exerciseRow}>
             {exerciseNames.map((name, index) => (
               <View key={index} style={styles.exerciseBubble}>
@@ -356,36 +340,8 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
               </View>
             )}
           </View>
-        )}
-        
-        {/* Bottom actions row */}
-        <View style={styles.actionsRow}>
-          <View style={styles.spacer}></View>
-          
-          {isTemplate && onAddToProgram && !selectionMode && (
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: workoutPalette.action_bg }]}
-              onPress={handleAddToProgram}
-            >
-              <Ionicons name="add-circle-outline" size={14} color={workoutPalette.highlight} />
-              <Text style={[styles.actionText, { color: workoutPalette.highlight }]}>
-                {t('add_to_program')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          
-          {onFork && !selectionMode && (
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: workoutPalette.action_bg }]}
-              onPress={handleFork}
-            >
-              <Ionicons name="copy-outline" size={14} color={workoutPalette.highlight} />
-              <Text style={[styles.actionText, { color: workoutPalette.highlight }]}>
-                {isTemplate ? t('fork_template') : t('fork')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        )} */}
+  
       </TouchableOpacity>
     </Animated.View>
   );
@@ -413,7 +369,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 0,
   },
   typeContainer: {
     flexDirection: 'row',

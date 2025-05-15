@@ -40,6 +40,7 @@ interface GroupWorkoutCardProps {
         username: string;
         avatar?: string;
       };
+      status?: 'declined' | 'joined' | 'pending' | 'invited';
     }>;
     participants_count: number;
     max_participants: number;
@@ -66,7 +67,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
   onSelect,
   onLongPress
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { groupWorkoutPalette } = useTheme();
   
   // Animation for selection mode
@@ -135,39 +136,83 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
     ]).start();
   }, [isSelected, scaleAnim]);
   
-  // Calculate countdown
-  const getCountdown = (scheduledTime: string): { days: number, hours: number, text: string } => {
+  // Calculate detailed countdown with language-aware text
+  const getDetailedCountdown = (scheduledTime: string): { 
+    days: number, 
+    hours: number, 
+    minutes: number, 
+    isPast: boolean,
+    formattedTime: string,
+    text: string 
+  } => {
     const now = new Date();
     const workoutDate = new Date(scheduledTime);
     const diffTime = workoutDate.getTime() - now.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const isPast = diffTime < 0;
     
+    // Use absolute diff time for past events
+    const absDiffTime = Math.abs(diffTime);
+    
+    const diffDays = Math.floor(absDiffTime / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor((absDiffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((absDiffTime % (1000 * 60 * 60)) / (1000 * 60));
+    
+    // Format as dd:hh:mm
+    const formattedTime = `${diffDays.toString().padStart(2, '0')}:${diffHours.toString().padStart(2, '0')}:${diffMinutes.toString().padStart(2, '0')}`;
+    
+    // Text representation with language support
     let text = '';
-    if (diffTime < 0) {
-      // Past event
+    if (isPast) {
       text = t('workout_passed');
     } else if (diffDays > 0) {
-      text = t('days_left', { count: diffDays });
+      text = t('in_days', { count: diffDays });
     } else if (diffHours > 0) {
-      text = t('hours_left', { count: diffHours });
+      text = t('in_hours', { count: diffHours });
     } else {
       text = t('starting_soon');
     }
     
-    return { days: diffDays, hours: diffHours, text };
+    return { 
+      days: diffDays, 
+      hours: diffHours, 
+      minutes: diffMinutes, 
+      isPast, 
+      formattedTime,
+      text 
+    };
   };
   
-  // Format date
-  const formatDate = (date: string): string => {
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'short', 
-      day: 'numeric', 
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    return new Date(date).toLocaleDateString(undefined, options);
+  // Format date with language context support
+  const formatDate = (dateString: string): string => {
+    try {
+      if (!dateString) return '';
+      
+      // Create a date object
+      const date = new Date(dateString);
+      
+      // Use the current language for formatting
+      const locale = language === 'fr' ? 'fr-FR' : 'en-US';
+      
+      // Format date part
+      const datePart = date.toLocaleDateString(locale, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      
+      // Format time part
+      const timePart = date.toLocaleTimeString(locale, {
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: language !== 'fr' // Use 24-hour format for French
+      });
+      
+      // Combine date and time with appropriate connector based on language
+      const connector = language === 'fr' ? 'à' : 'at';
+      return `${datePart} ${connector} ${timePart}`;
+    } catch (e) {
+      return dateString; // If parsing fails, return the original string
+    }
   };
   
   // Get status badge color
@@ -198,13 +243,6 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
       default:
         return { bg: 'rgba(107, 114, 124, 0.2)', text: '#6B7280' }; // Default gray
     }
-  };
-  
-  // Get role badge color
-  const getRoleBadgeColor = (isCreator: boolean): { bg: string, text: string } => {
-    return isCreator 
-      ? { bg: 'rgba(236, 72, 153, 0.2)', text: '#EC4899' }  // Pink for creator
-      : { bg: 'rgba(139, 92, 246, 0.2)', text: '#8B5CF6' }; // Purple for participant
   };
   
   // Get participation action text based on user status and workout settings
@@ -284,16 +322,44 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
     onLongPress && onLongPress();
   };
   
-  // Countdown data
-  const countdown = getCountdown(groupWorkout.scheduled_time);
+  // Separate participants by status
+  const categorizeParticipants = () => {
+    const confirmedParticipants: typeof groupWorkout.participants = [];
+    const pendingParticipants: typeof groupWorkout.participants = [];
+    
+    // If participants is undefined, return empty arrays
+    if (!groupWorkout.participants) {
+      return { confirmedParticipants, pendingParticipants };
+    }
+    
+    // Filter participants based on status
+    groupWorkout.participants.forEach(participant => {
+      // Assuming 'confirmed' is the status for confirmed participants
+      // and 'pending' or 'invited' are for pending participants
+      if (participant.status === 'joined' || participant.status === undefined) {
+        confirmedParticipants.push(participant);
+      } else if (participant.status === 'invited') {
+        pendingParticipants.push(participant);
+      }
+    });
+    
+    return { confirmedParticipants, pendingParticipants };
+  };
+  
+  // Detailed countdown data
+  const countdownDetails = getDetailedCountdown(groupWorkout.scheduled_time);
   
   // Status colors
   const statusColors = getStatusColor(groupWorkout.status);
   const privacyColors = getPrivacyColor(groupWorkout.privacy);
-  const roleBadgeColors = getRoleBadgeColor(groupWorkout.is_creator);
   
-  // Participant avatars - limit to max 5 for display
-  const displayParticipants = groupWorkout.participants?.slice(0, 5) || [];
+  // Separate participants
+  const { confirmedParticipants, pendingParticipants } = categorizeParticipants();
+  
+  // Limit number of avatars for display
+  const maxDisplayAvatars = 3; // For each category
+  const displayConfirmedParticipants = confirmedParticipants.slice(0, maxDisplayAvatars);
+  const displayPendingParticipants = pendingParticipants.slice(0, maxDisplayAvatars);
   
   // Combine animations for wiggle effect
   const animatedStyle = {
@@ -336,56 +402,25 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
         
         {/* Main content */}
         <View style={styles.cardContent}>
-          {/* Top row with badges */}
-          <View style={styles.topRow}>
-            <View style={styles.badgesContainer}>
-              {/* Event Badge */}
-              <View style={[styles.eventBadge, { backgroundColor: groupWorkoutPalette.badge_bg }]}>
-                <Text style={[styles.eventBadgeText, { color: groupWorkoutPalette.text }]}>
-                  {t('group_workout')}
-                </Text>
-              </View>
-              
-              {/* Role Badge - New! */}
-              <View style={[styles.roleBadge, { backgroundColor: roleBadgeColors.bg }]}>
-                <Text style={[styles.roleBadgeText, { color: roleBadgeColors.text }]}>
-                  {groupWorkout.is_creator ? t('creator') : t('participant')}
-                </Text>
-              </View>
-              
-              {/* Status Badge */}
-              <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
-                <Text style={[styles.statusBadgeText, { color: statusColors.text }]}>
-                  {t(groupWorkout.status)}
-                </Text>
-              </View>
-              
-              {/* Privacy Badge */}
-              <View style={[styles.privacyBadge, { backgroundColor: privacyColors.bg }]}>
-                <Text style={[styles.privacyBadgeText, { color: privacyColors.text }]}>
-                  {t(groupWorkout.privacy)}
-                </Text>
-              </View>
-            </View>
-            
-            {/* Countdown Badge */}
-            {groupWorkout.status === 'scheduled' && (
-              <View style={[styles.countdownBadge, { 
-                backgroundColor: countdown.days > 0 ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)' 
-              }]}>
-                <Text style={[styles.countdownText, { 
-                  color: countdown.days > 0 ? '#3B82F6' : '#EF4444'
-                }]}>
-                  {countdown.text}
-                </Text>
-              </View>
-            )}
-          </View>
+          {/* Second row with title and privacy badge */}
+          <View style={styles.titleRow}>
+            {/* Workout title */}
+            <Text style={[styles.title, { color: groupWorkoutPalette.text }]} numberOfLines={1}>
+              {groupWorkout.title}
+            </Text>
           
-          {/* Workout title */}
-          <Text style={[styles.title, { color: groupWorkoutPalette.text }]} numberOfLines={1}>
-            {groupWorkout.title}
-          </Text>
+            <View style={[
+                styles.countdownContainer, 
+                { backgroundColor: countdownDetails.isPast ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)' }
+              ]}>
+                <Text style={[
+                  styles.countdownText, 
+                  { color: countdownDetails.isPast ? '#EF4444' : '#10B981' }
+                ]}>
+                  {countdownDetails.text}
+                </Text>
+            </View>
+          </View>
           
           {/* Date */}
           <View style={styles.dateRow}>
@@ -404,54 +439,80 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
               </Text>
             </View>
           )}
-          
-          {/* Creator info */}
-          <View style={styles.creatorRow}>
-            <Ionicons name="person-outline" size={14} color={groupWorkoutPalette.text_secondary} />
-            <Text style={[styles.creatorText, { color: groupWorkoutPalette.text_secondary }]}>
-              {t('created_by')} {groupWorkout.creator_details.username}
-            </Text>
-          </View>
         </View>
         
         {/* Participants */}
         <View style={styles.participantsContainer}>
-          <View style={styles.participantsHeader}>
-            <Text style={[styles.participantsTitle, { color: groupWorkoutPalette.text_secondary }]}>
-              {t('participants')} ({groupWorkout.participants_count}/{groupWorkout.max_participants > 0 ? groupWorkout.max_participants : '∞'})
-            </Text>
-          </View>
-          
-          <View style={styles.avatarsRow}>
-            {displayParticipants.length > 0 ? (
-              <>
-                {displayParticipants.map((participant, index) => (
-                  <View key={index} style={[
-                    styles.avatarContainer,
-                    { right: index * 15 } // Overlap avatars
-                  ]}>
-                    <Image
-                      source={{ uri: getAvatarUrl(participant.user_details.avatar) }}
-                      style={styles.avatar}
-                    />
-                  </View>
-                ))}
-                
-                {/* More indicator if there are additional participants */}
-                {(groupWorkout.participants_count > 5) && (
-                  <View style={[
-                    styles.moreAvatarsContainer,
-                    { right: 4 * 15 }
-                  ]}>
-                    <Text style={styles.moreAvatarsText}>+{groupWorkout.participants_count - 5}</Text>
-                  </View>
-                )}
-              </>
-            ) : (
-              <Text style={[styles.noParticipantsText, { color: groupWorkoutPalette.text_secondary }]}>
-                {t('no_participants_yet')}
-              </Text>
-            )}
+          {/* Participants container - dual sided layout */}
+          <View style={styles.avatarsContainer}>
+            {/* Confirmed participants - left side with green overlay */}
+            <View style={styles.confirmedAvatarsRow}>
+              {displayConfirmedParticipants.length > 0 ? (
+                <>
+                  {displayConfirmedParticipants.map((participant, index) => (
+                    <View key={`confirmed-${index}`} style={[
+                      styles.avatarContainer,
+                      { left: index * 25 } // Position from left
+                    ]}>
+                      <Image
+                        source={{ uri: getAvatarUrl(participant.user_details.avatar) }}
+                        style={styles.avatar}
+                      />
+                      <View style={[styles.avatarOverlay, styles.confirmedOverlay]} />
+                    </View>
+                  ))}
+                  
+                  {/* More indicator for confirmed */}
+                  {(confirmedParticipants.length > maxDisplayAvatars) && (
+                    <View style={[
+                      styles.moreAvatarsContainer,
+                      styles.confirmedMoreContainer,
+                      { left: (maxDisplayAvatars - 1) * 25 + 15 }
+                    ]}>
+                      <Text style={styles.moreAvatarsText}>+{confirmedParticipants.length - maxDisplayAvatars}</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.noAvatarsPlaceholder} />
+              )}
+            </View>
+            
+            {/* Divider */}
+            <View style={styles.participantsDivider} />
+            
+            {/* Pending participants - right side with orange overlay */}
+            <View style={styles.pendingAvatarsRow}>
+              {displayPendingParticipants.length > 0 ? (
+                <>
+                  {displayPendingParticipants.map((participant, index) => (
+                    <View key={`pending-${index}`} style={[
+                      styles.avatarContainer,
+                      { right: index * 25 } // Position from right
+                    ]}>
+                      <Image
+                        source={{ uri: getAvatarUrl(participant.user_details.avatar) }}
+                        style={styles.avatar}
+                      />
+                      <View style={[styles.avatarOverlay, styles.pendingOverlay]} />
+                    </View>
+                  ))}
+                  
+                  {/* More indicator for pending */}
+                  {(pendingParticipants.length > maxDisplayAvatars) && (
+                    <View style={[
+                      styles.moreAvatarsContainer,
+                      styles.pendingMoreContainer,
+                      { right: (maxDisplayAvatars - 1) * 25 + 15 }
+                    ]}>
+                      <Text style={styles.moreAvatarsText}>+{pendingParticipants.length - maxDisplayAvatars}</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.noAvatarsPlaceholder} />
+              )}
+            </View>
           </View>
         </View>
         
@@ -504,14 +565,14 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  badgesContainer: {
+  titleRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
+    marginBottom: 12,
   },
   eventBadge: {
     paddingHorizontal: 8,
@@ -519,15 +580,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   eventBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  statusBadgeText: {
     fontSize: 12,
     fontWeight: '600',
   },
@@ -540,28 +592,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  countdownContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 10,
   },
-  roleBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+  countdownIcon: {
+    marginBottom: 2,
   },
-  countdownBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+  countdownTime: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 1,
   },
   countdownText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
   title: {
     fontSize: 22,
     fontWeight: '800',
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -579,7 +634,7 @@ const styles = StyleSheet.create({
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 0,
   },
   locationText: {
     fontSize: 14,
@@ -597,56 +652,89 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 0,
   },
-  participantsHeader: {
-    marginBottom: 8,
-  },
-  participantsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  avatarsRow: {
+  avatarsContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    height: 36,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  confirmedAvatarsRow: {
+    flex: 1,
+    height: 40,
     position: 'relative',
+  },
+  pendingAvatarsRow: {
+    flex: 1,
+    height: 40,
+    position: 'relative',
+  },
+  participantsDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(107, 114, 128, 0.2)',
+    marginHorizontal: 10,
   },
   avatarContainer: {
     position: 'absolute',
-    borderRadius: 18,
-    borderWidth: 2,
+    borderRadius: 25,
+    borderWidth: 0,
     borderColor: 'white',
+    height: 50,
+    width: 50,
+    overflow: 'hidden',
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 20,
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 25,
+  },
+  confirmedOverlay: {
+    // backgroundColor: 'rgba(16, 185, 129, 0.3)', // Green overlay for confirmed
+    borderWidth: 4,
+    borderColor: 'rgba(16, 185, 129, 0.5)',
+  },
+  pendingOverlay: {
+    // backgroundColor: 'rgba(245, 158, 11, 0.3)', // Orange overlay for pending
+    borderWidth: 4,
+    borderColor: 'rgba(245, 158, 11, 0.5)',
   },
   moreAvatarsContainer: {
     position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(107, 114, 128, 0.8)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'white',
+  },
+  confirmedMoreContainer: {
+    backgroundColor: 'rgba(16, 185, 129, 0.7)', // Green for confirmed
+  },
+  pendingMoreContainer: {
+    backgroundColor: 'rgba(245, 158, 11, 0.7)', // Orange for pending
   },
   moreAvatarsText: {
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
   },
-  noParticipantsText: {
-    fontSize: 14,
-    fontStyle: 'italic',
+  noAvatarsPlaceholder: {
+    height: 40,
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 5,
   },
   spacer: {
     flex: 1,

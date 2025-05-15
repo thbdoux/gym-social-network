@@ -251,12 +251,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
         <View style={styles.cardContent}>
           {/* Top row with workout log badge and fork button */}
           <View style={styles.badgeActionRow}>
-            <View style={[styles.workoutLogBadge, { backgroundColor: workoutLogPalette.badge_bg }]}>
-              <Text style={[styles.workoutLogBadgeText, { color: workoutLogPalette.text }]}>
-                {t('workout_log')}
-              </Text>
-            </View>
-            
             {!isOwner && !selectionMode && (
               <TouchableOpacity 
                 style={[styles.forkButton, { backgroundColor: workoutLogPalette.action_bg }]}
@@ -275,26 +269,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             <Text style={[styles.title, { color: workoutLogPalette.text }]} numberOfLines={1}>
               {log.name}
             </Text>
-            
-            {log.completed ? (
-              <View style={styles.completedBadge}>
-                <Ionicons 
-                  name="checkmark-circle" 
-                  size={16} 
-                  color={workoutLogPalette.highlight} 
-                  style={styles.checkIcon}
-                />
-                <Text style={[styles.completedText, { color: workoutLogPalette.highlight }]}>
-                  {t('completed')}
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.pendingBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-                <Text style={[styles.pendingText, { color: workoutLogPalette.text }]}>
-                  {t('in_progress')}
-                </Text>
-              </View>
-            )}
           </View>
           
           {/* Date and location container */}
@@ -339,7 +313,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             </View>
           )}
           
-          {/* Stats row */}
+          {/* Stats row
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
@@ -382,29 +356,8 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
                 </Text>
               </View>
             )}
-          </View>
+          </View> */}
         </View>
-
-        {/* Exercise bubbles */}
-        {exerciseCount > 0 && (
-          <View style={styles.exerciseRow}>
-            {exerciseNames.map((name, index) => (
-              <View key={index} style={styles.exerciseBubble}>
-                <Text style={[styles.exerciseName, { color: workoutLogPalette.highlight }]} numberOfLines={1}>
-                  {name}
-                </Text>
-              </View>
-            ))}
-            {exerciseCount > 3 && (
-              <View style={styles.moreBubble}>
-                <Text style={[styles.moreText, { color: workoutLogPalette.highlight }]}>
-                  {`+${exerciseCount - 3}`}
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-        
       </TouchableOpacity>
     </Animated.View>
   );
@@ -440,7 +393,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 0,
   },
 
   workoutLogBadge: {
@@ -488,7 +441,7 @@ const styles = StyleSheet.create({
   dateLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   dateContainer: {
     flexDirection: 'row',

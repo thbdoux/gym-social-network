@@ -67,6 +67,7 @@ const common = {
     welcome_message_default: "Ready to crush new records,",
     has_liked: 'has sent a dou',
     have_liked: 'have sent doux',
+    'or_continue_with': "or continue with",
   },
   fr: {
     discover:'Découvrir',
@@ -121,6 +122,7 @@ const common = {
     welcome_message_default: "Prêt à battre des records,",
     has_liked: 'a envoyé un dou',
     have_liked: 'ont envoyé des doux',
+    'or_continue_with': "ou continuer avec",
   }
 };
 
@@ -704,7 +706,7 @@ const profile = {
     intermediate: 'Intermediate',
     advanced: 'Advanced',
     optimizer: 'Optimizer',
-    diplomat: 'Diplomat',
+    diplomate: 'Diplomat',
     mentor: 'Mentor',
     versatile: 'Versatile',
     loading_profile: 'Loading profile...',
@@ -756,7 +758,7 @@ const profile = {
     intermediate: 'Intermédiaire',
     advanced: 'Avancé',
     optimizer: 'Optimiseur',
-    diplomat: 'Diplomate',
+    diplomate: 'Diplomate',
     mentor: 'Mentor',
     versatile: 'Polyvalent',
     loading_profile: 'Chargement du profil...',
@@ -2173,8 +2175,17 @@ const group_workout = {
 // Status
 "scheduled": "Scheduled",
 "in_progress": "In Progress",
-"completed": "Completed",
-"cancelled": "Cancelled",
+"completed": "completed",
+"cancelled": "cancelled",
+'confirmed': 'confirmed',
+'invited' : "Invited",
+'participating' : 'participating',
+'invite_users' : 'Invite Users',
+'invite_selected' : 'Invite',
+'edit_workout': 'Edit Workout',
+'group_chat' : 'Group Chat',
+'open_group_chat' : 'Open Group Chat',
+'type_message' : 'Type a message',
 
 // Participant Management
 "invite_participants": "Invite Participants",
@@ -2262,6 +2273,15 @@ const group_workout = {
 "in_progress": "En Cours",
 "completed": "Terminé",
 "cancelled": "Annulé",
+'confirmed': 'confirmé',
+'invited' : "invité",
+'participating' : 'participe',
+'invite_users' : "Inviter quelqu'un",
+'invite_selected' : 'Inviter',
+'edit_workout': 'Modifier',
+'group_chat' : 'Discussion',
+'open_group_chat' : 'Ouvrir la dicussion',
+'type_message' : 'Entrer un message',
 
 // Participant Management
 "invite_participants": "Inviter des Participants",

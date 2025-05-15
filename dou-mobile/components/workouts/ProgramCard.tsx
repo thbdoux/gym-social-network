@@ -127,7 +127,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   }, [isSelected, scaleAnim]);
 
   // Get weekdays for program schedule visualization
-  const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const WEEKDAYS = [t('mon'),t('tue'),t('wed'),t('thu'),t('fri'),t('sat'),t('sun')];
   
   // Format focus text (convert snake_case to Title Case)
   const formatFocus = (focus: string) => {
@@ -225,11 +225,6 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
           {/* Title and badges row */}
           <View style={styles.topRow}>
             <View style={styles.titleContainer}>
-              <View style={[styles.programBadge, { backgroundColor: programPalette.badge_bg }]}>
-                <Text style={[styles.programBadgeText, { color: programPalette.text }]}>
-                  {t('program')}
-                </Text>
-              </View>
               <Text style={[styles.title, { color: programPalette.text }]} numberOfLines={1}>
                 {program.name}
               </Text>
@@ -278,7 +273,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
           </View>
           
           {/* Info row */}
-          <View style={styles.infoRow}>
+          {/* <View style={styles.infoRow}>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: programPalette.text_secondary }]}>
                 {t('level')}
@@ -296,7 +291,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
                 {program.sessions_per_week}x
               </Text>
             </View>
-          </View>
+          </View> */}
         </View>
         
         {/* Weekly schedule visualization */}
@@ -439,7 +434,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   focusRow: {
-    marginBottom: 12,
+    marginBottom: 0,
   },
   focusText: {
     fontSize: 16,

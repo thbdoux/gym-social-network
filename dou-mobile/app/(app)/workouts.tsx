@@ -71,7 +71,8 @@ import {
   useUpdateGroupWorkout,
   useDeleteGroupWorkout,
   useJoinGroupWorkout,
-  useLeaveGroupWorkout
+  useLeaveGroupWorkout,
+  useInviteToGroupWorkout
 } from '../../hooks/query/useGroupWorkoutQuery';
 
 const { width } = Dimensions.get('window');
@@ -123,7 +124,7 @@ export default function WorkoutsScreen() {
   const { data: selectedProgram } = useProgram(selectedProgramId);
   const { data: selectedTemplate } = useWorkoutTemplate(selectedTemplateId);
   const { data: selectedGroupWorkout } = useGroupWorkout(selectedGroupWorkoutId);
-  
+  const { mutateAsync: inviteToGroupWorkout } = useInviteToGroupWorkout();
   // For active program data
   const { 
     data: activeProgram,
@@ -546,10 +547,25 @@ export default function WorkoutsScreen() {
   // Handle group workout wizard submission
   const handleGroupWorkoutSubmit = async (formData: GroupWorkoutFormData) => {
     try {
-      await createGroupWorkout(formData);
+      // Store invited users before creating the workout
+      const invitedUsers = [...formData.invited_users];
+      
+      // Create the group workout
+      const newWorkout = await createGroupWorkout(formData);
+      
+      // If there are invited users, send invitations
+      if (invitedUsers && invitedUsers.length > 0) {
+        await inviteToGroupWorkout({
+          id: newWorkout.id,
+          userIds: invitedUsers
+        });
+      }
+      
       setGroupWorkoutWizardVisible(false);
       
-      await refetchGroupWorkouts();
+      // Refetch to update UI with new workout and invitations
+      await refetchCreatedGroupWorkouts();
+      await refetchJoinedGroupWorkouts();
       
       if (currentView !== VIEW_TYPES.GROUP_WORKOUTS) {
         setCurrentView(VIEW_TYPES.GROUP_WORKOUTS);
