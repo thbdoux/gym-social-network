@@ -1,5 +1,5 @@
 // components/workouts/ProgramCard.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { 
   View, 
@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   Animated,
-  Easing
+  Easing,
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
@@ -40,6 +41,7 @@ interface ProgramCardProps {
   isSelected?: boolean;
   onSelect?: () => void;
   onLongPress?: () => void;
+  disableNavigation?: boolean;
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({
@@ -53,16 +55,22 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   selectionMode = false,
   isSelected = false,
   onSelect,
-  onLongPress
+  onLongPress,
+  disableNavigation = false
 }) => {
   const { t } = useLanguage();
   const { programPalette } = useTheme();
   const isOwner = currentUser === program.creator_username;
+  const [showForkModal, setShowForkModal] = useState(false);
+  const [forkedProgramId, setForkedProgramId] = useState<number | null>(null);
 
   const { data: originalProgram, isLoading, refetch } = useProgram(program?.forked_from);
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  // Animation for modal
+  const modalScaleAnim = useRef(new Animated.Value(0)).current;
+  const modalOpacityAnim = useRef(new Animated.Value(0)).current;
   
   // Start wiggle animation when entering selection mode
   useEffect(() => {
@@ -140,6 +148,9 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   const handleCardPress = () => {
     if (selectionMode) {
       onSelect && onSelect();
+    } else if (disableNavigation) {
+      // If navigation is disabled, do nothing or trigger onSelect if provided
+      onSelect && onSelect();
     } else if (onProgramSelect) {
       // Use the callback if provided
       onProgramSelect(program);
@@ -149,11 +160,37 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
     }
   };
 
-  const handleFork = (e: any) => {
+  const handleFork = async (e: any) => {
     e.stopPropagation();
     if (onFork) {
-
-      onFork(program?.id);
+      try {
+        // Fork the program and get the result
+        const forkedProgram = await onFork(program?.id);
+        setForkedProgramId(forkedProgram?.id || programId);
+        
+        // Show success modal with animation
+        setShowForkModal(true);
+        
+        // Start modal animation
+        modalScaleAnim.setValue(0.7);
+        modalOpacityAnim.setValue(0);
+        
+        Animated.parallel([
+          Animated.spring(modalScaleAnim, {
+            toValue: 1,
+            friction: 6,
+            tension: 40,
+            useNativeDriver: true
+          }),
+          Animated.timing(modalOpacityAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true
+          })
+        ]).start();
+      } catch (error) {
+        console.error('Error forking program:', error);
+      }
     }
   };
   
@@ -168,6 +205,14 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
       onToggleActive(programId);
     }
   };
+  
+  // Navigate to forked program
+  const goToProgram = () => {
+    setShowForkModal(false);
+    if (forkedProgramId) {
+      router.push(`/program/${forkedProgramId}`);
+    }
+  };
 
   // Combine animations for wiggle effect
   const animatedStyle = {
@@ -178,6 +223,14 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
         })
       },
       { scale: scaleAnim }
+    ]
+  };
+  
+  // Modal animation style
+  const modalAnimatedStyle = {
+    opacity: modalOpacityAnim,
+    transform: [
+      { scale: modalScaleAnim }
     ]
   };
 
@@ -256,11 +309,18 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
                 </Text>
               </TouchableOpacity>
             ) : (
-              // For non-owner: show only if active, not touchable
-              program.is_active && (
-                <View style={styles.activeBadge}>
-                  <Text style={styles.badgeText}>{t('active')}</Text>
-                </View>
+              // For non-owner: show bookmark button
+              !selectionMode && (
+                <TouchableOpacity 
+                  style={styles.bookmarkButton}
+                  onPress={handleFork}
+                >
+                  <Ionicons 
+                    name="bookmark-outline" 
+                    size={22} 
+                    color={programPalette.text} 
+                  />
+                </TouchableOpacity>
               )
             )}
           </View>
@@ -271,27 +331,6 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
               {formatFocus(program.focus)}
             </Text>
           </View>
-          
-          {/* Info row */}
-          {/* <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: programPalette.text_secondary }]}>
-                {t('level')}
-              </Text>
-              <Text style={[styles.infoValue, { color: programPalette.text }]}>
-                {program.difficulty_level}
-              </Text>
-            </View>
-            
-            <View style={styles.infoItem}>
-              <Text style={[styles.infoLabel, { color: programPalette.text_secondary }]}>
-                {t('sessions')}
-              </Text>
-              <Text style={[styles.infoValue, { color: programPalette.text }]}>
-                {program.sessions_per_week}x
-              </Text>
-            </View>
-          </View> */}
         </View>
         
         {/* Weekly schedule visualization */}
@@ -319,13 +358,6 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
         
         {/* Actions */}
         <View style={styles.actionsRow}>
-          <View style={styles.creatorInfo}>
-            <Ionicons name="person" size={12} color={programPalette.text_secondary} />
-            <Text style={[styles.creatorText, { color: programPalette.text_secondary }]}>
-              {program.creator_username}
-            </Text>
-          </View>
-          
           {program.forked_from && (
             <View style={[styles.forkedInfo, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
               <Ionicons name="download-outline" size={12} color={programPalette.text_secondary} />
@@ -334,20 +366,42 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
               </Text>
             </View>
           )}
-          
-          {!isOwner && !selectionMode && (
-            <TouchableOpacity 
-              style={[styles.forkButton, { backgroundColor: programPalette.action_bg }]}
-              onPress={handleFork}
-            >
-              <Ionicons name="download-outline" size={14} color={programPalette.highlight} />
-              <Text style={[styles.forkText, { color: programPalette.highlight }]}>
-                {t('fork')}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </TouchableOpacity>
+      
+      {/* Success Modal */}
+      <Modal
+        visible={showForkModal}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => setShowForkModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View style={[styles.modalContainer, modalAnimatedStyle]}>
+            <View style={styles.modalContent}>
+              <View style={styles.successIconContainer}>
+                <Ionicons name="bookmark" size={40} color="#7e22ce" />
+              </View>
+              <Text style={styles.modalTitle}>Program Saved!</Text>
+              <Text style={styles.modalDescription}>
+                The program has been added to your collection.
+              </Text>
+              <TouchableOpacity
+                style={styles.goToProgramButton}
+                onPress={goToProgram}
+              >
+                <Text style={styles.goToProgramText}>Go to Program</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowForkModal(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 };
@@ -440,24 +494,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  infoItem: {
-    marginRight: 16,
-  },
-  infoLabel: {
-    fontSize: 11,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
   scheduleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -487,18 +523,10 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-  },
-  creatorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  creatorText: {
-    fontSize: 12,
-    marginLeft: 4,
   },
   forkedInfo: {
     flexDirection: 'row',
@@ -506,28 +534,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
-    marginLeft: 8,
   },
   forkedText: {
     fontSize: 11,
     marginLeft: 4,
   },
-  forkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  forkText: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
+  bookmarkButton: {
+    padding: 6,
+    borderRadius: 20,
   },
   // Selection mode styles
   selectionIndicator: {
@@ -564,6 +578,76 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#111827',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalContent: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(126, 34, 206, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  goToProgramButton: {
+    backgroundColor: '#7e22ce',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  goToProgramText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  closeButton: {
+    paddingVertical: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
   },
 });
 

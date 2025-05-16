@@ -89,6 +89,7 @@ interface PostProps {
   onDelete?: (postId: number) => void;
   userData?: any;
   onProgramClick?: (program: any) => void;
+  onWorkoutLogClick?: (logId: number) => void;
   onForkProgram?: (programId: number) => Promise<any>;
   onProfileClick?: (userId: number) => void;
   onNavigateToProfile?: (userId: number) => void;
@@ -106,6 +107,7 @@ const Post: React.FC<PostProps> = ({
   onDelete,
   userData,
   onProgramClick,
+  onWorkoutLogClick,
   onForkProgram,
   onProfileClick,
   onNavigateToProfile,
@@ -423,15 +425,20 @@ const Post: React.FC<PostProps> = ({
   const postTypeDetails = getPostTypeDetails(effectivePostType);
   
   const SharedPostContent = ({ 
-    originalPost, 
+    post, 
     onOriginalPostClick,
     onProgramClick,
+    onWorkoutLogClick,
     onForkProgram,
     currentUser,
   }) => {
+    console.log("#############################################", post);
     // Get post type details for the original post
-    const originalPostTypeDetails = getPostTypeDetails(originalPost.post_type);
-    
+    const originalPost = post.original_post_details;
+  
+    // Get post type details for the original post
+    const originalPostTypeDetails = getPostTypeDetails(originalPost.post_type); 
+
     // Handle clicking on the username or avatar in a shared post
     const handleSharedProfileClick = (event) => {
       event.stopPropagation();
@@ -441,11 +448,29 @@ const Post: React.FC<PostProps> = ({
         onProfileClick(originalPost.user_id);
       }
     };
-    
+    const handleOriginalAuthorClick = (event) => {
+    event.stopPropagation();
+    if (originalPost.user_id && onNavigateToProfile) {
+      onNavigateToProfile(originalPost.user_id);
+    } else if (originalPost.user_id && onProfileClick) {
+      onProfileClick(originalPost.user_id);
+    }
+  };
+  
     // Add a handler for clicking on the shared post content
     const handleOriginalPostClick = () => {
       if (onOriginalPostClick && originalPost.id) {
         onOriginalPostClick(originalPost.id);
+      }
+    };
+    
+    // Add a new handler for clicking on sharer profile
+    const handleSharerProfileClick = (event) => {
+      event.stopPropagation();
+      if (post.user_id && onNavigateToProfile) {
+        onNavigateToProfile(post.user_id);
+      } else if (post.user_id && onProfileClick) {
+        onProfileClick(post.user_id);
       }
     };
     
@@ -468,14 +493,32 @@ const Post: React.FC<PostProps> = ({
             />
           </TouchableOpacity>
           
-          <TouchableOpacity onPress={handleSharedProfileClick} activeOpacity={0.7}>
-            <Text style={[styles.sharedPostUsername, { color: palette.text }]}>
-              {originalPost.user_username}
-            </Text>
+          <View style={styles.sharedPostUserInfo}>
+            <View style={styles.sharedPostAuthorRow}>
+              <TouchableOpacity onPress={handleSharedProfileClick} activeOpacity={0.7}>
+                <Text style={[styles.sharedPostUsername, { color: palette.text }]}>
+                  {originalPost.user_username}
+                </Text>
+              </TouchableOpacity>
+              
+              {/* Add the post type badge here for the original post */}
+              {originalPost.post_type && originalPost.post_type !== 'regular' && (
+                <LinearGradient
+                  colors={originalPostTypeDetails.colors.gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.postTypeBadge}
+                >
+                  <Ionicons name={originalPostTypeDetails.icon} size={12} color="#FFFFFF" />
+                  <Text style={styles.postTypeBadgeText}>{originalPostTypeDetails.label}</Text>
+                </LinearGradient>
+              )}
+            </View>
+            
             <Text style={[styles.sharedPostDate, { color: palette.border }]}>
               {formatDate(originalPost.created_at)}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
         
         <Text style={[styles.sharedPostContent, { color: palette.text }]}>
@@ -485,9 +528,10 @@ const Post: React.FC<PostProps> = ({
         {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && (
           <WorkoutLogCard
             user={currentUser}
-            logId={originalPost.workout_log}
+            logId={originalPost.workout_log_details?.id}
             log={originalPost.workout_log_details}
             inFeedMode={true}
+            onWorkoutLogClick={onWorkoutLogClick}
           />
         )}
         
@@ -620,7 +664,7 @@ const Post: React.FC<PostProps> = ({
         <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
         
         {/* Glow effect for premium posts */}
-        <View style={[styles.glowEffect, { backgroundColor: palette.pa }]} />
+        <View style={[styles.glowEffect, { backgroundColor: palette.page_background }]} />
         
         {/* Gradient top line */}
         <LinearGradient
@@ -646,17 +690,10 @@ const Post: React.FC<PostProps> = ({
                 end={{ x: 1, y: 1 }}
               >
                 <View style={styles.avatarInner}>
-                  {userData?.avatar ? (
-                    <Image
-                      source={{ uri: getAvatarUrl(userData.avatar) }}
-                      style={styles.avatarImage}
-                    />
-                  ) : (
-                    <Image
+                   <Image
                       source={{ uri: getAvatarUrl(post.user_profile_picture) }}
                       style={styles.avatarImage}
                     />
-                  )}
                 </View>
               </LinearGradient>
               
@@ -681,7 +718,7 @@ const Post: React.FC<PostProps> = ({
                 </TouchableOpacity>
                 
                 {/* Post Type Badge */}
-                {post.post_type && post.post_type !== 'regular' && (
+                {post.post_type && post.post_type !== 'regular' && !post.is_share && (
                   <LinearGradient
                     colors={postTypeDetails.colors.gradient}
                     start={{ x: 0, y: 0 }}
@@ -777,6 +814,7 @@ const Post: React.FC<PostProps> = ({
                     logId={post.workout_log}
                     log={post.workout_log_details}
                     inFeedMode={true}
+                    onWorkoutLogClick={onWorkoutLogClick}
                   />
                 </View>
               )}
@@ -784,9 +822,10 @@ const Post: React.FC<PostProps> = ({
               {/* Shared Post */}
               {post.is_share && post.original_post_details && (
                 <SharedPostContent 
-                  originalPost={post.original_post_details} 
+                  post={post} 
                   onOriginalPostClick={handleOriginalPostClick}
                   onProgramClick={onProgramClick}
+                  onWorkoutLogClick={onWorkoutLogClick}
                   onForkProgram={onForkProgram}
                   currentUser={currentUser}
                 />
@@ -1195,6 +1234,7 @@ const styles = StyleSheet.create({
   sharedPostUsername: {
     fontSize: 14,
     fontWeight: '600',
+    paddingRight: 8,
   },
   sharedPostDate: {
     fontSize: 12,
@@ -1447,6 +1487,14 @@ const styles = StyleSheet.create({
   
   deleteText: {
     color: '#EF4444',
+  },
+  sharedPostUserInfo: {
+    flex: 1,
+  },
+  sharedPostAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
 });
 

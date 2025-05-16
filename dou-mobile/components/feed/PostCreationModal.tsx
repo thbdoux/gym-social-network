@@ -321,12 +321,18 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
                     <Ionicons name="close-circle" size={24} color="#9CA3AF" />
                   </TouchableOpacity>
                 </View>
-                <ProgramCard
-                  programId={selectedProgram.id}
-                  program={selectedProgram}
-                  inFeedMode={true}
-                  currentUser={user?.username}
-                />
+                <TouchableOpacity 
+                  activeOpacity={0.7}
+                  onPress={() => setShowProgramSelector(true)}
+                >
+                  <ProgramCard
+                    programId={selectedProgram.id}
+                    program={selectedProgram}
+                    inFeedMode={true}
+                    currentUser={user?.username}
+                    disableNavigation={true}
+                  />
+                </TouchableOpacity>
               </View>
             )}
             
@@ -345,12 +351,18 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
                     <Ionicons name="close-circle" size={24} color="#9CA3AF" />
                   </TouchableOpacity>
                 </View>
-                <WorkoutLogCard
-                  logId={selectedWorkoutLog.id}
-                  log={selectedWorkoutLog}
-                  user={user?.username}
-                  inFeedMode={true}
-                />
+                <TouchableOpacity 
+                  activeOpacity={0.7}
+                  onPress={() => setShowWorkoutLogSelector(true)}
+                >
+                  <WorkoutLogCard
+                    logId={selectedWorkoutLog.id}
+                    log={selectedWorkoutLog}
+                    user={user?.username}
+                    inFeedMode={true}
+                    disableNavigation={true}
+                  />
+                </TouchableOpacity>
               </View>
             )}
             

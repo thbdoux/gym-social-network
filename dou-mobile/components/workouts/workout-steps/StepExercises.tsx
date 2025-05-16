@@ -21,7 +21,7 @@ import { WorkoutTemplateFormData, Exercise, ExerciseSet } from '../WorkoutTempla
 import { Ionicons } from '@expo/vector-icons';
 import { EXERCISE_CATEGORIES, getAllExercises, searchExercises } from '../data/exerciseData';
 
-type Step2ExercisesProps = {
+type StepExercisesProps = {
   formData: WorkoutTemplateFormData;
   updateFormData: (data: Partial<WorkoutTemplateFormData>) => void;
   errors: Record<string, string>;
@@ -34,7 +34,7 @@ const DEFAULT_SET: ExerciseSet = {
   rest_time: 60 // 60 seconds
 };
 
-const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProps) => {
+const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps) => {
   const { t } = useLanguage();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -784,7 +784,7 @@ const Step2Exercises = ({ formData, updateFormData, errors }: Step2ExercisesProp
                     styles.categoryTabText,
                     selectedCategory === category.id && styles.categoryTabTextSelected
                   ]}>
-                    {t(category.displayName.toLowerCase())}
+                    {t(category.displayNameKey)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -1603,4 +1603,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Step2Exercises;
+export default StepExercises;

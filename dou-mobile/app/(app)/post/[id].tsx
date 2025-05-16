@@ -74,6 +74,25 @@ export default function PostDetailScreen() {
     router.push(`/post/${postId}`);
   };
 
+  const handleWorkoutLogClick = (workoutLog: any) => {
+    let workoutLogId: number | null = null;
+    
+    if (workoutLog) {
+      if (typeof workoutLog === 'number') {
+        workoutLogId = workoutLog;
+      } else if (typeof workoutLog === 'object') {
+        workoutLogId = workoutLog.id || workoutLog.log_id || workoutLog;
+      }
+    }
+    
+    if (workoutLogId) {
+      router.push(`/workout-log/${workoutLogId}`);
+    } else {
+      console.error('Could not extract workout log ID from:', workoutLog);
+      Alert.alert('Error', 'Could not open workout log details');
+    }
+  };
+
   // Add this function for program clicks
   const handleProgramClick = (program: any) => {
     let programId: number | null = null;
@@ -239,6 +258,7 @@ export default function PostDetailScreen() {
           onNavigateToProfile={handleNavigateToProfile}
           onPostClick={handlePostClick}
           onProgramClick={handleProgramClick}
+          onWorkoutLogClick={handleWorkoutLogClick}
           detailMode={true} // Show in detail mode
         />
       </ScrollView>

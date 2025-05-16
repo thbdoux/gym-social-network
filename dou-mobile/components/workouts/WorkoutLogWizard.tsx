@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Import Steps
 import Step1WorkoutInfo from './workout-log-steps/Step1WorkoutInfo';
 import Step2DateLocation from './workout-log-steps/Step2DateLocation';
-import Step3Exercises from './workout-steps/Step2Exercises'; // Reuse exercise step
+import StepExercises from './workout-steps/StepExercises'; // Reuse exercise step
 import Step4Feedback from './workout-log-steps/Step4Feedback';
 
 // Import types
@@ -183,7 +183,7 @@ const WorkoutLogWizard = ({
   const steps = [
     { name: t('workout_info'), component: Step1WorkoutInfo },
     { name: t('date_location'), component: Step2DateLocation },
-    { name: t('exercises'), component: Step3Exercises },
+    { name: t('exercises'), component: StepExercises },
     { name: t('feedback'), component: Step4Feedback }
   ];
   
@@ -263,7 +263,7 @@ const WorkoutLogWizard = ({
         program_id: updatedFormData.program_id ?? undefined,
         program_workout_id: updatedFormData.program_workout_id ?? undefined,
         template_id: updatedFormData.template_id ?? undefined,
-        gym_id: updatedFormData.gym_id ?? undefined
+        gym: updatedFormData.gym_id
       };
       console.log('Submitting workout form data:', finalData);
       // Submit the form data

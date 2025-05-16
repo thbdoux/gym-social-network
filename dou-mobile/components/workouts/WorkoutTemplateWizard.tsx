@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // Using Ionicons instead of react-native-feather
 import Step1WorkoutName from './workout-steps/Step1WorkoutName';
-import Step2Exercises from './workout-steps/Step2Exercises';
+import StepExercises from './workout-steps/StepExercises';
 import { useLanguage } from '../../context/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -99,7 +99,7 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
   // Define steps in the wizard
   const steps = [
     { name: t('name'), component: Step1WorkoutName },
-    { name: t('exercises'), component: Step2Exercises }
+    { name: t('exercises'), component: StepExercises }
   ];
 
   // Update form data when props change

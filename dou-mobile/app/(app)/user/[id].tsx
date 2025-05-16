@@ -435,18 +435,6 @@ export default function ProfilePreviewPage() {
     <SafeAreaView style={[styles.container, { backgroundColor: userPalette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View style={[styles.header, { borderColor: `${userPalette.border}66` }]}>
-        <TouchableOpacity 
-          style={[styles.backButton, { backgroundColor: `${userPalette.accent}B3` }]} 
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={userPalette.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: userPalette.text }]}>{userData?.username || t('profile')}</Text>
-        <View style={styles.headerRight} />
-      </View>
-
       {isLoading && !refreshing ? (
         <View style={[styles.loadingContainer, { backgroundColor: userPalette.page_background }]}>
           <ActivityIndicator size="large" color={userPalette.highlight} />

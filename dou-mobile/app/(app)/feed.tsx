@@ -273,6 +273,25 @@ export default function FeedScreen() {
       Alert.alert('Error', 'Could not open program details');
     }
   };
+  const handleWorkoutLogSelect = (workoutLog: any) => {
+    let workoutLogId: number | null = null;
+    
+    if (workoutLog) {
+      if (typeof workoutLog === 'number') {
+        workoutLogId = workoutLog;
+      } else if (typeof workoutLog === 'object') {
+        workoutLogId = workoutLog.id || workoutLog.log_id || workoutLog;
+      }
+    }
+    
+    if (workoutLogId) {
+      router.push(`/workout-log/${workoutLogId}`);
+    } else {
+      console.error('Could not extract workout log ID from:', workoutLog);
+      Alert.alert('Error', 'Could not open workout log details');
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -330,6 +349,7 @@ export default function FeedScreen() {
               onDelete={handleDeletePost}
               onEdit={handleEditPost}
               onProgramSelect={handleProgramSelect}
+              onWorkoutLogSelect={handleWorkoutLogSelect}
               onForkProgram={handleForkProgram}
               onProfileClick={handleProfileClick}
               onNavigateToProfile={handleNavigateToProfile}

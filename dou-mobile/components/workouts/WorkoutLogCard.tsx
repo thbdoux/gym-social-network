@@ -40,6 +40,8 @@ interface WorkoutLogCardProps {
   isSelected?: boolean;
   onSelect?: () => void;
   onLongPress?: () => void;
+  disableNavigation?: boolean;
+  onWorkoutLogClick?: (logId: number) => void;
 }
 
 const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
@@ -52,7 +54,9 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   selectionMode = false,
   isSelected = false,
   onSelect,
-  onLongPress
+  onLongPress,
+  disableNavigation = false,
+  onWorkoutLogClick,
 }) => {
   const { t } = useLanguage();
   const { workoutLogPalette } = useTheme();
@@ -170,8 +174,14 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   const handleCardPress = () => {
     if (selectionMode) {
       onSelect && onSelect();
+    } else if (disableNavigation) {
+      // If navigation is disabled, do nothing or trigger onSelect if provided
+      onSelect && onSelect();
+    } else if (onWorkoutLogClick) {
+      // Use the external handler if provided
+      onWorkoutLogClick(logId);
     } else {
-      // Navigate to workout log details page instead of opening a modal
+      // Original navigation as fallback
       router.push(`/workout-log/${logId}`);
     }
   };

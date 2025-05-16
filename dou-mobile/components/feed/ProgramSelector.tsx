@@ -84,30 +84,27 @@ const ProgramSelector: React.FC<ProgramSelectorProps> = ({
     };
     
     return (
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onPress={toggleSelection}
-        style={[styles.cardWrapper, isSelected && styles.selectedCardWrapper]}
-      >
+      <View style={[styles.cardWrapper, isSelected && styles.selectedCardWrapper]}>
         <ProgramCard
           programId={item.id}
           program={item}
           inFeedMode={false}
           currentUser={currentUser?.username}
         />
-        {isSelected && (
-          <View style={styles.selectedOverlay}>
-            <View style={styles.selectedCheckmark}>
+        
+        {/* Full-size clickable overlay - this is the key change */}
+        <TouchableOpacity
+          activeOpacity={0.2}
+          onPress={toggleSelection}
+          style={styles.fullSizeOverlay}
+        >
+          {isSelected && (
+            <View style={styles.selectedIndicator}>
               <Ionicons name="checkmark-circle" size={40} color="#8B5CF6" />
             </View>
-          </View>
-        )}
-        <View style={styles.selectButton}>
-          <View style={[styles.selectIndicator, isSelected && styles.selectedIndicator]}>
-            {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-          </View>
-        </View>
-      </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+      </View>
     );
   };
   
@@ -291,20 +288,27 @@ const styles = StyleSheet.create({
     right: 10,
     zIndex: 10,
   },
-  selectIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedIndicator: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#FFFFFF',
-  },
+  // Add to your existing styles
+fullSizeOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 10, // Higher than card content
+  backgroundColor: 'transparent', // Transparent but captures touches
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+selectedIndicator: {
+  width: 60,
+  height: 60,
+  borderRadius: 30,
+  backgroundColor: 'rgba(139, 92, 246, 0.5)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',

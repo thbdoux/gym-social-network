@@ -86,33 +86,31 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
     };
     
     return (
+    <View style={[styles.cardWrapper, isSelected && styles.selectedCardWrapper]}>
+      {/* Card component */}
+      <WorkoutLogCard
+        logId={item.id}
+        log={item}
+        user={user?.username}
+        inFeedMode={true}
+        onFork={undefined}
+      />
+      
+      {/* Full-size clickable overlay - this is the key change */}
       <TouchableOpacity
-        activeOpacity={0.7}
+        activeOpacity={0.2}
         onPress={toggleSelection}
-        style={[styles.cardWrapper, isSelected && styles.selectedCardWrapper]}
+        style={styles.fullSizeOverlay}
       >
-        <WorkoutLogCard
-          logId={item.id}
-          log={item}
-          user={user?.username}
-          inFeedMode={true}
-          onFork={undefined}
-        />
         {isSelected && (
-          <View style={styles.selectedOverlay}>
-            <View style={styles.selectedCheckmark}>
-              <Ionicons name="checkmark-circle" size={40} color="#34D399" />
-            </View>
+          <View style={styles.selectedIndicator}>
+            <Ionicons name="checkmark-circle" size={40} color="#34D399" />
           </View>
         )}
-        <View style={styles.selectButton}>
-          <View style={[styles.selectIndicator, isSelected && styles.selectedIndicator]}>
-            {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-          </View>
-        </View>
       </TouchableOpacity>
-    );
-  };
+    </View>
+  );
+};
   
   const EmptyList = () => (
     <View style={styles.emptyContainer}>
@@ -409,6 +407,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+
+  fullSizeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10, // Higher than card content
+    backgroundColor: 'transparent', // Transparent but captures touches
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedIndicator: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(52, 211, 153, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
