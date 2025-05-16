@@ -23,8 +23,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { useCreatePost } from '../../hooks/query/usePostQuery';
 import WorkoutLogSelector from './WorkoutLogSelector';
 import ProgramSelector from './ProgramSelector';
+import GroupWorkoutSelector from './GroupWorkoutSelector';
 import ProgramCard from '../workouts/ProgramCard';
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
+import GroupWorkoutCard from '../workouts/GroupWorkoutCard';
 
 interface PostType {
   id: string;
@@ -64,6 +66,8 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
   const [showProgramSelector, setShowProgramSelector] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<any>(null);
   const [selectedWorkoutLog, setSelectedWorkoutLog] = useState<any>(null);
+  const [showGroupWorkoutSelector, setShowGroupWorkoutSelector] = useState(false);
+  const [selectedGroupWorkout, setSelectedGroupWorkout] = useState<any>(null);
   
   // Use the post creation mutation hook
   const { mutateAsync: createPost, isLoading: isPosting } = useCreatePost();
@@ -88,8 +92,8 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
       icon: 'barbell-outline',
       color: '#A78BFA'
     },
-    workout_invite: {
-      id: 'workout_invite',
+    group_workout: {
+      id: 'group_workout',
       label: t('group_workout'),
       icon: 'people-outline',
       color: '#FB923C'
@@ -107,6 +111,8 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
         setShowWorkoutLogSelector(true);
       } else if (initialPostType === 'program') {
         setShowProgramSelector(true);
+      } else if (initialPostType === 'group_workout') {
+        setShowGroupWorkoutSelector(true);
       } else {
         // For regular posts, go directly to content entry
         setStep(1);
@@ -174,7 +180,16 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
     setContent(`${t('just_completed')}: ${workoutLog.workout_name || workoutLog.name || t('a_workout')}`);
     setStep(1);
   };
-  
+
+  const handleGroupWorkoutSelect = (groupWorkout: any) => {
+    setSelectedGroupWorkout(groupWorkout);
+    setShowGroupWorkoutSelector(false);
+    // Auto-populate content with group workout title
+    setContent(t('join_me_for'));
+    setPostType('group_workout');
+    setStep(1);
+  };
+
   const pickImage = async () => {
     // Request permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -232,6 +247,9 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
       if (postType === 'workout_log' && selectedWorkoutLog) {
         formData.append('workout_log_id', selectedWorkoutLog.id.toString());
       }
+      if (postType === 'group_workout' && selectedGroupWorkout) {
+        formData.append('group_workout_id', selectedGroupWorkout.id.toString());
+      }
 
       // Use the mutation to create a post
       const newPost = await createPost(formData);
@@ -257,6 +275,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
     setPostType(initialPostType);
     setSelectedProgram(null);
     setSelectedWorkoutLog(null);
+    setSelectedGroupWorkout(null);
     setStep(1); // Always set to content entry
   };
   
@@ -365,6 +384,34 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Group Workout Preview */}
+            {selectedGroupWorkout && (
+              <View style={styles.cardPreviewWrapper}>
+                <View style={styles.cardPreviewHeader}>
+                  <Text style={styles.cardPreviewTitle}>{t('group_workout_preview')}</Text>
+                  <TouchableOpacity 
+                    style={styles.removeButton}
+                    onPress={() => {
+                      setSelectedGroupWorkout(null);
+                      setPostType('regular');
+                    }}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity 
+                  activeOpacity={0.7}
+                  onPress={() => setShowGroupWorkoutSelector(true)}
+                >
+                  <GroupWorkoutCard
+                    groupWorkoutId={selectedGroupWorkout.id}
+                    groupWorkout={selectedGroupWorkout}
+                    selectionMode={false}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
             
             {/* Image Preview */}
             {image && (
@@ -406,6 +453,13 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
                     onPress={() => setShowWorkoutLogSelector(true)}
                   >
                     <Ionicons name="fitness-outline" size={24} color="#34D399" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={styles.mediaButton}
+                    onPress={() => setShowGroupWorkoutSelector(true)}
+                  >
+                    <Ionicons name="people-outline" size={24} color="#FB923C" />
                   </TouchableOpacity>
                 </>
               )}
@@ -483,6 +537,12 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
             onCancel={() => setShowProgramSelector(false)}
             title={t('select_program_to_share')}
             cancelText={t('cancel')}
+          />
+        )}
+        {showGroupWorkoutSelector && (
+          <GroupWorkoutSelector
+            onSelect={handleGroupWorkoutSelect}
+            onCancel={() => setShowGroupWorkoutSelector(false)}
           />
         )}
       </View>

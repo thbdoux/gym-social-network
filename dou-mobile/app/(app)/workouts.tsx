@@ -74,7 +74,7 @@ import {
   useDeleteGroupWorkout,
   useJoinGroupWorkout,
   useLeaveGroupWorkout,
-  useInviteToGroupWorkout
+  useInviteToGroupWorkout,
 } from '../../hooks/query/useGroupWorkoutQuery';
 
 const { width } = Dimensions.get('window');
@@ -232,6 +232,13 @@ export default function WorkoutsScreen() {
       default:
         return [];
     }
+  };
+
+  const refetchGroupWorkouts = async () => {
+    await Promise.all([
+      refetchCreatedGroupWorkouts(),
+      refetchJoinedGroupWorkouts()
+    ]);
   };
   
   // Get loading state based on current view
@@ -842,22 +849,14 @@ export default function WorkoutsScreen() {
                 changeView={changeView}
               /> */}
               
-              <View style={styles.headerButtons}>
+              <View>
                 <TouchableOpacity 
                   style={styles.headerButton}
                   onPress={toggleSelectionMode}
                 >
                   <Ionicons name="ellipsis-horizontal" size={24} color={palette.text} />
                 </TouchableOpacity>
-                
-                {/* Removed the "+" button from here */}
-                
-                <TouchableOpacity 
-                  style={styles.headerButton}
-                  onPress={() => router.push('/analytics')}
-                >
-                  <Ionicons name="stats-chart" size={22} color={palette.text} />
-                </TouchableOpacity>
+              
               </View>
             </>
           )}
@@ -1043,16 +1042,12 @@ const themedStyles = createThemedStyles((palette) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingHorizontal: 10,
+    paddingBottom: 0,
     borderBottomWidth: 0,
     backgroundColor: palette.layout,
   },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 90, // Reduced from 130 since we removed one button
-  },
+
   headerButton: {
     width: 40,
     height: 30,
@@ -1109,7 +1104,7 @@ const themedStyles = createThemedStyles((palette) => ({
     marginLeft: 8,
   },
   tabContainer: {
-    paddingTop: 8,
+    paddingBottom: 4,
     backgroundColor: palette.layout,
     elevation: 3, // For Android shadow
     shadowColor: '#000',

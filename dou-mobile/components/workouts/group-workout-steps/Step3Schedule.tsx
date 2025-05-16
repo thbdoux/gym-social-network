@@ -8,7 +8,8 @@ import {
   Platform,
   TextInput,
   Modal,
-  Dimensions
+  Dimensions,
+  FlatList
 } from 'react-native';
 import { useLanguage } from '../../../context/LanguageContext';
 import { GroupWorkoutFormData } from '../GroupWorkoutWizard';
@@ -71,6 +72,17 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
       return matchesSearch && matchesChain;
     });
   }, [gyms, searchQuery, selectedGymChain]);
+  
+  // Filter locations based on selected gym chain
+  const locationsForSelectedChain = useMemo(() => {
+    if (!gyms.length || !selectedGymChain) return [];
+    
+    const locations = gyms
+      .filter(gym => gym.name === selectedGymChain)
+      .map(gym => gym.location);
+    
+    return [...new Set(locations)].sort();
+  }, [gyms, selectedGymChain]);
   
   // Find preferred gym
   useEffect(() => {
@@ -427,7 +439,7 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
         </View>
       </View>
       
-      {/* Gym selector modal */}
+      {/* Enhanced Gym selector modal */}
       <Modal
         visible={gymSelectorVisible}
         transparent={true}
@@ -477,10 +489,100 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
               )}
             </View>
             
-            {/* Gym list would go here - simplified for brevity */}
-            <Text style={styles.modalInfoText}>
-              {t('gym_selection_placeholder')}
-            </Text>
+            {/* Gym List Content */}
+            {gymsLoading ? (
+              <View style={styles.loaderContainer}>
+                <Text style={styles.loadingText}>{t('loading_gyms')}</Text>
+              </View>
+            ) : (
+              <>
+                {/* Show gym chains or locations based on selection state */}
+                {!selectedGymChain ? (
+                  // Show list of gym chains (names)
+                  <>
+                    {filteredGyms.length === 0 ? (
+                      <View style={styles.noResultsContainer}>
+                        <Text style={styles.noResultsText}>{t('no_gyms_found')}</Text>
+                      </View>
+                    ) : (
+                      <>
+                        {searchQuery === '' ? (
+                          // Show categorized gym chains if no search
+                          <FlatList
+                            data={gymChains}
+                            keyExtractor={(item) => item}
+                            renderItem={({ item }) => (
+                              <TouchableOpacity
+                                style={styles.gymChainItem}
+                                onPress={() => setSelectedGymChain(item)}
+                              >
+                                <View style={styles.gymChainInfo}>
+                                  <Text style={styles.gymChainName}>{item}</Text>
+                                  <Text style={styles.gymChainCount}>
+                                    {gyms.filter(gym => gym.name === item).length} {t('locations')}
+                                  </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                              </TouchableOpacity>
+                            )}
+                            contentContainerStyle={styles.gymList}
+                          />
+                        ) : (
+                          // Show search results
+                          <FlatList
+                            data={filteredGyms}
+                            keyExtractor={(item) => item.id.toString()}
+                            renderItem={({ item }) => (
+                              <TouchableOpacity
+                                style={styles.gymItem}
+                                onPress={() => handleGymSelection(item)}
+                              >
+                                <View style={styles.gymInfo}>
+                                  <Text style={styles.gymName}>{item.name}</Text>
+                                  <Text style={styles.gymAddress}>{item.location}</Text>
+                                </View>
+                                {formData.gym === item.id && (
+                                  <Ionicons name="checkmark-circle" size={24} color="#f97316" />
+                                )}
+                              </TouchableOpacity>
+                            )}
+                            contentContainerStyle={styles.gymList}
+                          />
+                        )}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  // Show locations for selected gym chain
+                  <>
+                    {filteredGyms.length === 0 ? (
+                      <View style={styles.noResultsContainer}>
+                        <Text style={styles.noResultsText}>{t('no_locations_found')}</Text>
+                      </View>
+                    ) : (
+                      <FlatList
+                        data={filteredGyms}
+                        keyExtractor={(item) => item.id.toString()}
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            style={styles.gymItem}
+                            onPress={() => handleGymSelection(item)}
+                          >
+                            <View style={styles.gymInfo}>
+                              <Text style={styles.gymAddress}>{item.location}</Text>
+                            </View>
+                            {formData.gym === item.id && (
+                              <Ionicons name="checkmark-circle" size={24} color="#f97316" />
+                            )}
+                          </TouchableOpacity>
+                        )}
+                        contentContainerStyle={styles.gymList}
+                      />
+                    )}
+                  </>
+                )}
+              </>
+            )}
             
             {/* Home option */}
             <TouchableOpacity
@@ -735,12 +837,6 @@ const styles = StyleSheet.create({
   modalClose: {
     padding: 8,
   },
-  modalInfoText: {
-    color: '#9CA3AF',
-    textAlign: 'center',
-    padding: 32,
-    flex: 1,
-  },
   // Search styles
   searchContainer: {
     flexDirection: 'row',
@@ -762,6 +858,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     padding: 0,
   },
+  // Gym list styles
+  gymList: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  gymChainItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
+  gymChainInfo: {
+    flex: 1,
+  },
+  gymChainName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  gymChainCount: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  gymItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
+  gymInfo: {
+    flex: 1,
+  },
+  gymName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  gymAddress: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
   customLocationOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -777,6 +926,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 8,
+  },
+  // Additional styles from Step2DateLocation
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  noResultsText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 

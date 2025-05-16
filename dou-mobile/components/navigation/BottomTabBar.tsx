@@ -177,8 +177,8 @@ const BottomTabBar: React.FC = () => {
     <>
       {/* Bottom Tab Bar */}
       <View style={styles.container}>
-        {/* Left side */}
-        <View style={styles.tabSide}>
+        {/* All tabs in a single row for equal spacing */}
+        <View style={styles.tabRow}>
           <TabIcon
             name="home"
             active={pathname === '/feed'}
@@ -192,14 +192,18 @@ const BottomTabBar: React.FC = () => {
             showBadge={hasUnreadNotifications}
             badgeCount={unreadCount}
           />
-        </View>
-        
-        {/* Right side */}
-        <View style={styles.tabSide}>
+          
           <TabIcon
             name="barbell-sharp"
             active={pathname === '/workouts'}
             onPress={() => navigateTo('/workouts')}
+          />
+          
+          {/* Analytics Tab */}
+          <TabIcon
+            name="stats-chart"
+            active={pathname === '/analytics'}
+            onPress={() => navigateTo('/analytics')}
           />
           
           {/* Profile Tab with Icon */}
@@ -234,11 +238,11 @@ const themedStyles = createThemedStyles((palette) => ({
     backgroundColor: palette.layout,
     borderTopColor: palette.layout,
   },
-  tabSide: {
+  tabRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    justifyContent: 'space-around'
+    justifyContent: 'space-between',
   },
   tabButton: {
     alignItems: 'center',

@@ -1,10 +1,12 @@
 // components/workouts/WorkoutTabs.tsx
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { VIEW_TYPES, VIEW_ORDER } from './ViewSelector';
 import { useTheme } from '../../context/ThemeContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface WorkoutTabsProps {
   currentView: string;
@@ -17,6 +19,26 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
 }) => {
   const { t } = useLanguage();
   const { workoutPalette, programPalette, workoutLogPalette, groupWorkoutPalette } = useTheme();
+  
+  // Animation values for tab transitions
+  const tabAnimations = useRef({
+    [VIEW_TYPES.PROGRAMS]: new Animated.Value(currentView === VIEW_TYPES.PROGRAMS ? 1 : 0),
+    [VIEW_TYPES.WORKOUT_HISTORY]: new Animated.Value(currentView === VIEW_TYPES.WORKOUT_HISTORY ? 1 : 0),
+    [VIEW_TYPES.TEMPLATES]: new Animated.Value(currentView === VIEW_TYPES.TEMPLATES ? 1 : 0),
+    [VIEW_TYPES.GROUP_WORKOUTS]: new Animated.Value(currentView === VIEW_TYPES.GROUP_WORKOUTS ? 1 : 0),
+  }).current;
+  
+  // Store text measurements for each tab label
+  const textWidths = useRef({
+    [VIEW_TYPES.PROGRAMS]: 0,
+    [VIEW_TYPES.WORKOUT_HISTORY]: 0,
+    [VIEW_TYPES.TEMPLATES]: 0,
+    [VIEW_TYPES.GROUP_WORKOUTS]: 0,
+  }).current;
+  
+  // Animation value for the sliding indicator
+  const indicatorPosition = useRef(new Animated.Value(0)).current;
+  const indicatorWidth = useRef(new Animated.Value(0)).current;
   
   // Get view specific colors and details
   const getViewDetails = (viewType: string) => {
@@ -64,6 +86,70 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
     }
   };
 
+  // Calculate estimated text width for all tabs
+  useEffect(() => {
+    VIEW_ORDER.forEach(viewType => {
+      const { label } = getViewDetails(viewType);
+      console.log(label)
+      // Rough estimate of text width: ~8px per character + 24px for padding/icon
+      textWidths[viewType] = (label.length * 1000) + 50; 
+    });
+  }, [t]); // Recalculate when language changes
+
+  // Trigger animations when view changes
+  useEffect(() => {
+    // Calculate total available width and sum of inactive tab widths
+    const availableWidth = SCREEN_WIDTH - 24; // Accounting for container padding
+    const activeTabWidth = textWidths[currentView]; 
+    const totalInactiveTabsCount = VIEW_ORDER.length - 1;
+    
+    // Calculate proportions
+    const totalFlex = 10; // Total flex to distribute
+    const activeTabFlex = Math.max(4, Math.min(7, activeTabWidth / 30)); // Scale with text width, but keep within bounds
+    const inactiveTabFlex = (totalFlex - activeTabFlex) / totalInactiveTabsCount;
+    
+    // Update all tab animations
+    VIEW_ORDER.forEach(viewType => {
+      const targetValue = currentView === viewType ? 1 : 0;
+      Animated.spring(tabAnimations[viewType], {
+        toValue: targetValue,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 50
+      }).start();
+    });
+    
+    // Calculate indicator position based on active tab index and widths
+    const activeIndex = VIEW_ORDER.indexOf(currentView);
+    const totalWidth = availableWidth;
+    
+    let position = 0;
+    for (let i = 0; i < activeIndex; i++) {
+      const isInactive = true;
+      const tabWidth = (inactiveTabFlex / totalFlex) * totalWidth;
+      position += tabWidth;
+    }
+    
+    const width = (activeTabFlex / totalFlex) * totalWidth * 0.8;
+    position += ((activeTabFlex / totalFlex) * totalWidth) * 0.1;
+    
+    // Animate the indicator
+    Animated.parallel([
+      Animated.spring(indicatorPosition, {
+        toValue: position,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 50
+      }),
+      Animated.spring(indicatorWidth, {
+        toValue: width,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 50
+      })
+    ]).start();
+  }, [currentView]);
+
   return (
     <View style={styles.container}>
       {/* This outer container gives us more control over tab positioning */}
@@ -72,43 +158,86 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
           const { color, icon, activeIcon, label, palette } = getViewDetails(viewType);
           const isActive = currentView === viewType;
           
+          // Calculate animated styles for this tab
+          const scale = tabAnimations[viewType].interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [1, 1.05, 1]
+          });
+          
+          // Dynamic flex based on text width
+          const activeTabFlex = Math.max(4, Math.min(7, textWidths[viewType] / 30));
+          const inactiveTabFlex = (10 - activeTabFlex) / (VIEW_ORDER.length - 1);
+          
+          const flex = tabAnimations[viewType].interpolate({
+            inputRange: [0, 1],
+            outputRange: [inactiveTabFlex, activeTabFlex]
+          });
+          
+          const backgroundColor = tabAnimations[viewType].interpolate({
+            inputRange: [0, 1],
+            outputRange: ['transparent', palette.highlight]
+          });
+          
           return (
-            <TouchableOpacity
+            <Animated.View
               key={viewType}
               style={[
                 styles.tab,
-                isActive ? styles.activeTab : styles.inactiveTab,
-                isActive && { backgroundColor: palette.highlight }
+                {
+                  flex,
+                  transform: [{ scale }],
+                  backgroundColor,
+                  borderRadius: 20,
+                }
               ]}
-              onPress={() => onChangeView(viewType)}
-              activeOpacity={0.7}
             >
-              {isActive ? (
-                // Active tab - show icon and text in a pill
-                <View style={styles.activeTabContent}>
+              <TouchableOpacity
+                style={styles.tabTouchable}
+                onPress={() => onChangeView(viewType)}
+                activeOpacity={0.7}
+              >
+                <Animated.View style={styles.tabContent}>
+                  {/* Always show the icon, active or inactive */}
                   <Ionicons 
-                    name={activeIcon} 
-                    size={20} 
-                    color="#FFFFFF" 
-                    style={styles.activeTabIcon}
+                    name={isActive ? activeIcon : icon} 
+                    size={22} 
+                    color={isActive ? "#FFFFFF" : "#9CA3AF"} 
+                    style={isActive ? styles.activeTabIcon : styles.inactiveTabIcon}
                   />
-                  <Text style={styles.activeTabText} numberOfLines={1}>
-                    {label}
-                  </Text>
-                </View>
-              ) : (
-                // Inactive tab - show just the icon
-                <Ionicons 
-                  name={icon} 
-                  size={22} 
-                  color="#9CA3AF" 
-                  style={styles.inactiveTabIcon}
-                />
-              )}
-            </TouchableOpacity>
+                  
+                  {/* The text only shows when tab is active, with animated opacity */}
+                  {isActive && (
+                    <Animated.Text 
+                      style={[
+                        styles.tabText,
+                        {
+                          opacity: tabAnimations[viewType],
+                          color: '#FFFFFF'
+                        }
+                      ]} 
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </Animated.Text>
+                  )}
+                </Animated.View>
+              </TouchableOpacity>
+            </Animated.View>
           );
         })}
       </View>
+      
+      {/* Animated Underline Indicator */}
+      <Animated.View 
+        style={[
+          styles.tabIndicator, 
+          {
+            width: indicatorWidth,
+            left: indicatorPosition,
+            backgroundColor: getViewDetails(currentView).palette.highlight 
+          }
+        ]} 
+      />
     </View>
   );
 };
@@ -117,50 +246,53 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: 10,
     paddingHorizontal: 12,
+    position: 'relative',
   },
   tabsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     position: 'relative',
+    height: 40,
   },
   tab: {
+    marginHorizontal: 3,
+    overflow: 'hidden',
+    minWidth: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
     paddingVertical: 8,
+    borderRadius: 20,
   },
-  activeTab: {
-    flex: 2.5, // Active tab takes more space (2.5x more than inactive tabs)
-    paddingHorizontal: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    marginHorizontal: 6, // Additional margin around the active tab
+  tabTouchable: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  inactiveTab: {
-    flex: 0.6, // Inactive tabs take up minimal space
-    paddingHorizontal: 0,
-    marginHorizontal: 1,
-  },
-  activeTabContent: {
+  tabContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    paddingHorizontal: 8,
   },
   activeTabIcon: {
     marginRight: 6,
   },
-  activeTabText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
   inactiveTabIcon: {
     opacity: 0.9,
+  },
+  tabText: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    flexShrink: 1,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    borderRadius: 1.5,
   },
 });
 

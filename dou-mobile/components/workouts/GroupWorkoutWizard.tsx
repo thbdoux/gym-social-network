@@ -9,7 +9,8 @@ import {
   StatusBar,
   Dimensions,
   ScrollView,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
@@ -47,7 +48,7 @@ type GroupWorkoutWizardProps = {
   groupWorkout?: any | null;
   fromTemplate?: boolean;
   template?: any | null;
-  onSubmit: (formData: GroupWorkoutFormData) => void;
+  onSubmit: (formData: GroupWorkoutFormData, invitedUsers?: number[]) => void;
   onClose: () => void;
   visible: boolean;
   onTemplateSelected?: (templateId: number) => void;
@@ -68,6 +69,8 @@ const GroupWorkoutWizard = ({
 }: GroupWorkoutWizardProps) => {
   const { t } = useLanguage();
   
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Initialize the form data with default values
   const getInitialFormData = (): GroupWorkoutFormData => {
     const now = new Date();
@@ -148,6 +151,7 @@ const GroupWorkoutWizard = ({
       setFormData(getInitialFormData());
       setCurrentStep(0);
       setErrors({});
+      setIsSubmitting(false);
     }
   }, [visible, fromTemplate, template, groupWorkout]);
   
@@ -241,6 +245,9 @@ const GroupWorkoutWizard = ({
   const handleSubmit = () => {
     if (validateStep()) {
       try {
+        // Show loading state
+        setIsSubmitting(true);
+        
         // Prepare the data for API submission
         const finalData = prepareDataForSubmission();
         console.log('Submitting group workout form data:', finalData);
@@ -249,8 +256,14 @@ const GroupWorkoutWizard = ({
         
         // Submit the form data
         onSubmit(finalData as GroupWorkoutFormData, invitedUsersToProcess);
+        
+        // Note: The loading state will be hidden when the modal is closed by the parent component
+        // We don't hide the loading state here because we don't know when the API call will complete
+        // The parent component should call onClose() after the API call completes
       } catch (error) {
         console.error('Error preparing data for submission:', error);
+        // Hide loading state on error
+        setIsSubmitting(false);
         Alert.alert(
           t('error'),
           t('failed_to_create_group_workout')

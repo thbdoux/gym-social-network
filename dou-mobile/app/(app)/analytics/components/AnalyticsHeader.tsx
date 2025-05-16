@@ -1,19 +1,20 @@
 // components/AnalyticsHeader.tsx
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { AnalyticsViewMode } from './ViewSelectionDropdown';
-import { useAnalytics } from '../context/AnalyticsContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface AnalyticsHeaderProps {
   scrollY?: Animated.Value;
   analyticsView: AnalyticsViewMode;
   onViewChange: (view: AnalyticsViewMode) => void;
   headerHeight: number;
-  // Add filter props
   viewMode: string;
   onToggleFilter: () => void;
   onResetFilters: () => void;
@@ -32,13 +33,24 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
 }) => {
   const { palette } = useTheme();
   const { t } = useLanguage();
-  const [showViewOptions, setShowViewOptions] = useState(false);
   
-  // Default animation values
-  const defaultTranslateY = new Animated.Value(0);
-  const defaultOpacity = new Animated.Value(1);
+  // Default animation values for header
+  const defaultTranslateY = useRef(new Animated.Value(0)).current;
+  const defaultOpacity = useRef(new Animated.Value(1)).current;
   
-  // Animation values - with fallback if scrollY is undefined
+  // Animation values for tab transitions
+  const tabAnimations = useRef({
+    comparison: new Animated.Value(analyticsView === 'comparison' ? 1 : 0),
+    'total-weight': new Animated.Value(analyticsView === 'total-weight' ? 1 : 0),
+    'average-weight': new Animated.Value(analyticsView === 'average-weight' ? 1 : 0),
+    'sets-analysis': new Animated.Value(analyticsView === 'sets-analysis' ? 1 : 0),
+  }).current;
+  
+  // Animation value for the sliding indicator
+  const indicatorPosition = useRef(new Animated.Value(0)).current;
+  const indicatorWidth = useRef(new Animated.Value(0)).current;
+  
+  // Header animation values - with fallback if scrollY is undefined
   const headerTranslateY = scrollY ? 
     scrollY.interpolate({
       inputRange: [0, headerHeight],
@@ -53,40 +65,53 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
       extrapolate: 'clamp'
     }) : defaultOpacity;
   
-  // Handle back button based on current view
+  // Handle back button
   const handleBack = () => {
-    if (analyticsView !== 'comparison') {
-      // If in a deep dive view, go back to comparison view
-      onViewChange('comparison');
-    } else {
-      // If already in comparison view, go back to previous screen
-      router.back();
-    }
+    router.back();
   };
   
-  // Get title based on current view
-  const getViewTitle = () => {
-    switch (analyticsView) {
-      case 'comparison':
-        return t('workout_analytics');
-      case 'total-weight':
-        return t('total_weight_analysis');
-      case 'average-weight':
-        return t('average_weight_analysis');
-      case 'sets-analysis':
-        return t('sets_analysis');
-      default:
-        return t('workout_analytics');
-    }
-  };
-  
-  // View options for dropdown
+  // View options for tabs with appropriate Ionicons icons
   const viewOptions = [
-    { id: 'comparison', label: t('comparison_view'), icon: 'bar-chart-2' },
-    { id: 'total-weight', label: t('total_weight_analysis'), icon: 'trending-up' },
-    { id: 'average-weight', label: t('average_weight_analysis'), icon: 'activity' },
-    { id: 'sets-analysis', label: t('sets_analysis'), icon: 'layers' },
+    { id: 'comparison', label: t('comparison_view'), icon: 'bar-chart-outline', activeIcon: 'bar-chart' },
+    { id: 'total-weight', label: t('total_weight_analysis'), icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+    { id: 'average-weight', label: t('average_weight_analysis'), icon: 'pulse-outline', activeIcon: 'pulse' },
+    { id: 'sets-analysis', label: t('sets_analysis'), icon: 'layers-outline', activeIcon: 'layers' },
   ];
+  
+  // Trigger animations when view changes
+  useEffect(() => {
+    // Update all tab animations
+    viewOptions.forEach(option => {
+      Animated.spring(tabAnimations[option.id], {
+        toValue: analyticsView === option.id ? 1 : 0,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 50
+      }).start();
+    });
+    
+    // Calculate indicator position based on active tab index
+    const activeIndex = viewOptions.findIndex(option => option.id === analyticsView);
+    const tabWidth = SCREEN_WIDTH / viewOptions.length;
+    const position = (tabWidth * activeIndex) + (tabWidth * 0.1);
+    const width = tabWidth * 0.8;
+    
+    // Animate the indicator
+    Animated.parallel([
+      Animated.spring(indicatorPosition, {
+        toValue: position,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 50
+      }),
+      Animated.spring(indicatorWidth, {
+        toValue: width,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 50
+      })
+    ]).start();
+  }, [analyticsView]);
   
   return (
     <Animated.View 
@@ -99,27 +124,12 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
         }
       ]}
     >
-      <View style={styles.header}>
-        {/* Left: Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={handleBack}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Feather name="arrow-left" size={24} color={palette.text} />
-        </TouchableOpacity>
-        
-        {/* Center: Title with dropdown */}
-        <TouchableOpacity 
-          style={styles.titleContainer}
-          onPress={() => setShowViewOptions(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.title, { color: palette.text }]}>
-            {getViewTitle()}
-          </Text>
-          <Feather name="chevron-down" size={18} color={palette.text} style={styles.titleIcon} />
-        </TouchableOpacity>
+      {/* Main Header */}
+      <View style={[styles.header, { borderBottomColor: palette.border }]}>
+        {/* Center: Title */}
+        <Text style={[styles.screenTitle, { color: palette.text }]}>
+          {t('workout_analytics')}
+        </Text>
         
         {/* Right: Filter Buttons */}
         <View style={styles.actionButtons}>
@@ -157,70 +167,96 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
         </View>
       </View>
       
-      {/* View Selection Modal */}
-      <Modal
-        visible={showViewOptions}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowViewOptions(false)}
-      >
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
-          activeOpacity={1} 
-          onPress={() => setShowViewOptions(false)}
-        >
-          <View 
-            style={[
-              styles.modalContent, 
-              { 
-                backgroundColor: palette.page_background,
-                borderColor: palette.border,
-              }
-            ]}
-          >
-            {viewOptions.map(option => (
-              <TouchableOpacity
-                key={option.id}
+      {/* Tabs Container - styled like WorkoutTabs */}
+      <View style={[styles.tabContainer, { backgroundColor: palette.layout }]}>
+        <View style={styles.tabsContainer}>
+          {viewOptions.map((viewType) => {
+            const isActive = analyticsView === viewType.id;
+            
+            // Calculate animated styles for this tab
+            const scale = tabAnimations[viewType.id].interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [1, 1.05, 1]
+            });
+            
+            const flex = tabAnimations[viewType.id].interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.6, 2.5]
+            });
+            
+            const backgroundColor = tabAnimations[viewType.id].interpolate({
+              inputRange: [0, 1],
+              outputRange: ['transparent', palette.highlight]
+            });
+            
+            return (
+              <Animated.View
+                key={viewType.id}
                 style={[
-                  styles.optionItem,
-                  analyticsView === option.id && { backgroundColor: palette.highlight + '15' }
+                  styles.tab,
+                  {
+                    flex,
+                    transform: [{ scale }],
+                    backgroundColor,
+                    // Removed opacity from here to keep inactive tabs fully visible
+                  }
                 ]}
-                onPress={() => {
-                  onViewChange(option.id as AnalyticsViewMode);
-                  setShowViewOptions(false);
-                }}
               >
-                <Feather 
-                  name={option.icon as any} 
-                  size={18} 
-                  color={analyticsView === option.id ? palette.highlight : palette.text} 
-                  style={styles.optionIcon}
-                />
-                <Text 
-                  style={[
-                    styles.optionText, 
-                    { color: analyticsView === option.id ? palette.highlight : palette.text }
-                  ]}
+                <TouchableOpacity
+                  style={styles.tabTouchable}
+                  onPress={() => onViewChange(viewType.id as AnalyticsViewMode)}
+                  activeOpacity={0.7}
                 >
-                  {option.label}
-                </Text>
-                {analyticsView === option.id && (
-                  <Feather name="check" size={18} color={palette.highlight} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                  <Animated.View style={styles.tabContent}>
+                    {/* Always show the icon, active or inactive */}
+                    <Ionicons 
+                      name={isActive ? viewType.activeIcon : viewType.icon} 
+                      size={22} 
+                      color={isActive ? "#FFFFFF" : "#6B7280"} 
+                      style={isActive ? styles.activeTabIcon : styles.inactiveTabIcon}
+                    />
+                    
+                    {/* The text only shows when tab is active, with animated opacity */}
+                    {isActive && (
+                      <Animated.Text 
+                        style={[
+                          styles.tabText,
+                          {
+                            opacity: tabAnimations[viewType.id],
+                            color: '#FFFFFF'
+                          }
+                        ]} 
+                        numberOfLines={1}
+                      >
+                        {viewType.label}
+                      </Animated.Text>
+                    )}
+                  </Animated.View>
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
+        </View>
+        
+        {/* Animated Underline Indicator */}
+        <Animated.View 
+          style={[
+            styles.tabIndicator, 
+            {
+              width: indicatorWidth,
+              left: indicatorPosition,
+              backgroundColor: palette.highlight 
+            }
+          ]} 
+        />
+      </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 0, // Account for status bar
-    paddingBottom: 8,
-    paddingHorizontal: 16,
+    paddingTop: 0,
     position: 'absolute',
     left: 0,
     right: 0,
@@ -232,24 +268,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 50,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0,
   },
-  backButton: {
-    padding: 4,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 6,
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  titleIcon: {
-    marginLeft: 6,
+
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -274,33 +300,60 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-  },
-  modalContent: {
-    marginHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-    elevation: 5,
+  
+  // Tab styles - enhanced with animation support
+  tabContainer: {
+    paddingTop: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    position: 'relative',
   },
-  optionItem: {
+  tabsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    height: 40,
   },
-  optionIcon: {
-    marginRight: 12,
+  tab: {
+    borderRadius: 10,
+    marginHorizontal: 4,
+    overflow: 'hidden',
+    minWidth: 40, // Ensure inactive tabs have minimum width
   },
-  optionText: {
-    fontSize: 16,
-    flex: 1,
+  tabTouchable: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    width: '100%',
+  },
+  activeTabIcon: {
+    marginRight: 6,
+  },
+  inactiveTabIcon: {
+    // No marginRight needed when no text is displayed
+    opacity: 0.9, // Slightly higher opacity for better visibility
+  },
+  tabText: {
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    borderRadius: 1.5,
   },
 });
 

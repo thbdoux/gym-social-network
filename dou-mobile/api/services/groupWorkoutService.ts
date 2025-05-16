@@ -87,11 +87,8 @@ const groupWorkoutService = {
   },
 
   createGroupWorkout: async (workoutData: Partial<GroupWorkout>): Promise<GroupWorkout> => {
-    console.log(workoutData);
     try {
-      console.log('Creating group workout with data:', workoutData);
       const response = await apiClient.post('/workouts/group-workouts/', workoutData);
-      console.log('Group workout created successfully:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error creating group workout:', error);
@@ -104,9 +101,7 @@ const groupWorkoutService = {
 
   updateGroupWorkout: async (id: number, updates: Partial<GroupWorkout>): Promise<GroupWorkout> => {
     try {
-      console.log(`Updating group workout ${id} with data:`, updates);
       const response = await apiClient.patch(`/workouts/group-workouts/${id}/`, updates);
-      console.log('Group workout updated successfully:', response.data);
       return response.data;
     } catch (error) {
       console.error(`Error updating group workout ${id}:`, error);

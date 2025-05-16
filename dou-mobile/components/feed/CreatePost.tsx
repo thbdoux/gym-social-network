@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLanguage } from '../../context/LanguageContext';
 import WorkoutLogSelector from './WorkoutLogSelector';
 import ProgramSelector from './ProgramSelector';
+import GroupWorkoutSelector from './GroupWorkoutSelector';
 import { useAuth } from '../../hooks/useAuth';
 import { useCreatePost } from '../../hooks/query/usePostQuery';
 
@@ -34,6 +35,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
   const [postType, setPostType] = useState('regular');
   const [showWorkoutLogSelector, setShowWorkoutLogSelector] = useState(false);
   const [showProgramSelector, setShowProgramSelector] = useState(false);
+  const [showGroupWorkoutSelector, setShowGroupWorkoutSelector] = useState(false);
+  const [selectedGroupWorkout, setSelectedGroupWorkout] = useState<any>(null);
   const [selectedProgram, setSelectedProgram] = useState<any>(null);
   const [selectedWorkoutLog, setSelectedWorkoutLog] = useState<any>(null);
   const [expanded, setExpanded] = useState(false);
@@ -123,6 +126,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
         formData.append('workout_log_id', selectedWorkoutLog.id.toString());
       }
 
+      if (postType === 'group_workout' && selectedGroupWorkout) {
+        formData.append('group_workout_id', selectedGroupWorkout.id.toString());
+      }
+
       // Use the mutation to create a post
       const newPost = await createPost(formData);
       
@@ -163,6 +170,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
     setContent(`${t('just_completed')}: ${workoutLog.workout_name || workoutLog.name || t('a_workout')}`);
     setPostType('workout_log');
   };
+
+  const handleGroupWorkoutSelect = (groupWorkout: any) => {
+    setSelectedGroupWorkout(groupWorkout);
+    setShowGroupWorkoutSelector(false);
+    // Auto-populate content with group workout title
+    setContent(`${t('join_me_for')}: ${groupWorkout.title}`);
+    setPostType('group_workout');
+    // setStep(1);
+  };
   
   const handleTypeSelect = (key: string) => {
     setPostType(key);
@@ -172,6 +188,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
       setShowProgramSelector(true);
     } else if (key === 'workout_log') {
       setShowWorkoutLogSelector(true);
+    } else if (key === 'group_workout') {
+      setShowGroupWorkoutSelector(true);
     }
   };
   
@@ -357,6 +375,44 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
                   </View>
                 </View>
               )}
+
+              {/* Group Workout Preview */}
+              {selectedGroupWorkout && (
+                <View style={styles.attachmentPreview}>
+                  <View style={styles.attachmentHeader}>
+                    <View style={styles.workoutInviteIcon}>
+                      <Ionicons name="people" size={16} color="#FB923C" />
+                    </View>
+                    <Text style={styles.attachmentTitle}>{selectedGroupWorkout.title}</Text>
+                    <TouchableOpacity 
+                      style={styles.removeButton}
+                      onPress={() => {
+                        setSelectedGroupWorkout(null);
+                        setPostType('regular');
+                      }}
+                    >
+                      <Ionicons name="close" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.workoutInviteDetails}>
+                    <View style={styles.workoutInviteDetail}>
+                      <Ionicons name="calendar-outline" size={14} color="#FB923C" />
+                      <Text style={styles.workoutInviteDetailText}>
+                        {new Date(selectedGroupWorkout.scheduled_time).toLocaleString()}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.workoutInviteDetail}>
+                      <Ionicons name="people-outline" size={14} color="#FB923C" />
+                      <Text style={styles.workoutInviteDetailText}>
+                        {selectedGroupWorkout.participants_count}/{selectedGroupWorkout.max_participants} {t('participants')}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
               
               {/* Image Preview */}
               {image && (
@@ -397,6 +453,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
                 >
                   <Ionicons name="fitness-outline" size={24} color="#34D399" />
                 </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.mediaButton}
+                  onPress={() => setShowGroupWorkoutSelector(true)}
+                >
+                  <Ionicons name="people-outline" size={24} color="#FB923C" />
+                </TouchableOpacity>
               </View>
               
               <TouchableOpacity
@@ -434,6 +497,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
         <ProgramSelector
           onSelect={handleProgramSelect}
           onCancel={() => setShowProgramSelector(false)}
+        />
+      )}
+      {showGroupWorkoutSelector && (
+        <GroupWorkoutSelector
+          onSelect={handleGroupWorkoutSelect}
+          onCancel={() => setShowGroupWorkoutSelector(false)}
         />
       )}
     </>
@@ -695,6 +764,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 8,
+  },
+  workoutInviteIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(251, 146, 60, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  workoutInviteDetails: {
+    flexDirection: 'row',
+    marginTop: 12,
+  },
+  workoutInviteDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  workoutInviteDetailText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 4,
   },
 });
 

@@ -1263,10 +1263,10 @@ fr : {
     no_exercise_data: "Aucune donnée d'exercice disponible",
     
     // Chart Page Navigation
-    comparison_view: "Vue Comparative",
-    total_weight_analysis: "Surcharge Progressive",
-    average_weight_analysis: "Analyse du Poids Moyen",
-    sets_analysis: "Volume et Séries",
+    comparison_view: "Général",
+    total_weight_analysis: "Surcharge",
+    average_weight_analysis: "Poids Moyen",
+    sets_analysis: "Volume",
     
     // View Controls
     charts: "Graphiques",
@@ -2214,15 +2214,33 @@ const group_workout = {
 "workout_name_required": "Workout name is required",
 "failed_to_search_users": "Failed to search users",
 "ok": "OK",
-"cancel": "Cancel"
+"cancel": "Cancel",
+'join_me_for' : "Who's up to train with me?",
+'share_group_workout': 'Select',
+'group_workout_preview' : 'Selected group workout',
+'workout_not_found' : "Oops! An error occured",
+'back_to_workouts' : 'Go back',
+'no_data' : 'No group workout yet',
+'add_some_data' : 'Create a group workout to train with your friends',
+'group_workout_suggestion_1' : "Sunday morning with the boys",
+'group_workout_suggestion_2' : 'Chill',
+'group_workout_suggestion_3' : 'With bros',
+'accepted': 'Accepted',
+'leave_workout' : 'Leave',
+'minutes_left' : 'minutes left',
+'no_messages_yet' : 'No messages',
+'start_conversation' : 'Start chatting',
+'be_first_to_message' : 'Be first to talk',
+'search_gyms':'Search gym',
+'at_home' : 'at home',
   },
   fr:{
     // Group Workout Navigation & Views
-"group_workouts": "Entraînements de Groupe",
+"group_workouts": "En groupe",
 "group_info": "Infos du Groupe",
 "participants": "Participants",
 "schedule": "Horaire",
-
+'join_me_for' : "Qui est chaud?",
 // Actions & Buttons
 "create_group_workout": "Créer un Entraînement de Groupe",
 "update_group_workout": "Mettre à Jour l'Entraînement de Groupe",
@@ -2310,7 +2328,28 @@ const group_workout = {
 "workout_name_required": "Le nom de l'entraînement est requis",
 "failed_to_search_users": "Échec de la recherche d'utilisateurs",
 "ok": "OK",
-"cancel": "Annuler"
+"cancel": "Annuler",
+'share_group_workout': 'Sélectionner',
+'group_workout_preview' : 'Entraînement de groupe sélectionné',
+'workout_not_found' : "Oups! Une erreur s'est produit",
+'back_to_workouts' : 'Retour',
+'no_data' : 'Aucun entraînement de groupe',
+'add_some_data' : 'Créez un groupe et invitez vos amis à vous entraîner',
+'group_workout_suggestion_1' : "Avant l'apéro",
+'group_workout_suggestion_2' : 'Tranquille',
+'group_workout_suggestion_3' : 'Entre bros',
+'accepted': 'Accepté',
+'leave_workout' : 'Quitter',
+'minutes_left' : 'minutes restantes',
+'no_messages_yet' : 'Pas de messages',
+'start_conversation' : 'Commencer la discussion',
+'be_first_to_message' : 'Commencer la discussion',
+'no_participants' : 'Pas de participants',
+'search_gyms':'Chercher une salle',
+'at_home' : 'à la maison',
+'leave_workout_confirmation' : "",
+'cancel_workout' : "Annuler l'entraînement",
+'cancel_workout_confirmation' : "",
   }
 }
 const translations: Translations = {

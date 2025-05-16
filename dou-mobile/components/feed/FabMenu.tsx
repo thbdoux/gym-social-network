@@ -54,7 +54,7 @@ const FabMenu: React.FC<FabMenuProps> = ({ onItemPress }) => {
       color: '#A78BFA'
     },
     {
-      id: 'workout_invite',
+      id: 'group_workout',
       label: t('group_workout'),
       icon: 'people-outline',
       color: '#FB923C'

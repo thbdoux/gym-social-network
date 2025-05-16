@@ -58,8 +58,8 @@ class OriginalPostSerializer(serializers.ModelSerializer):
 
     def get_group_workout_details(self, obj):
         if obj.group_workout:
-            from workouts.group_workout_serializers import GroupWorkoutSerializer
-            return GroupWorkoutSerializer(obj.group_workout, context=self.context).data
+            from workouts.group_workout_serializers import GroupWorkoutDetailSerializer
+            return GroupWorkoutDetailSerializer(obj.group_workout, context=self.context).data
         return None
 
     def get_workout_invite_details(self, obj):

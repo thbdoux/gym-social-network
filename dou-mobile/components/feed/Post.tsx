@@ -19,10 +19,12 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext'; // Import theme hook
 import WorkoutLogCard from '../workouts/WorkoutLogCard';
 import ProgramCard from '../workouts/ProgramCard';
+import GroupWorkoutCard from '../workouts/GroupWorkoutCard';
 import { getAvatarUrl } from '../../utils/imageUtils'; // Import getAvatarUrl
 import { usePostLikers } from '../../hooks/query/usePostQuery';
 
 import { useUser } from '../../hooks/query/useUserQuery';
+import { useGroupWorkout } from '../../hooks/query/useGroupWorkoutQuery';
 
 // Get screen dimensions for bottom sheet
 const { height, width } = Dimensions.get('window');
@@ -66,6 +68,8 @@ interface Post {
   program_details?: any;
   workout_log?: number;
   workout_log_details?: any;
+  group_workout?: number;  // Add this line
+  group_workout_details?: any;  // Add this line
   user_username: string;
   user_id?: number;
   user_profile_picture?: string;
@@ -93,6 +97,7 @@ interface PostProps {
   onForkProgram?: (programId: number) => Promise<any>;
   onProfileClick?: (userId: number) => void;
   onNavigateToProfile?: (userId: number) => void;
+  onGroupWorkoutClick?: (groupWorkoutId: number) => void;
   detailMode?: boolean; 
   onPostClick?: (postId: number) => void; 
 }
@@ -108,6 +113,7 @@ const Post: React.FC<PostProps> = ({
   userData,
   onProgramClick,
   onWorkoutLogClick,
+  onGroupWorkoutClick,
   onForkProgram,
   onProfileClick,
   onNavigateToProfile,
@@ -190,10 +196,10 @@ const Post: React.FC<PostProps> = ({
             gradient: defaultGradient
           }
         };
-      case 'workout_invite':
+      case 'group_workout':
         return {
           icon: 'people',
-          label: t('workout_invite'),
+          label: t('group_workout'),
           colors: { 
             bg: 'rgba(249, 115, 22, 0.2)',
             text: palette.text,
@@ -432,7 +438,6 @@ const Post: React.FC<PostProps> = ({
     onForkProgram,
     currentUser,
   }) => {
-    console.log("#############################################", post);
     // Get post type details for the original post
     const originalPost = post.original_post_details;
   
@@ -616,7 +621,6 @@ const Post: React.FC<PostProps> = ({
 
   // Get user streak to display on avatar
   const userStreak = post.streak || post.stats?.streak || 0;
-  
   // Mock badges based on user activity
   const mockBadges = [
     { id: 1, name: t('20day_streak'), icon: "flame", color: [palette.accent, palette.highlight] },
@@ -815,6 +819,17 @@ const Post: React.FC<PostProps> = ({
                     log={post.workout_log_details}
                     inFeedMode={true}
                     onWorkoutLogClick={onWorkoutLogClick}
+                  />
+                </View>
+              )}
+
+              {/* Group Workout */}
+              {post.post_type === 'group_workout' && post.group_workout_details && (
+                <View style={styles.groupWorkoutContainer}>
+                  <GroupWorkoutCard 
+                    groupWorkoutId={post.group_workout_details?.id}
+                    groupWorkout={post.group_workout_details}
+                    onParticipatePress={onGroupWorkoutClick}
                   />
                 </View>
               )}
@@ -1193,6 +1208,9 @@ const styles = StyleSheet.create({
   },
   workoutLogContainer: {
     marginTop: 0, // Reduced margin between text and workout log
+  },
+  groupWorkoutContainer: {
+    marginTop: 0,
   },
   postImage: {
     width: '100%',

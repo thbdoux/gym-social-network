@@ -1,5 +1,5 @@
 // components/workouts/GroupWorkoutCard.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { 
   View, 
@@ -8,12 +8,14 @@ import {
   StyleSheet, 
   Animated,
   Easing,
-  Image
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getAvatarUrl } from '../../utils/imageUtils';
+import { useGroupWorkoutParticipants } from '../../hooks/query/useGroupWorkoutQuery';
 
 interface GroupWorkoutCardProps {
   groupWorkoutId: number;
@@ -70,6 +72,13 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
   const { t, language } = useLanguage();
   const { groupWorkoutPalette } = useTheme();
   
+  // Fetch participants if they're not included in the groupWorkout data
+  const { data: fetchedParticipants, isLoading: isLoadingParticipants } = useGroupWorkoutParticipants(
+    groupWorkoutId
+  );
+  
+  // Get participants data from either prop or fetched data
+  const participants = groupWorkout.participants || fetchedParticipants || [];
   // Animation for selection mode
   const wiggleAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -287,6 +296,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
     
     switch (groupWorkout.current_user_status) {
       case 'joined':
+        return false; // Already joined, don't show participate buttons
       case 'invited':
       case 'request_pending':
         return true;
@@ -322,28 +332,34 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
     onLongPress && onLongPress();
   };
   
-  // Separate participants by status
-  const categorizeParticipants = () => {
-    const confirmedParticipants: typeof groupWorkout.participants = [];
-    const pendingParticipants: typeof groupWorkout.participants = [];
-    
-    // If participants is undefined, return empty arrays
-    if (!groupWorkout.participants) {
-      return { confirmedParticipants, pendingParticipants };
+  // Get all participants and their statuses for display
+  const getAllParticipants = () => {
+    if (!participants || participants.length === 0) {
+      return [];
     }
     
-    // Filter participants based on status
-    groupWorkout.participants.forEach(participant => {
-      // Assuming 'confirmed' is the status for confirmed participants
-      // and 'pending' or 'invited' are for pending participants
-      if (participant.status === 'joined' || participant.status === undefined) {
-        confirmedParticipants.push(participant);
-      } else if (participant.status === 'invited') {
-        pendingParticipants.push(participant);
-      }
+    // Sort participants to display joined first, then invited
+    return [...participants].sort((a, b) => {
+      if (a.status === 'joined' && b.status !== 'joined') return -1;
+      if (a.status !== 'joined' && b.status === 'joined') return 1;
+      if (a.status === 'invited' && b.status !== 'invited') return -1;
+      if (a.status !== 'invited' && b.status === 'invited') return 1;
+      return 0;
     });
-    
-    return { confirmedParticipants, pendingParticipants };
+  };
+  
+  // Get overlay color based on participant status
+  const getParticipantOverlayColor = (status?: string) => {
+    switch (status) {
+      case 'joined':
+        return styles.confirmedOverlay;
+      case 'invited':
+        return styles.pendingOverlay;
+      case 'pending':
+        return styles.pendingOverlay;
+      default:
+        return styles.confirmedOverlay; // Default to confirmed
+    }
   };
   
   // Detailed countdown data
@@ -353,13 +369,11 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
   const statusColors = getStatusColor(groupWorkout.status);
   const privacyColors = getPrivacyColor(groupWorkout.privacy);
   
-  // Separate participants
-  const { confirmedParticipants, pendingParticipants } = categorizeParticipants();
-  
+  // Get all participants for the combined display
+  const allParticipants = getAllParticipants();
   // Limit number of avatars for display
-  const maxDisplayAvatars = 3; // For each category
-  const displayConfirmedParticipants = confirmedParticipants.slice(0, maxDisplayAvatars);
-  const displayPendingParticipants = pendingParticipants.slice(0, maxDisplayAvatars);
+  const maxDisplayAvatars = 5;
+  const displayParticipants = allParticipants.slice(0, maxDisplayAvatars);
   
   // Combine animations for wiggle effect
   const animatedStyle = {
@@ -402,7 +416,7 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
         
         {/* Main content */}
         <View style={styles.cardContent}>
-          {/* Second row with title and privacy badge */}
+          {/* Title row with countdown badge */}
           <View style={styles.titleRow}>
             {/* Workout title */}
             <Text style={[styles.title, { color: groupWorkoutPalette.text }]} numberOfLines={1}>
@@ -410,135 +424,141 @@ const GroupWorkoutCard: React.FC<GroupWorkoutCardProps> = ({
             </Text>
           
             <View style={[
-                styles.countdownContainer, 
-                { backgroundColor: countdownDetails.isPast ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)' }
-              ]}>
-                <Text style={[
-                  styles.countdownText, 
-                  { color: countdownDetails.isPast ? '#EF4444' : '#10B981' }
-                ]}>
-                  {countdownDetails.text}
-                </Text>
-            </View>
-          </View>
-          
-          {/* Date */}
-          <View style={styles.dateRow}>
-            <Ionicons name="calendar-outline" size={14} color={groupWorkoutPalette.text_secondary} />
-            <Text style={[styles.dateText, { color: groupWorkoutPalette.text }]}>
-              {formatDate(groupWorkout.scheduled_time)}
-            </Text>
-          </View>
-          
-          {/* Gym location */}
-          {groupWorkout.gym_details && (
-            <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color={groupWorkoutPalette.text_secondary} />
-              <Text style={[styles.locationText, { color: groupWorkoutPalette.text_secondary }]} numberOfLines={1}>
-                {groupWorkout.gym_details.name} - {groupWorkout.gym_details.location}
-              </Text>
-            </View>
-          )}
-        </View>
-        
-        {/* Participants */}
-        <View style={styles.participantsContainer}>
-          {/* Participants container - dual sided layout */}
-          <View style={styles.avatarsContainer}>
-            {/* Confirmed participants - left side with green overlay */}
-            <View style={styles.confirmedAvatarsRow}>
-              {displayConfirmedParticipants.length > 0 ? (
-                <>
-                  {displayConfirmedParticipants.map((participant, index) => (
-                    <View key={`confirmed-${index}`} style={[
-                      styles.avatarContainer,
-                      { left: index * 25 } // Position from left
-                    ]}>
-                      <Image
-                        source={{ uri: getAvatarUrl(participant.user_details.avatar) }}
-                        style={styles.avatar}
-                      />
-                      <View style={[styles.avatarOverlay, styles.confirmedOverlay]} />
-                    </View>
-                  ))}
-                  
-                  {/* More indicator for confirmed */}
-                  {(confirmedParticipants.length > maxDisplayAvatars) && (
-                    <View style={[
-                      styles.moreAvatarsContainer,
-                      styles.confirmedMoreContainer,
-                      { left: (maxDisplayAvatars - 1) * 25 + 15 }
-                    ]}>
-                      <Text style={styles.moreAvatarsText}>+{confirmedParticipants.length - maxDisplayAvatars}</Text>
-                    </View>
-                  )}
-                </>
-              ) : (
-                <View style={styles.noAvatarsPlaceholder} />
-              )}
-            </View>
-            
-            {/* Divider */}
-            <View style={styles.participantsDivider} />
-            
-            {/* Pending participants - right side with orange overlay */}
-            <View style={styles.pendingAvatarsRow}>
-              {displayPendingParticipants.length > 0 ? (
-                <>
-                  {displayPendingParticipants.map((participant, index) => (
-                    <View key={`pending-${index}`} style={[
-                      styles.avatarContainer,
-                      { right: index * 25 } // Position from right
-                    ]}>
-                      <Image
-                        source={{ uri: getAvatarUrl(participant.user_details.avatar) }}
-                        style={styles.avatar}
-                      />
-                      <View style={[styles.avatarOverlay, styles.pendingOverlay]} />
-                    </View>
-                  ))}
-                  
-                  {/* More indicator for pending */}
-                  {(pendingParticipants.length > maxDisplayAvatars) && (
-                    <View style={[
-                      styles.moreAvatarsContainer,
-                      styles.pendingMoreContainer,
-                      { right: (maxDisplayAvatars - 1) * 25 + 15 }
-                    ]}>
-                      <Text style={styles.moreAvatarsText}>+{pendingParticipants.length - maxDisplayAvatars}</Text>
-                    </View>
-                  )}
-                </>
-              ) : (
-                <View style={styles.noAvatarsPlaceholder} />
-              )}
-            </View>
-          </View>
-        </View>
-        
-        {/* Actions row */}
-        <View style={styles.actionsRow}>
-          {/* Spacer */}
-          <View style={styles.spacer} />
-          
-          {/* Participate button - only for non-creators */}
-          {!selectionMode && !groupWorkout.is_creator && (
-            <TouchableOpacity 
-              style={[
-                styles.participateButton, 
-                { backgroundColor: canParticipate() ? groupWorkoutPalette.action_bg : 'rgba(107, 114, 128, 0.2)' },
-              ]}
-              onPress={handleParticipatePress}
-              disabled={!canParticipate()}
-            >
+              styles.countdownContainer, 
+              { backgroundColor: countdownDetails.isPast ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)' }
+            ]}>
               <Text style={[
-                styles.participateText, 
-                { color: canParticipate() ? groupWorkoutPalette.highlight : '#6B7280' }
+                styles.countdownText, 
+                { color: countdownDetails.isPast ? '#EF4444' : '#10B981' }
               ]}>
-                {getParticipationActionText()}
+                {countdownDetails.text}
               </Text>
-            </TouchableOpacity>
-          )}
+            </View>
+          </View>
+          
+          {/* Date and Location Row */}
+          <View style={styles.infoRow}>
+            {/* Date on the left */}
+            <View style={styles.dateContainer}>
+              <Ionicons name="calendar-outline" size={14} color={groupWorkoutPalette.text_secondary} />
+              <Text 
+                style={[styles.dateText, { color: groupWorkoutPalette.text }]} 
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {formatDate(groupWorkout.scheduled_time)}
+              </Text>
+            </View>
+            
+            {/* Location on the right */}
+            {groupWorkout.gym_details && (
+              <View style={styles.locationContainer}>
+                <Ionicons name="location-outline" size={14} color={groupWorkoutPalette.text_secondary} />
+                <Text 
+                  style={[styles.locationText, { color: groupWorkoutPalette.text_secondary }]} 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {`${groupWorkout.gym_details.name} - ${groupWorkout.gym_details.location}`}
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          {/* Action Buttons and Participants Row */}
+          <View style={styles.actionAndParticipantsRow}>
+            {/* Action buttons or status badge on the left */}
+            <View style={styles.actionButtons}>
+              {!selectionMode && !groupWorkout.is_creator && canParticipate() ? (
+                <>
+                  <TouchableOpacity 
+                    style={[styles.iconButton, { backgroundColor: '#10B981' }]}
+                    onPress={handleParticipatePress}
+                  >
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.iconButton, { backgroundColor: '#EF4444', marginLeft: 8 }]}
+                    onPress={handleParticipatePress}
+                  >
+                    <Ionicons name="close" size={18} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={[
+                  styles.statusBadge,
+                  { 
+                    backgroundColor: groupWorkout.is_creator ? 
+                      'rgba(147, 51, 234, 0.2)' : // Purple for creator
+                      groupWorkout.current_user_status === 'joined' ? 
+                        'rgba(16, 185, 129, 0.2)' : // Green for joined
+                        'rgba(107, 114, 128, 0.2)' // Gray for others
+                  }
+                ]}>
+                  <Text style={[
+                    styles.statusBadgeText,
+                    { 
+                      color: groupWorkout.is_creator ? 
+                        '#9333EA' : // Purple for creator
+                        groupWorkout.current_user_status === 'joined' ? 
+                          '#10B981' : // Green for joined
+                          '#6B7280' // Gray for others
+                    }
+                  ]}>
+                    {groupWorkout.is_creator ? 
+                      t('creator') : 
+                      groupWorkout.current_user_status === 'joined' ? 
+                        t('accepted') : 
+                        groupWorkout.current_user_status === 'declined' ? 
+                          t('declined') :
+                          groupWorkout.current_user_status === 'invited' ?
+                            t('invited') :
+                            t('not_joined')}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Participants on the right */}
+            <View style={styles.participantsDisplay}>
+              {isLoadingParticipants ? (
+                <ActivityIndicator size="small" color={groupWorkoutPalette.text_secondary} />
+              ) : displayParticipants.length > 0 ? (
+                <>
+                  {displayParticipants.map((participant, index) => (
+                    <View key={`participant-${index}`} style={[
+                      styles.avatarContainer,
+                      { right: index * 20 } // Overlapping from right to left
+                    ]}>
+                      <Image
+                        source={{ uri: getAvatarUrl(participant.user_details.avatar) }}
+                        style={styles.avatar}
+                      />
+                      <View style={[
+                        styles.avatarOverlay, 
+                        getParticipantOverlayColor(participant.status)
+                      ]} />
+                    </View>
+                  ))}
+                  
+                  {/* More indicator if needed */}
+                  {(allParticipants.length > maxDisplayAvatars) && (
+                    <View style={[
+                      styles.moreAvatarsContainer,
+                      { right: (maxDisplayAvatars - 1) * 20 + 10 }
+                    ]}>
+                      <Text style={styles.moreAvatarsText}>+{allParticipants.length - maxDisplayAvatars}</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <Text style={[styles.noParticipantsText, { color: groupWorkoutPalette.text_secondary }]}>
+                  {t('no_participants')}
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -562,35 +582,11 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 16,
   },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  eventBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  eventBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  privacyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  privacyBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   countdownContainer: {
     flexDirection: 'column',
@@ -599,14 +595,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
-  },
-  countdownIcon: {
-    marginBottom: 2,
-  },
-  countdownTime: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 1,
   },
   countdownText: {
     fontSize: 10,
@@ -621,71 +609,88 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  dateRow: {
+  // New combined date and location row
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 8,
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
   },
-  locationRow: {
+  locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 0,
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   locationText: {
     fontSize: 14,
     marginLeft: 6,
   },
-  creatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  creatorText: {
-    fontSize: 14,
-    marginLeft: 6,
-  },
-  participantsContainer: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  avatarsContainer: {
+  // New action and participants row
+  actionAndParticipantsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  confirmedAvatarsRow: {
-    flex: 1,
-    height: 40,
-    position: 'relative',
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  pendingAvatarsRow: {
-    flex: 1,
-    height: 40,
-    position: 'relative',
+  iconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  participantsDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: 'rgba(107, 114, 128, 0.2)',
-    marginHorizontal: 10,
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  participantsDisplay: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    height: 34,
+    position: 'relative',
+    flex: 1,
   },
   avatarContainer: {
     position: 'absolute',
-    borderRadius: 25,
+    borderRadius: 17,
     borderWidth: 0,
     borderColor: 'white',
-    height: 50,
-    width: 50,
+    height: 34,
+    width: 34,
     overflow: 'hidden',
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   avatarOverlay: {
     position: 'absolute',
@@ -693,65 +698,35 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 25,
+    borderRadius: 17,
   },
   confirmedOverlay: {
-    // backgroundColor: 'rgba(16, 185, 129, 0.3)', // Green overlay for confirmed
-    borderWidth: 4,
-    borderColor: 'rgba(16, 185, 129, 0.5)',
+    borderWidth: 2,
+    borderColor: 'rgba(16, 185, 129, 0.7)', // Green for confirmed
   },
   pendingOverlay: {
-    // backgroundColor: 'rgba(245, 158, 11, 0.3)', // Orange overlay for pending
-    borderWidth: 4,
-    borderColor: 'rgba(245, 158, 11, 0.5)',
+    borderWidth: 2,
+    borderColor: 'rgba(245, 158, 11, 0.7)', // Orange for pending
   },
   moreAvatarsContainer: {
     position: 'absolute',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(107, 114, 128, 0.7)', // Gray background
     borderWidth: 2,
     borderColor: 'white',
   },
-  confirmedMoreContainer: {
-    backgroundColor: 'rgba(16, 185, 129, 0.7)', // Green for confirmed
-  },
-  pendingMoreContainer: {
-    backgroundColor: 'rgba(245, 158, 11, 0.7)', // Orange for pending
-  },
   moreAvatarsText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
-  noAvatarsPlaceholder: {
-    height: 40,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 5,
-  },
-  spacer: {
-    flex: 1,
-  },
-  participateButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  participateText: {
-    fontSize: 14,
-    fontWeight: '700',
+  noParticipantsText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   // Selection mode styles
   selectionIndicator: {

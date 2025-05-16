@@ -37,5 +37,7 @@ urlpatterns = [
     path('logs/<int:log_id>/details/', get_workout_log_details, name='workout-log-details'),
     path('group-workouts/<int:pk>/messages/', GroupWorkoutViewSet.as_view({'get': 'messages'}), name='group-workout-messages'),
     path('group-workouts/<int:pk>/join-requests/', GroupWorkoutViewSet.as_view({'get': 'join_requests'}), name='group-workout-join-requests'),
-
+    path('group-workouts/<int:pk>/participants/', 
+     GroupWorkoutViewSet.as_view({'get': 'participants'}), 
+     name='group-workout-participants'),
 ]

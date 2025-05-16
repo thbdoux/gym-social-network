@@ -40,6 +40,7 @@ interface FeedContainerProps {
   onDelete?: (postId: number) => void;
   onProgramSelect?: (program: any) => void;
   onWorkoutLogSelect?: (workoutLog: any) => void;
+  onGroupWorkoutSelect?: (groupWorkoutId: number) => void;
   onForkProgram?: (programId: number) => Promise<any>;
   onProfileClick?: (userId: number) => void;
   onNavigateToProfile?: (userId: number) => void;
@@ -61,6 +62,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   onDelete,
   onProgramSelect,
   onWorkoutLogSelect,
+  onGroupWorkoutSelect,
   onForkProgram,
   onProfileClick,
   onNavigateToProfile,
@@ -240,6 +242,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           userData={usersData[item.user_username]}
           onProgramClick={onProgramSelect}
           onWorkoutLogClick={onWorkoutLogSelect}
+          onGroupWorkoutClick= {onGroupWorkoutSelect}
           onForkProgram={onForkProgram}
           onProfileClick={onProfileClick}
           onNavigateToProfile={onNavigateToProfile}
