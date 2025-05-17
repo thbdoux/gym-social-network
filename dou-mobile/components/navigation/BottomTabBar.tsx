@@ -101,6 +101,7 @@ const TabIcon: React.FC<TabIconProps> = ({
 
 const FabButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
   const { palette } = useTheme();
+  const styles = themedStyles(palette);
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   
@@ -186,18 +187,13 @@ const BottomTabBar: React.FC = () => {
           />
           
           <TabIcon
-            name="notifications"
-            active={pathname === '/notifications'}
-            onPress={() => navigateTo('/notifications')}
-            showBadge={hasUnreadNotifications}
-            badgeCount={unreadCount}
-          />
-          
-          <TabIcon
             name="barbell-sharp"
             active={pathname === '/workouts'}
             onPress={() => navigateTo('/workouts')}
           />
+          
+          {/* Add FabButton in the middle */}
+          <FabButton onPress={() => navigateTo('/realtime-workout')} />
           
           {/* Analytics Tab */}
           <TabIcon
@@ -304,13 +300,16 @@ const themedStyles = createThemedStyles((palette) => ({
     textAlign: 'center',
   },
   
-  // Rest of the styles remain the same
+  // FAB Button styles
   fabButtonContainer: {
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     padding: 2,
+    position: 'relative',
+    marginBottom: Platform.OS === 'ios' ? 12 : 0, // Raise the button slightly
+    transform: [{ translateY: -20 }], // Move the button up for better visibility
   },
   fabButton: {
     width: '100%',
