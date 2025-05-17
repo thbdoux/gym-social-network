@@ -13,6 +13,7 @@ import {
   StatusBar,
   RefreshControl,
   Alert,
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
@@ -42,6 +43,8 @@ export default function ProfilePreviewPage() {
   const userId = typeof id === 'string' ? parseInt(id) : 0;
   const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const [imageModalVisible, setImageModalVisible] = useState(false);
   
   // Fetch current user data for friend check - added refetch function
   const { 
@@ -434,6 +437,30 @@ export default function ProfilePreviewPage() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: userPalette.page_background }]}>
       <StatusBar barStyle="light-content" />
+
+        {/* Image Modal */}
+        <Modal
+          visible={imageModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setImageModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setImageModalVisible(false)}
+              >
+                <Ionicons name="close-circle" size={30} color={userPalette.text} />
+              </TouchableOpacity>
+              <Image
+                source={{ uri: getAvatarUrl(userData?.avatar, 300) }}
+                style={[styles.modalImage, { borderColor: userPalette.highlight }]}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </Modal>
       
       {isLoading && !refreshing ? (
         <View style={[styles.loadingContainer, { backgroundColor: userPalette.page_background }]}>
@@ -469,22 +496,25 @@ export default function ProfilePreviewPage() {
             
             <View style={styles.profileHeaderContent}>
               {/* Left side - Profile picture */}
-              <View style={styles.profileImageContainer}>
-                <LinearGradient
-                  colors={getPersonalityGradient()}
-                  style={styles.profileGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={[styles.profileImageInner, { backgroundColor: userPalette.page_background }]}>
-                    <Image
-                      source={{ uri: getAvatarUrl(userData?.avatar, 80) }}
-                      style={styles.profileImage}
-                    />
-                  </View>
-                </LinearGradient>
-                <View style={[styles.onlineIndicator, { borderColor: userPalette.page_background }]}></View>
-              </View>
+              <TouchableOpacity 
+      style={styles.profileImageContainer}
+      onPress={() => setImageModalVisible(true)}
+    >
+      <LinearGradient
+        colors={getPersonalityGradient()}
+        style={styles.profileGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={[styles.profileImageInner, { backgroundColor: userPalette.page_background }]}>
+          <Image
+            source={{ uri: getAvatarUrl(userData?.avatar, 80) }}
+            style={styles.profileImage}
+          />
+        </View>
+      </LinearGradient>
+      <View style={[styles.onlineIndicator, { borderColor: userPalette.page_background }]}></View>
+    </TouchableOpacity>
               
               {/* Right side - Profile info and stats */}
               <View style={styles.profileRightContent}>
@@ -1130,4 +1160,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginVertical: 16,
   },
+  // Add these styles to the existing StyleSheet.create({...}) call
+modalOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: 20,
+},
+modalContent: {
+  width: '100%',
+  alignItems: 'center',
+  position: 'relative',
+},
+modalImage: {
+  width: 300,
+  height: 300,
+  borderRadius: 20,
+  borderWidth: 3,
+},
+closeButton: {
+  position: 'absolute',
+  top: -20,
+  right: 20,
+  zIndex: 10,
+},
 });

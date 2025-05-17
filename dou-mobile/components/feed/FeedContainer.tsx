@@ -33,7 +33,9 @@ interface Post {
 }
 
 interface FeedContainerProps {
-  onLike: (postId: number) => void;
+  onLike: (postId: number, isLiked: boolean) => void;
+  onReact: (postId: number, reactionType: string) => void;
+  onUnreact: (postId: number) => void;
   onComment: (postId: number, content: string) => void;
   onShare: (postId: number, content: string) => void;
   onEdit?: (post: any, newContent: string) => void;
@@ -56,6 +58,8 @@ interface FeedContainerProps {
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
   onLike,
+  onReact,
+  onUnreact,
   onComment,
   onShare,
   onEdit,
@@ -235,6 +239,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           post={item}
           currentUser={currentUser}
           onLike={onLike}
+          onReact={onReact}
+          onUnreact={onUnreact}
           onComment={onComment}
           onShare={onShare}
           onEdit={onEdit}
@@ -242,7 +248,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
           userData={usersData[item.user_username]}
           onProgramClick={onProgramSelect}
           onWorkoutLogClick={onWorkoutLogSelect}
-          onGroupWorkoutClick= {onGroupWorkoutSelect}
+          onGroupWorkoutClick={onGroupWorkoutSelect}
           onForkProgram={onForkProgram}
           onProfileClick={onProfileClick}
           onNavigateToProfile={onNavigateToProfile}

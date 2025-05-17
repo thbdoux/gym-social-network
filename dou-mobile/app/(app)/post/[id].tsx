@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  StatusBar,
+  Platform
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,10 +22,12 @@ import {
   useCommentOnPost, 
   useSharePost, 
   useDeletePost,
-  useUpdatePost
+  useUpdatePost,
+  useReactToPost,
+  useUnreactToPost
 } from '../../../hooks/query/usePostQuery';
 import { useLanguage } from '../../../context/LanguageContext';
-import { useTheme } from '../../../context/ThemeContext'; // Add theme context
+import { useTheme } from '../../../context/ThemeContext';
 import ProfilePreviewModal from '../../../components/profile/ProfilePreviewModal';
 
 export default function PostDetailScreen() {
@@ -53,6 +57,9 @@ export default function PostDetailScreen() {
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: updatePost } = useUpdatePost();
+  // Add the reaction mutations
+  const { mutateAsync: reactToPost } = useReactToPost();
+  const { mutateAsync: unreactToPost } = useUnreactToPost();
 
   const handleGoBack = () => {
     router.back();
@@ -121,6 +128,7 @@ export default function PostDetailScreen() {
   const handleLike = async (postId: number, isLiked: boolean) => {
     try {
       await likePost({ postId, isLiked });
+      refetch(); // Refresh post data
     } catch (err) {
       console.error('Error liking post:', err);
       Alert.alert('Error', 'Failed to like post');
@@ -171,6 +179,35 @@ export default function PostDetailScreen() {
       Alert.alert('Error', 'Failed to edit post');
     }
   };
+  
+  // Add handle react to post function
+  const handleReactToPost = async (postId: number, reactionType: string) => {
+    try {
+      await reactToPost({ 
+        postId, 
+        reactionType,
+        userId: user?.id // Make sure to pass the current user ID
+      });
+      refetch(); // Refresh post data
+    } catch (err) {
+      console.error('Error reacting to post:', err);
+      Alert.alert('Error', 'Failed to react to post');
+    }
+  };
+  
+  // Add handle unreact function
+  const handleUnreactToPost = async (postId: number) => {
+    try {
+      await unreactToPost({ 
+        postId,
+        userId: user?.id // Make sure to pass the current user ID
+      });
+      refetch(); // Refresh post data
+    } catch (err) {
+      console.error('Error removing reaction from post:', err);
+      Alert.alert('Error', 'Failed to remove reaction');
+    }
+  };
 
   // Create dynamic styles based on theme
   const dynamicStyles = {
@@ -178,7 +215,8 @@ export default function PostDetailScreen() {
       backgroundColor: palette.page_background
     },
     header: {
-      borderBottomColor: palette.border
+      borderBottomColor: palette.border,
+      backgroundColor: palette.page_background
     },
     headerTitle: {
       color: palette.text
@@ -206,6 +244,7 @@ export default function PostDetailScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.loadingContainer, dynamicStyles.loadingContainer]}>
+        <StatusBar barStyle="light-content" />
         <ActivityIndicator size="large" color={palette.highlight} />
         <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Loading post...</Text>
       </SafeAreaView>
@@ -215,6 +254,7 @@ export default function PostDetailScreen() {
   if (error || !post) {
     return (
       <SafeAreaView style={[styles.errorContainer, dynamicStyles.errorContainer]}>
+        <StatusBar barStyle="light-content" />
         <Text style={styles.errorTitle}>Error</Text>
         <Text style={[styles.errorText, dynamicStyles.errorText]}>Post not found</Text>
         <TouchableOpacity 
@@ -229,6 +269,7 @@ export default function PostDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <StatusBar barStyle="light-content" />
       <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -243,6 +284,7 @@ export default function PostDetailScreen() {
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
       >
         {/* Use your existing Post component with a detailMode flag */}
         <Post
@@ -250,6 +292,8 @@ export default function PostDetailScreen() {
           currentUser={currentUser}
           userData={user}
           onLike={handleLike}
+          onReact={handleReactToPost}
+          onUnreact={handleUnreactToPost}
           onComment={handleComment}
           onShare={handleShare}
           onEdit={handleEditPost}
@@ -278,15 +322,16 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
     // Background color now comes from theme
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 0,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderBottomWidth: 0,
+    borderBottomWidth: 0.5,
     // Border color now comes from theme
   },
   headerTitle: {

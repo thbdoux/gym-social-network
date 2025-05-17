@@ -16,6 +16,9 @@ interface Post {
   comments_count: number;
   is_liked: boolean;
   comments?: Comment[];
+  reactions?: PostReaction[];
+  reactions_count?: number;
+  user_reaction?: string;
   [key: string]: any;
 }
 
@@ -23,12 +26,35 @@ interface Comment {
   id: number;
   content: string;
   created_at: string;
-  author: {
-    id: number;
-    username: string;
-    profile_picture?: string;
-  };
+  updated_at: string;
+  user_username: string;
+  user_id: number;
+  user_profile_picture?: string;
+  reactions_count: number;
+  reactions: CommentReaction[];
+  replies: Comment[];
+  replies_count: number;
+  mentioned_users: { id: number; username: string }[];
+  is_edited: boolean;
+  parent?: number;
 }
+
+interface CommentReaction {
+  id: number;
+  reaction_type: string;
+  user_username: string;
+  user_id: number;
+  created_at: string;
+}
+
+interface PostReaction {
+  id: number;
+  reaction_type: string;
+  user_username: string;
+  user_id: number;
+  created_at: string;
+}
+
 interface Liker {
   id: number;
   username: string;
@@ -85,11 +111,72 @@ const postService = {
     return response.data;
   },
 
-  commentOnPost: async (id: number, content: string): Promise<Comment> => {
-    const response = await apiClient.post(`/posts/${id}/comment/`, { content });
+  // Add or update a reaction to a post
+  reactToPost: async (id: number, reactionType: string): Promise<PostReaction> => {
+    const response = await apiClient.post(`/posts/${id}/react/`, { 
+      reaction_type: reactionType 
+    });
+    return response.data;
+  },
+  
+  // Remove a reaction from a post
+  unreactToPost: async (id: number): Promise<void> => {
+    await apiClient.delete(`/posts/${id}/unreact/`);
+  },
+
+  // Get all reactions for a post
+  getPostReactions: async (id: number): Promise<PostReaction[]> => {
+    const response = await apiClient.get(`/posts/${id}/reactions/`);
     return response.data;
   },
 
+  commentOnPost: async (id: number, content: string, parent_id?: number): Promise<Comment> => {
+    const response = await apiClient.post(`/posts/${id}/comment/`, { 
+      content,
+      parent_id
+    });
+    return response.data;
+  },
+  // Get all comments for a post
+  getPostComments: async (id: number): Promise<Comment[]> => {
+    const response = await apiClient.get(`/posts/${id}/comments/`);
+    return response.data;
+  },
+  // Update the edit comment method
+  editComment: async (postId: number, commentId: number, content: string): Promise<Comment> => {
+    // Ensure we're using the correct URL pattern
+    const response = await apiClient.put(`/posts/${postId}/comments/${commentId}/`, {
+      content
+    });
+    return response.data;
+  },
+
+  // Update the delete comment method
+  deleteComment: async (postId: number, commentId: number): Promise<void> => {
+    // Ensure we're using the correct URL pattern
+    await apiClient.delete(`/posts/${postId}/comments/${commentId}/`);
+  },
+  // Add or update a reaction to a comment
+  reactToComment: async (postId: number, commentId: number, reactionType: string): Promise<CommentReaction> => {
+    const response = await apiClient.post(`/posts/${postId}/comments/${commentId}/react/`, { 
+      reaction_type: reactionType 
+    });
+    return response.data;
+  },
+  
+  // Remove a reaction from a comment
+  unreactToComment: async (postId: number, commentId: number): Promise<void> => {
+    await apiClient.delete(`/posts/${postId}/comments/${commentId}/unreact/`);
+  },
+  
+  // Reply to a comment
+  replyToComment: async (postId: number, commentId: number, content: string): Promise<Comment> => {
+    // Use the correct URL pattern for nested resources
+    const response = await apiClient.post(`/posts/${postId}/comments/${commentId}/reply/`, {
+      content
+    });
+    return response.data;
+  },
   sharePost: async (id: number, content: string = ''): Promise<Post> => {
     const response = await apiClient.post(`/posts/${id}/share/`, { content });
     return response.data;

@@ -25,7 +25,14 @@ import FabMenu from '../../components/feed/FabMenu';
 import SidebarButton from '../../components/navigation/SidebarButton';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import FeedViewSelector, { FEED_VIEW_TYPES } from '../../components/feed/FeedViewSelector';
-import { useLikePost, useCommentOnPost, useSharePost, useDeletePost } from '../../hooks/query/usePostQuery';
+import { 
+  useLikePost, 
+  useCommentOnPost, 
+  useSharePost, 
+  useDeletePost,
+  useReactToPost,  // Import reaction hooks
+  useUnreactToPost 
+} from '../../hooks/query/usePostQuery';
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
 import { imageManager, useImagePreloading } from '../../utils/imageManager';
@@ -76,6 +83,9 @@ export default function FeedScreen() {
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: forkProgram } = useForkProgram();
+  // Add reaction mutations
+  const { mutateAsync: reactToPost } = useReactToPost();
+  const { mutateAsync: unreactToPost } = useUnreactToPost();
 
   const changeView = (viewType: string) => {
     setCurrentFeedView(viewType);
@@ -128,6 +138,32 @@ export default function FeedScreen() {
     } catch (err) {
       console.error('Error liking post:', err);
       Alert.alert('Error', 'Failed to like post');
+    }
+  };
+  
+  // Add handler functions for reactions
+  const handleReactToPost = async (postId: number, reactionType: string) => {
+    try {
+      await reactToPost({ 
+        postId, 
+        reactionType,
+        userId: user?.id // Make sure to pass the current user ID if needed
+      });
+    } catch (err) {
+      console.error('Error reacting to post:', err);
+      Alert.alert('Error', 'Failed to react to post');
+    }
+  };
+  
+  const handleUnreactToPost = async (postId: number) => {
+    try {
+      await unreactToPost({ 
+        postId,
+        userId: user?.id // Make sure to pass the current user ID if needed
+      });
+    } catch (err) {
+      console.error('Error removing reaction from post:', err);
+      Alert.alert('Error', 'Failed to remove reaction');
     }
   };
   
@@ -344,6 +380,8 @@ export default function FeedScreen() {
           ) : (
             <FeedContainer
               onLike={handleLike}
+              onReact={handleReactToPost} // Pass the reaction handlers
+              onUnreact={handleUnreactToPost}
               onComment={handleComment}
               onShare={handleShare}
               onDelete={handleDeletePost}
