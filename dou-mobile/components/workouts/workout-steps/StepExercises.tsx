@@ -19,7 +19,7 @@ import {
 import { useLanguage } from '../../../context/LanguageContext';
 import { WorkoutTemplateFormData, Exercise, ExerciseSet } from '../WorkoutTemplateWizard';
 import { Ionicons } from '@expo/vector-icons';
-import { EXERCISE_CATEGORIES, getAllExercises, searchExercises } from '../data/exerciseData';
+import { EXERCISE_CATEGORIES, getAllExercises, searchExercises, getExerciseName  } from '../data/exerciseData';
 
 type StepExercisesProps = {
   formData: WorkoutTemplateFormData;
@@ -35,7 +35,7 @@ const DEFAULT_SET: ExerciseSet = {
 };
 
 const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -93,10 +93,10 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
   
   // Filter exercises based on search term
   const filteredExercises = searchTerm.length > 0
-    ? searchExercises(searchTerm)
-    : selectedCategory 
-      ? EXERCISE_CATEGORIES.find(cat => cat.id === selectedCategory)?.exercises || []
-      : getAllExercises();
+  ? searchExercises(searchTerm, language)  // Add language parameter
+  : selectedCategory 
+    ? EXERCISE_CATEGORIES.find(cat => cat.id === selectedCategory)?.exercises || []
+    : getAllExercises();
   
   // Reset edit state when modal is opened for new exercise
   useEffect(() => {
@@ -798,9 +798,9 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.exerciseItemModal}
-                  onPress={() => handleSelectExercise(item.name)}
+                  onPress={() => handleSelectExercise(getExerciseName(item, language))}
                 >
-                  <Text style={styles.exerciseItemText}>{item.name}</Text>
+                  <Text style={styles.exerciseItemText}>{getExerciseName(item, language)}</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
               )}

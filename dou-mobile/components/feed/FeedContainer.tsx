@@ -18,6 +18,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext'; 
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 import { FEED_VIEW_TYPES } from './FeedViewSelector';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface Post {
   id: number;
@@ -83,6 +84,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   const currentUser = user?.username || '';
   const { palette } = useTheme();
   const styles = themedStyles(palette);
+  const { t } = useLanguage();
   
   // Use React Query hooks
   const { 
@@ -211,11 +213,11 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
             : ListHeaderComponent
         )}
         <View style={[styles.emptyContainer, { backgroundColor: palette.page_background }]}>
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>No posts yet</Text>
+          <Text style={[styles.emptyTitle, { color: palette.text }]}>{t("no_post_yet")}</Text>
           <Text style={[styles.emptyText, { color: palette.border }]}>
             {filterMode === FEED_VIEW_TYPES.FRIENDS 
-              ? "Connect with friends or create your first post!" 
-              : "There are no posts to discover yet. Be the first to post!"}
+              ? t('no_post_yet_description')
+              : t('no_post_yet_description_2')}
           </Text>
         </View>
       </>

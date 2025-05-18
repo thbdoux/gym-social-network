@@ -71,7 +71,6 @@ const Step1GenderSelection: React.FC<Step1GenderSelectionProps> = ({ onComplete,
       ]}
     >
       <Text style={styles.title}>{t('gender_title')}</Text>
-      <Text style={styles.subtitle}>{t('gender_subtitle')}</Text>
       
       <View style={styles.optionsContainer}>
         {/* Male option */}

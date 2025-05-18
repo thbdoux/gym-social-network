@@ -182,14 +182,6 @@ const Step3MotivationCheck: React.FC<Step3MotivationCheckProps> = ({ onComplete,
         })}
       </View>
       
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>
-          {selectedMotivations.length > 0 
-            ? t('motivation_selected', { count: selectedMotivations.length })
-            : t('motivation_none_required')}
-        </Text>
-      </View>
-      
       <TouchableOpacity
         style={styles.continueButton}
         onPress={handleContinue}

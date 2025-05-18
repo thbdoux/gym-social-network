@@ -259,7 +259,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
                 
         {/* Main content */}
         <View style={styles.cardContent}>
-          {/* Top row with workout log badge and fork button */}
+          {/* Top row with workout log badge and fork button
           <View style={styles.badgeActionRow}>
             {!isOwner && !selectionMode && (
               <TouchableOpacity 
@@ -272,7 +272,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
                 </Text>
               </TouchableOpacity>
             )}
-          </View>
+          </View> */}
           
           {/* Title and completed/pending status container */}
           <View style={styles.titleStatusContainer}>

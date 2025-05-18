@@ -6,10 +6,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Easing
+  Easing,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../../context/LanguageContext';
+import { imageManager, useImagePreloading } from '../../../utils/imageManager';
 
 type ScoreType = {
   optimizer: number;
@@ -31,6 +33,9 @@ interface Step4ScenarioResponseProps {
   initialScores?: ScoreType;
 }
 
+// Register the scenario image
+imageManager.registerLocalImage('scenarios', 'gym_confusion', require('../../../assets/images/wizard_scenario.png'));
+
 const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplete, initialScores }) => {
   const { t } = useLanguage();
   const [selectedResponse, setSelectedResponse] = useState<number | null>(null);
@@ -39,7 +44,10 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   
-  // Define responses
+  // Preload the scenario images
+  const { isLoaded } = useImagePreloading(['scenarios', 'icons']);
+  
+// Define responses
   const scenarioResponses: ScenarioResponseType[] = [
     {
       id: 'ignore',
@@ -151,7 +159,7 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
       <Text style={styles.title}>{t('scenario_title')}</Text>
       <Text style={styles.subtitle}>{t('scenario_subtitle')}</Text>
       
-      {/* Animated scenario illustration */}
+      {/* Animated scenario illustration with image placeholder */}
       <Animated.View 
         style={[
           styles.scenarioBox,
@@ -162,41 +170,17 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
           }
         ]}
       >
-        {/* Animated elements */}
-        <View style={styles.scenarioContent}>
-          {/* Person asking for help - appears and bobs */}
-          <Animated.View style={[
-            styles.personContainer,
-            { opacity: animationStage >= 1 ? 1 : 0 }
-          ]}>
-            <Text style={styles.personEmoji}>😵‍💫🏋️‍♂️🥵🏋️‍♂️</Text>
-          </Animated.View>
-          
-          {/* Speech bubble - appears after person */}
-          <Animated.View style={[
-            styles.speechBubble,
-            { 
-              opacity: animationStage >= 2 ? 1 : 0,
-              transform: [{ scale: animationStage >= 2 ? 1 : 0.95 }]
-            }
-          ]}>
-            <View style={styles.speechBubbleArrow} />
-            <Text style={styles.speechText}>
-              {showScenario ? t('scenario_speech_bubble') : '...'}
-            </Text>
-          </Animated.View>
-          
-          {/* Question mark indicator */}
-          <Animated.View style={[
-            styles.questionIndicator,
-            { 
-              opacity: animationStage >= 3 ? 1 : 0,
-              transform: [{ scale: animationStage >= 3 ? 1 : 0.9 }]
-            }
-          ]}>
-            <Text style={styles.questionText}>❓</Text>
-          </Animated.View>
-        </View>
+        {/* Replace emoji and text containers with a single image placeholder */}
+        <Animated.View style={[
+          styles.scenarioImageContainer,
+          { opacity: animationStage >= 1 ? 1 : 0 }
+        ]}>
+          <Image 
+            source={imageManager.getLocalImage('scenarios', 'gym_confusion')} 
+            style={styles.scenarioImage}
+            resizeMode="contain"
+          />
+        </Animated.View>
       </Animated.View>
       
       {/* Scenario description */}
@@ -285,55 +269,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  scenarioContent: {
+  scenarioImageContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
   },
-  personContainer: {
-    alignItems: 'center',
-  },
-  personEmoji: {
-    fontSize: 36,
-  },
-  speechBubble: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    backdropFilter: 'blur(4px)',
-    borderRadius: 12,
-    padding: 10,
-    maxWidth: '80%',
-    marginTop: 12,
-    position: 'relative',
-  },
-  speechBubbleArrow: {
-    position: 'absolute',
-    top: -8,
-    left: '50%',
-    marginLeft: -8,
-    width: 16,
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    transform: [{ rotateZ: '45deg' }],
-  },
-  speechText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  questionIndicator: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  questionText: {
-    fontSize: 20,
+  scenarioImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
   },
   scenarioDescription: {
     backgroundColor: 'rgba(31, 41, 55, 0.4)',

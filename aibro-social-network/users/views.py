@@ -55,7 +55,7 @@ def register_user(request):
         user.save()
         
         # Send verification email
-        send_verification_email(user)
+        # send_verification_email(user)
         
         return Response(
             {"detail": "User registered successfully. Please check your email to verify your account."},

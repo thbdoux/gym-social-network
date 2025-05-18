@@ -356,12 +356,7 @@ const Step2FitnessType: React.FC<Step2FitnessTypeProps> = ({ onComplete, initial
           ))}
         </View>
       )}
-      
-      {/* Available cards */}
-      <Text style={styles.sectionTitle}>
-        {t('available_activities')}:
-      </Text>
-      
+
       <ScrollView 
         style={styles.availableCardsScrollView}
         contentContainerStyle={styles.availableCardsContainer}
@@ -518,7 +513,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   availableCardsScrollView: {
-    maxHeight: 180,
+    maxHeight: 320,
   },
   availableCardsContainer: {
     flexDirection: 'row',

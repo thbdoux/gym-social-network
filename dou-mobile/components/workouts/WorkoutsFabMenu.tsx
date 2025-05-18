@@ -118,13 +118,13 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
             color: '#f97316',
             action: onCreateGroupWorkout
           },
-          {
-            id: 'create_from_template',
-            label: t('from_template'),
-            icon: 'document-text-outline',
-            color: '#f97316',
-            action: onCreateGroupWorkoutFromTemplate
-          }
+          // {
+          //   id: 'create_from_template',
+          //   label: t('from_template'),
+          //   icon: 'document-text-outline',
+          //   color: '#f97316',
+          //   action: onCreateGroupWorkoutFromTemplate
+          // }
         ];
       default:
         return [];

@@ -73,7 +73,7 @@ const Step6IdentityReveal: React.FC<Step6IdentityRevealProps> = ({
     optimizer: {
       icon: 'trending-up',
       secondaryIcon: 'medal',
-      title: 'the_metric_master',
+      title: 'optimizer',
       subtitle: 'optimizer_subtitle',
       description: 'optimizer_description',
       heroGradient: ['rgba(37, 99, 235, 0.2)', 'rgba(6, 182, 212, 0.1)', 'rgba(30, 58, 138, 0.2)'],
@@ -90,14 +90,15 @@ const Step6IdentityReveal: React.FC<Step6IdentityRevealProps> = ({
       ],
       celebMatches: [
         'David Goggins',
-        'Chris Bumstead',
-        'Tia-Clair Toomey'
+        'Cristiano Ronaldo SIUUUUUUU',
+        'Serena Williams',
+        'Thibault Doux'
       ]
     },
     diplomate: {
       icon: 'heart',
       secondaryIcon: 'people',
-      title: 'the_social_butterfly',
+      title: 'diplomate',
       subtitle: 'diplomate_subtitle',
       description: 'diplomate_description',
       heroGradient: ['rgba(219, 39, 119, 0.2)', 'rgba(139, 92, 246, 0.1)', 'rgba(157, 23, 77, 0.2)'],
@@ -113,15 +114,13 @@ const Step6IdentityReveal: React.FC<Step6IdentityRevealProps> = ({
         { name: 'Team Sports', icon: 'trophy', level: 3 },
       ],
       celebMatches: [
-        'Richard Simmons',
-        'Peloton Instructors',
-        'Zumba Enthusiasts'
+        'Djamel Debbouzze'
       ]
     },
     mentor: {
       icon: 'people',
       secondaryIcon: 'trophy',
-      title: 'the_mentor',
+      title: 'mentor',
       subtitle: 'mentor_subtitle',
       description: 'mentor_description',
       heroGradient: ['rgba(16, 185, 129, 0.2)', 'rgba(5, 150, 105, 0.1)', 'rgba(6, 78, 59, 0.2)'],
@@ -137,15 +136,15 @@ const Step6IdentityReveal: React.FC<Step6IdentityRevealProps> = ({
         { name: 'Partner Workouts', icon: 'heart', level: 2 },
       ],
       celebMatches: [
-        'Jillian Michaels',
-        'Tony Horton',
-        'Kayla Itsines'
+        'Nelson Mandela',
+        'Jamy (C pas Sorcier)',
+        "La p'tite voix (C pas Sorcier)"
       ]
     },
     versatile: {
       icon: 'sparkles',
       secondaryIcon: 'flash',
-      title: 'the_explorer',
+      title: 'versatile',
       subtitle: 'versatile_subtitle',
       description: 'versatile_description',
       heroGradient: ['rgba(245, 158, 11, 0.2)', 'rgba(249, 115, 22, 0.1)', 'rgba(146, 64, 14, 0.2)'],
@@ -162,8 +161,8 @@ const Step6IdentityReveal: React.FC<Step6IdentityRevealProps> = ({
       ],
       celebMatches: [
         'Zac Efron',
-        'Bear Grylls',
-        'Alex Honnold'
+        'Natalie Portman',
+        'Emmanuel Macron'
       ]
     }
   };
@@ -459,8 +458,8 @@ const Step6IdentityReveal: React.FC<Step6IdentityRevealProps> = ({
           <View style={[styles.motivationalMessage, { opacity: animationFinished ? 1 : 0 }]}>
             <Text style={styles.motivationalText}>
               {userProfile.gender === 'female' 
-                ? "Ready to shine! Let your fitness journey empower you to discover new strengths and connect with an amazing community." 
-                : "Time to crush your goals! Your fitness journey is about to take off with a community that matches your energy."}
+                ? t('female_finish_motivation')
+                : t('male_finish_motivation')}
             </Text>
           </View>
         )}
