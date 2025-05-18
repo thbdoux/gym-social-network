@@ -171,7 +171,7 @@ export default function FeedScreen() {
         {/* Header */}
         <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
           <View style={styles.headerContent}>
-            <SidebarButton />
+            {/* <SidebarButton /> */}
             <HeaderLogoWithSVG />
               <TouchableOpacity style={styles.headerIconTouchable} onPress={() => router.push('/notifications')}>
                 <Ionicons name="notifications-outline" size={26} color={palette.text} />

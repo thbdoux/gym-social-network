@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  FlatList,
   Modal,
   Alert,
   Switch,
@@ -19,7 +18,7 @@ import {
 import { useLanguage } from '../../../context/LanguageContext';
 import { WorkoutTemplateFormData, Exercise, ExerciseSet } from '../WorkoutTemplateWizard';
 import { Ionicons } from '@expo/vector-icons';
-import { EXERCISE_CATEGORIES, getAllExercises, searchExercises, getExerciseName  } from '../data/exerciseData';
+import ExerciseSelector from '../ExerciseSelector';
 
 type StepExercisesProps = {
   formData: WorkoutTemplateFormData;
@@ -39,23 +38,27 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
+  // State for the exercise selector modal
+  const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
+  
   const [editExerciseIndex, setEditExerciseIndex] = useState<number | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  
   const [currentExerciseName, setCurrentExerciseName] = useState('');
   const [currentExerciseSets, setCurrentExerciseSets] = useState<ExerciseSet[]>([{...DEFAULT_SET}]);
   const [currentExerciseNotes, setCurrentExerciseNotes] = useState('');
   const [draggedExerciseIndex, setDraggedExerciseIndex] = useState<number | null>(null);
   const [restTimeEnabled, setRestTimeEnabled] = useState(true);
   
-  // New state variables for supersets
+  // Superset state variables
   const [pairingMode, setPairingMode] = useState<boolean>(false);
   const [pairingSourceIndex, setPairingSourceIndex] = useState<number | null>(null);
   const [currentExerciseIsSuperset, setCurrentExerciseIsSuperset] = useState(false);
   const [currentSupersetRestTime, setCurrentSupersetRestTime] = useState(90);
   const [currentSupersetWithExercise, setCurrentSupersetWithExercise] = useState<number | null>(null);
+  
+  // Recently used exercises for the selector component
+  const [recentExercises, setRecentExercises] = useState<string[]>([]);
   
   // Pan responder for drag and drop functionality
   const pan = useRef(new Animated.ValueXY()).current;
@@ -91,16 +94,9 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
     })
   ).current;
   
-  // Filter exercises based on search term
-  const filteredExercises = searchTerm.length > 0
-  ? searchExercises(searchTerm, language)  // Add language parameter
-  : selectedCategory 
-    ? EXERCISE_CATEGORIES.find(cat => cat.id === selectedCategory)?.exercises || []
-    : getAllExercises();
-  
   // Reset edit state when modal is opened for new exercise
   useEffect(() => {
-    if (editExerciseIndex === null && exerciseModalVisible) {
+    if (editExerciseIndex === null && exerciseSelectorVisible) {
       setCurrentExerciseName('');
       setCurrentExerciseSets([{...DEFAULT_SET}]);
       setCurrentExerciseNotes('');
@@ -109,7 +105,7 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
       setCurrentSupersetWithExercise(null);
       setCurrentSupersetRestTime(90);
     }
-  }, [exerciseModalVisible, editExerciseIndex]);
+  }, [exerciseSelectorVisible, editExerciseIndex]);
   
   // Update current exercise info when editing
   useEffect(() => {
@@ -153,17 +149,29 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
     };
   }, []);
 
-  // Handle adding a new exercise
+  // Handle adding a new exercise - open the exercise selector
   const handleAddExercise = () => {
     setEditExerciseIndex(null);
-    setExerciseModalVisible(true);
+    setExerciseSelectorVisible(true);
   };
   
-  // Handle selecting an exercise from the list
+  // Handle selecting an exercise from the ExerciseSelector
   const handleSelectExercise = (exerciseName: string) => {
     setCurrentExerciseName(exerciseName);
-    setExerciseModalVisible(false);
+    setExerciseSelectorVisible(false);
     setEditModalVisible(true);
+    
+    // Add to recent exercises if it's an ID-based exercise
+    // In a real implementation, you would store the exercise ID
+    if (exerciseName.startsWith('exercise_')) {
+      const exerciseId = exerciseName.split('_')[1];
+      setRecentExercises(prev => {
+        // Remove if already exists
+        const filtered = prev.filter(id => id !== exerciseId);
+        // Add to beginning (most recent)
+        return [exerciseId, ...filtered].slice(0, 10); // Keep only 10 most recent
+      });
+    }
   };
   
   // Handle adding a set - copies values from previous set
@@ -268,7 +276,6 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
     
     updateFormData({ exercises: updatedExercises });
     setEditModalVisible(false);
-    setSearchTerm('');
   };
   
   // Handle editing an exercise
@@ -709,133 +716,13 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
         <Text style={styles.addButtonText}>{t('add_exercise')}</Text>
       </TouchableOpacity>
       
-      {/* Exercise selection modal */}
-      <Modal
-        visible={exerciseModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setExerciseModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('select_exercise')}</Text>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setExerciseModalVisible(false)}
-              >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            
-            {/* Search bar */}
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={16} color="#9CA3AF" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                placeholder={t('search_exercises')}
-                placeholderTextColor="#9CA3AF"
-                selectionColor="#0ea5e9"
-              />
-              {searchTerm.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearSearchButton}
-                  onPress={() => setSearchTerm('')}
-                >
-                  <Ionicons name="close" size={14} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            {/* Category tabs - Fixed height and proper spacing */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.categoryTabs}
-              contentContainerStyle={styles.categoryTabsContent}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.categoryTab,
-                  selectedCategory === null && styles.categoryTabSelected
-                ]}
-                onPress={() => setSelectedCategory(null)}
-              >
-                <Text style={[
-                  styles.categoryTabText,
-                  selectedCategory === null && styles.categoryTabTextSelected
-                ]}>
-                  {t('all')}
-                </Text>
-              </TouchableOpacity>
-              
-              {EXERCISE_CATEGORIES.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  style={[
-                    styles.categoryTab,
-                    selectedCategory === category.id && styles.categoryTabSelected
-                  ]}
-                  onPress={() => setSelectedCategory(category.id)}
-                >
-                  <Text style={[
-                    styles.categoryTabText,
-                    selectedCategory === category.id && styles.categoryTabTextSelected
-                  ]}>
-                    {t(category.displayNameKey)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            
-            {/* Exercises list */}
-            <FlatList
-              data={filteredExercises}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.exerciseListModal}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.exerciseItemModal}
-                  onPress={() => handleSelectExercise(getExerciseName(item, language))}
-                >
-                  <Text style={styles.exerciseItemText}>{getExerciseName(item, language)}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={() => (
-                <View style={styles.emptySearch}>
-                  <Text style={styles.emptySearchText}>
-                    {searchTerm.length > 0 
-                      ? t('no_matching_exercises') 
-                      : t('no_exercises_in_category')}
-                  </Text>
-                  
-                  {/* Custom exercise button */}
-                  <TouchableOpacity
-                    style={styles.customExerciseButton}
-                    onPress={() => {
-                      if (searchTerm.length > 0) {
-                        handleSelectExercise(searchTerm);
-                      } else {
-                        Alert.alert(t('enter_exercise_name'), t('enter_custom_exercise_name'));
-                      }
-                    }}
-                  >
-                    <Ionicons name="add" size={16} color="#0ea5e9" />
-                    <Text style={styles.customExerciseText}>
-                      {searchTerm.length > 0 
-                        ? t('add_custom_exercise_with_name', { name: searchTerm }) 
-                        : t('add_custom_exercise')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+      {/* ExerciseSelector Modal */}
+      <ExerciseSelector
+        visible={exerciseSelectorVisible}
+        onClose={() => setExerciseSelectorVisible(false)}
+        onSelectExercise={handleSelectExercise}
+        recentExercises={recentExercises}
+      />
       
       {/* Exercise edit modal */}
       <Modal
@@ -1324,103 +1211,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   
-  // Search styles
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    borderRadius: 8,
-    margin: 16,
-    paddingHorizontal: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  clearSearchButton: {
-    padding: 4,
-  },
-  
-  // Category tabs - fixed size to avoid sizing issues
-  categoryTabs: {
-    height: 50, // Fixed height to avoid layout jumps
-    marginBottom: 10,
-  },
-  categoryTabsContent: {
-    paddingHorizontal: 16,
-    alignItems: 'center', // Ensure proper alignment
-  },
-  categoryTab: {
-    paddingHorizontal: 16, // More padding horizontal for text
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#1F2937',
-    marginRight: 8,
-    height: 36, // Fixed height
-    justifyContent: 'center', // Center text
-  },
-  categoryTabSelected: {
-    backgroundColor: '#0284c7',
-    height: 36, // Keep same height when selected
-  },
-  categoryTabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#E5E7EB',
-    textAlign: 'center', // Center text
-  },
-  categoryTabTextSelected: {
-    color: '#FFFFFF',
-  },
-  
-  // Exercise list in modal
-  exerciseListModal: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
-  exerciseItemModal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  exerciseItemText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  emptySearch: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptySearchText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  customExerciseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  customExerciseText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0ea5e9',
-    marginLeft: 8,
-  },
-  
-  // Edit exercise modal
+  // Edit modal styles
   editModalScroll: {
     flex: 1,
   },

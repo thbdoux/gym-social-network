@@ -15,6 +15,9 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    language_settings : 'Language Settings',
+    edit_language: "Edit Language",
+    updating_language: "Updating Language",
     discover: "Discover",
     language: 'Language',
     loading: 'Loading...',
@@ -70,6 +73,9 @@ const common = {
     'or_continue_with': "or continue with",
   },
   fr: {
+    language_settings : 'Paramètres de langue',
+    edit_language: "Changer la langue",
+    updating_language: "Modification de la langue",
     discover:'Découvrir',
     language: 'Langue',
     loading: 'Chargement...',

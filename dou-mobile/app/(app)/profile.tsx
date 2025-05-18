@@ -168,7 +168,11 @@ export default function ProfileScreen() {
   };
   
   const navigateToPosts = () => {
-    router.push('/posts');
+    // router.push('/posts');
+  };
+  const navigateToLanguageSettings = () => {
+    setOptionsModalVisible(false);
+    router.push('/language-settings');
   };
   
   const navigateToWorkouts = () => {
@@ -302,6 +306,12 @@ export default function ProfileScreen() {
               <Ionicons name="create-outline" size={24} color={palette.text} />
               <Text style={[styles.optionText, { color: palette.text }]}>{t('edit_profile')}</Text>
             </TouchableOpacity>
+            {/* New Language Option */}
+      <View style={[styles.optionDivider, { backgroundColor: palette.border }]} />
+      <TouchableOpacity style={styles.optionItem} onPress={navigateToLanguageSettings}>
+        <Ionicons name="language-outline" size={24} color={palette.text} />
+        <Text style={[styles.optionText, { color: palette.text }]}>{t('edit_language')}</Text>
+      </TouchableOpacity>
             <View style={[styles.optionDivider, { backgroundColor: palette.border }]} />
             <TouchableOpacity style={styles.optionItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={24} color="#ef4444" />
