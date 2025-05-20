@@ -7,11 +7,12 @@ class Post(models.Model):
         ('workout_log', 'Workout Log Share'),
         ('program', 'Program Share'),
         ('workout_invite', 'Workout Invitation'),
+        ('group_workout', 'Group Workout Invitation'),
         ('shared', 'Shared Post')
     ]
     
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='posts')
-    content = models.TextField()
+    content = models.TextField(blank=True)
     image = models.ImageField(upload_to='post_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -20,6 +21,8 @@ class Post(models.Model):
                                   null=True, blank=True, related_name='posts')
     program = models.ForeignKey('workouts.Program', on_delete=models.CASCADE,
                               null=True, blank=True, related_name='posts')
+    group_workout = models.ForeignKey('workouts.GroupWorkout', on_delete=models.CASCADE,
+                                null=True, blank=True, related_name='posts')
     workout_instance = models.ForeignKey('workouts.WorkoutInstance', on_delete=models.CASCADE,
                                        null=True, blank=True, related_name='invites')
     planned_date = models.DateTimeField(null=True, blank=True)
@@ -39,17 +42,66 @@ class Post(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s {self.post_type} post - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+class PostReaction(models.Model):
+    REACTION_TYPES = [
+        ('like', '👍'),
+        ('love', '❤️'),
+        ('laugh', '😂'),
+        ('wow', '😮'),
+        ('sad', '😢'),
+        ('angry', '😡')
+    ]
+    
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reactions')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    reaction_type = models.CharField(max_length=10, choices=REACTION_TYPES, default='like')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['post', 'user']  # One reaction type per user per post
+
+    def __str__(self):
+        return f"{self.get_reaction_type_display()} by {self.user.username} on post {self.post.id}"
+
 class Comment(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey('users.User', on_delete=models.CASCADE)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # New fields for reply functionality
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    mentioned_users = models.ManyToManyField('users.User', related_name='comment_mentions', blank=True)
     
     class Meta:
-        ordering = ['created_at']
+        ordering = ['-created_at']  # Changed to show newest first
 
     def __str__(self):
         return f"Comment by {self.user.username} on {self.post}"
+
+class CommentReaction(models.Model):
+    REACTION_TYPES = [
+        ('like', '👍'),
+        ('love', '❤️'),
+        ('laugh', '😂'),
+        ('wow', '😮'),
+        ('sad', '😢'),
+        ('angry', '😡')
+    ]
+    
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='reactions')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    reaction_type = models.CharField(max_length=10, choices=REACTION_TYPES, default='like')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['comment', 'user']  # One reaction type per user per comment
+
+    def __str__(self):
+        return f"{self.get_reaction_type_display()} by {self.user.username} on comment {self.comment.id}"
+
 
 class Like(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='likes')

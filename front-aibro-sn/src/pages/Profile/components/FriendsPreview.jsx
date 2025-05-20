@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Users, ArrowRight, UserPlus } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import ProfilePreviewModal from './ProfilePreviewModal';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const FriendsPreview = ({ 
   friends = [], 
@@ -9,6 +10,8 @@ const FriendsPreview = ({
   maxDisplay = 5, 
   showPersonalityType = false
 }) => {
+  const { t } = useLanguage();
+  
   // State for profile preview modal
   const [selectedUser, setSelectedUser] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -39,11 +42,12 @@ const FriendsPreview = ({
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-base font-semibold flex items-center gap-1.5 text-gray-900 dark:text-white">
               <Users className="w-4 h-4 text-blue-500" />
-              <span>Friends</span>
+              <span>{t('friends')}</span>
             </h2>
             <button 
               onClick={onViewAllClick}
               className="text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+              aria-label={t('add_friend')}
             >
               <UserPlus className="w-4 h-4" />
             </button>
@@ -80,12 +84,12 @@ const FriendsPreview = ({
             ) : (
               <div className="text-center py-4">
                 <Users className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No friends yet</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">{t('no_friends')}</p>
                 <button 
                   onClick={onViewAllClick}
                   className="mt-3 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs transition-colors"
                 >
-                  Find Friends
+                  {t('find_friends')}
                 </button>
               </div>
             )}
@@ -95,7 +99,7 @@ const FriendsPreview = ({
                 onClick={onViewAllClick}
                 className="w-full text-center py-1.5 mt-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200 text-xs flex items-center justify-center gap-1 text-gray-600 dark:text-gray-300"
               >
-                <span>See all {friends.length} friends</span>
+                <span>{t('see_all_friends', { count: friends.length })}</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             )}

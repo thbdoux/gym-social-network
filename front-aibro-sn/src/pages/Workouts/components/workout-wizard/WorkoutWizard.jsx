@@ -9,7 +9,10 @@ import NotesStep from './steps/NotesStep';
 import ReviewStep from './steps/ReviewStep';
 import ProgramSelectionStep from './steps/ProgramSelectionStep';
 import { POST_TYPE_COLORS } from '../../../../utils/postTypeUtils';
-import { useWorkoutPlans } from '../../hooks/useWorkoutPlans';
+import { useLanguage } from '../../../../context/LanguageContext';
+
+// Import React Query hooks
+import { usePrograms } from '../../../../hooks/query/useProgramQuery';
 
 // Initialize form data with defaults or existing data
 const initializeFormData = (log) => {
@@ -104,20 +107,25 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
   const [errors, setErrors] = useState({});
   const colors = POST_TYPE_COLORS.workout_log;
   const contentRef = useRef(null);
+  const { t } = useLanguage();
   
-  // Use the workout plans hook to fetch programs
-  const { workoutPlans, loading: programsLoading, error: programsError } = useWorkoutPlans();
+  // Use React Query hook for programs
+  const { 
+    data: workoutPlans = [], 
+    isLoading: programsLoading, 
+    error: programsError 
+  } = usePrograms();
 
   // Define steps in the wizard
   const steps = [
-    { name: "Type", component: WorkoutTypeStep },
-    { name: "Program", component: ProgramSelectionStep }, // New program selection step
-    { name: "Date", component: DateSelectionStep },
-    { name: "Location", component: GymLocationStep },
-    { name: "Mood", component: MoodDifficultyStep },
-    { name: "Exercises", component: ExercisesStep },
-    { name: "Notes", component: NotesStep },
-    { name: "Review", component: ReviewStep }
+    { name: t("wizard_step_type"), component: WorkoutTypeStep },
+    { name: t("wizard_step_program"), component: ProgramSelectionStep },
+    { name: t("wizard_step_date"), component: DateSelectionStep },
+    { name: t("wizard_step_location"), component: GymLocationStep },
+    { name: t("wizard_step_mood"), component: MoodDifficultyStep },
+    { name: t("wizard_step_exercises"), component: ExercisesStep },
+    { name: t("wizard_step_notes"), component: NotesStep },
+    { name: t("wizard_step_review"), component: ReviewStep }
   ];
 
   // Update form data when props change
@@ -144,12 +152,12 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
     switch(currentStep) {
       case 0: // Workout Type
         if (!formData.name.trim()) {
-          newErrors.name = "Please choose or enter a workout name";
+          newErrors.name = t("error_workout_name_required");
         }
         break;
       case 5: // Exercises
         if (formData.exercises.length === 0) {
-          newErrors.exercises = "Add at least one exercise";
+          newErrors.exercises = t("error_add_exercises");
         }
         break;
     }
@@ -188,7 +196,7 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
           <div className="flex justify-between items-center px-6 py-4">
             <div className="flex items-center">
               <h2 className="text-xl font-bold text-white mr-4">
-                {log ? 'Edit Workout' : 'Log Your Workout'}
+                {log ? t("edit_workout") : t("log_workout")}
               </h2>
               <div className="flex items-center h-8">
                 {steps.map((step, index) => (
@@ -250,7 +258,7 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
           {/* Current step title */}
           <div className="px-6 py-2 bg-gray-800/40">
             <p className="text-sm text-gray-400">
-              Step {currentStep + 1}: <span className="text-white font-medium">{steps[currentStep].name}</span>
+              {t("step")} {currentStep + 1}: <span className="text-white font-medium">{steps[currentStep].name}</span>
             </p>
           </div>
         </div>
@@ -279,7 +287,7 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
             onClick={currentStep === 0 ? onClose : goToPrevStep}
             className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
           >
-            {currentStep === 0 ? 'Cancel' : 'Back'}
+            {currentStep === 0 ? t("cancel") : t("back")}
           </button>
           
           {currentStep < steps.length - 1 ? (
@@ -288,7 +296,7 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
               onClick={goToNextStep}
               className={`px-6 py-2 ${colors.bg} ${colors.hoverBg} rounded-lg transition-colors font-medium text-sm`}
             >
-              Next
+              {t("next")}
             </button>
           ) : (
             <button
@@ -296,7 +304,7 @@ const WorkoutWizard = ({ log = null, onSubmit, onClose, programs = [] }) => {
               onClick={handleSubmit}
               className={`px-6 py-2 ${colors.bg} ${colors.hoverBg} rounded-lg transition-colors font-medium text-sm`}
             >
-              Save
+              {t("save")}
             </button>
           )}
         </div>

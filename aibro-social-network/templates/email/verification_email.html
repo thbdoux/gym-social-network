@@ -1,0 +1,30 @@
+<!-- templates/email/verification_email.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #3B82F6; color: white; padding: 15px; text-align: center; }
+        .content { padding: 20px; background-color: #f9f9f9; }
+        .button { display: inline-block; background-color: #3B82F6; color: white; padding: 10px 20px; 
+                 text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Verify Your Email Address</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{ username }},</p>
+            <p>Thanks for signing up for dou! Please verify your email address by clicking the button below:</p>
+            <p style="text-align: center;">
+                <a href="{{ verification_url }}" class="button">Verify Email</a>
+            </p>
+            <p>If you didn't create an account, you can ignore this email.</p>
+            <p>This link will expire in 24 hours.</p>
+        </div>
+    </div>
+</body>
+</html>

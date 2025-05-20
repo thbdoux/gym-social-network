@@ -1,28 +1,98 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, Users, UserPlus, Search, Eye, 
   Check, CheckCircle, Clock, UserX, AlertCircle,
   Filter, ArrowRight
 } from 'lucide-react';
-import { userService } from '../../../api/services';
 import { getAvatarUrl } from '../../../utils/imageUtils';
 import ProfilePreviewModal from './ProfilePreviewModal';
+import { useLanguage } from '../../../context/LanguageContext';
+
+// Import React Query hooks
+import {
+  useFriends,
+  useFriendRequests,
+  useUsers,
+  useSendFriendRequest,
+  useRespondToFriendRequest,
+  useRemoveFriend
+} from '../../../hooks/query';
 
 const FriendsModal = ({ isOpen, onClose, currentUser }) => {
-  // Core data states
-  const [friends, setFriends] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [recommendedUsers, setRecommendedUsers] = useState([]);
+  const { t } = useLanguage();
   
   // UI states
   const [activeTab, setActiveTab] = useState('friends');
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionInProgress, setActionInProgress] = useState(null);
   
   // Profile preview modal state
   const [selectedUser, setSelectedUser] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // Data fetching with React Query
+  const { 
+    data: friends = [], 
+    isLoading: friendsLoading,
+    refetch: refetchFriends
+  } = useFriends({
+    enabled: isOpen,
+    // Ensure we're always getting fresh data when the modal opens
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
+  });
+  
+  const { 
+    data: requests = [], 
+    isLoading: requestsLoading,
+    refetch: refetchRequests
+  } = useFriendRequests({
+    enabled: isOpen,
+    // Ensure we're always getting fresh data when the modal opens
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
+  });
+  
+  const { 
+    data: allUsers = [], 
+    isLoading: usersLoading 
+  } = useUsers({
+    enabled: isOpen && activeTab === 'discover',
+    // Ensure we're always getting fresh data when the modal opens
+    refetchOnMount: true
+  });
+  
+  // Mutations for friend actions
+  const sendFriendRequestMutation = useSendFriendRequest();
+  const respondToFriendRequestMutation = useRespondToFriendRequest();
+  const removeFriendMutation = useRemoveFriend();
+  
+  // Effect to refresh data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      refetchFriends();
+      refetchRequests();
+    }
+  }, [isOpen, refetchFriends, refetchRequests]);
+  
+  // Combined loading state
+  const loading = 
+    friendsLoading || 
+    requestsLoading || 
+    (activeTab === 'discover' && usersLoading);
+  
+  // Determine if any action is in progress for specific user
+  const isActionInProgress = (userId) => {
+    return (
+      sendFriendRequestMutation.isLoading && 
+        sendFriendRequestMutation.variables === userId
+    ) || (
+      respondToFriendRequestMutation.isLoading && 
+        respondToFriendRequestMutation.variables?.userId === userId
+    ) || (
+      removeFriendMutation.isLoading && 
+        removeFriendMutation.variables === userId
+    );
+  };
 
   // Format text utility
   const formatText = (text) => {
@@ -30,102 +100,99 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
     return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  // Fetch friend data
-  const fetchFriendData = useCallback(async () => {
-    if (!isOpen || !currentUser) return;
-    
-    try {
-      setLoading(true);
-      
-      // Fetch data in parallel
-      const [friendsResponse, requestsResponse, usersResponse] = await Promise.all([
-        userService.getFriends(),
-        userService.getFriendRequests(),
-        userService.getAllUsers()
-      ]);
-
-      // Process friends
-      const friendsList = Array.isArray(friendsResponse) ? friendsResponse : [];
-      setFriends(friendsList);
-      
-      // Process requests
-      const requestsList = Array.isArray(requestsResponse) 
-        ? requestsResponse.filter(req => req.status === 'pending') 
-        : [];
-      setRequests(requestsList);
-      
-      // Process recommended users
-      const allUsers = Array.isArray(usersResponse) ? usersResponse : [];
-      const currentUserId = currentUser?.id;
-      
-      if (currentUserId) {
-        // Create sets for faster lookup
-        const friendIds = new Set(friendsList.map(f => f.friend?.id));
-        
-        const pendingSentIds = new Set(
-          requestsList
-            .filter(req => req.from_user.id === currentUserId)
-            .map(req => req.to_user.id)
-        );
-        
-        const pendingReceivedIds = new Set(
-          requestsList
-            .filter(req => req.to_user.id === currentUserId)
-            .map(req => req.from_user.id)
-        );
-        
-        // Filter recommended users
-        const recommended = allUsers.filter(user => 
-          user.id !== currentUserId && 
-          !friendIds.has(user.id) && 
-          !pendingSentIds.has(user.id) && 
-          !pendingReceivedIds.has(user.id)
-        );
-        
-        setRecommendedUsers(recommended);
+  // Process users for the discover tab
+// In the discover tab, we should see ALL users that are not already friends with the current user
+// and that don't have a pending request in either direction
+const getRecommendedUsers = () => {
+  if (!currentUser?.id || !Array.isArray(allUsers) || !Array.isArray(friends) || !Array.isArray(requests)) {
+    return [];
+  }
+  
+  const currentUserId = currentUser.id;
+  
+  // Create sets for faster lookup
+  // Friends are users that have an accepted friendship with the current user
+  const friendIds = new Set(friends.map(f => f.friend?.id));
+  
+  // Create a set of all user IDs that have pending requests in either direction
+  const pendingRequestUserIds = new Set();
+  
+  // Add all users involved in requests with the current user
+  requests.forEach(req => {
+    if (req.status === 'pending') {
+      if (req.from_user.id === currentUserId) {
+        pendingRequestUserIds.add(req.to_user.id);
+      } else if (req.to_user.id === currentUserId) {
+        pendingRequestUserIds.add(req.from_user.id);
       }
-    } catch (error) {
-      console.error('Error fetching friend data:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [isOpen, currentUser]);
+  });
+  
+  // Filter users:
+  // 1. Not the current user
+  // 2. Not already friends with the current user
+  // 3. No pending request in either direction
+  return allUsers.filter(user => 
+    user.id !== currentUserId && 
+    !friendIds.has(user.id) && 
+    !pendingRequestUserIds.has(user.id)
+  );
+};
+  
+  const recommendedUsers = getRecommendedUsers();
 
-  // Load data when modal opens
-  useEffect(() => {
-    fetchFriendData();
-  }, [fetchFriendData]);
-
-  // Friend request actions
+  // Friend request actions with optimistic updates
   const handleFriendAction = async (actionType, userId) => {
-    if (actionInProgress) return;
-    
     try {
-      setActionInProgress(userId);
-      
       switch (actionType) {
         case 'send':
-          await userService.sendFriendRequest(userId);
+          await sendFriendRequestMutation.mutateAsync(userId, {
+            onSuccess: () => {
+              // Force refetch both friends and requests to ensure UI consistency
+              refetchFriends();
+              refetchRequests();
+            }
+          });
           break;
         case 'accept':
         case 'reject':
         case 'cancel':
-          await userService.respondToFriendRequest(userId, actionType);
+          await respondToFriendRequestMutation.mutateAsync({ 
+            userId, 
+            response: actionType 
+          }, {
+            onSuccess: () => {
+              // Force refetch both friends and requests to ensure UI consistency
+              refetchFriends();
+              refetchRequests();
+            }
+          });
           break;
         case 'remove':
-          await userService.removeFriend(userId);
+          await removeFriendMutation.mutateAsync(userId, {
+            onSuccess: () => {
+              // Force refetch friends to ensure UI consistency
+              refetchFriends();
+            }
+          });
           break;
         default:
           console.warn(`Unknown action type: ${actionType}`);
           return;
       }
       
-      // Refresh data after action completes
-      await fetchFriendData();
+      // Switch to appropriate tab after action
+      if (actionType === 'accept') {
+        setActiveTab('friends');
+      } else if (actionType === 'send') {
+        setActiveTab('requests');
+      } else if (actionType === 'reject' || actionType === 'cancel') {
+        // Refresh the friends and requests data to ensure UI consistency
+        refetchFriends();
+        refetchRequests();
+      }
     } catch (error) {
       console.error(`Error with friend action ${actionType}:`, error);
-    } finally {
-      setActionInProgress(null);
     }
   };
   
@@ -151,17 +218,20 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
     );
     
     // Requests tab data
+    // Show all pending requests (both sent and received)
     const receivedRequests = requests.filter(req => 
       req.to_user.id === currentUser?.id &&
+      req.status === 'pending' &&
       req.from_user.username.toLowerCase().includes(query)
     );
     
     const sentRequests = requests.filter(req => 
       req.from_user.id === currentUser?.id &&
+      req.status === 'pending' &&
       req.to_user.username.toLowerCase().includes(query)
     );
     
-    // Discover tab data
+    // Discover tab data - All users who are not friends and don't have pending requests
     const filteredRecommendations = recommendedUsers.filter(user => 
       user.username.toLowerCase().includes(query)
     );
@@ -181,6 +251,13 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
   const changeTab = (tab) => {
     setActiveTab(tab);
     setSearchQuery(''); // Clear search when changing tabs
+    
+    // Refetch data when changing tabs to ensure fresh data
+    if (tab === 'friends') {
+      refetchFriends();
+    } else if (tab === 'requests') {
+      refetchRequests();
+    }
   };
 
   if (!isOpen) return null;
@@ -195,26 +272,26 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
               {activeTab === 'friends' && (
                 <>
                   <Users className="w-5 h-5 text-blue-400" />
-                  Friends
+                  {t('friends')}
                 </>
               )}
               {activeTab === 'requests' && (
                 <>
                   <Clock className="w-5 h-5 text-yellow-400" />
-                  Friend Requests
+                  {t('friend_requests')}
                 </>
               )}
               {activeTab === 'discover' && (
                 <>
                   <UserPlus className="w-5 h-5 text-green-400" />
-                  Discover Friends
+                  {t('discover_friends')}
                 </>
               )}
             </h2>
             <button 
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full transition-all"
-              aria-label="Close"
+              aria-label={t('close')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -226,9 +303,9 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
               <input
                 type="text"
                 placeholder={
-                  activeTab === 'friends' ? 'Search friends...' : 
-                  activeTab === 'requests' ? 'Search requests...' : 
-                  'Search people...'
+                  activeTab === 'friends' ? t('search_friends') : 
+                  activeTab === 'requests' ? t('search_requests') : 
+                  t('search_people')
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -241,21 +318,21 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
             <div className="flex">
               <TabButton 
                 icon={<Users className="w-4 h-4" />}
-                label="Friends" 
+                label={t('friends')} 
                 count={friends.length}
                 active={activeTab === 'friends'} 
                 onClick={() => changeTab('friends')} 
               />
               <TabButton 
                 icon={<Clock className="w-4 h-4" />}
-                label="Requests" 
-                count={filteredData.received.length}
+                label={t('requests')} 
+                count={filteredData.received.length + filteredData.sent.length}
                 active={activeTab === 'requests'} 
                 onClick={() => changeTab('requests')} 
               />
               <TabButton 
                 icon={<UserPlus className="w-4 h-4" />}
-                label="Discover" 
+                label={t('explore')} 
                 active={activeTab === 'discover'} 
                 onClick={() => changeTab('discover')} 
               />
@@ -267,7 +344,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                <span className="ml-3 text-gray-400">Loading...</span>
+                <span className="ml-3 text-gray-400">{t('loading')}...</span>
               </div>
             ) : (
               <div className="py-4">
@@ -282,19 +359,21 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                             friend={friendData.friend}
                             onViewProfile={() => handleViewProfile(friendData.friend)}
                             onRemoveFriend={() => handleFriendAction('remove', friendData.friend.id)}
-                            isLoading={actionInProgress === friendData.friend.id}
+                            isLoading={isActionInProgress(friendData.friend.id)}
+                            t={t}
                           />
                         ))}
                       </div>
                     ) : (
                       <EmptyState
                         icon={<Users className="w-14 h-14 text-gray-600" />}
-                        message={searchQuery ? "No friends match your search" : "You don't have any friends yet"}
-                        subtext={searchQuery ? "Try a different search term" : "Discover new friends or respond to friend requests"}
+                        message={searchQuery ? t('no_friends_match_search') : t('no_friends')}
+                        subtext={searchQuery ? t('try_different_search') : t('discover_new_friends')}
                         action={searchQuery ? undefined : { 
-                          label: "Find Friends", 
+                          label: t('find_friends'), 
                           onClick: () => changeTab('discover') 
                         }}
+                        t={t}
                       />
                     )}
                   </>
@@ -308,7 +387,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                       <div>
                         <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
                           <AlertCircle className="w-4 h-4 text-yellow-400" />
-                          Received Requests
+                          {t('received_requests')}
                         </h3>
                         <div className="space-y-2">
                           {filteredData.received.map((request) => (
@@ -319,7 +398,8 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                               onViewProfile={() => handleViewProfile(request.from_user)}
                               onAccept={() => handleFriendAction('accept', request.from_user.id)}
                               onReject={() => handleFriendAction('reject', request.from_user.id)}
-                              isLoading={actionInProgress === request.from_user.id}
+                              isLoading={isActionInProgress(request.from_user.id)}
+                              t={t}
                             />
                           ))}
                         </div>
@@ -331,7 +411,7 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                       <div>
                         <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
                           <Clock className="w-4 h-4 text-blue-400" />
-                          Sent Requests
+                          {t('sent_requests')}
                         </h3>
                         <div className="space-y-2">
                           {filteredData.sent.map((request) => (
@@ -341,7 +421,8 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                               type="sent"
                               onViewProfile={() => handleViewProfile(request.to_user)}
                               onCancel={() => handleFriendAction('cancel', request.to_user.id)}
-                              isLoading={actionInProgress === request.to_user.id}
+                              isLoading={isActionInProgress(request.to_user.id)}
+                              t={t}
                             />
                           ))}
                         </div>
@@ -351,12 +432,13 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                     {filteredData.received.length === 0 && filteredData.sent.length === 0 && (
                       <EmptyState
                         icon={<Clock className="w-14 h-14 text-gray-600" />}
-                        message={searchQuery ? "No requests match your search" : "No pending requests"}
-                        subtext={searchQuery ? "Try a different search term" : "Friend requests you send or receive will appear here"}
+                        message={searchQuery ? t('no_requests_match_search') : t('no_pending_requests')}
+                        subtext={searchQuery ? t('try_different_search') : t('friend_requests_will_appear')}
                         action={searchQuery ? undefined : { 
-                          label: "Discover Friends", 
+                          label: t('discover_friends'), 
                           onClick: () => changeTab('discover') 
                         }}
+                        t={t}
                       />
                     )}
                   </div>
@@ -373,15 +455,17 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
                             user={user}
                             onViewProfile={() => handleViewProfile(user)}
                             onAddFriend={() => handleFriendAction('send', user.id)}
-                            isLoading={actionInProgress === user.id}
+                            isLoading={isActionInProgress(user.id)}
+                            t={t}
                           />
                         ))}
                       </div>
                     ) : (
                       <EmptyState
                         icon={<UserPlus className="w-14 h-14 text-gray-600" />}
-                        message={searchQuery ? "No users match your search" : "No recommendations found"}
-                        subtext={searchQuery ? "Try a different search term" : "We couldn't find any users to recommend right now"}
+                        message={searchQuery ? t('no_users_match_search') : t('no_recommendations_found')}
+                        subtext={searchQuery ? t('try_different_search') : t('no_users_to_recommend')}
+                        t={t}
                       />
                     )}
                   </>
@@ -395,21 +479,33 @@ const FriendsModal = ({ isOpen, onClose, currentUser }) => {
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-400">
                 {activeTab === 'friends' && (
-                  <>{friends.length} {friends.length === 1 ? 'friend' : 'friends'}</>
+                  <>{friends.length} {friends.length === 1 ? t('friend') : t('friends')}</>
                 )}
                 {activeTab === 'requests' && (
-                  <>{filteredData.received.length} received, {filteredData.sent.length} sent</>
+                  <>{filteredData.received.length} {t('received')}, {filteredData.sent.length} {t('sent')}</>
                 )}
                 {activeTab === 'discover' && (
-                  <>{filteredData.recommended.length} suggestions</>
+                  <>{filteredData.recommended.length} {t('suggestions')}</>
                 )}
               </div>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
-              >
-                Close
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    // Force data refresh
+                    refetchFriends();
+                    refetchRequests();
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-sm"
+                >
+                  {t('retry')}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
+                >
+                  {t('close')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -454,7 +550,7 @@ const TabButton = ({ icon, label, count, active, onClick }) => (
 );
 
 // Friend card component
-const FriendCard = ({ friend, onViewProfile, onRemoveFriend, isLoading }) => (
+const FriendCard = ({ friend, onViewProfile, onRemoveFriend, isLoading, t }) => (
   <div className="flex items-center gap-3 p-3 bg-gray-800/40 hover:bg-gray-800/60 rounded-lg transition-all duration-200">
     <img
       src={getAvatarUrl(friend.avatar)}
@@ -473,8 +569,8 @@ const FriendCard = ({ friend, onViewProfile, onRemoveFriend, isLoading }) => (
       <button 
         onClick={onViewProfile}
         className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-blue-400"
-        title="View Profile"
-        aria-label="View Profile"
+        title={t('view_profile')}
+        aria-label={t('view_profile')}
       >
         <Eye className="w-4 h-4" />
       </button>
@@ -482,8 +578,8 @@ const FriendCard = ({ friend, onViewProfile, onRemoveFriend, isLoading }) => (
         onClick={onRemoveFriend}
         disabled={isLoading}
         className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-all text-red-400 disabled:opacity-50"
-        title="Remove Friend"
-        aria-label="Remove Friend"
+        title={t('remove_friend')}
+        aria-label={t('remove_friend')}
       >
         {isLoading ? (
           <div className="w-4 h-4 border-2 border-t-transparent border-red-400 rounded-full animate-spin" />
@@ -496,7 +592,7 @@ const FriendCard = ({ friend, onViewProfile, onRemoveFriend, isLoading }) => (
 );
 
 // Request card component
-const RequestCard = ({ user, type, onViewProfile, onAccept, onReject, onCancel, isLoading }) => (
+const RequestCard = ({ user, type, onViewProfile, onAccept, onReject, onCancel, isLoading, t }) => (
   <div className="flex items-center gap-3 p-3 bg-gray-800/40 hover:bg-gray-800/60 rounded-lg transition-all duration-200">
     <img
       src={getAvatarUrl(user.avatar)}
@@ -515,8 +611,8 @@ const RequestCard = ({ user, type, onViewProfile, onAccept, onReject, onCancel, 
       <button 
         onClick={onViewProfile}
         className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-blue-400"
-        title="View Profile"
-        aria-label="View Profile"
+        title={t('view_profile')}
+        aria-label={t('view_profile')}
       >
         <Eye className="w-4 h-4" />
       </button>
@@ -527,8 +623,8 @@ const RequestCard = ({ user, type, onViewProfile, onAccept, onReject, onCancel, 
             onClick={onAccept}
             disabled={isLoading}
             className="p-2 bg-green-500/10 hover:bg-green-500/20 rounded-lg transition-all text-green-400 disabled:opacity-50"
-            title="Accept Request"
-            aria-label="Accept Request"
+            title={t('accept_request')}
+            aria-label={t('accept_request')}
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-t-transparent border-green-400 rounded-full animate-spin" />
@@ -540,8 +636,8 @@ const RequestCard = ({ user, type, onViewProfile, onAccept, onReject, onCancel, 
             onClick={onReject}
             disabled={isLoading}
             className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-all text-red-400 disabled:opacity-50"
-            title="Reject Request"
-            aria-label="Reject Request"
+            title={t('reject_request')}
+            aria-label={t('reject_request')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -550,15 +646,15 @@ const RequestCard = ({ user, type, onViewProfile, onAccept, onReject, onCancel, 
         <div className="flex items-center gap-2">
           <span className="text-xs px-2 py-1 bg-amber-500/10 text-amber-400 rounded-lg flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            Pending
+            {t('pending')}
           </span>
           {onCancel && (
             <button
               onClick={onCancel}
               disabled={isLoading}
               className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-all text-red-400 disabled:opacity-50"
-              title="Cancel Request"
-              aria-label="Cancel Request"
+              title={t('cancel_request')}
+              aria-label={t('cancel_request')}
             >
               {isLoading ? (
                 <div className="w-4 h-4 border-2 border-t-transparent border-red-400 rounded-full animate-spin" />
@@ -574,7 +670,7 @@ const RequestCard = ({ user, type, onViewProfile, onAccept, onReject, onCancel, 
 );
 
 // Discover card component
-const DiscoverCard = ({ user, onViewProfile, onAddFriend, isLoading }) => (
+const DiscoverCard = ({ user, onViewProfile, onAddFriend, isLoading, t }) => (
   <div className="flex items-center gap-3 p-3 bg-gray-800/40 hover:bg-gray-800/60 rounded-lg transition-all duration-200">
     <img
       src={getAvatarUrl(user.avatar)}
@@ -593,8 +689,8 @@ const DiscoverCard = ({ user, onViewProfile, onAddFriend, isLoading }) => (
       <button 
         onClick={onViewProfile}
         className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-all text-blue-400"
-        title="View Profile"
-        aria-label="View Profile"
+        title={t('view_profile')}
+        aria-label={t('view_profile')}
       >
         <Eye className="w-4 h-4" />
       </button>
@@ -602,14 +698,14 @@ const DiscoverCard = ({ user, onViewProfile, onAddFriend, isLoading }) => (
         onClick={onAddFriend}
         disabled={isLoading}
         className="px-3 py-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-all text-green-400 flex items-center gap-1.5 disabled:opacity-50"
-        aria-label="Add Friend"
+        aria-label={t('add_friend')}
       >
         {isLoading ? (
           <div className="w-4 h-4 border-2 border-t-transparent border-green-400 rounded-full animate-spin" />
         ) : (
           <>
             <UserPlus className="w-4 h-4" />
-            <span className="text-sm">Add</span>
+            <span className="text-sm">{t('add')}</span>
           </>
         )}
       </button>
@@ -618,7 +714,7 @@ const DiscoverCard = ({ user, onViewProfile, onAddFriend, isLoading }) => (
 );
 
 // Empty state component
-const EmptyState = ({ icon, message, subtext, action }) => (
+const EmptyState = ({ icon, message, subtext, action, t }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center">
     {icon}
     <p className="text-lg text-gray-300 mt-3">{message}</p>
@@ -639,5 +735,4 @@ const formatText = (text) => {
   if (!text) return '';
   return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 };
-
 export default FriendsModal;

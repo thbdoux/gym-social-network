@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { User, MoreVertical, Heart, MessageCircle, Share2, Send, 
   Trash2, X, Edit, Activity, Users, Dumbbell } from 'lucide-react';
 import { getAvatarUrl } from '../../../utils/imageUtils';
@@ -6,8 +6,13 @@ import { ProgramCard } from '../../Workouts/components/ProgramCard';
 import WorkoutLogCard from '../../Workouts/components/WorkoutLogCard';
 import SharePostModal from './SharePostModal';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
-// Import services
-import { programService, userService, logService } from '../../../api/services';
+import { useLanguage } from '../../../context/LanguageContext';
+import { 
+  useProgram, 
+  useLog, 
+  useUser, 
+  useForkProgram
+} from '../../../hooks/query';
 
 const Post = ({ 
   post, 
@@ -24,42 +29,24 @@ const Post = ({
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
-  const [programData, setProgramData] = useState(null);
   const menuRef = useRef(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-
-  // Fetch program data if this is a program post
-  useEffect(() => {
-    const fetchProgramData = async () => {
-      if (post.post_type === 'program' && !post.program_id && post.program_details) {
-        try {
-          const details = typeof post.program_details === 'string'
-            ? JSON.parse(post.program_details)
-            : post.program_details;
-            
-          if (details && details.id) {
-            post.program_id = details.id;
-            setProgramData(details);
-            return;
-          }
-        } catch (err) {
-          console.error('Error parsing program details:', err);
-        }
-      }
-      
-      if (post.post_type === 'program' && post.program_id && !programData) {
-        try {
-          // Use programService instead of direct API call
-          const programDetails = await programService.getProgramById(post.program_id);
-          setProgramData(programDetails);
-        } catch (err) {
-          console.error('Error fetching program data:', err);
-        }
-      }
-    };
+  const { t } = useLanguage();
   
-    fetchProgramData();
-  }, [post.post_type, post.program_id]);
+  // Use React Query hooks instead of direct API calls
+  const programId = post.post_type === 'program' ? 
+    (post.program_id || (post.program_details && 
+      (typeof post.program_details === 'string' 
+        ? JSON.parse(post.program_details).id 
+        : post.program_details.id))) 
+    : null;
+  
+  const { data: programData } = useProgram(programId, {
+    enabled: !!programId && post.post_type === 'program'
+  });
+  
+  // Fork program mutation
+  const forkProgramMutation = useForkProgram();
 
   const handleShareSuccess = (newSharedPost) => {
     if (onShare) {
@@ -76,8 +63,7 @@ const Post = ({
 
   const handleForkProgram = async (programId) => {
     try {
-      const forkedProgram = await programService.forkProgram(programId);
-      // You could refresh programs list or show notification here
+      const forkedProgram = await forkProgramMutation.mutateAsync(programId);
       return forkedProgram;
     } catch (error) {
       console.error("Error forking program:", error);
@@ -100,11 +86,11 @@ const Post = ({
               className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700/50 flex items-center gap-2 transition-colors"
             >
               <Edit className="w-4 h-4" />
-              Edit Post
+              {t('edit_post')}
             </button>
             <button
               onClick={() => {
-                if (window.confirm('Are you sure you want to delete this post?')) {
+                if (window.confirm(t('confirm_delete_post'))) {
                   onDelete(post.id);
                 }
                 setShowMenu(false);
@@ -112,7 +98,7 @@ const Post = ({
               className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-700/50 flex items-center gap-2 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
-              Delete Post
+              {t('delete_post')}
             </button>
           </>
         )}
@@ -120,73 +106,46 @@ const Post = ({
           onClick={() => setShowMenu(false)}
           className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700/50 transition-colors"
         >
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     );
   };
 
   const SharedPostContent = ({ originalPost, currentUser }) => {
-    const [loading, setLoading] = useState(true);
-    const [workoutLog, setWorkoutLog] = useState(null);
-    const [programData, setProgramData] = useState(null);
-    const [userData, setUserData] = useState(null);
+    // Use React Query for shared post data
+    const { 
+      data: workoutLog, 
+      isLoading: logLoading 
+    } = useLog(
+      originalPost.post_type === 'workout_log' && originalPost.workout_log_details?.id, 
+      { enabled: originalPost.post_type === 'workout_log' && !!originalPost.workout_log_details?.id }
+    );
+    
+    const { 
+      data: sharedProgramData,
+      isLoading: programLoading 
+    } = useProgram(
+      originalPost.post_type === 'program' && 
+        (originalPost.program_id || (originalPost.program_details && 
+          (typeof originalPost.program_details === 'string' 
+            ? JSON.parse(originalPost.program_details).id 
+            : originalPost.program_details.id))),
+      { 
+        enabled: originalPost.post_type === 'program' && 
+          !!(originalPost.program_id || originalPost.program_details) 
+      }
+    );
+    
+    const { 
+      data: userDetails,
+      isLoading: userLoading 
+    } = useUser(
+      userData?.id || originalPost.user_id,
+      { enabled: !!userData?.id || !!originalPost.user_id }
+    );
 
-    // Fetch the full data for workout logs, programs, and user data
-    useEffect(() => {
-      const fetchFullData = async () => {
-        setLoading(true);
-        
-        try {
-          // For workout logs
-          if (originalPost.post_type === 'workout_log' && originalPost.workout_log_details) {
-            const workoutLogId = originalPost.workout_log_details.id;
-            if (workoutLogId) {
-              // Use logService instead of direct API call
-              const logData = await logService.getLogById(workoutLogId);
-              setWorkoutLog(logData);
-            } else if (typeof originalPost.workout_log_details === 'object') {
-              setWorkoutLog(originalPost.workout_log_details);
-            }
-          }
-          
-          // For programs
-          if (originalPost.post_type === 'program' && originalPost.program_details) {
-            const programDetails = typeof originalPost.program_details === 'string'
-              ? JSON.parse(originalPost.program_details)
-              : originalPost.program_details;
-              
-            const programId = programDetails?.id;
-            
-            if (programId) {
-              // Use programService instead of direct API call
-              const program = await programService.getProgramById(programId);
-              setProgramData(program);
-            } else {
-              setProgramData(programDetails);
-            }
-          }
-
-          // Fetch user data to get the avatar
-          try {
-            // Use userService instead of direct API call
-            const allUsers = await userService.getAllUsers();
-            const user = allUsers.find(u => u.username === originalPost.user_username);
-            if (user) {
-              setUserData(user);
-            }
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-          }
-        } catch (error) {
-          console.error("Error fetching full data:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      
-      fetchFullData();
-    }, [originalPost]);
+    const loading = logLoading || programLoading || userLoading;
 
     if (loading) {
       return (
@@ -220,17 +179,27 @@ const Post = ({
       ? getPostTypeDetails(originalPost.post_type) 
       : getPostTypeDetails('regular');
     const postTypeGradient = postTypeDetails.colors.gradient;
-    const postTypeBg = postTypeDetails.colors.bg;
-    const postTypeText = postTypeDetails.colors.text;
+
+    // Determine what program data to use
+    const effectiveProgramData = sharedProgramData || 
+      (typeof originalPost.program_details === 'string' 
+        ? JSON.parse(originalPost.program_details) 
+        : originalPost.program_details);
+
+    // Determine what workout log data to use
+    const effectiveWorkoutLog = workoutLog || 
+      (typeof originalPost.workout_log_details === 'object' 
+        ? originalPost.workout_log_details 
+        : null);
 
     return (
       <div className={`mt-4 bg-gray-800/50 rounded-lg p-4 border ${postTypeDetails.colors.border}`}>
       
       <div className="flex items-center gap-3 mb-2">
         <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${postTypeGradient} flex items-center justify-center overflow-hidden`}>
-          {userData?.avatar ? (
+          {userDetails?.avatar ? (
             <img 
-              src={getAvatarUrl(userData.avatar)}
+              src={getAvatarUrl(userDetails.avatar)}
               alt={originalPost.user_username}
               className="w-full h-full object-cover"
             />
@@ -251,20 +220,20 @@ const Post = ({
         <p className="text-gray-200 mb-3">{originalPost.content}</p>
         
         {/* Use WorkoutLogCard component for workout logs */}
-        {originalPost.post_type === 'workout_log' && originalPost.workout_log_details && workoutLog && (
+        {originalPost.post_type === 'workout_log' && effectiveWorkoutLog && (
           <WorkoutLogCard
             user={currentUser}
             logId={originalPost.workout_log}
-            log={workoutLog}
+            log={effectiveWorkoutLog}
             inFeedMode={true}
           />
         )}
         
         {/* Use ProgramCard component for programs */}
-        {originalPost.post_type === 'program' && (programData) && (
+        {originalPost.post_type === 'program' && effectiveProgramData && (
           <ProgramCard 
             programId={originalPost.program_id || originalPost.program}
-            program={programData}
+            program={effectiveProgramData}
             inFeedMode={true}
             currentUser={currentUser}
             onFork={handleForkProgram}
@@ -275,7 +244,7 @@ const Post = ({
         {originalPost.image && (
           <img
             src={getAvatarUrl(originalPost.image)}
-            alt="Original post content"
+            alt={t('original_post_content')}
             className="mt-3 rounded-lg w-full object-cover"
           />
         )}
@@ -353,7 +322,7 @@ const Post = ({
               </span>
             </button>
             <div className="absolute bottom-full right-0 mb-2 w-48 bg-gray-900 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow">
-              Shared posts cannot be shared again
+              {t('shared_posts_cannot_be_shared')}
             </div>
           </div>
         ) : (
@@ -402,7 +371,7 @@ const Post = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-white">{post.user_username}</h3>
                 {post.is_share && (
-                  <span className="text-gray-400 text-sm">shared a post</span>
+                  <span className="text-gray-400 text-sm">{t('shared_a_post')}</span>
                 )}
                 {post.post_type && (() => {
                   const { Icon: IconName, label, colors } = getPostTypeDetails(post.post_type);
@@ -416,7 +385,7 @@ const Post = ({
                   return (
                     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium ${colors.bg} ${colors.text}`}>
                       <Icon className="w-3 h-3" />
-                      <span>{label}</span>
+                      <span>{t(label.toLowerCase())}</span>
                     </div>
                   );
                 })()}
@@ -442,22 +411,18 @@ const Post = ({
           {post.content && <p className="text-gray-100">{post.content}</p>}
           
           {/* Program Card */}
-          {post.post_type === 'program' && (
+          {post.post_type === 'program' && programData && (
             <div className="mt-3">
-            <ProgramCard
-              programId={post.program_id || (post.program_details && post.program_details.id)}
-              program={
-                typeof post.program_details === 'string' 
-                  ? JSON.parse(post.program_details) 
-                  : post.program_details
-              }
-              onProgramSelect={handleProgramClick}
-              currentUser={currentUser}
-              inFeedMode={true}
-              canManage={false}
-              onFork={handleForkProgram}
-            />
-          </div>
+              <ProgramCard
+                programId={programId}
+                program={programData}
+                onProgramSelect={handleProgramClick}
+                currentUser={currentUser}
+                inFeedMode={true}
+                canManage={false}
+                onFork={handleForkProgram}
+              />
+            </div>
           )}
           
           {/* Workout Log */}
@@ -484,7 +449,7 @@ const Post = ({
           {!post.is_share && post.image && (
             <img
               src={getAvatarUrl(post.image)}
-              alt="Post content"
+              alt={t('post_content')}
               className="mt-3 w-full rounded-lg object-cover"
             />
           )}
@@ -515,7 +480,7 @@ const Post = ({
                 type="text"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Write a comment..."
+                placeholder={t('write_a_comment')}
                 className={`flex-1 bg-gray-800 text-gray-100 rounded-full px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-${ringColor}-500`}
               />
               <button

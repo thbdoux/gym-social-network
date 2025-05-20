@@ -11,6 +11,18 @@ import { extractData } from '../utils/responseParser';
     const response = await apiClient.get('/users/me/');
     return response.data;
   },
+  
+  searchUsers: async (query) => {
+    if (!query || query.length < 2) return [];
+    
+    try {
+      const response = await apiClient.get(`/users/search/?q=${encodeURIComponent(query)}`);
+      return extractData(response);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      return [];
+    }
+  },
 
   getUserById: async (id) => {
     const response = await apiClient.get(`/users/${id}/`);
@@ -35,6 +47,11 @@ import { extractData } from '../utils/responseParser';
     return response.data;
   },
 
+  updateLanguagePreference: async (language) => {
+    const response = await apiClient.post('/users/update-language/', { language });
+    return response.data;
+  },
+  
   followUser: async (userId) => {
     const response = await apiClient.post(`/users/${userId}/follow/`);
     return response.data;

@@ -8,8 +8,14 @@ import {
 import WorkoutLogCard from '../components/WorkoutLogCard';
 import { parseDate } from './ActivityComponents';
 
+// Import Language Context
+import { useLanguage } from '../../../context/LanguageContext';
+
 // Timeline view component
 export const TimelineView = ({ logs, onEditLog, onDeleteLog, user}) => {
+  // Get translation function from language context
+  const { t } = useLanguage();
+  
   // Sort logs chronologically
   const sortedLogs = [...logs].sort((a, b) => {
     return new Date(a.date) - new Date(b.date);
@@ -41,7 +47,7 @@ export const TimelineView = ({ logs, onEditLog, onDeleteLog, user}) => {
             <h3 className="text-xl font-bold text-white flex items-center">
               <span className="bg-blue-500 w-3 h-3 rounded-full mr-3"></span>
               {group.month} {group.year}
-              <span className="ml-2 text-sm text-gray-400">({group.logs.length} workouts)</span>
+              <span className="ml-2 text-sm text-gray-400">({group.logs.length} {t('workouts')})</span>
             </h3>
           </div>
           
@@ -60,7 +66,7 @@ export const TimelineView = ({ logs, onEditLog, onDeleteLog, user}) => {
                   log={log} 
                   onEdit={() => onEditLog(log)} 
                   onDelete={() => onDeleteLog(log)} 
-                  user ={user}
+                  user={user}
                 />
               </div>
             ))}
@@ -70,7 +76,7 @@ export const TimelineView = ({ logs, onEditLog, onDeleteLog, user}) => {
       
       {Object.keys(groupedLogs).length === 0 && (
         <div className="text-center py-12 text-gray-400">
-          No workout logs to display in timeline view.
+          {t('no_logs_in_timeline')}
         </div>
       )}
     </div>
@@ -78,7 +84,10 @@ export const TimelineView = ({ logs, onEditLog, onDeleteLog, user}) => {
 };
 
 // Enhanced calendar component
-export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, onDeleteLog , user }) => {
+export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, onDeleteLog, user }) => {
+  // Get translation function from language context
+  const { t } = useLanguage();
+  
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarDates, setCalendarDates] = useState([]);
   const [workoutsByDate, setWorkoutsByDate] = useState({});
@@ -175,7 +184,7 @@ export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, o
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <CalendarIcon className="w-5 h-5" />
-          <span>Workout Calendar</span>
+          <span>{t('workout_calendar')}</span>
         </h2>
         
         <div className="flex items-center gap-4">
@@ -201,7 +210,7 @@ export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, o
       
       {/* Week day headers */}
       <div className="grid grid-cols-7 gap-1 mb-2">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+        {[t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'), t('sun')].map(day => (
           <div key={day} className="text-center text-sm font-medium text-gray-400 py-2">{day}</div>
         ))}
       </div>
@@ -258,7 +267,7 @@ export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, o
       {selectedDate && workoutsByDate[selectedDate]?.length > 0 && (
         <div className="mt-6 border-t border-gray-700 pt-4">
           <h3 className="text-lg font-medium text-white mb-3">
-            Workouts on {new Date(selectedDate).toLocaleDateString()}
+            {t('workouts_on_date', { date: new Date(selectedDate).toLocaleDateString() })}
           </h3>
           <div className="space-y-3">
             {workoutsByDate[selectedDate].map(log => (
@@ -267,9 +276,9 @@ export const EnhancedCalendar = ({ logs, onDateClick, selectedDate, onEditLog, o
                 log={log} 
                 onEdit={() => onEditLog(log)} 
                 onDelete={() => onDeleteLog(log)} 
-                inFeedMode = {false}
-                expandable = {true}
-                user = {user}
+                inFeedMode={false}
+                expandable={true}
+                user={user}
               />
             ))}
           </div>

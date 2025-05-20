@@ -1,13 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Activity, Search, Share2, X, ChevronDown } from 'lucide-react';
+import React, { useState } from 'react';
+import { Activity, Search, Share2, X } from 'lucide-react';
 import WorkoutLogCard from './../../Workouts/components/WorkoutLogCard';
-import { useWorkoutLogs } from './../../Workouts/hooks/useWorkoutLogs';
+import { useLogs, useCreatePost } from '../../../hooks/query';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const ShareWorkoutLog = ({ onClose, onShare }) => {
   const [selectedLog, setSelectedLog] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [shareComment, setShareComment] = useState('');
-  const { logs, loading } = useWorkoutLogs();
+  const { t } = useLanguage();
+  
+  // Use React Query hooks
+  const { 
+    data: logs = [], 
+    isLoading: logsLoading 
+  } = useLogs();
+  
+  const createPostMutation = useCreatePost();
 
   // Filter logs based on search query
   const filteredLogs = logs.filter(log =>
@@ -19,20 +28,26 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
   const handleShare = () => {
     if (!selectedLog) return;
     
-    // Log the data being shared
-    console.log('Selected workout log:', selectedLog);
-    
     const postData = {
       content: shareComment,
       post_type: 'workout_log',
-      workout_log_id: selectedLog.id  // Changed from workout_log to workout_log_id
+      workout_log_id: selectedLog.id
     };
     
-    console.log('Sending post data:', postData);
-    onShare(postData);
-    onClose();
+    // Use React Query mutation
+    createPostMutation.mutate(postData, {
+      onSuccess: (newPost) => {
+        if (onShare) {
+          onShare(newPost);
+        }
+        onClose();
+      },
+      onError: (error) => {
+        console.error('Error sharing workout log:', error);
+        alert(t('error_share_workout'));
+      }
+    });
   };
-
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -41,7 +56,7 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
         <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Activity className="w-5 h-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">Share Workout</h3>
+            <h3 className="text-lg font-semibold text-white">{t('share_workout')}</h3>
           </div>
           <button
             onClick={onClose}
@@ -57,7 +72,7 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search your workouts..."
+              placeholder={t('search_workouts')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-gray-900 text-gray-100 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -67,10 +82,10 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
 
         {/* Workout List */}
         <div className="max-h-[400px] overflow-y-auto p-6 space-y-4">
-          {loading ? (
-            <div className="text-center text-gray-400">Loading workouts...</div>
+          {logsLoading ? (
+            <div className="text-center text-gray-400">{t('loading_workouts')}</div>
           ) : filteredLogs.length === 0 ? (
-            <div className="text-center text-gray-400">No workouts found</div>
+            <div className="text-center text-gray-400">{t('no_workouts_found')}</div>
           ) : (
             filteredLogs.map((log) => (
               <div
@@ -95,7 +110,7 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
             <textarea
               value={shareComment}
               onChange={(e) => setShareComment(e.target.value)}
-              placeholder="Add a comment about this workout..."
+              placeholder={t('add_workout_comment')}
               className="w-full bg-gray-900 text-gray-100 rounded-lg p-3 min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -108,16 +123,28 @@ const ShareWorkoutLog = ({ onClose, onShare }) => {
             onClick={onClose}
             className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
             onClick={handleShare}
-            disabled={!selectedLog}
+            disabled={!selectedLog || createPostMutation.isPending}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:hover:bg-blue-500 flex items-center gap-2"
           >
-            <Share2 className="w-4 h-4" />
-            Share Workout
+            {createPostMutation.isPending ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{t('sharing')}</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>{t('share_workout')}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 # users/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.crypto import get_random_string
 
 class User(AbstractUser):
     """Extended user model with fitness-specific fields"""
@@ -10,16 +11,22 @@ class User(AbstractUser):
         ('advanced', 'Advanced')
     ]
     PERSONALITY_TYPES = [
-        ('lone_wolf', 'Lone Wolf'),
-        ('extrovert_bro', 'Extrovert Bro'),
-        ('casual', 'Casual'),
-        ('competitor', 'Competitor')
+        ('optimizer', 'Optimizer'),
+        ('diplomate', 'Diplomate'),
+        ('mentor', 'Mentor'),
+        ('versatile', 'Versatile'),
+        ('casual','Casual')
+    ]
+    LANGUAGE_CHOICES = [
+        ('en', 'English'),
+        ('fr', 'French')
     ]
     
     preferred_gym = models.ForeignKey('gyms.Gym', on_delete=models.SET_NULL, 
                                     null=True, related_name='regular_users')
     training_level = models.CharField(max_length=20, choices=TRAINING_LEVELS)
     personality_type = models.CharField(max_length=20, choices=PERSONALITY_TYPES)
+    language_preference = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='en')
     fitness_goals = models.TextField(blank=True)
     friends = models.ManyToManyField('self', through='Friendship',
                                    symmetrical=False)
@@ -28,6 +35,23 @@ class User(AbstractUser):
                                       null=True, related_name='active_users')
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+
+    email_verified = models.BooleanField(default=True) # set to False in the future
+    verification_token = models.CharField(max_length=100, blank=True, null=True)
+    verification_token_created = models.DateTimeField(null=True, blank=True)
+    
+    # Social authentication fields
+    google_id = models.CharField(max_length=100, blank=True, null=True)
+    instagram_id = models.CharField(max_length=100, blank=True, null=True)
+
+    def generate_verification_token(self):
+        """Generate a unique token for email verification"""
+        import datetime
+        self.verification_token = get_random_string(64)
+        self.verification_token_created = datetime.datetime.now()
+        self.save(update_fields=['verification_token', 'verification_token_created'])
+        return self.verification_token
+    
 
 class Friendship(models.Model):
     """Represents a friendship between users"""

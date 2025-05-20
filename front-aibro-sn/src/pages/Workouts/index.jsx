@@ -8,92 +8,87 @@ import {
 } from 'lucide-react';
 import { ProgramCard } from './components/ProgramCard';
 import EmptyState from './components/EmptyState';
-import { useWorkoutPlans } from './hooks/useWorkoutPlans';
-import { useWorkoutTemplates } from './hooks/useWorkoutTemplates';
-import { useWorkoutLogs } from './hooks/useWorkoutLogs';
 import WorkoutLogCard from './components/WorkoutLogCard';
 import WorkoutTimeline from './components/WorkoutTimeline';
 import WorkoutWizard from './components/workout-wizard/WorkoutWizard';
+import ProgramWizard from './components/program-wizard/ProgramWizard';
 import { LogWorkoutModal, WorkoutInstanceSelector } from './components/LogWorkoutModal';
 import { POST_TYPE_COLORS } from './../../utils/postTypeUtils';
 import ShareProgramModal from './components/ShareProgramModal';
 import AllWorkoutLogsView from './views/AllWorkoutLogsView';
-import EnhancedCreatePlanView from './views/EnhancedCreatePlanView';
-import PlanDetailView from './views/PlanDetailView';
-import EnhancedAllWorkoutsView from './views/EnhancedAllWorkoutsView';
-import PlansListView from './views/PlansListView';
+import ProgramDetailView from './views/ProgramDetailView';
+import AllWorkoutsView from './views/AllWorkoutsView';
+import ProgramListView from './views/ProgramListView';
+
+// Import React Query hooks
+import { usePrograms, useProgram, useCreateProgram, useUpdateProgram, useDeleteProgram, 
+  useToggleProgramActive, useAddWorkoutToProgram, useUpdateProgramWorkout, 
+  useRemoveWorkoutFromProgram, useForkProgram } from '../../hooks/query/useProgramQuery';
+import { useCreateWorkoutTemplate, useDeleteWorkoutTemplate, useWorkoutTemplates } from '../../hooks/query/useWorkoutQuery';
+import { useLogs, useCreateLog, useUpdateLog, useDeleteLog } from '../../hooks/query/useLogQuery';
+import { useCurrentUser } from '../../hooks/query/useUserQuery';
+import { useQueryClient } from '@tanstack/react-query';
+
+// Import Language Context
+import { useLanguage } from '../../context/LanguageContext';
+
 // Import centralized API services
 import { programService, logService } from '../../api/services';
 
 const workoutColors = POST_TYPE_COLORS.workout_log;
 
 const WorkoutSpace = () => {
+  const queryClient = useQueryClient();
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [view, setView] = useState('main');
-  const [currentUser, setCurrentUser] = useState(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showProgramWizard, setShowProgramWizard] = useState(false);
   const [programToShare, setProgramToShare] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [programToEdit, setProgramToEdit] = useState(null);
   
-  // Modal state for workout templates and next workouts
-  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
-  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  // Get translation function from language context
+  const { t } = useLanguage();
   
-  // State for workout log modal (past workouts)
-  const [showWorkoutLogModal, setShowWorkoutLogModal] = useState(false);
+  const { data: currentUser } = useCurrentUser();
+  const { data: workoutPlans = [], isLoading: plansLoading, error: plansError, refetch: refreshPlans } = usePrograms();
+  const { data: templates = [], isLoading: templatesLoading, error: templatesError } = useWorkoutTemplates();
+  const { data: logs = [], isLoading: logsLoading, error: logsError, refetch: refreshLogs } = useLogs();
   
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await programService.getCurrentUser();
-        setCurrentUser(response);
-      } catch (err) {
-        console.error('Error fetching current user:', err);
-      }
-    };
-
-    fetchCurrentUser();
-  }, []);
-
-  const {
-    workoutPlans,
-    loading: plansLoading,
-    error: plansError,
-    createPlan,
-    updatePlan,
-    deletePlan,
-    refreshPlans,
-    addWorkoutToPlan,
-    updateWorkoutInstance,
-    removeWorkoutFromPlan
-  } = useWorkoutPlans();
-
-  const {
-    templates,
-    loading: templatesLoading,
-    error: templatesError,
-    createTemplate,
-    updateTemplate,
-    deleteTemplate
-  } = useWorkoutTemplates();
-
-  // Get the active program
   const activeProgram = workoutPlans.find(plan => plan.is_active);
+  
+  const nextWorkout = activeProgram?.workouts?.length
+    ? programService.getNextWorkout(activeProgram)
+    : null;
+  
+  // Mutations
+  const createPlanMutation = useCreateProgram();
+  const updatePlanMutation = useUpdateProgram();
+  const deletePlanMutation = useDeleteProgram();
+  const toggleActiveMutation = useToggleProgramActive();
+  const addWorkoutMutation = useAddWorkoutToProgram();
+  const updateWorkoutMutation = useUpdateProgramWorkout(); 
+  const removeWorkoutMutation = useRemoveWorkoutFromProgram();
+  const createLogMutation = useCreateLog();
+  const updateLogMutation = useUpdateLog();
+  const forkProgramMutation = useForkProgram();
+  const createTemplateMutation = useCreateWorkoutTemplate();
+  const deleteTemplateMutation = useDeleteWorkoutTemplate();
 
-  const {
-    logs,
-    loading: logsLoading,
-    error: logsError,
-    createLog,
-    updateLog,
-    deleteLog,
-    refreshLogs,
-    nextWorkout
-  } = useWorkoutLogs(activeProgram);
+  // Function to handle view changes with proper data refreshing
+  const handleViewChange = (newView) => {
+    // If returning to main view, refresh all relevant data
+    if (newView === 'main') {
+      refreshPlans();
+      refreshLogs();
+      queryClient.invalidateQueries(['users', 'current']);
+    }
+    setView(newView);
+  };
 
   const handlePlanSelect = async (plan) => {
     if (!plan.is_owner && !plan.program_shares?.length && plan.forked_from === null) {
@@ -114,21 +109,39 @@ const WorkoutSpace = () => {
   
   const handleCreatePlan = async (planData) => {
     try {
-      const newPlan = await createPlan(planData);
-      await refreshPlans();
-      setView('main');
+      const newPlan = await createPlanMutation.mutateAsync(planData);
+      setShowProgramWizard(false);
+      if (view === 'plans') {
+        await refreshPlans();
+      } else {
+        handleViewChange('plans');
+      }
       return newPlan;
     } catch (err) {
       console.error('Error creating plan:', err);
       throw err;
     }
   };
+
+  const handleUpdatePlan = async (planData) => {
+    try {
+      await updatePlanMutation.mutateAsync({ 
+        id: programToEdit.id, 
+        updates: planData 
+      });
+      setProgramToEdit(null);
+      await refreshPlans();
+    } catch (err) {
+      console.error('Error updating plan:', err);
+      throw err;
+    }
+  };
   
   const handleAddWorkout = async (planId, templateId, weekday) => {
     try {
-      await addWorkoutToPlan(planId, templateId, weekday);
-      const updatedPlans = await refreshPlans();
-      const updatedPlan = updatedPlans.find(p => p.id === planId);
+      await addWorkoutMutation.mutateAsync({ programId: planId, templateId, weekday });
+      // Fetch updated plan
+      const updatedPlan = await programService.getProgramById(planId);
       if (updatedPlan) {
         setSelectedPlan(updatedPlan);
       }
@@ -143,7 +156,11 @@ const WorkoutSpace = () => {
     
     try {
       setIsTogglingActive(true);
-      await programService.toggleProgramActive(planId);
+      await toggleActiveMutation.mutateAsync(planId);
+      
+      // Ensure all relevant data is refreshed
+      await queryClient.invalidateQueries(['programs']);
+      await queryClient.invalidateQueries(['users', 'current']);
       await refreshPlans();
     } catch (err) {
       console.error('Error toggling plan active status:', err);
@@ -156,16 +173,22 @@ const WorkoutSpace = () => {
     setProgramToShare(program);
     setShowShareModal(true);
   };
+  
+  const handleShareComplete = () => {
+    // Invalidate posts feed to ensure shared program appears
+    queryClient.invalidateQueries(['posts', 'feed']);
+  };
 
   const handleForkProgram = async (program) => {
     try {
-      if (window.confirm(`Do you want to fork "${program.name}" by ${program.creator_username}?`)) {
-        await programService.forkProgram(program.id);
+      if (window.confirm(`${t('fork_confirm_text')} "${program.name}" ${t('by')} ${program.creator_username}?`)) {
+        await forkProgramMutation.mutateAsync(program.id);
+        // Refresh program data after forking
         await refreshPlans();
       }
     } catch (err) {
       console.error('Error forking program:', err);
-      alert('Failed to fork program. Please try again.');
+      alert(t('fork_error'));
     }
   };
 
@@ -209,17 +232,19 @@ const WorkoutSpace = () => {
             }))
           }))
         };
-        await updateLog(selectedLog.id, updateData);
+        await updateLogMutation.mutateAsync({ id: selectedLog.id, logData: updateData });
       } else {
-        await createLog(preparedData);
+        await createLogMutation.mutateAsync(preparedData);
       }
+      
+      // Refresh logs after creating/updating
+      await refreshLogs();
       
       setShowLogForm(false);
       setSelectedLog(null);
-      await refreshLogs();
     } catch (err) {
       console.error('Error saving log:', err);
-      alert(`Error saving workout log: ${err.response?.data?.detail || err.message}`);
+      alert(`${t('error_save_log')}: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -237,7 +262,7 @@ const WorkoutSpace = () => {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
         <AllWorkoutLogsView 
-          onBack={() => setView('main')}
+          onBack={() => handleViewChange('main')}
           activeProgram={activeProgram}
           user={currentUser?.username}
         />
@@ -248,19 +273,31 @@ const WorkoutSpace = () => {
   if (view === 'plans') {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <PlansListView
+        <ProgramListView
           workoutPlans={workoutPlans}
           isLoading={plansLoading}
           onPlanSelect={handlePlanSelect}
-          setView={setView}
+          setView={(newView) => {
+            // When returning to main view, refresh programs data
+            if (newView === 'main') {
+              refreshPlans();
+              refreshLogs();
+              queryClient.invalidateQueries(['users', 'current']);
+            }
+            setView(newView);
+          }}
           user={currentUser}
-          deletePlan={deletePlan}
+          deletePlan={(planId) => deletePlanMutation.mutate(planId)}
           togglePlanActive={handleTogglePlanActive}
           onShareProgram={handleShareProgram}
           onForkProgram={handleForkProgram}
           onEditProgram={(plan) => {
-            setSelectedPlan(plan);
-            setView('plan-detail');
+            setProgramToEdit(plan);
+            setShowProgramWizard(true);
+          }}
+          onCreateProgram={() => {
+            setProgramToEdit(null);
+            setShowProgramWizard(true);
           }}
         />
         
@@ -270,6 +307,22 @@ const WorkoutSpace = () => {
             onClose={() => {
               setShowShareModal(false);
               setProgramToShare(null);
+              
+              // Refresh data when modal closes
+              queryClient.invalidateQueries(['posts', 'feed']);
+            }}
+            onShareComplete={handleShareComplete}
+          />
+        )}
+        
+        {/* Program Creation/Edit Wizard */}
+        {showProgramWizard && (
+          <ProgramWizard
+            program={programToEdit}
+            onSubmit={programToEdit ? handleUpdatePlan : handleCreatePlan}
+            onClose={() => {
+              setShowProgramWizard(false);
+              setProgramToEdit(null);
             }}
           />
         )}
@@ -280,13 +333,13 @@ const WorkoutSpace = () => {
   if (view === 'all-workouts') {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <EnhancedAllWorkoutsView
+        <AllWorkoutsView
           workoutTemplates={templates}
           isLoading={templatesLoading}
-          onCreateTemplate={createTemplate}
-          onUpdateTemplate={updateTemplate}
-          onDeleteTemplate={deleteTemplate}
-          setView={setView}
+          onCreateTemplate={(template) => createTemplateMutation.mutate(template)}
+          onUpdateTemplate={(id, updates) => updateTemplateMutation.mutate({ id, updates })}
+          onDeleteTemplate={(id) => deleteTemplateMutation.mutate(id)}
+          setView={handleViewChange}
         />
       </div>
     );
@@ -296,53 +349,37 @@ const WorkoutSpace = () => {
     if (!selectedPlan) return null;
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8">
-        <PlanDetailView
+        <ProgramDetailView
           plan={workoutPlans.find(p => p.id === selectedPlan.id) || selectedPlan}
           templates={templates.results || templates}
           onBack={() => {
             setSelectedPlan(null);
-            setView('main');
+            handleViewChange('main');
           }}
           onUpdate={async (planId, updates) => {
-            await updatePlan(planId, updates);
-            const updatedPlans = await refreshPlans();
-            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            await updatePlanMutation.mutateAsync({ id: planId, updates });
+            const updatedPlan = await programService.getProgramById(planId);
             if (updatedPlan) {
               setSelectedPlan(updatedPlan);
             }
           }}
-          onDelete={deletePlan}
+          onDelete={(planId) => deletePlanMutation.mutate(planId)}
           onAddWorkout={handleAddWorkout}
           onUpdateWorkout={async (planId, workoutId, updates) => {
-            await updateWorkoutInstance(planId, workoutId, updates);
-            const updatedPlans = await refreshPlans();
-            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            await updateWorkoutMutation.mutateAsync({ programId: planId, workoutId, updates });
+            const updatedPlan = await programService.getProgramById(planId);
             if (updatedPlan) {
               setSelectedPlan(updatedPlan);
             }
           }}
           onRemoveWorkout={async (planId, workoutId) => {
-            await removeWorkoutFromPlan(planId, workoutId);
-            const updatedPlans = await refreshPlans();
-            const updatedPlan = updatedPlans.find(p => p.id === planId);
+            await removeWorkoutMutation.mutateAsync({ programId: planId, workoutId });
+            const updatedPlan = await programService.getProgramById(planId);
             if (updatedPlan) {
               setSelectedPlan(updatedPlan);
             }
           }}
           user={currentUser}
-        />
-      </div>
-    );
-  }
-  
-  if (view === 'create-plan') {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white p-8">
-        <EnhancedCreatePlanView
-          onCreatePlan={handleCreatePlan}
-          onCancel={() => setView('plans')}
-          onError={(error) => console.error('Create plan error:', error)}
-          workoutTemplates={templates}
         />
       </div>
     );
@@ -357,36 +394,36 @@ const WorkoutSpace = () => {
           {/* Left Column: Title and Navigation */}
           <div className="lg:col-span-7">
             <h1 className="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 tracking-tight">
-              Your Fitness Journey
+              {t('your_fitness_journey')}
             </h1>
             
             <p className="mt-4 text-lg text-gray-300 max-w-3xl">
-              Track your progress, create custom workout templates, manage training programs, and log your fitness journey all in one place.
+              {t('fitness_journey_description')}
             </p>
             
             <div className="flex flex-wrap items-center gap-3 mt-6">
               <button 
-                onClick={() => setView('all-workouts')}
+                onClick={() => handleViewChange('all-workouts')}
                 className="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <LayoutGrid className="w-5 h-5 text-white" />
-                <span className="text-white">Templates</span>
+                <span className="text-white">{t('templates')}</span>
               </button>
               
               <button 
-                onClick={() => setView('plans')}
+                onClick={() => handleViewChange('plans')}
                 className="px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <Dumbbell className="w-5 h-5 text-white" />
-                <span className="text-white">Programs</span>
+                <span className="text-white">{t('programs')}</span>
               </button>
               
               <button 
-                onClick={() => setView('logs')}
+                onClick={() => handleViewChange('logs')}
                 className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
               >
                 <Calendar className="w-5 h-5 text-white" />
-                <span className="text-white">Workout History</span>
+                <span className="text-white">{t('workout_history')}</span>
               </button>
             </div>
           </div>
@@ -403,25 +440,28 @@ const WorkoutSpace = () => {
                 currentUser={currentUser?.username}
                 canManage={true}
                 onProgramSelect={handlePlanSelect}
-                onDelete={deletePlan}
+                onDelete={(planId) => deletePlanMutation.mutate(planId)}
                 onToggleActive={handleTogglePlanActive}
                 onShare={handleShareProgram}
                 onFork={handleForkProgram}
                 singleColumn={true}
                 onEdit={(plan) => {
                   setSelectedPlan(plan);
-                  setView('plan-detail');
+                  handleViewChange('plan-detail');
                 }}
                 compact={true}
               />
             ) : (
               <div className="p-4">
                 <EmptyState
-                  title="No active program"
-                  description="Set up a program"
+                  title={t('no_active_program')}
+                  description={t('setup_program_prompt')}
                   action={{
-                    label: 'Browse Programs',
-                    onClick: () => setView('plans')
+                    label: t('create_program'),
+                    onClick: () => {
+                      setProgramToEdit(null);
+                      setShowProgramWizard(true);
+                    }
                   }}
                   compact={true}
                 />
@@ -432,22 +472,21 @@ const WorkoutSpace = () => {
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Use the updated WorkoutTimeline component with separate handlers for logs and upcoming workouts */}
+
         <WorkoutTimeline
           logs={logs}
           nextWorkout={nextWorkout}
           logsLoading={logsLoading}
           plansLoading={plansLoading}
           activeProgram={activeProgram}
-          setSelectedWorkout={handleViewWorkoutLog} // For past logs - sets selectedLog and shows log modal
-          setShowWorkoutModal={setShowWorkoutLogModal} // For past logs - shows the log modal
+          setSelectedWorkout={handleViewWorkoutLog} 
           setSelectedLog={setSelectedLog}
           setShowLogForm={setShowLogForm}
-          handleViewNextWorkout={handleViewNextWorkout} // For upcoming workouts
+          handleViewNextWorkout={handleViewNextWorkout} 
         />
         
         {/* Large centered Log Workout button */}
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center gap-4 mt-8">
           <button
             onClick={() => {
               setSelectedLog(null);
@@ -461,8 +500,26 @@ const WorkoutSpace = () => {
             <div className="bg-white/20 rounded-full p-1 flex items-center justify-center">
               <Plus className="w-6 h-6 text-white" />
             </div>
-            <span className="text-white font-bold text-lg relative z-10">Log Workout</span>
+            <span className="text-white font-bold text-lg relative z-10">{t('log_workout')}</span>
           </button>
+          
+          {!activeProgram && (
+            <button
+              onClick={() => {
+                setProgramToEdit(null);
+                setShowProgramWizard(true);
+              }}
+              className="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl 
+                       hover:from-purple-500 hover:to-indigo-500 transition-all duration-300 
+                       shadow-lg hover:shadow-purple-600/30 flex items-center gap-3 transform hover:scale-105"
+            >
+              <div className="absolute inset-0 bg-white/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="bg-white/20 rounded-full p-1 flex items-center justify-center">
+                <Dumbbell className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-white font-bold text-lg relative z-10">{t('create_program')}</span>
+            </button>
+          )}
         </div>
       </div>
       
@@ -501,7 +558,7 @@ const WorkoutSpace = () => {
           onSelect={(workout) => {
             setShowInstanceSelector(false);
             setSelectedLog({
-              name: workout.name || 'Workout Log',
+              name: workout.name || t('unnamed_workout'),
               based_on_instance: workout.id,
               program: activeProgram.id,
               exercises: workout.exercises?.map(ex => ({
@@ -524,6 +581,22 @@ const WorkoutSpace = () => {
           onClose={() => {
             setShowShareModal(false);
             setProgramToShare(null);
+            
+            // Refresh feed data when modal closes
+            queryClient.invalidateQueries(['posts', 'feed']);
+          }}
+          onShareComplete={handleShareComplete}
+        />
+      )}
+      
+      {/* Program Creation/Edit Wizard */}
+      {showProgramWizard && (
+        <ProgramWizard
+          program={programToEdit}
+          onSubmit={programToEdit ? handleUpdatePlan : handleCreatePlan}
+          onClose={() => {
+            setShowProgramWizard(false);
+            setProgramToEdit(null);
           }}
         />
       )}

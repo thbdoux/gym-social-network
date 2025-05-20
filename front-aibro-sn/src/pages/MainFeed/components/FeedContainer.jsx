@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { userService } from '../../../api/services';
+import React, { useState, useEffect, useMemo } from 'react';
 import Post from './Post';
+import { useFriends, useUsers } from '../../../hooks/query';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const FeedContainer = ({ 
-    posts, 
+    posts = [], 
+    loading = false,
     currentUser, 
     onLike, 
     onComment, 
@@ -13,71 +15,55 @@ const FeedContainer = ({
     onProgramSelect,
     onForkProgram
   }) => {
-    const [usersData, setUsersData] = useState({});
-    const [friendUsernames, setFriendUsernames] = useState(null);
     const [filteredPosts, setFilteredPosts] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { t } = useLanguage();
     
-    // Fetch friends list
-    useEffect(() => {
-      const fetchFriends = async () => {
-        try {
-          // Use userService instead of direct API call
-          const friendsList = await userService.getFriends();
-          
-          // Get list of friend usernames
-          const friendsSet = new Set(friendsList.map(f => f.friend.username));
-          setFriendUsernames(friendsSet);
-        } catch (error) {
-          console.error('Error fetching friends:', error);
-          setFriendUsernames(new Set()); // Set empty set on error
-        }
-      };
-  
-      fetchFriends();
-    }, []);
-  
+    // Use React Query hooks instead of direct API calls
+    const { 
+      data: friendsList = [], 
+      isLoading: friendsLoading 
+    } = useFriends();
+    
+    const { 
+      data: allUsers = [], 
+      isLoading: usersLoading 
+    } = useUsers();
+    
+    // Create a memoized map of user data by username for better performance
+    const usersData = useMemo(() => {
+      const userData = {};
+      if (allUsers && allUsers.length > 0) {
+        allUsers.forEach(user => {
+          if (user.username) {
+            userData[user.username] = user;
+          }
+        });
+      }
+      return userData;
+    }, [allUsers]);
+    
+    // Create a set of friend usernames
+    const friendUsernames = useMemo(() => {
+      if (!friendsList || friendsList.length === 0) return new Set();
+      return new Set(friendsList.map(f => f.friend?.username).filter(Boolean));
+    }, [friendsList]);
+    
     // Filter posts to only show friends' posts and current user's posts
     useEffect(() => {
-      // Only proceed if friendUsernames is not null (indicating friends have been fetched)
-      if (friendUsernames !== null) {
+      if (posts && posts.length > 0 && !friendsLoading) {
         const friendPosts = posts.filter(post => 
           friendUsernames.has(post.user_username) || post.user_username === currentUser
         );
         setFilteredPosts(friendPosts);
-        setLoading(false);
+      } else {
+        setFilteredPosts([]);
       }
-    }, [posts, friendUsernames, currentUser]);
+    }, [posts, friendUsernames, currentUser, friendsLoading]);
   
-    // Fetch user data for posts
-    useEffect(() => {
-      const usernames = [...new Set(filteredPosts.map(post => post.user_username))];
-      
-      const fetchUsersData = async () => {
-        try {
-          // Use userService instead of direct API call
-          const allUsers = await userService.getAllUsers();
-          
-          const newUsersData = {};
-          usernames.forEach(username => {
-            const user = allUsers.find(u => u.username === username);
-            if (user) {
-              newUsersData[username] = user;
-            }
-          });
-          
-          setUsersData(newUsersData);
-        } catch (error) {
-          console.error('Error fetching users data:', error);
-        }
-      };
+    // Determine if we're still loading
+    const isLoading = loading || friendsLoading || usersLoading;
   
-      if (usernames.length > 0) {
-        fetchUsersData();
-      }
-    }, [filteredPosts]);
-  
-    if (loading) {
+    if (isLoading) {
       return (
         <div className="animate-pulse space-y-4">
           {[1, 2, 3].map((i) => (
@@ -103,8 +89,8 @@ const FeedContainer = ({
       <div>
         {filteredPosts.length === 0 ? (
           <div className="bg-gray-900 rounded-lg p-8 text-center">
-            <h3 className="text-xl font-semibold text-white mb-2">No posts yet</h3>
-            <p className="text-gray-400">Connect with friends to see their updates here</p>
+            <h3 className="text-xl font-semibold text-white mb-2">{t('no_posts')}</h3>
+            <p className="text-gray-400">{t('connect_with_friends')}</p>
           </div>
         ) : (
           <div className="space-y-5">

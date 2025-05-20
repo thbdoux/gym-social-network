@@ -143,11 +143,10 @@ class ProgramViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Include both created programs and public programs
-        return Program.objects.filter(
-            Q(creator=self.request.user) |  # Created by user
-            Q(is_public=True)               # Public programs
-        ).prefetch_related(
+        filter_type = self.request.query_params.get('filter', 'all')
+        user_id = self.request.query_params.get('user_id')
+        
+        queryset = Program.objects.prefetch_related(
             'workout_instances',
             'workout_instances__exercises',
             'workout_instances__exercises__sets',
@@ -156,10 +155,57 @@ class ProgramViewSet(viewsets.ModelViewSet):
             likes_count=Count('likes', distinct=True),
             forks_count=Count('forks', distinct=True)
         )
+        
+        # Filter based on the requested filter type
+        if filter_type == 'created':
+            # Programs created by the specified user or current user
+            if user_id:
+                queryset = queryset.filter(creator_id=user_id)
+            else:
+                queryset = queryset.filter(creator=self.request.user)
+                
+        elif filter_type == 'shared':
+            # Programs shared with the current user
+            queryset = queryset.filter(shares__shared_with=self.request.user)
+            
+        elif filter_type == 'public':
+            # Public programs
+            queryset = queryset.filter(is_public=True)
+            
+        elif filter_type == 'all':
+            # Default: Programs created by user + shared with user + public
+            queryset = queryset.filter(
+                Q(creator=self.request.user) | 
+                Q(shares__shared_with=self.request.user) |
+                Q(is_public=True)
+            ).distinct()
+        
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        """Custom retrieve to ensure program active status is accurate"""
+        instance = self.get_object()
+        
+        # If the user is not the creator, ensure is_active is false in the response
+        if instance.creator != request.user and instance.is_active:
+            serializer = self.get_serializer(instance)
+            data = serializer.data
+            data['is_active'] = False
+            return Response(data)
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)
 
+    @action(detail=True, methods=['get'])
+    def shares(self, request, pk=None):
+        program = self.get_object()
+        shares = ProgramShare.objects.filter(program=program)
+        serializer = ProgramShareSerializer(shares, many=True)
+        return Response(serializer.data)
+        
     @action(
         detail=True,
         methods=['get', 'put', 'patch', 'delete'],
@@ -305,6 +351,14 @@ class ProgramViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
         program = self.get_object()
+        
+        # Only allow the creator to toggle active state
+        if program.creator != request.user:
+            return Response(
+                {"detail": "You don't have permission to modify this program."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         new_status = request.data.get('is_active', not program.is_active)
         
         with transaction.atomic():
@@ -337,12 +391,12 @@ class ProgramViewSet(viewsets.ModelViewSet):
             new_program = Program.objects.create(
                 creator=request.user,
                 forked_from=original_program,
-                name=f"Fork of {original_program.name}",
+                name=f"{original_program.name}",
                 description=original_program.description,
                 focus=original_program.focus,
                 sessions_per_week=original_program.sessions_per_week,
                 is_active=False,
-                is_public=False,
+                is_public=True,
                 difficulty_level=original_program.difficulty_level,
                 recommended_level=original_program.recommended_level,
                 required_equipment=original_program.required_equipment,
@@ -439,7 +493,7 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return WorkoutLog.objects.filter(
-            user=self.request.user
+            # user=self.request.user
         ).select_related(
             'program',
             'based_on_instance',
@@ -620,3 +674,80 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.exception(f"Error creating workout log: {str(e)}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Add these imports if not present
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_workouts_count(request):
+    """Get the count of workout logs for the current user"""
+    count = request.user.workout_logs.count()
+    return Response({"count": count})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_workouts_count(request, user_id):
+    """Get the count of workout logs for a specific user"""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        user = User.objects.get(id=user_id)
+        count = WorkoutLog.objects.filter(user=user).count()
+        return Response({"count": count})
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_logs_by_username(request, username):
+    """Get workout logs for a specific user by username"""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        user = User.objects.get(username=username)
+        logs = WorkoutLog.objects.filter(user=user).select_related(
+            'program', 'based_on_instance', 'gym'
+        ).prefetch_related(
+            'exercises', 'exercises__sets'
+        )
+        
+        # Create a list to hold serialized logs
+        serialized_logs = []
+        
+        # Try to serialize each log individually
+        for log in logs:
+            try:
+                serializer = WorkoutLogSerializer(log)
+                serialized_logs.append(serializer.data)
+            except Exception as e:
+                # Log the error but continue with other logs
+                logger.error(f"Error serializing log {log.id}: {str(e)}")
+                # Add a minimal version of the log with error info
+                serialized_logs.append({
+                    "id": log.id,
+                    "name": log.name,
+                    "date": log.date,
+                    "error": "Could not fully load this workout log due to data issues"
+                })
+        
+        return Response(serialized_logs)
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "User not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.exception(f"Error in get_user_logs_by_username: {str(e)}")
+        return Response(
+            {"detail": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

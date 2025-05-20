@@ -8,18 +8,22 @@ class UserSerializer(serializers.ModelSerializer):
     # Use a SerializerMethodField to avoid circular imports
     current_program = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        # Allow for specifying specific fields to include
+        fields = kwargs.pop('fields', None)
+        super().__init__(*args, **kwargs)
+        
+        if fields is not None:
+            # Drop any fields that are not specified in the `fields` argument
+            allowed = set(fields)
+            existing = set(self.fields)
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
+                
     def get_current_program(self, obj):
         if obj.current_program:
             from workouts.serializers import ProgramSerializer
-            return {
-                'id': obj.current_program.id,
-                'name': obj.current_program.name,
-                'focus': obj.current_program.focus,
-                'sessions_per_week': obj.current_program.sessions_per_week,
-                'difficulty_level': obj.current_program.difficulty_level
-            }
-            # Note: We're returning a simplified version to avoid deep nesting
-            # and potential circular imports with the new workout structure
+            return ProgramSerializer(obj.current_program).data
         return None
     class Meta:
         model = User
@@ -29,13 +33,17 @@ class UserSerializer(serializers.ModelSerializer):
             'password',
             'current_password',
             'email', 
+            'email_verified',
             'training_level', 
             'personality_type',
+            'language_preference',
             'fitness_goals',
             'bio',
             'avatar',
             'preferred_gym',
-            'current_program'  # Add this to fields
+            'current_program', 
+            'google_id',
+            'instagram_id',
         ]
         extra_kwargs = {
             'password': {'write_only': True},
@@ -44,6 +52,9 @@ class UserSerializer(serializers.ModelSerializer):
             'bio': {'required': False},
             'avatar': {'required': False},
             'preferred_gym': {'required': False},
+            'language_preference': {'required': False},
+            'google_id': {'read_only': True},
+            'instagram_id': {'read_only': True},
         }
         
     def create(self, validated_data):
@@ -53,7 +64,8 @@ class UserSerializer(serializers.ModelSerializer):
                 password=validated_data['password'],
                 email=validated_data.get('email', ''),
                 training_level=validated_data.get('training_level', 'beginner'),
-                personality_type=validated_data.get('personality_type', 'casual'),
+                personality_type=validated_data.get('personality_type', 'versatile'),
+                language_preference=validated_data.get('language_preference', 'en'),
                 fitness_goals=validated_data.get('fitness_goals', ''),
                 bio=validated_data.get('bio', '')
             )
@@ -66,6 +78,11 @@ class UserSerializer(serializers.ModelSerializer):
         # Handle password change if provided
         current_password = validated_data.pop('current_password', None)
         new_password = validated_data.pop('password', None)
+
+        if 'email' in validated_data and validated_data['email'] != instance.email:
+            instance.email_verified = False
+            instance.verification_token = None
+            # You might want to trigger sending a new verification email here... TODO
         
         if current_password and new_password:
             if not instance.check_password(current_password):

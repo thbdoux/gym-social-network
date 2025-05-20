@@ -6,10 +6,18 @@ import {
   Sparkles, 
   User, 
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Globe
 } from 'lucide-react';
 import douLogo from '../assets/dou.svg';
 import douPlusLogo from '../assets/dou-plus.svg';
+import { useLanguage } from '../context/LanguageContext';
+
+// Assuming flag images are stored in the public folder
+const FLAGS = {
+  en: '/images/flags/en.png',
+  fr: '/images/flags/fr.png'
+};
 
 const Sidebar = ({ onLogout }) => {
   const navigate = useNavigate();
@@ -18,6 +26,9 @@ const Sidebar = ({ onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
+  
+  // Get language context
+  const { language, setLanguage, t, isUpdating } = useLanguage();
   
   // Handle window resize for responsive behavior
   useEffect(() => {
@@ -59,6 +70,12 @@ const Sidebar = ({ onLogout }) => {
       description: 'View and edit your profile'
     },
   ];
+
+  // Toggle language function
+  const toggleLanguage = () => {
+    const newLanguage = language === 'en' ? 'fr' : 'en';
+    setLanguage(newLanguage);
+  };
 
   // Check for active path including child routes
   const isActivePath = (path) => {
@@ -113,8 +130,8 @@ const Sidebar = ({ onLogout }) => {
                 {/* Tooltip that appears on hover */}
                 {hoveredItem === item.id && (
                   <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-700/30 shadow-lg z-50 w-36 text-left">
-                    <div className="font-medium text-white text-sm">{item.label}</div>
-                    <div className="text-gray-400 text-xs mt-0.5">{item.description}</div>
+                    <div className="font-medium text-white text-sm">{t(item.id)}</div>
+                    <div className="text-gray-400 text-xs mt-0.5">{t(`${item.id}_desc`)}</div>
                     <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 transform rotate-45 w-2 h-2 bg-gray-800"></div>
                   </div>
                 )}
@@ -124,6 +141,37 @@ const Sidebar = ({ onLogout }) => {
         </nav>
         
         <div className="mb-6 space-y-4 px-2">
+          {/* Language Toggle Button */}
+          <div className="relative group" onMouseEnter={() => setHoveredItem('language')} onMouseLeave={() => setHoveredItem(null)}>
+            <button
+              onClick={toggleLanguage}
+              disabled={isUpdating}
+              className="w-full flex items-center justify-center rounded-xl p-3 text-blue-300 hover:bg-blue-600/10 transition-all duration-200 group"
+              aria-label={language === 'en' ? 'Switch to French' : 'Switch to English'}
+            >
+              <div className="p-2 rounded-lg bg-gray-800/80 transform transition-all duration-200 group-hover:scale-110 relative">
+                <Globe className="w-5 h-5 transform transition-all duration-300 group-hover:translate-y-[-2px]" />
+                <span className="absolute -top-1 -right-1 text-xs font-bold">
+                  {language.toUpperCase()}
+                </span>
+                {isUpdating && (
+                  <span className="absolute -bottom-1 -right-1 animate-spin text-xs">⟳</span>
+                )}
+              </div>
+            </button>
+            
+            {/* Language tooltip */}
+            {hoveredItem === 'language' && (
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-700/30 shadow-lg z-50 w-36 text-left">
+                <div className="font-medium text-white text-sm">{t('language_settings')}</div>
+                <div className="text-gray-400 text-xs mt-0.5">
+                  {language === 'en' ? t('click_for_french') : t('click_for_english')}
+                </div>
+                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 transform rotate-45 w-2 h-2 bg-gray-800"></div>
+              </div>
+            )}
+          </div>
+
           {/* Upgrade button */}
           <div className="relative">
             <button
@@ -140,11 +188,11 @@ const Sidebar = ({ onLogout }) => {
               <div className="absolute left-full ml-2 bottom-0 bg-gray-800/90 backdrop-blur-sm p-3 rounded-lg border border-gray-700/30 shadow-lg z-50 w-64">
                 <div className="flex items-center mb-2">
                   <img src={douPlusLogo} alt="dou+ logo" className="h-5 mr-2" />
-                  <span className="font-medium text-sm text-white">Upgrade to dou+</span>
+                  <span className="font-medium text-sm text-white">{t('upgrade_to_dou')}</span>
                 </div>
-                <p className="text-gray-300 text-xs mb-3">Get unlimited workouts, advanced analytics, and premium features.</p>
+                <p className="text-gray-300 text-xs mb-3">{t('upgrade_description')}</p>
                 <button className="w-full py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium hover:from-blue-700 hover:to-purple-700 transition-all flex items-center justify-center">
-                  <span>Upgrade now</span>
+                  <span>{t('upgrade_now')}</span>
                   <ChevronRight size={14} className="ml-1" />
                 </button>
                 <div className="absolute left-0 top-4 -translate-x-1/2 transform rotate-45 w-2 h-2 bg-gray-800"></div>
@@ -177,11 +225,22 @@ const Sidebar = ({ onLogout }) => {
         </div>
       </div>
       <div className="flex items-center">
+        {/* Language toggle for mobile */}
         <button 
-          className="mr-4 flex items-center px-2 py-1 rounded-lg bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-purple-500/30"
+          onClick={toggleLanguage}
+          disabled={isUpdating}
+          className="mr-2 flex items-center justify-center p-2 rounded-lg bg-gray-800/80 text-blue-300"
+        >
+          <Globe className="w-4 h-4" />
+          <span className="ml-1 text-xs">{language.toUpperCase()}</span>
+          {isUpdating && <span className="ml-1 animate-spin text-xs">⟳</span>}
+        </button>
+
+        <button 
+          className="mr-2 flex items-center px-2 py-1 rounded-lg bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-purple-500/30"
         >
           <img src={douPlusLogo} alt="dou+ logo" className="h-4 mr-1" />
-          <span className="text-xs text-purple-300">Upgrade</span>
+          <span className="text-xs text-purple-300">{t('upgrade')}</span>
         </button>
         <button 
           onClick={toggleMobileMenu}
@@ -199,10 +258,10 @@ const Sidebar = ({ onLogout }) => {
   // Helper function to get page title
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path.startsWith('/feed')) return 'Feed';
-    if (path.startsWith('/workouts')) return 'Workouts';
-    if (path.startsWith('/coach')) return 'Coach';
-    if (path.startsWith('/profile')) return 'Profile';
+    if (path.startsWith('/feed')) return t('feed');
+    if (path.startsWith('/workouts')) return t('workouts');
+    if (path.startsWith('/coach')) return t('coach');
+    if (path.startsWith('/profile')) return t('profile');
     return '';
   };
   
@@ -237,12 +296,35 @@ const Sidebar = ({ onLogout }) => {
                   <Icon className="w-5 h-5" />
                 </div>
                 <div className="flex flex-col items-start">
-                  <span className={`font-semibold ${isActive ? 'text-white' : 'text-gray-300'}`}>{item.label}</span>
-                  <span className="text-xs text-gray-500">{item.description}</span>
+                  <span className={`font-semibold ${isActive ? 'text-white' : 'text-gray-300'}`}>{t(item.id)}</span>
+                  <span className="text-xs text-gray-500">{t(`${item.id}_desc`)}</span>
                 </div>
               </button>
             );
           })}
+          
+          {/* Language toggle in mobile menu */}
+          <button
+            onClick={toggleLanguage}
+            disabled={isUpdating}
+            className="flex items-center gap-3 p-3 rounded-xl text-lg transition-all duration-300 text-gray-400 hover:bg-gray-800/50 hover:text-white"
+            style={{
+              opacity: mobileMenuOpen ? 1 : 0,
+              transform: mobileMenuOpen ? 'translateY(0)' : 'translateY(20px)',
+              transition: 'opacity 300ms, transform 300ms'
+            }}
+          >
+            <div className="p-2 rounded-lg bg-gray-800/80 text-blue-300">
+              <Globe className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col items-start">
+              <span className="font-semibold text-gray-300">{t('language_settings')}</span>
+              <span className="text-xs text-gray-500">
+                {language === 'en' ? t('english') : t('french')} - {t('click_to_toggle')}
+              </span>
+            </div>
+            {isUpdating && <span className="animate-spin ml-1">⟳</span>}
+          </button>
         </div>
         
         {/* Upgrade button */}
@@ -258,8 +340,8 @@ const Sidebar = ({ onLogout }) => {
             <img src={douPlusLogo} alt="dou+ logo" className="w-5 h-5" />
           </div>
           <div className="flex flex-col items-start">
-            <span className="font-semibold text-purple-300">Upgrade to dou+</span>
-            <span className="text-xs text-gray-400">Unlock premium features</span>
+            <span className="font-semibold text-purple-300">{t('upgrade_to_dou')}</span>
+            <span className="text-xs text-gray-400">{t('unlock_premium')}</span>
           </div>
         </div>
         
@@ -276,7 +358,7 @@ const Sidebar = ({ onLogout }) => {
           <div className="p-2 rounded-lg bg-gray-800/80">
             <LogOut className="w-5 h-5" />
           </div>
-          <span>Logout</span>
+          <span>{t('logout')}</span>
         </button>
       </div>
       

@@ -15,11 +15,28 @@ class SetTemplateSerializer(serializers.ModelSerializer):
 
 class ExerciseTemplateSerializer(serializers.ModelSerializer):
     sets = SetTemplateSerializer(many=True, read_only=True)
+    superset_paired_exercise = serializers.SerializerMethodField()
     
     class Meta:
         model = ExerciseTemplate
-        fields = ['id', 'name', 'equipment', 'notes', 'order', 'sets']
+        fields = ['id', 'name', 'equipment', 'notes', 'order', 'sets', 'superset_with', 'superset_paired_exercise',  'is_superset']
         read_only_fields = ['id']
+    
+    def get_superset_paired_exercise(self, obj):
+        if obj.superset_with is not None:
+            try:
+                paired_exercise = obj.workout.exercises.filter(order=obj.superset_with).first()
+                if paired_exercise:
+                    return {
+                        'id': paired_exercise.id,
+                        'name': paired_exercise.name,
+                        'order': paired_exercise.order
+                    }
+            except Exception as e:
+                # Log the error but don't break the API
+                print(f"Error finding paired exercise: {e}")
+                return None
+        return None
 
 class WorkoutTemplateSerializer(serializers.ModelSerializer):
     exercises = ExerciseTemplateSerializer(many=True, read_only=True)
@@ -48,14 +65,28 @@ class SetInstanceSerializer(serializers.ModelSerializer):
 class ExerciseInstanceSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)  # Allow passing ID for updates
     sets = SetInstanceSerializer(many=True)
+    superset_paired_exercise = serializers.SerializerMethodField()
     
     class Meta:
         model = ExerciseInstance
         fields = [
             'id', 'name', 'equipment', 'notes', 'order',
-            'sets', 'based_on_template'
+            'sets', 'based_on_template', 'superset_with', 'superset_paired_exercise',  'is_superset'
         ]
         read_only_fields = []  # Allow updating all fields
+    
+    def get_superset_paired_exercise(self, obj):
+        if obj.superset_with is not None:
+            try:
+                paired_exercise = obj.workout.exercises.get(order=obj.superset_with)
+                return {
+                    'id': paired_exercise.id,
+                    'name': paired_exercise.name,
+                    'order': paired_exercise.order
+                }
+            except ExerciseInstance.DoesNotExist:
+                return None
+        return None
 
 class WorkoutInstanceSerializer(serializers.ModelSerializer):
     exercises = ExerciseInstanceSerializer(many=True)
@@ -116,6 +147,15 @@ class WorkoutInstanceSerializer(serializers.ModelSerializer):
         
         return instance
 
+class ProgramShareSerializer(serializers.ModelSerializer):
+    program_name = serializers.CharField(source='program.name', read_only=True)
+    shared_with_username = serializers.CharField(source='shared_with.username', read_only=True)
+    
+    class Meta:
+        model = ProgramShare
+        fields = ['id', 'program', 'program_name', 'shared_with', 
+                 'shared_with_username', 'created_at']
+        read_only_fields = ['id', 'created_at']
 # Program Serializers
 class ProgramSerializer(serializers.ModelSerializer):
     workouts = WorkoutInstanceSerializer(source='workout_instances', many=True, read_only=True)
@@ -124,7 +164,8 @@ class ProgramSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     creator_username = serializers.CharField(source='creator.username', read_only=True)
     is_owner = serializers.SerializerMethodField(read_only=True)  # Add this field
-    
+    is_shared_with_me = serializers.SerializerMethodField(read_only=True)
+    shares = ProgramShareSerializer(source='shares.all', many=True, read_only=True)
     class Meta:
         model = Program
         fields = [
@@ -134,17 +175,26 @@ class ProgramSerializer(serializers.ModelSerializer):
            'difficulty_level', 'recommended_level',
            'required_equipment', 'estimated_completion_weeks',
            'tags', 'forks_count', 'is_liked',
-           'forked_from', 'created_at', 'updated_at','is_owner'
+           'forked_from', 'created_at', 'updated_at','is_owner','shares','is_shared_with_me',
        ]
         read_only_fields = [
             'id', 'creator_username', 'likes_count',
-            'forks_count', 'is_liked','created_at', 'updated_at','is_owner'
+            'forks_count', 'is_liked','created_at', 'updated_at','is_owner','shares', 'is_shared_with_me',
         ]
 
     def get_is_liked(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(id=request.user.id).exists()
+        return False
+
+    def get_is_shared_with_me(self, obj):
+        """
+        Determine if this program has been shared with the current user.
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.shares.filter(shared_with=request.user).exists()
         return False
 
     def get_is_owner(self, obj):
@@ -157,15 +207,6 @@ class ProgramSerializer(serializers.ModelSerializer):
             return obj.creator_id == request.user.id
         return False
 
-class ProgramShareSerializer(serializers.ModelSerializer):
-    program_name = serializers.CharField(source='program.name', read_only=True)
-    shared_with_username = serializers.CharField(source='shared_with.username', read_only=True)
-    
-    class Meta:
-        model = ProgramShare
-        fields = ['id', 'program', 'program_name', 'shared_with', 
-                 'shared_with_username', 'created_at']
-        read_only_fields = ['id', 'created_at']
 
 # Log Serializers
 class SetLogSerializer(serializers.ModelSerializer):
@@ -179,19 +220,32 @@ class SetLogSerializer(serializers.ModelSerializer):
             'based_on_instance_id'
         ]
         read_only_fields = ['based_on_instance_id']
-
 class ExerciseLogSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)  
     sets = SetLogSerializer(many=True)
     based_on_instance_id = serializers.IntegerField(source='based_on_instance.id', read_only=True)
+    superset_paired_exercise = serializers.SerializerMethodField()
     
     class Meta:
         model = ExerciseLog
         fields = [
             'id', 'name', 'equipment', 'notes', 'order',
-            'sets', 'based_on_instance_id'
+            'sets', 'based_on_instance_id', 'superset_with', 'superset_paired_exercise', 'is_superset'
         ]
         read_only_fields = ['based_on_instance_id']
+    
+    def get_superset_paired_exercise(self, obj):
+        if obj.superset_with is not None:
+            try:
+                paired_exercise = obj.workout.exercises.get(order=obj.superset_with)
+                return {
+                    'id': paired_exercise.id,
+                    'name': paired_exercise.name,
+                    'order': paired_exercise.order
+                }
+            except ExerciseLog.DoesNotExist:
+                return None
+        return None
 
 class WorkoutLogSerializer(serializers.ModelSerializer):
     exercises = ExerciseLogSerializer(many=True, read_only=True)
@@ -256,6 +310,7 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
             
         return data
 
+    # Update this method in your WorkoutLogCreateSerializer class
     def create(self, validated_data):
         print("Debug - Create method called")
         print("Debug - Validated data:", validated_data)
@@ -273,6 +328,10 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
                 print("Debug - Processing exercise:", exercise_data)
                 sets_data = exercise_data.pop('sets', [])
                 
+                # Remove id fields to ensure new records are created
+                if 'id' in exercise_data:
+                    exercise_data.pop('id')
+                
                 # Create exercise
                 exercise = ExerciseLog.objects.create(
                     workout=workout_log,
@@ -283,6 +342,11 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
                 # Create sets for this exercise
                 for set_data in sets_data:
                     print("Debug - Processing set:", set_data)
+                    
+                    # Remove id field from sets data
+                    if 'id' in set_data:
+                        set_data.pop('id')
+                    
                     set_obj = SetLog.objects.create(
                         exercise=exercise,
                         **set_data

@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Calendar, Dumbbell, Edit2, Trash2, 
   CheckCircle, MapPin, Heart, Flame, Target,
   Activity, ChevronDown, ChevronUp, Eye,
-  Info, BarChart, Users, Clock, Award
+  Info, BarChart, Users, Clock, Award,
+  GitFork, Loader2, Check, Download
 } from 'lucide-react';
-import { useGyms } from '../hooks/useGyms';
+import { useGyms } from '../../../hooks/query/useGymQuery';
+import { useLog } from '../../../hooks/query/useLogQuery';
 import { getPostTypeDetails } from '../../../utils/postTypeUtils';
-import { logService } from '../../../api/services';
+import { useWorkoutTemplates } from '../../../hooks/query/useWorkoutQuery';
+import { useWorkoutFork } from '../../../hooks/query/useWorkoutFork';
+import { useLanguage } from '../../../context/LanguageContext';
 
 const WorkoutLogCard = ({ 
   user,
@@ -20,38 +24,41 @@ const WorkoutLogCard = ({
   inFeedMode = false,
   expandable = true,
 }) => {
+  const { t } = useLanguage(); // Add language context
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [log, setLog] = useState(initialLog);
-  const [loading, setLoading] = useState(!initialLog);
   const [expandedExercise, setExpandedExercise] = useState(null);
   
-  const { gyms, loading: gymsLoading } = useGyms();
+  // Use React Query hooks
+  const { data: gyms, isLoading: gymsLoading } = useGyms();
+  
+  // Only fetch the log if logId is provided and no initialLog
+  const { data: fetchedLog, isLoading } = useLog(logId && !initialLog ? logId : null);
+  
+  // Use either the fetched log or the initial log passed as prop
+  const log = initialLog || fetchedLog;
+  
+  // Workout templates for forking check
+  const { data: workoutTemplates = [] } = useWorkoutTemplates();
+  
+  // Add workout forking logic
+  const {
+    isForking,
+    forkSuccess,
+    hasForked,
+    showForkWarning,
+    forkWorkout,
+    cancelFork
+  } = useWorkoutFork();
+  
   const canEdit = log?.username === user;
+  const canFork = log?.username !== user; // Can fork logs that aren't your own
   
   // Get colors from postTypeUtils
   const logColors = getPostTypeDetails('workout_log').colors || {};
   
-  useEffect(() => {
-    const fetchWorkoutLog = async () => {
-      if (!logId || initialLog) return;
-      
-      try {
-        setLoading(true);
-        const fetchedLog = await logService.getLogById(logId);
-        setLog(fetchedLog);
-      } catch (err) {
-        console.error('Error fetching workout log:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWorkoutLog();
-  }, [logId, initialLog]);
-  
   // Loading state
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="mt-4 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50 p-6 animate-pulse">
         <div className="h-6 bg-gray-700 rounded-lg w-1/3 mb-4"></div>
@@ -70,13 +77,13 @@ const WorkoutLogCard = ({
   if (!log) {
     return (
       <div className="mt-4 bg-red-900/20 border border-red-500/30 text-red-400 p-4 rounded-xl">
-        Unable to load workout log
+        {t('unable_to_load_workout_log')}
       </div>
     );
   }
   
   const gymInfo = React.useMemo(() => {
-    if (!log.gym) return { name: 'Not specified', location: '' };
+    if (!log.gym) return { name: t('not_specified'), location: '' };
     if (log.gym_name) {
       return { 
         name: log.gym_name, 
@@ -88,13 +95,13 @@ const WorkoutLogCard = ({
     return gym ? { 
       name: gym.name, 
       location: gym.location || '' 
-    } : { name: 'Loading...', location: '' };
-  }, [log.gym, log.gym_name, log.gym_location, gyms]);
+    } : { name: t('loading'), location: '' };
+  }, [log.gym, log.gym_name, log.gym_location, gyms, t]);
   
   // Format date for better display
   const formatDate = (dateString) => {
     try {
-      if (!dateString) return 'No date';
+      if (!dateString) return t('no_date');
       // Check if date is in DD/MM/YYYY format
       if (typeof dateString === 'string' && dateString.includes('/')) {
         const [day, month, year] = dateString.split('/');
@@ -151,6 +158,12 @@ const WorkoutLogCard = ({
     e.stopPropagation();
     action();
   };
+  
+  // Add fork handler
+  const handleFork = (e) => {
+    e.stopPropagation();
+    forkWorkout(log, workoutTemplates);
+  };
 
   // Determine if key stats should be shown based on their existence
   const showMood = !!log.mood_rating;
@@ -181,18 +194,18 @@ const WorkoutLogCard = ({
             <div className="min-w-0 overflow-hidden flex-grow">
               <div className="flex items-center">
                 <h4 className={`text-lg font-medium text-white transition-colors ${isHovered ? 'text-green-300' : ''} truncate`}>
-                  {log.name || log.workout_name || "Workout"}
+                  {log.name || log.workout_name || t('workout')}
                 </h4>
                 
                 {log.completed && (
                   <span className="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0">
                     <CheckCircle className="w-3 h-3" />
-                    <span className="hidden sm:inline">Completed</span>
+                    <span className="hidden sm:inline">{t('completed')}</span>
                   </span>
                 )}
               </div>
               
-                              <div className="flex items-center mt-1 text-sm text-gray-400 truncate">
+              <div className="flex items-center mt-1 text-sm text-gray-400 truncate">
                 <Calendar className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
                 <span className="truncate">{formattedDate}</span>
                 
@@ -216,23 +229,45 @@ const WorkoutLogCard = ({
                 <button
                   onClick={(e) => handleButtonClick(e, () => onEdit?.(log))}
                   className="p-1.5 text-gray-400 hover:text-white bg-transparent hover:bg-gray-700/50 rounded-md transition-colors"
-                  aria-label="Edit log"
+                  aria-label={t('edit_log')}
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 
                 <button
                   onClick={(e) => handleButtonClick(e, () => {
-                    if (window.confirm(`Are you sure you want to delete this workout log?`)) {
+                    if (window.confirm(t('confirm_delete_workout_log'))) {
                       onDelete?.(log);
                     }
                   })}
                   className="p-1.5 text-gray-400 hover:text-red-400 bg-transparent hover:bg-red-900/20 rounded-md transition-colors"
-                  aria-label="Delete log"
+                  aria-label={t('delete_log')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
+            )}
+            
+            {/* Add Fork button */}
+            {canFork && (
+              <button
+                onClick={handleFork}
+                disabled={isForking}
+                className={`p-1.5 mr-2 rounded-md transition-colors flex items-center 
+                  ${isHovered ? 'opacity-100' : 'opacity-0'} 
+                  ${isForking ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${hasForked 
+                    ? 'text-orange-400 bg-transparent hover:text-orange-300 hover:bg-orange-900/20' 
+                    : 'text-blue-400 bg-transparent hover:text-blue-300 hover:bg-blue-900/20'}`}
+                aria-label={hasForked ? t('fork_again') : t('fork_workout')}
+                title={hasForked ? t('already_forked_workout') : t('fork_workout')}
+              >
+                {isForking ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+              </button>
             )}
             
             {expandable && (
@@ -258,7 +293,7 @@ const WorkoutLogCard = ({
           <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 hover:from-blue-900/30 hover:to-blue-800/30 p-3 rounded-lg border border-blue-700/30 transition-all duration-300 transform hover:scale-[1.02]">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <MapPin className="w-3.5 h-3.5 mr-1 text-blue-400" />
-              <span>Location</span>
+              <span>{t('location')}</span>
             </div>
             <p className="font-semibold text-white text-sm truncate">
               {gymInfo.name}
@@ -268,7 +303,7 @@ const WorkoutLogCard = ({
           <div className="bg-gradient-to-br from-red-900/20 to-red-800/20 hover:from-red-900/30 hover:to-red-800/30 p-3 rounded-lg border border-red-700/30 transition-all duration-300 transform hover:scale-[1.02]">
             <div className="flex items-center text-xs text-gray-400 mb-1">
               <Flame className="w-3.5 h-3.5 mr-1 text-red-400" />
-              <span>Difficulty</span>
+              <span>{t('difficulty')}</span>
             </div>
             <p className="font-semibold text-white flex items-center justify-between">
               <span className={`text-xs px-2 py-0.5 rounded-full ${getDifficultyEffect(log.perceived_difficulty).color}`}>
@@ -282,7 +317,7 @@ const WorkoutLogCard = ({
             <div className="bg-gradient-to-br from-pink-900/20 to-pink-800/20 hover:from-pink-900/30 hover:to-pink-800/30 p-3 rounded-lg border border-pink-700/30 transition-all duration-300 transform hover:scale-[1.02]">
               <div className="flex items-center text-xs text-gray-400 mb-1">
                 <Heart className="w-3.5 h-3.5 mr-1 text-pink-400" />
-                <span>Mood</span>
+                <span>{t('mood')}</span>
               </div>
               <p className="font-semibold text-white flex items-center justify-between">
                 <span className="text-xl">{getMoodEmoji(log.mood_rating)}</span>
@@ -293,7 +328,7 @@ const WorkoutLogCard = ({
             <div className="bg-gradient-to-br from-teal-900/20 to-teal-800/20 hover:from-teal-900/30 hover:to-teal-800/30 p-3 rounded-lg border border-teal-700/30 transition-all duration-300 transform hover:scale-[1.02]">
               <div className="flex items-center text-xs text-gray-400 mb-1">
                 <Target className="w-3.5 h-3.5 mr-1 text-teal-400" />
-                <span className="truncate">{log.program_name ? 'Program' : 'Gym'}</span>
+                <span className="truncate">{log.program_name ? t('program') : t('gym')}</span>
               </div>
               <p className="font-semibold text-white text-sm truncate">
                 {log.program_name || gymInfo.name}
@@ -312,7 +347,7 @@ const WorkoutLogCard = ({
                   <Award className="w-5 h-5 text-green-400" />
                 </div>
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <h3 className="text-lg font-bold text-white truncate">Workout Summary</h3>
+                  <h3 className="text-lg font-bold text-white truncate">{t('workout_summary')}</h3>
                   <p className="text-gray-300 text-sm mt-0.5 truncate">{log.summary}</p>
                 </div>
               </div>
@@ -322,23 +357,23 @@ const WorkoutLogCard = ({
             <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
               <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
                 <BarChart className="w-4 h-4 mr-2 text-green-400" />
-                Workout Details
+                {t('workout_details')}
               </h5>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Duration</span>
-                  <span className="text-white font-medium">{log.duration || '—'} min</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('duration')}</span>
+                  <span className="text-white font-medium">{log.duration || '—'} {t('mins')}</span>
                 </div>
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Exercises</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('exercises')}</span>
                   <span className="text-white font-medium">{exerciseCount}</span>
                 </div>
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Location</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('location')}</span>
                   <span className="text-white font-medium truncate">{gymInfo.name}</span>
                 </div>
                 <div className="p-3 bg-gray-800/80 rounded-lg border border-gray-700/30">
-                  <span className="text-xs text-gray-400 block mb-1">Difficulty</span>
+                  <span className="text-xs text-gray-400 block mb-1">{t('difficulty')}</span>
                   <span className="text-white font-medium">{log.perceived_difficulty || '—'}/10</span>
                 </div>
                 
@@ -348,7 +383,7 @@ const WorkoutLogCard = ({
                     <div className="flex items-center">
                       <Dumbbell className="w-4 h-4 mr-1.5 text-green-400" />
                       <span className="text-green-300">
-                        Part of program{" "}
+                        {t('part_of_program')}{" "}
                         <span className="font-medium">{log.program_name}</span>
                       </span>
                     </div>
@@ -362,7 +397,7 @@ const WorkoutLogCard = ({
               <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
                 <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
                   <Dumbbell className="w-4 h-4 mr-2 text-green-400" />
-                  Exercises
+                  {t('exercises')}
                 </h5>
                 
                 <div className="space-y-3">
@@ -383,7 +418,7 @@ const WorkoutLogCard = ({
                             <div className="min-w-0 overflow-hidden">
                               <h4 className="font-medium text-white text-sm truncate">{exercise.name}</h4>
                               <div className="flex items-center text-xs text-gray-400 mt-0.5">
-                                <span className="flex-shrink-0">{exercise.sets?.length || 0} sets</span>
+                                <span className="flex-shrink-0">{exercise.sets?.length || 0} {t('sets')}</span>
                                 {exercise.equipment && (
                                   <>
                                     <span className="mx-1.5 flex-shrink-0">•</span>
@@ -407,10 +442,10 @@ const WorkoutLogCard = ({
                         <div className="border-t border-gray-700 p-4 bg-gray-800/80">
                           <div className="space-y-2 max-h-64 overflow-y-auto">
                             <div className="grid grid-cols-5 gap-1 text-xs text-gray-400 mb-2">
-                              <div className="col-span-1">Set</div>
-                              <div className="col-span-1">Weight</div>
-                              <div className="col-span-1">Reps</div>
-                              <div className="col-span-2">Notes</div>
+                              <div className="col-span-1">{t('set')}</div>
+                              <div className="col-span-1">{t('weight')}</div>
+                              <div className="col-span-1">{t('reps')}</div>
+                              <div className="col-span-2">{t('notes')}</div>
                             </div>
                             
                             {exercise.sets.map((set, setIdx) => (
@@ -424,10 +459,10 @@ const WorkoutLogCard = ({
                             
                             {/* Set Summary */}
                             <div className="mt-3 pt-2 border-t border-gray-700 flex justify-between text-xs">
-                              <span className="text-gray-400">Total volume: <span className="text-green-400 font-medium">
+                              <span className="text-gray-400">{t('total_volume')}: <span className="text-green-400 font-medium">
                                 {exercise.sets.reduce((total, set) => total + (set.weight || 0) * (set.reps || 0), 0)} kg
                               </span></span>
-                              <span className="text-gray-400">Best set: <span className="text-green-400 font-medium">
+                              <span className="text-gray-400">{t('best_set')}: <span className="text-green-400 font-medium">
                                 {exercise.sets.reduce((best, set) => Math.max(best, (set.weight || 0)), 0)} kg
                               </span></span>
                             </div>
@@ -445,11 +480,49 @@ const WorkoutLogCard = ({
               <div className="bg-gray-800/70 p-4 rounded-lg border border-gray-700/50">
                 <h5 className="font-medium text-gray-200 text-sm mb-3 flex items-center">
                   <Info className="w-4 h-4 mr-2 text-green-400" />
-                  Workout Notes
+                  {t('workout_notes')}
                 </h5>
                 <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">{log.notes}</p>
               </div>
             )}
+          </div>
+        )}
+        
+        {/* Success message for forking */}
+        {forkSuccess && (
+          <div className="absolute bottom-4 right-4 bg-green-900/80 text-green-300 p-2 rounded-lg flex items-center animate-fadeIn shadow-lg border border-green-700/50">
+            <Check className="w-4 h-4 mr-2" />
+            <span className="text-sm">{t('workout_forked_success')}</span>
+          </div>
+        )}
+        
+        {/* Fork warning modal */}
+        {showForkWarning && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 rounded-lg shadow-lg border border-orange-500/50 z-10 w-80 animate-fadeIn">
+            <div className="flex items-start">
+              <Info className="w-5 h-5 text-orange-400 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-white mb-2">{t('fork_again_question')}</h3>
+                <p className="text-gray-300 text-sm mb-4">{t('already_forked_workout_message')}</p>
+                <div className="flex justify-end space-x-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cancelFork();
+                    }} 
+                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-md text-sm text-white transition-colors"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button 
+                    onClick={handleFork}
+                    className="px-3 py-1.5 bg-orange-600/70 hover:bg-orange-600 rounded-md text-sm text-white transition-colors"
+                  >
+                    {t('fork_again')}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         

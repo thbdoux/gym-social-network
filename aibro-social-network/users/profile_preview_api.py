@@ -18,7 +18,6 @@ User = get_user_model()
 def get_user_profile_preview(request, user_id):
     """
     Endpoint to get a user's profile data for preview purposes.
-    This includes basic user info, their programs, and recent workout logs.
     """
     try:
         target_user = User.objects.get(id=user_id)
@@ -26,15 +25,44 @@ def get_user_profile_preview(request, user_id):
         # Serialize user data
         user_data = UserSerializer(target_user).data
         
-        # Get programs - all public programs or those created by the user
-        programs = Program.objects.filter(
-            Q(creator=target_user) & (Q(is_public=True) | Q(creator=request.user))
-        ).prefetch_related(
-            'workout_instances',
-            'workout_instances__exercises',
-            'workout_instances__exercises__sets',
-            'likes'
-        ).order_by('-created_at')[:5]  # Limit to 5 recent programs
+        # Check if the current user is a friend of the target user
+        from django.db.models import Q
+        from users.models import Friendship
+        is_friend = Friendship.objects.filter(
+            (Q(from_user=target_user) & Q(to_user=request.user)) |
+            (Q(from_user=request.user) & Q(to_user=target_user))
+        ).exists()
+        
+        # Get programs
+        if is_friend:
+            # If the current user is a friend, include programs that have been shared in posts
+            programs = Program.objects.filter(
+                Q(creator=target_user) & (
+                    Q(is_public=True) | 
+                    Q(creator=request.user) |
+                    Q(shares__shared_with=request.user) |
+                    Q(posts__isnull=False)  # Include programs shared in posts
+                )
+            ).prefetch_related(
+                'workout_instances',
+                'workout_instances__exercises',
+                'workout_instances__exercises__sets',
+                'likes'
+            ).distinct().order_by('-created_at')[:5]
+        else:
+            # If the current user is not a friend, only include public programs or those shared with the user
+            programs = Program.objects.filter(
+                Q(creator=target_user) & (
+                    Q(is_public=True) | 
+                    Q(creator=request.user) |
+                    Q(shares__shared_with=request.user)
+                )
+            ).prefetch_related(
+                'workout_instances',
+                'workout_instances__exercises',
+                'workout_instances__exercises__sets',
+                'likes'
+            ).distinct().order_by('-created_at')[:5]
         
         # Get workout logs - only include those the user has shared (via posts)
         shared_logs = WorkoutLog.objects.filter(
@@ -69,13 +97,42 @@ def get_user_friends(request, user_id):
     try:
         target_user = User.objects.get(id=user_id)
         
-        # Get user's friendships
-        friendships = target_user.friendships_initiated.all()[:10]  # Limit to 10 friends
+        # Get ALL user's friendships (both initiated and received)
+        from users.models import Friendship
+        from_friendships = target_user.friendships_initiated.all().select_related('to_user')
+        to_friendships = target_user.friendships_received.all().select_related('from_user')
         
-        # Create serialized data
-        friends_data = FriendshipSerializer(friendships, many=True).data
+        # Extract the friend user objects from both directions
+        friends = []
         
-        return Response(friends_data)
+        # Process initiated friendships (where target_user is the from_user)
+        for friendship in from_friendships:
+            friend_user = friendship.to_user
+            friends.append({
+                'id': friend_user.id,
+                'username': friend_user.username,
+                'avatar': friend_user.avatar.url if friend_user.avatar else None,
+                'training_level': friend_user.training_level,
+                'personality_type': friend_user.personality_type
+            })
+        
+        # Process received friendships (where target_user is the to_user)
+        for friendship in to_friendships:
+            friend_user = friendship.from_user
+            # Avoid duplicates (in case there are reciprocal friendships)
+            if not any(f['id'] == friend_user.id for f in friends):
+                friends.append({
+                    'id': friend_user.id,
+                    'username': friend_user.username,
+                    'avatar': friend_user.avatar.url if friend_user.avatar else None,
+                    'training_level': friend_user.training_level,
+                    'personality_type': friend_user.personality_type
+                })
+        
+        # Limit to first 10 friends
+        friends = friends[:10]
+        
+        return Response(friends)
         
     except ObjectDoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -123,16 +180,32 @@ def get_program_details(request, program_id):
             'workout_instances__exercises__sets'
         ).get(id=program_id)
         
+        # Check if the program has been shared in a post
+        has_posts = program.posts.exists()
+        
+        # Check if the current user is a friend of the program creator
+        from django.db.models import Q
+        from users.models import Friendship
+        is_friend = Friendship.objects.filter(
+            from_user=request.user,
+            to_user=program.creator
+        ).exists() or Friendship.objects.filter(
+            from_user=program.creator,
+            to_user=request.user
+        ).exists()
+        
+        
         # Check permissions
         # Allow access if:
         # 1. Program is public OR
         # 2. Current user is the creator OR
-        # 3. Program has been shared with the current user
-        has_posts = program.posts.exists()
+        # 3. Program has been shared with the current user OR
+        # 4. Program has been shared in a post AND the current user is a friend of the creator OR
+        # 5. Program is the creator's current active program
         if (program.is_public or 
             program.creator == request.user or 
             program.shares.filter(shared_with=request.user).exists() or
-            has_posts or
+            (has_posts and is_friend) or
             program.creator.current_program_id == program.id):
             
             serializer = ProgramSerializer(program, context={'request': request})
@@ -140,7 +213,6 @@ def get_program_details(request, program_id):
         else:
             return Response({'error': 'You do not have permission to view this program'}, 
                            status=status.HTTP_403_FORBIDDEN)
-        
     except ObjectDoesNotExist:
         return Response({'error': 'Program not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:

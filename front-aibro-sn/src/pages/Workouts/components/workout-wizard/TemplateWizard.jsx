@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ArrowRight, ArrowLeft, Save } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, Save, Info } from 'lucide-react';
 import WorkoutTypeStep from './steps/WorkoutTypeStep';
 import ExercisesStep from './steps/ExercisesStep';
 import WeekdaySelectionStep from './steps/WeekdaySelectionStep';
 import ReviewTemplateStep from './steps/ReviewTemplateStep';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 // Initialize form data with defaults or existing data
 const initializeFormData = (template) => {
@@ -63,9 +64,11 @@ const TemplateWizard = ({
   inProgram = false,
   selectedPlan = null 
 }) => {
+  const { t, language } = useLanguage();
   const [formData, setFormData] = useState(() => initializeFormData(template));
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState({});
+  const [showStepInfo, setShowStepInfo] = useState(false);
   const contentRef = useRef(null);
   
   // Define colors for steps
@@ -76,25 +79,52 @@ const TemplateWizard = ({
     borderLight: 'border-blue-500/50'
   };
   
-  // Define steps in the wizard
+  // Define steps in the wizard with translations
   const getSteps = () => {
     const steps = [
-      { name: "Type", component: WorkoutTypeStep },
-      { name: "Exercises", component: ExercisesStep }
+      { 
+        name: t("wizard_step_type"), 
+        component: WorkoutTypeStep,
+        description: t("wizard_step_type_description") 
+      },
+      { 
+        name: t("wizard_step_exercises"), 
+        component: ExercisesStep,
+        description: t("wizard_step_exercises_description")
+      }
     ];
     
     // Add weekday selection step only for program workouts
     if (inProgram) {
-      steps.push({ name: "Day", component: WeekdaySelectionStep });
+      steps.push({ 
+        name: t("wizard_step_day"), 
+        component: WeekdaySelectionStep,
+        description: t("wizard_step_day_description")
+      });
     }
     
     // Add review step
-    steps.push({ name: "Review", component: ReviewTemplateStep });
+    steps.push({ 
+      name: t("wizard_step_review"), 
+      component: ReviewTemplateStep,
+      description: t("wizard_step_review_description")
+    });
     
     return steps;
   };
   
   const steps = getSteps();
+
+  // Get wizard title based on context and language
+  const getWizardTitle = () => {
+    if (template) {
+      return t("edit_workout");
+    } else if (inProgram) {
+      return t("add_workout_to_program");
+    } else {
+      return t("create_template");
+    }
+  };
 
   // Update form data when props change
   useEffect(() => {
@@ -120,12 +150,12 @@ const TemplateWizard = ({
     switch(currentStep) {
       case 0: // Workout Type
         if (!formData.name.trim()) {
-          newErrors.name = "Please choose or enter a workout name";
+          newErrors.name = t("error_workout_name_required");
         }
         break;
       case 1: // Exercises
         if (formData.exercises.length === 0) {
-          newErrors.exercises = "Add at least one exercise";
+          newErrors.exercises = t("error_add_exercises");
         }
         break;
     }
@@ -138,12 +168,14 @@ const TemplateWizard = ({
   const goToNextStep = () => {
     if (validateStep()) {
       setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+      setShowStepInfo(false);
     }
   };
 
   // Navigate to previous step
   const goToPrevStep = () => {
     setCurrentStep(prev => Math.max(prev - 1, 0));
+    setShowStepInfo(false);
   };
 
   // Handle form submission
@@ -156,6 +188,9 @@ const TemplateWizard = ({
   // Get current step component
   const CurrentStepComponent = steps[currentStep].component;
 
+  // Progress calculation
+  const progress = ((currentStep + 1) / steps.length) * 100;
+
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-gray-900 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden shadow-xl border border-gray-800">
@@ -164,7 +199,7 @@ const TemplateWizard = ({
           <div className="flex justify-between items-center px-6 py-4">
             <div className="flex items-center">
               <h2 className="text-xl font-bold text-white mr-4">
-                {template ? 'Edit Workout' : inProgram ? 'Add Workout to Program' : 'Create Template'}
+                {getWizardTitle()}
               </h2>
               <div className="flex items-center h-8">
                 {steps.map((step, index) => (
@@ -176,6 +211,7 @@ const TemplateWizard = ({
                         ${index <= currentStep ? 'cursor-pointer' : 'cursor-not-allowed'}
                       `}
                       onClick={() => index <= currentStep && setCurrentStep(index)}
+                      aria-label={`${t("go_to_step")} ${index + 1}: ${step.name}`}
                     >
                       {/* Circle indicator */}
                       <div className={`
@@ -195,6 +231,7 @@ const TemplateWizard = ({
                         opacity-0 group-hover:opacity-100 transition-opacity duration-200
                         bg-gray-800 px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap
                         ${index === currentStep ? 'text-white' : 'text-gray-400'}
+                        z-10
                       `}>
                         {step.name}
                       </div>
@@ -218,16 +255,44 @@ const TemplateWizard = ({
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+              aria-label={t("close")}
             >
               <X className="w-5 h-5" />
             </button>
           </div>
           
-          {/* Current step title */}
-          <div className="px-6 py-2 bg-gray-800/40">
+          {/* Current step title with info button */}
+          <div className="px-6 py-2 bg-gray-800/40 flex justify-between items-center">
             <p className="text-sm text-gray-400">
-              Step {currentStep + 1}: <span className="text-white font-medium">{steps[currentStep].name}</span>
+              {t("step")} {currentStep + 1}: <span className="text-white font-medium">{steps[currentStep].name}</span>
             </p>
+            <button
+              className={`
+                p-1 rounded-full text-xs transition-colors
+                ${showStepInfo ? 'bg-blue-500/20 text-blue-400' : 'text-gray-500 hover:text-gray-400'}
+              `}
+              onClick={() => setShowStepInfo(!showStepInfo)}
+              aria-label={showStepInfo ? t("hide_step_info") : t("show_step_info")}
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          </div>
+          
+          {/* Step info section - collapsible */}
+          {showStepInfo && (
+            <div className="px-6 py-3 bg-blue-500/10 border-y border-blue-500/20 animate-fadeIn">
+              <p className="text-sm text-blue-300">
+                {steps[currentStep].description}
+              </p>
+            </div>
+          )}
+          
+          {/* Progress bar */}
+          <div className="h-1 bg-gray-800">
+            <div 
+              className="h-full bg-green-500 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            ></div>
           </div>
         </div>
         
@@ -236,7 +301,6 @@ const TemplateWizard = ({
           ref={contentRef}
           className="p-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900"
         >
-          
           {/* Current step component */}
           <div className="transition-opacity duration-300 ease-in-out">
             <CurrentStepComponent
@@ -256,8 +320,9 @@ const TemplateWizard = ({
             type="button"
             onClick={currentStep === 0 ? onClose : goToPrevStep}
             className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
+            aria-label={currentStep === 0 ? t("cancel") : t("back")}
           >
-            {currentStep === 0 ? 'Cancel' : 'Back'}
+            {currentStep === 0 ? t("cancel") : t("back")}
           </button>
           
           {currentStep < steps.length - 1 ? (
@@ -265,20 +330,33 @@ const TemplateWizard = ({
               type="button"
               onClick={goToNextStep}
               className={`px-6 py-2 ${colors.bg} ${colors.hoverBg} rounded-lg transition-colors font-medium text-sm`}
+              aria-label={t("next")}
             >
-              Next
+              {t("next")}
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
               className={`px-6 py-2 ${colors.bg} ${colors.hoverBg} rounded-lg transition-colors font-medium text-sm`}
+              aria-label={t("save")}
             >
-              Save
+              {t("save")}
             </button>
           )}
         </div>
       </div>
+      
+      {/* Animation styles */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-5px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };

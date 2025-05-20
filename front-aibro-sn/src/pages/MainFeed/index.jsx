@@ -1,109 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import WelcomeHeader from './components/WelcomeHeader';
 import CreatePost from './components/CreatePost';
 import FeedContainer from './components/FeedContainer';
 import EditPostModal from './components/EditPostModal';
 import FriendsPreview from '../Profile/components/FriendsPreview';
-import { programService } from '../../api/services';
-import postService from '../../api/services/postService';
-import userService from '../../api/services/userService';
 import FriendsModal from '../Profile/components/FriendsModal';
+import { useLanguage } from '../../context/LanguageContext';
+import { 
+  usePostsFeed, 
+  useCurrentUser, 
+  useFriends,
+  useLikePost,
+  useCommentOnPost,
+  useSharePost,
+  useUpdatePost,
+  useDeletePost,
+  useCreatePost
+} from '../../hooks/query';
 
 const MainFeed = () => {
-  const [posts, setPosts] = useState([]);
-  const [user, setUser] = useState(null);
-  const [friends, setFriends] = useState([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
+  const { t } = useLanguage();
   
-  const handleProgramSelect = async (program) => {
-    try {
-      await programService.getProgramById(program.id);
-    } catch (err) {
-      console.error('Error navigating to program:', err);
-    }
-  };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [userData, postsData, friendsData] = await Promise.all([
-          userService.getCurrentUser(),
-          postService.getFeed(),
-          userService.getFriends()
-        ]);
-        
-        setUser(userData);
-        setPosts(postsData);
-        setFriends(friendsData || []);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-      }
-    };
+  // Use React Query hooks
+  const { data: posts = [], isLoading: postsLoading, error: postsError } = usePostsFeed();
+  const { data: user } = useCurrentUser();
+  const { data: friends = [] } = useFriends();
   
-    fetchData();
-  }, []);
+  // Mutations
+  const createPostMutation = useCreatePost();
+  const likePostMutation = useLikePost();
+  const commentPostMutation = useCommentOnPost();
+  const sharePostMutation = useSharePost();
+  const updatePostMutation = useUpdatePost();
+  const deletePostMutation = useDeletePost();
 
-  const handlePostCreated = (newPost) => {
-    setPosts([newPost, ...posts]);
+  const handlePostCreated = (postData) => {
+    createPostMutation.mutate(postData);
   };
 
-  const handlePostLike = async (postId) => {
-    try {
-      await postService.likePost(postId);
-      setPosts(posts.map(post => 
-        post.id === postId 
-          ? { ...post, is_liked: !post.is_liked, likes_count: post.is_liked ? post.likes_count - 1 : post.likes_count + 1 }
-          : post
-      ));
-    } catch (err) {
-      console.error('Error liking post:', err);
-    }
+  const handlePostLike = (postId) => {
+    likePostMutation.mutate(postId);
   };
 
-  const handlePostComment = async (postId, content) => {
-    try {
-      const newComment = await postService.commentOnPost(postId, content);
-      
-      setPosts(posts.map(post => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            comments: [...(post.comments || []), newComment]
-          };
-        }
-        return post;
-      }));
-    } catch (err) {
-      console.error('Error commenting on post:', err);
-    }
+  const handlePostComment = (postId, content) => {
+    commentPostMutation.mutate({ postId, content });
   };
 
-  const handleSharePost = async (postId, newSharedPostOrContent) => {
-    try {
-      let sharedPost;
-      
-      if (typeof newSharedPostOrContent === 'object' && newSharedPostOrContent !== null) {
-        // If we already have the full shared post data, use it directly
-        sharedPost = newSharedPostOrContent;
-        setPosts(prevPosts => [sharedPost, ...prevPosts]);
-      } else {
-        // If we just have the content text, make the API call via service
-        const content = typeof newSharedPostOrContent === 'string' 
-          ? newSharedPostOrContent 
-          : '';
-          
-        sharedPost = await postService.sharePost(postId, content);
-        
-        // Update the posts state with the new shared post
-        setPosts(prevPosts => [sharedPost, ...prevPosts]);
-      }
-      return sharedPost;
-    } catch (err) {
-      console.error('Error sharing post:', err);
-      alert('Failed to share post. Please try again.');
-    }
+  const handleSharePost = (postId, content) => {
+    sharePostMutation.mutate({ postId, content });
   };
   
   const handleEditClick = (post) => {
@@ -111,30 +58,20 @@ const MainFeed = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleEditPost = async (updatedPost) => {
-    try {
-      const editableData = {
-        content: updatedPost.content,
-        post_type: updatedPost.post_type,
-        image: updatedPost.image
-      };
-
-      const updated = await postService.updatePost(updatedPost.id, editableData);
-      setPosts(posts.map(p => p.id === updatedPost.id ? updated : p));
-      setIsEditModalOpen(false);
-      setEditingPost(null);
-    } catch (error) {
-      console.error('Error updating post:', error.response?.data || error);
-    }
+  const handleEditPost = (updatedPost) => {
+    updatePostMutation.mutate(
+      { id: updatedPost.id, updates: updatedPost },
+      {
+        onSuccess: () => {
+          setIsEditModalOpen(false);
+          setEditingPost(null);
+        }
+      }
+    );
   };
 
-  const handleDeletePost = async (postId) => {
-    try {
-      await postService.deletePost(postId);
-      setPosts(posts.filter(p => p.id !== postId));
-    } catch (error) {
-      console.error('Error deleting post:', error);
-    }
+  const handleDeletePost = (postId) => {
+    deletePostMutation.mutate(postId);
   };
 
   return (
@@ -147,23 +84,24 @@ const MainFeed = () => {
           
           <FeedContainer
             posts={posts}
+            loading={postsLoading}
+            error={postsError?.message}
             currentUser={user?.username}
             onLike={handlePostLike}
             onComment={handlePostComment}
             onShare={handleSharePost} 
             onEdit={handleEditClick}
             onDelete={handleDeletePost}
-            onProgramSelect={handleProgramSelect}
           />
         </div>
         
         {/* Friends Sidebar - 1/4 width on desktop */}
         <div className="lg:col-span-1 space-y-4">
-        <FriendsPreview 
-          friends={friends} 
-          onViewAllClick={() => setIsFriendsModalOpen(true)}
-          maxDisplay={3}
-        />
+          <FriendsPreview 
+            friends={friends} 
+            onViewAllClick={() => setIsFriendsModalOpen(true)}
+            maxDisplay={3}
+          />
           
           {/* You can add more sidebar components here */}
         </div>
@@ -179,6 +117,9 @@ const MainFeed = () => {
             setEditingPost(null);
           }}
           onSave={handleEditPost}
+          modalTitle={t('edit_post')}
+          saveButtonText={t('save')}
+          cancelButtonText={t('cancel')}
         />
       )}
       
@@ -187,6 +128,8 @@ const MainFeed = () => {
           isOpen={isFriendsModalOpen}
           onClose={() => setIsFriendsModalOpen(false)}
           currentUser={user}
+          modalTitle={t('your_friends')}
+          closeButtonText={t('close')}
         />
       )}
     </div>

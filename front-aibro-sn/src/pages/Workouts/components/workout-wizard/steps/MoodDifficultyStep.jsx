@@ -1,47 +1,53 @@
 import React from 'react';
 import { Flame, Shield, Target, Zap } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const MoodDifficultyStep = ({ formData, updateFormData, colors }) => {
+  const { t } = useLanguage();
+  
   // Mood levels with emojis
-  const moodLevels = [
-    { value: 2, emoji: "😫", label: "Terrible" },
-    { value: 4, emoji: "☹️", label: "Poor" },
-    { value: 6, emoji: "🙂", label: "Good" },
-    { value: 8, emoji: "😀", label: "Great" },
-    { value: 10, emoji: "🔥", label: "Amazing" }
+  const getMoodLevels = () => [
+    { value: 2, emoji: "😫", label: t("terrible") },
+    { value: 4, emoji: "☹️", label: t("poor") },
+    { value: 6, emoji: "🙂", label: t("good") },
+    { value: 8, emoji: "😀", label: t("great") },
+    { value: 10, emoji: "🔥", label: t("amazing") }
   ];
   
   // Difficulty levels with visual presentation
-  const difficultyLevels = [
+  const getDifficultyLevels = () => [
     { 
       value: 2, 
-      label: "Easy", 
+      label: t("easy"), 
       icon: <Shield className="w-5 h-5" />,
       bgColor: "from-green-500 to-green-400",
-      description: "Light effort"
+      description: t("light_effort")
     },
     { 
       value: 5, 
-      label: "Moderate", 
+      label: t("moderate"), 
       icon: <Target className="w-5 h-5" />,
       bgColor: "from-yellow-500 to-yellow-400",
-      description: "Medium effort"
+      description: t("medium_effort")
     },
     { 
       value: 8, 
-      label: "Hard", 
+      label: t("hard"), 
       icon: <Flame className="w-5 h-5" />,
       bgColor: "from-orange-500 to-orange-400",
-      description: "Challenging"
+      description: t("challenging")
     },
     { 
       value: 10, 
-      label: "Extreme", 
+      label: t("extreme"), 
       icon: <Zap className="w-5 h-5" />,
       bgColor: "from-red-500 to-red-400",
-      description: "Maximum effort"
+      description: t("maximum_effort")
     }
   ];
+  
+  const moodLevels = getMoodLevels();
+  const difficultyLevels = getDifficultyLevels();
   
   // Get current mood details
   const getCurrentMoodDetails = () => {
@@ -206,7 +212,7 @@ const MoodDifficultyStep = ({ formData, updateFormData, colors }) => {
         {/* Left column - Mood */}
         <div>
           <label className="block text-gray-300 mb-4 font-medium text-center">
-            How did you feel?
+            {t("how_did_you_feel")}
           </label>
           {renderMoodGauge()}
         </div>
@@ -214,7 +220,7 @@ const MoodDifficultyStep = ({ formData, updateFormData, colors }) => {
         {/* Right column - Difficulty */}
         <div>
           <label className="block text-gray-300 mb-4 font-medium text-center">
-            How difficult was it?
+            {t("how_difficult_was_it")}
           </label>
           {renderDifficultyGauge()}
         </div>
