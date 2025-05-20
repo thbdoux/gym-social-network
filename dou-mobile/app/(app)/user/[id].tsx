@@ -16,7 +16,6 @@ import {
   Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart } from 'react-native-chart-kit';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -32,6 +31,8 @@ import { getAvatarUrl } from '../../../utils/imageUtils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parse, subMonths, addMonths } from 'date-fns';
 // Import ColorPalette type
 import { ColorPalette, Personality, getColorPalette } from '../../../utils/colorConfig';
+// Import the TrainingConsistencyChart component
+import TrainingConsistencyChart from '../../../components/profile/TrainingConsistencyChart';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -497,24 +498,24 @@ export default function ProfilePreviewPage() {
             <View style={styles.profileHeaderContent}>
               {/* Left side - Profile picture */}
               <TouchableOpacity 
-      style={styles.profileImageContainer}
-      onPress={() => setImageModalVisible(true)}
-    >
-      <LinearGradient
-        colors={getPersonalityGradient()}
-        style={styles.profileGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={[styles.profileImageInner, { backgroundColor: userPalette.page_background }]}>
-          <Image
-            source={{ uri: getAvatarUrl(userData?.avatar, 80) }}
-            style={styles.profileImage}
-          />
-        </View>
-      </LinearGradient>
-      <View style={[styles.onlineIndicator, { borderColor: userPalette.page_background }]}></View>
-    </TouchableOpacity>
+                style={styles.profileImageContainer}
+                onPress={() => setImageModalVisible(true)}
+              >
+                <LinearGradient
+                  colors={getPersonalityGradient()}
+                  style={styles.profileGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={[styles.profileImageInner, { backgroundColor: userPalette.page_background }]}>
+                    <Image
+                      source={{ uri: getAvatarUrl(userData?.avatar, 80) }}
+                      style={styles.profileImage}
+                    />
+                  </View>
+                </LinearGradient>
+                <View style={[styles.onlineIndicator, { borderColor: userPalette.page_background }]}></View>
+              </TouchableOpacity>
               
               {/* Right side - Profile info and stats */}
               <View style={styles.profileRightContent}>
@@ -663,64 +664,8 @@ export default function ProfilePreviewPage() {
             </View>
           </View>
           
-          {/* Training Consistency Chart */}
-          <View style={styles.chartCard}>
-            <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
-            
-            <Text style={[styles.cardTitle, { color: userPalette.text }]}>{t('training_consistency')}</Text>
-            <View style={styles.chartContainer}>
-              <LineChart
-                data={{
-                  labels: sessionData.map(item => item.month),
-                  datasets: [
-                    {
-                      data: sessionData.map(item => item.sessions),
-                      color: (opacity = 1) => `${userPalette.highlight}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`,
-                      strokeWidth: 3
-                    }
-                  ]
-                }}
-                width={screenWidth - 32} // Full width minus padding
-                height={180}
-                fromZero={true}
-                yAxisInterval={1}
-                yAxisSuffix=""
-                yAxisLabel=""
-                withInnerLines={false}
-                withOuterLines={true}
-                withHorizontalLines={true}
-                withVerticalLines={false}
-                withDots={true}
-                withShadow={false}
-                segments={7}
-                chartConfig={{
-                  backgroundColor: userPalette.page_background,
-                  backgroundGradientFrom: userPalette.page_background,
-                  backgroundGradientTo: userPalette.page_background,
-                  decimalPlaces: 0,
-                  color: (opacity = 1) => `${userPalette.text}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`,
-                  labelColor: (opacity = 1) => `${userPalette.text}${Math.round(opacity * 180).toString(16).padStart(2, '0')}`,
-                  style: {
-                    borderRadius: 16
-                  },
-                  propsForDots: {
-                    r: '6',
-                    strokeWidth: '2',
-                    stroke: userPalette.highlight
-                  },
-                  propsForHorizontalLabels: {
-                    fontSize: 12,
-                    fontWeight: 'bold'
-                  },
-                  propsForVerticalLabels: {
-                    fontSize: 10
-                  }
-                }}
-                bezier
-                style={styles.chart}
-              />
-            </View>
-          </View>
+          {/* Training Consistency Chart - Using the new component */}
+          <TrainingConsistencyChart sessionData={sessionData} palette={userPalette} />
           
           {/* Current Program */}
           <View style={styles.programContainer}>
@@ -1121,28 +1066,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   
-  chartCard: {
-    position: 'relative',
-    borderRadius: 0,
-    padding: 16,
-    marginVertical: 0,
-    borderWidth: 0,
-    overflow: 'hidden',
-  },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
     paddingHorizontal: 8,
   },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 0,
-  },
-  chartContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  
   programContainer: {
     position: 'relative',
     borderRadius: 0,
@@ -1160,29 +1090,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginVertical: 16,
   },
-  // Add these styles to the existing StyleSheet.create({...}) call
-modalOverlay: {
-  flex: 1,
-  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: 20,
-},
-modalContent: {
-  width: '100%',
-  alignItems: 'center',
-  position: 'relative',
-},
-modalImage: {
-  width: 300,
-  height: 300,
-  borderRadius: 20,
-  borderWidth: 3,
-},
-closeButton: {
-  position: 'absolute',
-  top: -20,
-  right: 20,
-  zIndex: 10,
-},
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  modalImage: {
+    width: 300,
+    height: 300,
+    borderRadius: 20,
+    borderWidth: 3,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: -20,
+    right: 20,
+    zIndex: 10,
+  },
 });

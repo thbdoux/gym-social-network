@@ -1,6 +1,6 @@
 // app/(app)/feed.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useRouter } from 'expo-router'; // useNavigation removed as not directly used here
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   ImageBackground,
   TouchableOpacity,
   Modal,
-  // StyleSheet, // No longer needed here if all styles in themedStyles
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -23,7 +22,8 @@ import FeedContainer from '../../components/feed/FeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsModal from '../../components/profile/FriendsModal';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
-import FabMenu from '../../components/feed/FabMenu'; // Correct path
+// Import our new PostTypeModal instead of FabMenu
+import PostTypeModal from '../../components/feed/PostTypeModal';
 import SidebarButton from '../../components/navigation/SidebarButton';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import FeedViewSelector, { FEED_VIEW_TYPES } from '../../components/feed/FeedViewSelector';
@@ -38,14 +38,13 @@ import {
 import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
 import { imageManager, useImagePreloading } from '../../utils/imageManager';
-import { useNotificationCount } from '../../hooks/query/useNotificationQuery'; // Import for notification count
+import { useNotificationCount } from '../../hooks/query/useNotificationQuery';
 
 export default function FeedScreen() {
   const router = useRouter();
-  // const navigation = useNavigation(); // Not used directly
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { palette } = useTheme(); // personality not used directly
+  const { palette } = useTheme();
 
   const [refreshing, setRefreshing] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
@@ -54,6 +53,7 @@ export default function FeedScreen() {
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
   const [currentFeedView, setCurrentFeedView] = useState(FEED_VIEW_TYPES.FRIENDS);
+  const [showPostTypeModal, setShowPostTypeModal] = useState(false); // New state for post type modal
   const { isLoaded: imagesLoaded } = useImagePreloading(['personality']);
   const styles = themedStyles(palette);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -137,7 +137,14 @@ export default function FeedScreen() {
 
   const handleProfileClick = (userId: number) => { setSelectedUserId(userId); setShowProfileModal(true); };
   const handleNavigateToProfile = (userId: number) => router.push(`/user/${userId}`);
-  const handleFabItemPress = (itemId: string) => { setSelectedPostType(itemId); setShowPostModal(true); };
+  
+  // New handlers for our simplified UI
+  const handleShowPostTypeModal = () => setShowPostTypeModal(true);
+  const handlePostTypeSelect = (postType: string) => {
+    setSelectedPostType(postType);
+    setShowPostModal(true);
+  };
+  
   const handleModalClose = () => { setShowPostModal(false); setTimeout(() => setSelectedPostType('regular'), 300); };
   const handlePostCreated = () => refetchPosts();
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false });
@@ -152,7 +159,7 @@ export default function FeedScreen() {
       </View>
       <FeedViewSelector currentView={currentFeedView} changeView={changeView} />
     </View>
-  ), [welcomeContent, user?.displayName, user?.username, styles, currentFeedView, changeView, t]); // Added t to dependencies
+  ), [welcomeContent, user?.displayName, user?.username, styles, currentFeedView, changeView, t]);
 
   const handleProgramSelect = (program: any) => {
     let programId: number | null = typeof program === 'number' ? program : (program?.id || program?.program_id || program?.programId || program?.program_details?.id);
@@ -171,8 +178,12 @@ export default function FeedScreen() {
         {/* Header */}
         <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
           <View style={styles.headerContent}>
-            {/* <SidebarButton /> */}
+            {/* Logo on the left */}
             <HeaderLogoWithSVG />
+            
+            {/* Icons on the right */}
+            <View style={styles.headerRightContainer}>
+              {/* Notification Icon with Badge */}
               <TouchableOpacity style={styles.headerIconTouchable} onPress={() => router.push('/notifications')}>
                 <Ionicons name="notifications-outline" size={26} color={palette.text} />
                 {unreadCount > 0 && (
@@ -183,7 +194,12 @@ export default function FeedScreen() {
                   </View>
                 )}
               </TouchableOpacity>
-              <FabMenu onItemPress={handleFabItemPress} style={styles.fabMenuInHeader} />
+              
+              {/* Simple + Icon replacing FAB menu */}
+              <TouchableOpacity style={styles.createPostButton} onPress={handleShowPostTypeModal}>
+                <Ionicons name="add" size={26} color={palette.text} />
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
 
@@ -221,30 +237,39 @@ export default function FeedScreen() {
       {showFriendsModal && <FriendsModal isVisible={showFriendsModal} onClose={() => setShowFriendsModal(false)} currentUser={user} />}
       {selectedUserId && <ProfilePreviewModal isVisible={showProfileModal} onClose={() => setShowProfileModal(false)} userId={selectedUserId} />}
       <PostCreationModal visible={showPostModal} onClose={handleModalClose} onPostCreated={handlePostCreated} initialPostType={selectedPostType} />
+      
+      {/* New Post Type Modal */}
+      <PostTypeModal 
+        visible={showPostTypeModal} 
+        onClose={() => setShowPostTypeModal(false)}
+        onSelectType={handlePostTypeSelect}
+      />
     </View>
   );
 }
 
 const themedStyles = createThemedStyles((palette) => ({
-  container: { flex: 1, backgroundColor: palette.layout /* borderRadius: 12 removed for full-screen effect */ },
+  container: { flex: 1, backgroundColor: palette.layout },
   safeArea: { flex: 1 },
   header: {
     backgroundColor: palette.layout,
-    // overflow: 'hidden', // IMPORTANT: Removed to allow FAB menu items to appear outside header bounds
-    zIndex: 100, // Ensure header is above feed content, but FAB menu items will need higher zIndex
+    zIndex: 100,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12, // Adjusted padding
+    justifyContent: 'space-between', // Space between logo and right icons
+    paddingHorizontal: 16,
     height: '100%',
   },
-
-  headerIconTouchable: { // Style for the TouchableOpacity around the icon
-    padding: 6, // Clickable area
-    marginRight: 8, // Space between notification icon and FAB menu button
-    position: 'relative', // Added for absolute positioning of the badge
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIconTouchable: {
+    padding: 8,
+    marginRight: 10,
+    position: 'relative',
   },
   notificationBadge: {
     position: 'absolute',
@@ -264,10 +289,19 @@ const themedStyles = createThemedStyles((palette) => ({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  fabMenuInHeader: {
-    marginRight: 4,
-    // This style is passed to the FabMenu component (specifically to its main button)
-    // Can be used for margins if needed, e.g., marginRight: 4 if headerRight padding isn't enough
+  createPostButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    // backgroundColor: palette.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Add shadow for better visibility
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   feedWrapper: { flex: 1 },
   feedContentContainer: { paddingBottom: 60 },

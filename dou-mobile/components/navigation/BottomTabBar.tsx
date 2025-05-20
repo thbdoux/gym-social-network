@@ -30,6 +30,7 @@ interface TabIconProps {
   onPress: () => void;
   showBadge?: boolean;
   badgeCount?: number; // New prop for displaying the notification count
+  isWorkoutButton?: boolean; // New prop to identify the workout button
 }
 
 const TabIcon: React.FC<TabIconProps> = ({ 
@@ -37,7 +38,8 @@ const TabIcon: React.FC<TabIconProps> = ({
   active, 
   onPress, 
   showBadge = false, 
-  badgeCount = 0 
+  badgeCount = 0,
+  isWorkoutButton = false
 }) => {
   const { palette } = useTheme();
   const styles = themedStyles(palette);
@@ -78,9 +80,19 @@ const TabIcon: React.FC<TabIconProps> = ({
       onPress={handlePress}
       style={styles.tabButton}
     >
-      <Animated.View style={[styles.tabIconContainer, animatedStyle]}>
+      <Animated.View 
+        style={[
+          styles.tabIconContainer, 
+          animatedStyle,
+          isWorkoutButton && styles.workoutButton
+        ]}
+      >
         <View style={[active && [styles.activeIndicator, { backgroundColor: palette.text }]]} />
-        <Ionicons name={iconName} size={22} color={iconColor} />
+        <Ionicons 
+          name={iconName} 
+          size={isWorkoutButton ? 24 : 22} 
+          color={iconColor} 
+        />
         
         {/* Updated badge display with count */}
         {showBadge && (
@@ -94,48 +106,6 @@ const TabIcon: React.FC<TabIconProps> = ({
             <View style={styles.badge} />
           )
         )}
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
-
-const FabButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
-  const { palette } = useTheme();
-  const styles = themedStyles(palette);
-  const scale = useSharedValue(1);
-  const rotation = useSharedValue(0);
-  
-  const handlePress = () => {
-    scale.value = withSpring(0.9, {}, () => {
-      scale.value = withSpring(1);
-    });
-    rotation.value = withTiming(rotation.value + 45, { duration: 300 });
-    onPress();
-  };
-  
-  const fabStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { scale: scale.value },
-        { rotate: `${rotation.value}deg` }
-      ]
-    };
-  });
-  
-  return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={handlePress}
-      style={styles.fabButtonContainer}
-    >
-      <Animated.View 
-        style={[
-          styles.fabButton, 
-          fabStyle, 
-          { backgroundColor: palette.text }
-        ]}
-      >
-        <Ionicons name="add" size={24} color="#FFFFFF" />
       </Animated.View>
     </TouchableOpacity>
   );
@@ -192,8 +162,13 @@ const BottomTabBar: React.FC = () => {
             onPress={() => navigateTo('/workouts')}
           />
           
-          {/* Add FabButton in the middle */}
-          <FabButton onPress={() => navigateTo('/realtime-workout')} />
+          {/* New workout button in the middle (replacing FAB) */}
+          <TabIcon
+            name="play-circle"
+            active={pathname === '/realtime-workout'}
+            onPress={() => navigateTo('/realtime-workout')}
+            isWorkoutButton={true}
+          />
           
           {/* Analytics Tab */}
           <TabIcon
@@ -254,6 +229,9 @@ const themedStyles = createThemedStyles((palette) => ({
     borderRadius: 24,
     position: 'relative',
   },
+  workoutButton: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+  },
   activeTabIconContainer: {
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
   },
@@ -299,70 +277,10 @@ const themedStyles = createThemedStyles((palette) => ({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  
-  // FAB Button styles
-  fabButtonContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 2,
-    position: 'relative',
-    marginBottom: Platform.OS === 'ios' ? 12 : 0, // Raise the button slightly
-    transform: [{ translateY: -20 }], // Move the button up for better visibility
-  },
-  fabButton: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 5,
-  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     zIndex: 1,
-  },
-  fabMenuContainer: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 90 : 70,
-    left: 0,
-    right: 0,
-    zIndex: 5,
-    paddingHorizontal: 16,
-  },
-  fabMenuInner: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(8,15,25,255)',
-    borderRadius: 28,
-    padding: 12,
-    justifyContent: 'space-around',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  fabMenuItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 56,
-    height: 56,
-    marginHorizontal: 8,
-  },
-  fabItemButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
   },
 }));
 
