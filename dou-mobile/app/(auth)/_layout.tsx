@@ -27,7 +27,7 @@ export default function AuthLayout() {
           animation: 'slide_from_right',
         }}
       />
-      <Stack.Screen
+      {/* <Stack.Screen
         name="verify-email"
         options={{
           title: 'Verify Email',
@@ -39,7 +39,7 @@ export default function AuthLayout() {
           title: 'Verify Email Reminder',
           gestureEnabled: false,
         }}
-      />
+      /> */}
     </Stack>
   );
 }

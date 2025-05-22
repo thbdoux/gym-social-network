@@ -46,7 +46,8 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
   registerUser: (userData: any) => Promise<{ success: boolean; message: string }>;
   // googleLogin: () => Promise<boolean>;
-  resendVerification: (email: string) => Promise<boolean>;
+  // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
+  // resendVerification: (email: string) => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -145,6 +146,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return {
         success: true,
         message: "Registration successful! You can now log in."
+        // TEMPORARILY CHANGED - TODO: Re-enable email verification
         // Changed from: "Registration successful! Please check your email to verify your account."
       };
     } catch (error: any) {
@@ -158,19 +160,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
   // Resend verification email
-  const resendVerification = async (email: string): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      await userService.resendVerification(email);
-      return true;
-    } catch (error) {
-      console.error('Resend verification error:', error);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // const resendVerification = async (email: string): Promise<boolean> => {
+  //   try {
+  //     setIsLoading(true);
+  //     await userService.resendVerification(email);
+  //     return true;
+  //   } catch (error) {
+  //     console.error('Resend verification error:', error);
+  //     return false;
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   // Define a reusable logout function
   const handleLogout = useCallback(async () => {
@@ -209,16 +212,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         queryClient.removeQueries({ queryKey: key, exact: key === userKeys.current() });
       });
       
-      // STEP 4: Complete cache purge
+      // STEP 3: Complete cache purge
       queryClient.clear();
       
-      // STEP 5: Reset query cache
+      // STEP 4: Reset query cache
       queryClient.resetQueries();
       
-      // STEP 6: Add a small delay to ensure cache operations complete
+      // STEP 5: Add a small delay to ensure cache operations complete
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // STEP 7: Navigate to login
+      // STEP 6: Navigate to login
       router.replace('/login');
     } catch (error) {
       console.error('Logout error:', error);
@@ -300,6 +303,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       const userData = await userService.getCurrentUser();
       
+      // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification check
+      // Check if user email is verified before allowing login
+      // if (!userData.email_verified) {
+      //   // If email is not verified, redirect to verification reminder
+      //   setUser(userData);
+      //   setIsAuthenticated(false); // Keep as false until verified
+      //   router.replace('/verify-email-reminder');
+      //   return false;
+      // }
+      
       setUser(userData);
       setIsAuthenticated(true);
       
@@ -328,7 +341,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser,
         registerUser,
         // googleLogin,
-        resendVerification
+        // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
+        // resendVerification
       }}
     >
       {children}

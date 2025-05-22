@@ -151,12 +151,12 @@ export default function FeedScreen() {
 
   const renderWelcomeHeader = useMemo(() => (
     <View>
-      <View style={styles.welcomeContainer}>
+      {/* <View style={styles.welcomeContainer}>
         <ImageBackground source={welcomeContent.backgroundImage} style={styles.welcomeBackground} imageStyle={styles.welcomeBackgroundImage}>
           <Text style={styles.welcomeText}>{welcomeContent.message}</Text>
           <Text style={styles.welcomeUsername}>{user?.displayName || user?.username || 'Friend'}?</Text>
         </ImageBackground>
-      </View>
+      </View> */}
       <FeedViewSelector currentView={currentFeedView} changeView={changeView} />
     </View>
   ), [welcomeContent, user?.displayName, user?.username, styles, currentFeedView, changeView, t]);
@@ -308,10 +308,10 @@ const themedStyles = createThemedStyles((palette) => ({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, color: withAlpha(palette.text, 0.7) },
   welcomeContainer: { overflow: 'hidden' },
-  welcomeBackground: { minHeight: 140, justifyContent: 'center', paddingVertical: 20 },
+  welcomeBackground: { minHeight: 60, justifyContent: 'center', paddingVertical: 20 },
   welcomeBackgroundImage: {}, // No specific style needed if default is fine
   welcomeText: { fontSize: 18, fontWeight: '600', marginBottom: 4, paddingLeft: 16, color: palette.text, textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 10 },
-  welcomeUsername: { fontSize: 45, paddingLeft: 15, fontWeight: '700', color: palette.text, textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8 },
+  welcomeUsername: { fontSize: 30, paddingLeft: 15, fontWeight: '700', color: palette.text, textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8 },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { marginTop: 10, marginBottom: 20, color: withAlpha(palette.text, 0.7), textAlign: 'center' },
   retryButton: { backgroundColor: palette.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },

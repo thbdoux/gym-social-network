@@ -1,4 +1,4 @@
-// components/workouts/RestTimer.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { useLanguage } from '../../context/LanguageContext';
+import { useLanguage } from '../../../context/LanguageContext';
 
 interface RestTimerProps {
   seconds: number;

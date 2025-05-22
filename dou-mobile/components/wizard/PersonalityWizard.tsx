@@ -267,6 +267,8 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
   // Handle registration completion
   // Update the handleRegistration function in PersonalityWizard.tsx
 
+// Replace the handleRegistration function in PersonalityWizard.tsx with this:
+
 const handleRegistration = async () => {
   if (!registrationData) {
     setError(t('registration_error'));
@@ -289,18 +291,23 @@ const handleRegistration = async () => {
       bio: '' // Empty initially
     });
     
+    // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
     // After successful registration, we should check if email verification is required
     // For now, we'll try to log in immediately
     const success = await login(registrationData.username, registrationData.password);
     
     if (success) {
+      // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification check
       // If email verification is required, user may need to be redirected to verification page
-      if (!success.email_verified) {
-        router.replace('/verify-email-reminder');
-      } else {
-        // Navigate to feed if verification not required or already verified
-        router.replace('/(app)/feed');
-      }
+      // if (!success.email_verified) {
+      //   router.replace('/verify-email-reminder');
+      // } else {
+      //   // Navigate to feed if verification not required or already verified
+      //   router.replace('/(app)/feed');
+      // }
+      
+      // For now, always navigate to feed after successful registration and login
+      router.replace('/(app)/feed');
     } else {
       throw new Error('Login failed after registration');
     }

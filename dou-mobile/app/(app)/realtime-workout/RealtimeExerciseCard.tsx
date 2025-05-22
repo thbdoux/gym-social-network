@@ -1,4 +1,4 @@
-// components/workouts/RealtimeExerciseCard.tsx
+
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -13,7 +13,7 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLanguage } from '../../context/LanguageContext';
+import { useLanguage } from '../../../context/LanguageContext';
 
 interface SetData {
   id: string | number;

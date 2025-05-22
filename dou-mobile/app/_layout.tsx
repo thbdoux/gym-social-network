@@ -1,4 +1,4 @@
-// app/_layout.tsx
+// app/_layout.tsx - Updated with WorkoutProvider
 import { useEffect } from 'react';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +9,7 @@ import { LanguageProvider } from '../context/LanguageContext';
 import { HeaderAnimationProvider } from '../context/HeaderAnimationContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { NotificationProvider } from '../context/NotificationContext';
+import { WorkoutProvider } from '../context/WorkoutContext';
 import { View } from 'react-native';
 
 // Keep the splash screen visible while we fetch resources
@@ -45,12 +46,14 @@ export default function RootLayout() {
         <AuthProvider>
           <ThemeProvider>
             <NotificationProvider>
-              <HeaderAnimationProvider>
-                <StatusBar style="light" />
-                <View style={{ flex: 1, backgroundColor: '#080f19' }}>
-                  <Slot />
-                </View>
-              </HeaderAnimationProvider>
+              <WorkoutProvider>
+                <HeaderAnimationProvider>
+                  <StatusBar style="light" />
+                  <View style={{ flex: 1, backgroundColor: '#080f19' }}>
+                    <Slot />
+                  </View>
+                </HeaderAnimationProvider>
+              </WorkoutProvider>
             </NotificationProvider>
           </ThemeProvider>
         </AuthProvider>

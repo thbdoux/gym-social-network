@@ -10,6 +10,7 @@ import {
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import PostCreationModal from '../feed/PostCreationModal';
+import WorkoutNavigationGuard from './WorkoutNavigationGuard';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -111,7 +112,7 @@ const TabIcon: React.FC<TabIconProps> = ({
   );
 };
 
-// Updated BottomTabBar component with notification counter
+// Updated BottomTabBar component with notification counter and WorkoutNavigationGuard
 const BottomTabBar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -162,13 +163,15 @@ const BottomTabBar: React.FC = () => {
             onPress={() => navigateTo('/workouts')}
           />
           
-          {/* New workout button in the middle (replacing FAB) */}
-          <TabIcon
-            name="play-circle"
-            active={pathname === '/realtime-workout'}
-            onPress={() => navigateTo('/realtime-workout')}
-            isWorkoutButton={true}
-          />
+          {/* Workout button wrapped with WorkoutNavigationGuard */}
+          <WorkoutNavigationGuard targetRoute="/realtime-workout">
+            <TabIcon
+              name="play-circle"
+              active={pathname === '/realtime-workout'}
+              onPress={() => navigateTo('/realtime-workout')}
+              isWorkoutButton={true}
+            />
+          </WorkoutNavigationGuard>
           
           {/* Analytics Tab */}
           <TabIcon
@@ -196,6 +199,7 @@ const BottomTabBar: React.FC = () => {
     </>
   );
 };
+
 // Add these styles to themedStyles in BottomTabBar.tsx
 const themedStyles = createThemedStyles((palette) => ({
   container: {

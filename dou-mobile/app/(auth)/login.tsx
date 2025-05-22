@@ -27,6 +27,9 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState('');
   // const { login, googleLogin } = useAuth();
+  
+  // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
+  // const { login, resendVerification } = useAuth();
   const { login } = useAuth();
   
   // Track focused input for animation

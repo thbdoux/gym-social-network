@@ -1,4 +1,4 @@
-// components/workouts/RealtimeExerciseSelector.tsx
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLanguage } from '../../context/LanguageContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import { 
   EXERCISE_CATEGORIES, 
   EQUIPMENT_TYPES,
@@ -26,7 +26,7 @@ import {
   toggleFavorite, 
   ExerciseItem,
   FilterCriteria 
-} from './data/exerciseData';
+} from '../../../components/workouts/data/exerciseData';
 
 interface RealtimeExerciseSelectorProps {
   onSelectExercise: (exercise: any) => void;
