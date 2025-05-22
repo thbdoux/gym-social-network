@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   View,
@@ -45,10 +44,13 @@ export const createWorkoutRendering = ({
   completionPercentage,
   completedSets,
   totalSets,
-  hasIncompleteExercises
+  hasIncompleteExercises,
+  // Gym selection props
+  selectedGym,
+  gymModalVisible
 }: any) => {
 
-  // Simplified Start Screen - only workout name and buttons in center
+  // Updated Start Screen with gym selection
   const renderStartScreen = () => (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <KeyboardAvoidingView 
@@ -56,6 +58,7 @@ export const createWorkoutRendering = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.startScreenContent}>
+          {/* Workout Name Input */}
           <View style={styles.inputSection}>
             <Text style={[styles.inputLabel, { color: palette.text }]}>
               {t('workout_name')}
@@ -75,7 +78,48 @@ export const createWorkoutRendering = ({
               autoFocus={true}
             />
           </View>
+
+          {/* Gym Selection */}
+          <View style={styles.gymSection}>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>
+              {t('gym_location')}
+            </Text>
+            <TouchableOpacity
+              style={[styles.gymSelector, { 
+                backgroundColor: palette.input_background,
+                borderColor: palette.border
+              }]}
+              onPress={handlers.handleOpenGymModal}
+            >
+              <View style={styles.gymSelectorLeft}>
+                <Ionicons 
+                  name={selectedGym ? "fitness" : "home-outline"} 
+                  size={24} 
+                  color={selectedGym ? palette.accent : palette.text_secondary}
+                  style={styles.gymIcon}
+                />
+                <View style={styles.gymSelectorText}>
+                  {selectedGym ? (
+                    <>
+                      <Text style={[styles.gymName, { color: palette.text }]}>
+                        {selectedGym.name}
+                      </Text>
+                      <Text style={[styles.gymLocation, { color: palette.text_secondary }]}>
+                        {selectedGym.location}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
+                      {t('select_gym_or_home')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={palette.text_secondary} />
+            </TouchableOpacity>
+          </View>
           
+          {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.cancelButton, { borderColor: palette.border }]}

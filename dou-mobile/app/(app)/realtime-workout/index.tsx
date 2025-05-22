@@ -1,4 +1,4 @@
-// app/(app)/realtime-workout/index.tsx - Simplified to use only context
+// app/(app)/realtime-workout/index.tsx - Updated with gym selection
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -15,19 +15,37 @@ import { router } from 'expo-router';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useWorkout } from '../../../context/WorkoutContext';
 import { useCreateLog } from '../../../hooks/query/useLogQuery';
+import { useCreatePost } from '../../../hooks/query/usePostQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
 import { useWorkoutTemplate } from '../../../hooks/query/useWorkoutQuery';
+import { useCurrentUser } from '../../../hooks/query/useUserQuery';
+import { useGyms, useGym, useGymDisplay } from '../../../hooks/query/useGymQuery';
 import { useTheme } from '../../../context/ThemeContext';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { createWorkoutRendering } from './workoutRendering';
+import GymSelectionModal from '../../../components/workouts/GymSelectionModal';
+
+interface Gym {
+  id: number;
+  name: string;
+  location: string;
+  description?: string;
+  is_default?: boolean;
+}
 
 export default function RealtimeWorkoutLogger() {
   const { t } = useLanguage();
   const { palette } = useTheme();
   const styles = themedStyles(palette);
   const { mutateAsync: createLog } = useCreateLog();
+  const { mutateAsync: createPost } = useCreatePost();
+  
+  // User and gym data
+  const { data: currentUser } = useCurrentUser();
+  const { data: gyms } = useGyms();
   
   // Context is the SINGLE source of truth
+  const workoutContext = useWorkout();
   const {
     activeWorkout,
     hasActiveWorkout,
@@ -35,7 +53,7 @@ export default function RealtimeWorkoutLogger() {
     updateWorkout,
     endWorkout,
     toggleTimer
-  } = useWorkout();
+  } = workoutContext;
   
   // Get search params
   const params = useLocalSearchParams();
@@ -52,6 +70,8 @@ export default function RealtimeWorkoutLogger() {
   
   // Local UI state only (not workout data)
   const [workoutName, setWorkoutName] = useState('');
+  const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
+  const [gymModalVisible, setGymModalVisible] = useState(false);
   const [selectingExercise, setSelectingExercise] = useState(false);
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [restTimeSeconds, setRestTimeSeconds] = useState(0);
@@ -64,11 +84,14 @@ export default function RealtimeWorkoutLogger() {
   // Initialize workout name from context or template/program
   useEffect(() => {
     if (isResuming && activeWorkout) {
-      // Resuming - use context data
       console.log('Resuming workout from context');
       setWorkoutName(activeWorkout.name);
+      // Also restore selected gym if it was saved in the workout
+      if (activeWorkout.gym_id && gyms) {
+        const gym = gyms.find(g => g.id === activeWorkout.gym_id);
+        if (gym) setSelectedGym(gym);
+      }
     } else if (!hasActiveWorkout) {
-      // New workout - use template/program data
       let initialName = '';
       if (sourceType === 'template' && template) {
         initialName = template.name;
@@ -77,7 +100,17 @@ export default function RealtimeWorkoutLogger() {
       }
       setWorkoutName(initialName);
     }
-  }, [isResuming, activeWorkout, template, programWorkout]);
+  }, [isResuming, activeWorkout, template, programWorkout, gyms]);
+
+  // Initialize preferred gym from user data
+  useEffect(() => {
+    if (currentUser?.preferred_gym_id && gyms && !selectedGym && !isResuming) {
+      const preferredGym = gyms.find(gym => gym.id === currentUser.preferred_gym_id);
+      if (preferredGym) {
+        setSelectedGym(preferredGym);
+      }
+    }
+  }, [currentUser, gyms, selectedGym, isResuming]);
   
   // Helper functions
   const prepareExercisesFromTemplate = (template: any) => {
@@ -121,8 +154,94 @@ export default function RealtimeWorkoutLogger() {
     
     return { completed, total, percentage };
   };
+
+  // Helper functions for post creation (from WorkoutHandlers)
+  const getMoodOptions = () => [
+    { value: 1, label: 'terrible', icon: 'sad-outline', color: '#ef4444' },
+    { value: 2, label: 'bad', icon: 'thumbs-down-outline', color: '#f97316' },
+    { value: 3, label: 'okay', icon: 'remove-outline', color: '#eab308' },
+    { value: 4, label: 'good', icon: 'thumbs-up-outline', color: '#22c55e' },
+    { value: 5, label: 'great', icon: 'happy-outline', color: '#10b981' }
+  ];
+
+  const calculateCompletionPercentage = () => {
+    const exercises = activeWorkout?.exercises || [];
+    if (exercises.length === 0) return 0;
+    
+    const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+    const completedSets = exercises.reduce((acc, ex) => 
+      acc + ex.sets.filter((set: any) => set.completed).length, 0
+    );
+    
+    return totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
+  };
+
+  const createWorkoutPost = async (workoutLogId: number, additionalData: any) => {
+    console.log(workoutLogId, additionalData);
+    try {
+      if (!additionalData.will_share_to_social) {
+        console.log('Not sharing to social media');
+        return;
+      }
+
+      const exercises = activeWorkout?.exercises || [];
+      const workoutDuration = activeWorkout?.duration || 0;
+
+      const formData = new FormData();
+      
+      const workoutStats = {
+        name: activeWorkout?.name || workoutName,
+        duration: Math.floor(workoutDuration / 60),
+        exercises_count: exercises.length,
+        sets_completed: exercises.reduce((acc, ex) => 
+          acc + ex.sets.filter((set: any) => set.completed).length, 0
+        ),
+        completion_percentage: calculateCompletionPercentage(),
+        mood: getMoodOptions().find(m => m.value === additionalData.mood_rating)?.label || 'good',
+        difficulty: additionalData.difficulty_level,
+        gym_name: selectedGym?.name || null,
+        gym_location: selectedGym?.location || null
+      };
+
+      let postContent = additionalData.post_content || 
+        `Just finished "${workoutStats.name}"! 💪\n\n` +
+        `⏱️ ${workoutStats.duration} minutes\n` +
+        `✅ ${workoutStats.sets_completed} sets completed\n` +
+        `🏋️ ${workoutStats.exercises_count} exercises\n` +
+        `📊 ${workoutStats.completion_percentage}% complete\n`;
+
+      if (selectedGym) {
+        postContent += `🏢 ${selectedGym.name} - ${selectedGym.location}\n`;
+      }
+
+      postContent += `\n#fitness #workout #training`;
+
+      formData.append('content', postContent);
+      formData.append('post_type', 'workout_log');
+      formData.append('workout_log_id', workoutLogId.toString());
+      formData.append('workout_stats', JSON.stringify(workoutStats));
+      
+      const allTags = [
+        ...additionalData.tags || [],
+        'fitness', 'workout'
+      ];
+      formData.append('tags', JSON.stringify(allTags));
+
+      await createPost(formData);
+      console.log('Workout post created successfully');
+    } catch (error) {
+      console.error('Error creating workout post:', error);
+      Alert.alert(
+        t('warning'),
+        t('workout_saved_but_post_failed') || 'Workout saved successfully, but failed to share to social media.',
+        [{ text: t('ok') }]
+      );
+    }
+  };
   
-  // Handlers that work directly with context
+  // MERGED HANDLERS - Index.tsx versions with WorkoutHandlers enhancements
+  
+  // Keep index.tsx version (working with context)
   const handleBackPress = () => {
     if (activeWorkout?.started) {
       Alert.alert(
@@ -148,6 +267,7 @@ export default function RealtimeWorkoutLogger() {
     return true;
   };
   
+  // Updated to include gym selection validation
   const handleStartWorkout = async () => {
     if (!workoutName.trim()) {
       Alert.alert(t('error'), t('please_enter_workout_name'));
@@ -168,14 +288,29 @@ export default function RealtimeWorkoutLogger() {
       templateId,
       programId,
       workoutId,
-      currentExerciseIndex: 0
+      currentExerciseIndex: 0,
+      gym_id: selectedGym?.id || null
     });
     
     if (initialExercises.length === 0) {
       setSelectingExercise(true);
     }
   };
+
+  // Gym selection handlers
+  const handleSelectGym = (gym: Gym | null) => {
+    setSelectedGym(gym);
+  };
+
+  const handleOpenGymModal = () => {
+    setGymModalVisible(true);
+  };
+
+  const handleCloseGymModal = () => {
+    setGymModalVisible(false);
+  };
   
+  // Keep index.tsx version (working with context)
   const handleAddExercise = async (exercise: any) => {
     if (!activeWorkout) return;
     
@@ -205,6 +340,7 @@ export default function RealtimeWorkoutLogger() {
     setSelectingExercise(false);
   };
   
+  // Keep index.tsx versions (working with context)
   const handleCompleteSet = async (exerciseIndex: number, setIndex: number, setData: any) => {
     if (!activeWorkout) return;
     
@@ -215,6 +351,22 @@ export default function RealtimeWorkoutLogger() {
       ...sets[setIndex],
       ...setData,
       completed: true
+    };
+    exercise.sets = sets;
+    updatedExercises[exerciseIndex] = exercise;
+    
+    await updateWorkout({ exercises: updatedExercises });
+  };
+
+  const handleUncompleteSet = async (exerciseIndex: number, setIndex: number) => {
+    if (!activeWorkout) return;
+    
+    const updatedExercises = [...activeWorkout.exercises];
+    const exercise = {...updatedExercises[exerciseIndex]};
+    const sets = [...exercise.sets];
+    sets[setIndex] = {
+      ...sets[setIndex],
+      completed: false
     };
     exercise.sets = sets;
     updatedExercises[exerciseIndex] = exercise;
@@ -234,11 +386,112 @@ export default function RealtimeWorkoutLogger() {
     
     await updateWorkout({ exercises: updatedExercises });
   };
+
+  const handleAddSet = async (exerciseIndex: number) => {
+    if (!activeWorkout) return;
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    const lastSet = exercise.sets[exercise.sets.length - 1];
+    
+    const newSet = {
+      id: `set-${Date.now()}`,
+      reps: lastSet.actual_reps || lastSet.reps,
+      weight: lastSet.actual_weight || lastSet.weight,
+      rest_time: lastSet.rest_time,
+      order: exercise.sets.length,
+      completed: false,
+      actual_reps: lastSet.actual_reps || lastSet.reps,
+      actual_weight: lastSet.actual_weight || lastSet.weight,
+      rest_time_completed: false
+    };
+    
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises[exerciseIndex] = {
+      ...exercise,
+      sets: [...exercise.sets, newSet]
+    };
+    
+    await updateWorkout({ exercises: updatedExercises });
+  };
+
+  const handleRemoveSet = async (exerciseIndex: number, setIndex: number) => {
+    if (!activeWorkout) return;
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    
+    if (exercise.sets.length <= 1) {
+      Alert.alert(t('error'), t('cannot_remove_only_set'));
+      return;
+    }
+    
+    const updatedSets = exercise.sets.filter((_, idx) => idx !== setIndex);
+    updatedSets.forEach((set, idx) => {
+      set.order = idx;
+    });
+    
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises[exerciseIndex] = { ...exercise, sets: updatedSets };
+    
+    await updateWorkout({ exercises: updatedExercises });
+  };
+
+  // Add missing handler from WorkoutHandlers with enhancements
+  const handleDeleteExercise = (exerciseIndex: number) => {
+    if (!activeWorkout) return;
+    
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    const hasCompletedSets = exercise.sets.some((set: any) => set.completed);
+    
+    if (hasCompletedSets) {
+      Alert.alert(
+        t('cannot_delete_exercise'),
+        t('exercise_has_completed_sets'),
+        [{ text: t('ok'), style: 'default' }]
+      );
+      return;
+    }
+    
+    Alert.alert(
+      t('delete_exercise'),
+      t('delete_exercise_confirmation', { name: exercise.name }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { 
+          text: t('delete'),
+          style: 'destructive',
+          onPress: () => confirmDeleteExercise(exerciseIndex)
+        }
+      ]
+    );
+  };
+
+  const confirmDeleteExercise = async (exerciseIndex: number) => {
+    if (!activeWorkout) return;
+    
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises.splice(exerciseIndex, 1);
+    
+    let newCurrentIndex = activeWorkout.currentExerciseIndex;
+    if (newCurrentIndex >= exerciseIndex && newCurrentIndex > 0) {
+      newCurrentIndex = newCurrentIndex - 1;
+    } else if (updatedExercises.length === 0) {
+      newCurrentIndex = 0;
+    } else if (newCurrentIndex >= updatedExercises.length) {
+      newCurrentIndex = updatedExercises.length - 1;
+    }
+    
+    await updateWorkout({ 
+      exercises: updatedExercises,
+      currentExerciseIndex: newCurrentIndex
+    });
+  };
   
   const handleNavigateToExercise = async (index: number) => {
     await updateWorkout({ currentExerciseIndex: index });
   };
   
+  // Keep index.tsx version (simple modal show)
+  const handleCompleteWorkout = () => setCompleteModalVisible(true);
+  
+  // ENHANCED - Merge index.tsx version with WorkoutHandlers post creation and gym info
   const handleSubmitWorkout = async (additionalData: any = {}) => {
     if (!activeWorkout) return;
     
@@ -271,16 +524,26 @@ export default function RealtimeWorkoutLogger() {
         template_id: activeWorkout.templateId,
         program_id: activeWorkout.programId,
         program_workout_id: activeWorkout.workoutId,
+        gym: selectedGym?.id,
         tags: additionalData.tags || [],
         source_type: activeWorkout.sourceType === 'custom' ? 'none' : activeWorkout.sourceType
       };
       
       console.log('Submitting workout with exercises:', formattedExercises.length);
+      console.log('Gym information:', selectedGym);
+      
+      // First, create the workout log
       const result = await createLog(workoutData);
+      console.log('Workout log created successfully:', result);
+      
+      // Then create the post if sharing is enabled (from WorkoutHandlers)
+      await createWorkoutPost(result.id, additionalData);
       
       // End workout (clears context)
       await endWorkout(true);
       
+      // Close modal and show success
+      setCompleteModalVisible(false);
       Alert.alert(
         t('success'), 
         t('workout_logged_successfully'),
@@ -294,6 +557,14 @@ export default function RealtimeWorkoutLogger() {
       throw error;
     }
   };
+  
+  // SIMPLE handlers (keep index.tsx versions)
+  const handleCancelCompleteWorkout = () => setCompleteModalVisible(false);
+  const startRestTimer = (seconds: number) => {
+    setRestTimeSeconds(seconds);
+    setRestTimerActive(true);
+  };
+  const stopRestTimer = () => setRestTimerActive(false);
   
   // Calculate stats from active workout
   const exercises = activeWorkout?.exercises || [];
@@ -311,72 +582,29 @@ export default function RealtimeWorkoutLogger() {
     ex.sets.some((set: any) => !set.completed)
   );
   
-  // Simple handlers object
+  // Complete handlers object with merged functionality
   const handlers = {
     handleBackPress,
     handleStartWorkout,
     handleAddExercise,
     handleCompleteSet,
-    handleUncompleteSet: (exerciseIndex: number, setIndex: number) => {
-      // Similar to handleCompleteSet but set completed: false
-      handleCompleteSet(exerciseIndex, setIndex, { completed: false });
-    },
+    handleUncompleteSet,
     handleUpdateSet,
-    handleAddSet: async (exerciseIndex: number) => {
-      if (!activeWorkout) return;
-      const exercise = activeWorkout.exercises[exerciseIndex];
-      const lastSet = exercise.sets[exercise.sets.length - 1];
-      
-      const newSet = {
-        id: `set-${Date.now()}`,
-        reps: lastSet.actual_reps || lastSet.reps,
-        weight: lastSet.actual_weight || lastSet.weight,
-        rest_time: lastSet.rest_time,
-        order: exercise.sets.length,
-        completed: false,
-        actual_reps: lastSet.actual_reps || lastSet.reps,
-        actual_weight: lastSet.actual_weight || lastSet.weight,
-        rest_time_completed: false
-      };
-      
-      const updatedExercises = [...activeWorkout.exercises];
-      updatedExercises[exerciseIndex] = {
-        ...exercise,
-        sets: [...exercise.sets, newSet]
-      };
-      
-      await updateWorkout({ exercises: updatedExercises });
-    },
-    handleRemoveSet: async (exerciseIndex: number, setIndex: number) => {
-      if (!activeWorkout) return;
-      const exercise = activeWorkout.exercises[exerciseIndex];
-      
-      if (exercise.sets.length <= 1) {
-        Alert.alert(t('error'), t('cannot_remove_only_set'));
-        return;
-      }
-      
-      const updatedSets = exercise.sets.filter((_, idx) => idx !== setIndex);
-      updatedSets.forEach((set, idx) => {
-        set.order = idx;
-      });
-      
-      const updatedExercises = [...activeWorkout.exercises];
-      updatedExercises[exerciseIndex] = { ...exercise, sets: updatedSets };
-      
-      await updateWorkout({ exercises: updatedExercises });
-    },
+    handleAddSet,
+    handleRemoveSet,
+    handleDeleteExercise, // Added from WorkoutHandlers
     handleNavigateToExercise,
-    handleCompleteWorkout: () => setCompleteModalVisible(true),
-    handleSubmitWorkout,
-    handleCancelCompleteWorkout: () => setCompleteModalVisible(false),
+    handleCompleteWorkout,
+    handleSubmitWorkout, // Enhanced with post creation
+    handleCancelCompleteWorkout,
     toggleWorkoutTimer: toggleTimer,
-    startRestTimer: (seconds: number) => {
-      setRestTimeSeconds(seconds);
-      setRestTimerActive(true);
-    },
-    stopRestTimer: () => setRestTimerActive(false),
-    workoutTimerActive
+    startRestTimer,
+    stopRestTimer,
+    workoutTimerActive,
+    // Gym handlers
+    handleSelectGym,
+    handleOpenGymModal,
+    handleCloseGymModal
   };
   
   // Set up back handler
@@ -409,7 +637,10 @@ export default function RealtimeWorkoutLogger() {
     completionPercentage,
     completedSets,
     totalSets,
-    hasIncompleteExercises
+    hasIncompleteExercises,
+    // Gym related props
+    selectedGym,
+    gymModalVisible
   });
   
   return (
@@ -417,12 +648,21 @@ export default function RealtimeWorkoutLogger() {
       <StatusBar barStyle="light-content" backgroundColor={palette.accent} />
       <View style={styles.container}>
         {workoutStarted ? renderWorkoutScreen() : renderStartScreen()}
+        
+        {/* Gym Selection Modal */}
+        <GymSelectionModal
+          visible={gymModalVisible}
+          onClose={handleCloseGymModal}
+          onSelectGym={handleSelectGym}
+          selectedGym={selectedGym}
+          themePalette={palette}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
-// Simplified styles (same as before)
+// Styles remain the same with additions for gym selection
 const themedStyles = createThemedStyles((palette) => ({
   safeArea: {
     flex: 1,
@@ -447,7 +687,7 @@ const themedStyles = createThemedStyles((palette) => ({
   },
   inputSection: {
     width: '100%',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   inputLabel: {
     fontSize: 18,
@@ -465,6 +705,46 @@ const themedStyles = createThemedStyles((palette) => ({
     textAlign: 'center',
     fontWeight: '500',
   },
+  
+  // Gym selection styles
+  gymSection: {
+    width: '100%',
+    marginBottom: 32,
+  },
+  gymSelector: {
+    width: '100%',
+    height: 56,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gymSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  gymIcon: {
+    marginRight: 12,
+  },
+  gymSelectorText: {
+    flex: 1,
+  },
+  gymName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  gymLocation: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  placeholderText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  
   buttonContainer: {
     flexDirection: 'row',
     width: '100%',

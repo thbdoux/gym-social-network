@@ -43,7 +43,7 @@ export const useNotificationSocket = () => {
       
       // Create WebSocket connection with token
       const wsUrl = `wss://${baseUrl}/ws/notifications/?token=${token}`;
-      // console.log('Connecting to WebSocket:', wsUrl);
+      // const wsUrl = `ws://${baseUrl}/ws/notifications/?token=${token}`;
       
       const socket = new WebSocket(wsUrl);
       

@@ -556,8 +556,8 @@ const Post: React.FC<PostProps> = ({
                 </View>
               </LinearGradient>
               
-              {/* Streak indicator */}
-              {userStreak > 0 && (
+              {/* Streak indicator - FIXED: Added proper boolean check */}
+              {Boolean(userStreak > 0) && (
                 <View style={[styles.streakBadge, { backgroundColor: palette.accent }]}>
                   <Text style={styles.streakText}>{userStreak}</Text>
                 </View>
@@ -572,12 +572,12 @@ const Post: React.FC<PostProps> = ({
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.authorName, { color: palette.text }]}>
-                    {post.user_username}
+                    {post.user_username || ''}
                   </Text>
                 </TouchableOpacity>
                 
-                {/* Post Type Badge */}
-                {post.post_type && post.post_type !== 'regular' && !post.is_share && (
+                {/* Post Type Badge - FIXED: Added proper boolean checks */}
+                {Boolean(post.post_type && post.post_type !== 'regular' && !post.is_share) && (
                   <LinearGradient
                     colors={postTypeDetails.colors.gradient}
                     start={{ x: 0, y: 0 }}
@@ -589,7 +589,8 @@ const Post: React.FC<PostProps> = ({
                   </LinearGradient>
                 )}
                 
-                {post.is_share && (
+                {/* FIXED: Added proper boolean check */}
+                {Boolean(post.is_share) && (
                   <Text style={[styles.sharedLabel, { color: palette.border }]}>
                     {t('shared_a_post')}
                   </Text>
@@ -597,7 +598,7 @@ const Post: React.FC<PostProps> = ({
               </View>
               
               <Text style={[styles.postDate, { color: palette.border }]}>
-                @{post.user_username} • {formatDate(post.created_at)}
+                {`@${post.user_username || ''} • ${formatDate(post.created_at)}`}
               </Text>
             </View>
           </View>
@@ -629,11 +630,11 @@ const Post: React.FC<PostProps> = ({
           />
         </View>
 
-        {/* Reactions and Likers Preview */}
-        {(post.likes_count > 0 || (post.reactions_count && post.reactions_count > 0)) && (
+        {/* Reactions and Likers Preview - FIXED: Simplified boolean logic */}
+        {Boolean((post.likes_count || 0) > 0 || (post.reactions_count || 0) > 0) && (
           <View style={styles.likersContainer}>
-            {/* Show reaction icons */}
-            {topReactions.length > 0 && (
+            {/* Show reaction icons - FIXED: Added proper boolean check */}
+            {Boolean(topReactions.length > 0) && (
               <View style={styles.reactionsIconsContainer}>
                 {topReactions.map((reactionType, index) => (
                   <View 
@@ -651,8 +652,8 @@ const Post: React.FC<PostProps> = ({
               </View>
             )}
             
-            {/* Show liker avatars if there are no reactions */}
-            {topReactions.length === 0 && likers.length > 0 && (
+            {/* Show liker avatars if there are no reactions - FIXED: Proper boolean checks */}
+            {Boolean(topReactions.length === 0 && likers.length > 0) && (
               <View style={styles.likersAvatarsContainer}>
                 {likers.slice(0, 3).map((liker, index) => (
                   <TouchableOpacity
@@ -673,7 +674,7 @@ const Post: React.FC<PostProps> = ({
             )}
             
             <Text style={[styles.likersText, { color: palette.text }]}>
-              {(post.reactions_count || post.likes_count)} {(post.reactions_count || post.likes_count) === 1 ? t('reaction') : t('reactions')}
+              {`${(post.reactions_count || post.likes_count || 0)} ${(post.reactions_count || post.likes_count || 0) === 1 ? t('reaction') : t('reactions')}`}
             </Text>
           </View>
         )}
@@ -733,8 +734,8 @@ const Post: React.FC<PostProps> = ({
           </Animated.View>
         </View>
         
-        {/* Comments Section */}
-        {(showCommentInput || detailMode) && (
+        {/* Comments Section - FIXED: Added proper boolean check */}
+        {Boolean(showCommentInput || detailMode) && (
           <CommentSection 
             postId={post.id}
             comments={comments}
@@ -785,10 +786,10 @@ const Post: React.FC<PostProps> = ({
                 borderColor: palette.border 
               }]}>
                 <Text style={[styles.sharedLabel, { color: palette.border }]}>
-                  {t('original_post_by')} {post.user_username}
+                  {`${t('original_post_by')} ${post.user_username || ''}`}
                 </Text>
                 <Text style={[styles.sharedPreviewText, { color: palette.text }]} numberOfLines={2}>
-                  {post.content}
+                  {post.content || ''}
                 </Text>
               </View>
               

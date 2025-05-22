@@ -1,4 +1,3 @@
-
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -14,7 +13,7 @@ export class WorkoutHandlers {
   private setRestTimeSeconds: (seconds: number) => void;
   private setCompleteModalVisible: (visible: boolean) => void;
   private workoutStarted: boolean;
-  private workoutName: string;
+  public workoutName: string; // Make this public so it can be updated
   private workoutDuration: number;
   private exercises: any[];
   private currentExerciseIndex: number;
@@ -34,6 +33,9 @@ export class WorkoutHandlers {
   private saveWorkoutToStorage: () => Promise<void>;
   private clearWorkoutFromStorage: () => Promise<void>;
   private clearAllWorkoutStorage: () => Promise<void>;
+  
+  // Post creation function
+  private createPost: (data: any) => Promise<any>;
   
   // Workout context methods
   private workoutContext: any;
@@ -62,6 +64,7 @@ export class WorkoutHandlers {
     timerActiveKey,
     timerPauseKey,
     createLog,
+    createPost,
     templateId,
     programId,
     workoutId,
@@ -94,6 +97,7 @@ export class WorkoutHandlers {
     this.timerActiveKey = timerActiveKey;
     this.timerPauseKey = timerPauseKey;
     this.createLog = createLog;
+    this.createPost = createPost;
     this.templateId = templateId;
     this.programId = programId;
     this.workoutId = workoutId;
@@ -103,6 +107,98 @@ export class WorkoutHandlers {
     this.clearAllWorkoutStorage = clearAllWorkoutStorage;
     this.workoutContext = workoutContext;
   }
+
+  // Helper function to get mood options
+  private getMoodOptions = () => [
+    { value: 1, label: 'terrible', icon: 'sad-outline', color: '#ef4444' },
+    { value: 2, label: 'bad', icon: 'thumbs-down-outline', color: '#f97316' },
+    { value: 3, label: 'okay', icon: 'remove-outline', color: '#eab308' },
+    { value: 4, label: 'good', icon: 'thumbs-up-outline', color: '#22c55e' },
+    { value: 5, label: 'great', icon: 'happy-outline', color: '#10b981' }
+  ];
+
+  // Helper function to generate default post content
+  private generateDefaultPostContent = () => {
+    const duration = Math.floor(this.workoutDuration / 60);
+    const completedSets = this.exercises.reduce((acc, ex) => 
+      acc + ex.sets.filter((set: any) => set.completed).length, 0
+    );
+    
+    const completionPercentage = this.calculateCompletionPercentage();
+    
+    return `Just finished "${this.workoutName}"! 💪\n\n` +
+           `⏱️ ${duration} minutes\n` +
+           `✅ ${completedSets} sets completed\n` +
+           `🏋️ ${this.exercises.length} exercises\n` +
+           `📊 ${completionPercentage}% complete\n\n` +
+           `#fitness #workout #training`;
+  };
+
+  // Helper function to calculate completion percentage
+  private calculateCompletionPercentage = () => {
+    if (this.exercises.length === 0) return 0;
+    
+    const totalSets = this.exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+    const completedSets = this.exercises.reduce((acc, ex) => 
+      acc + ex.sets.filter((set: any) => set.completed).length, 0
+    );
+    
+    return totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
+  };
+
+  // Function to create workout post
+  private createWorkoutPost = async (workoutLogId: number, additionalData: any) => {
+    try {
+      if (!additionalData.will_share_to_social) {
+        console.log('Not sharing to social media');
+        return;
+      }
+
+      const formData = new FormData();
+      
+      // Create workout post content
+      const workoutStats = {
+        name: this.workoutName,
+        duration: Math.floor(this.workoutDuration / 60),
+        exercises_count: this.exercises.length,
+        sets_completed: this.exercises.reduce((acc, ex) => 
+          acc + ex.sets.filter((set: any) => set.completed).length, 0
+        ),
+        completion_percentage: this.calculateCompletionPercentage(),
+        mood: this.getMoodOptions().find(m => m.value === additionalData.mood_rating)?.label || 'good',
+        difficulty: additionalData.difficulty_level
+      };
+
+      // Use provided post content or generate default
+      const postContent = additionalData.post_content || this.generateDefaultPostContent();
+
+      // Add basic post data
+      formData.append('content', postContent);
+      formData.append('post_type', 'workout_log');
+      
+      // Add workout-specific data
+      formData.append('workout_log_id', workoutLogId.toString());
+      formData.append('workout_stats', JSON.stringify(workoutStats));
+      
+      // Add tags if any
+      const allTags = [
+        ...additionalData.tags || [],
+        'fitness', 'workout'
+      ];
+      formData.append('tags', JSON.stringify(allTags));
+
+      await this.createPost(formData);
+      console.log('Workout post created successfully');
+    } catch (error) {
+      console.error('Error creating workout post:', error);
+      // Don't throw here - we don't want to fail the entire workout save if post creation fails
+      Alert.alert(
+        this.t('warning'),
+        this.t('workout_saved_but_post_failed') || 'Workout saved successfully, but failed to share to social media.',
+        [{ text: this.t('ok') }]
+      );
+    }
+  };
 
   // Sync local state with context
   private syncWithContext = async () => {
@@ -509,7 +605,13 @@ export class WorkoutHandlers {
         source_type: this.sourceType === 'custom' ? 'none' : this.sourceType
       };
       
+      // First, create the workout log
       const result = await this.createLog(workoutData);
+      console.log('Workout log created successfully:', result);
+      
+      // Then create the post if sharing is enabled
+      await this.createWorkoutPost(result.id, additionalData);
+      console.log('Creating workout post for workout log ID:', result.id);
       
       // Clear both local and global persistence after successful save
       await this.clearWorkoutFromStorage();
@@ -517,7 +619,14 @@ export class WorkoutHandlers {
         await this.workoutContext.endWorkout(true);
       }
       
-      // Return result for post creation if needed
+      // Show success message and navigate
+      Alert.alert(
+        this.t('success'), 
+        this.t('workout_logged_successfully'),
+        [{ text: this.t('ok'), onPress: () => router.replace('/(app)/feed') }]
+      );
+      
+      // Return result for modal handling
       return {
         success: true,
         workoutId: result?.id,

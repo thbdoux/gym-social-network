@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   View,
@@ -19,7 +18,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useLanguage } from '../../../context/LanguageContext';
-import { useCreatePost } from '../../../hooks/query/usePostQuery';
 
 interface WorkoutCompleteModalProps {
   visible: boolean;
@@ -72,9 +70,6 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
   // Animation for social section
   const socialSectionHeight = React.useRef(new Animated.Value(0)).current;
 
-  // Post creation hook
-  const { mutateAsync: createPost, isLoading: isCreatingPost } = useCreatePost();
-
   React.useEffect(() => {
     if (shareToSocial && !postContent) {
       const defaultContent = generateDefaultPostContent();
@@ -100,49 +95,6 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
            `🏋️ ${exercises.length} exercises\n` +
            `📊 ${completionPercentage}% complete\n\n` +
            `#fitness #workout #training`;
-  };
-
-  const createWorkoutPost = async (workoutLogId: number) => {
-    try {
-      const formData = new FormData();
-      
-      // Create workout post content
-      const workoutStats = {
-        name: workoutName,
-        duration: Math.floor(workoutDuration / 60),
-        exercises_count: exercises.length,
-        sets_completed: exercises.reduce((acc, ex) => 
-          acc + ex.sets.filter((set: any) => set.completed).length, 0
-        ),
-        completion_percentage: completionPercentage,
-        mood: MOOD_OPTIONS.find(m => m.value === mood)?.label || 'good',
-        difficulty: difficulty
-      };
-
-      // Add basic post data
-      formData.append('content', postContent);
-      formData.append('post_type', 'workout_log');
-      
-      // Add workout-specific data
-      formData.append('workout_log_id', workoutLogId.toString());
-      formData.append('workout_stats', JSON.stringify(workoutStats));
-      
-      // Add tags if any
-      const allTags = [
-        ...tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-        'fitness', 'workout'
-      ];
-      formData.append('tags', JSON.stringify(allTags));
-
-      await createPost(formData);
-    } catch (error) {
-      console.error('Error creating workout post:', error);
-      Alert.alert(
-        t('error'),
-        t('failed_to_share_workout'),
-        [{ text: t('ok') }]
-      );
-    }
   };
 
   const handleSubmit = () => {
@@ -183,13 +135,8 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
         post_content: shareToSocial ? postContent : null
       };
 
-      // Submit workout first
-      const result = await onSubmit(workoutData);
-      
-      // If sharing to social and workout was created successfully
-      if (shareToSocial && result?.workoutId) {
-        await createWorkoutPost(result.workoutId);
-      }
+      // Submit workout - the handlers will now handle post creation internally
+      await onSubmit(workoutData);
     } catch (error) {
       console.error('Error submitting workout:', error);
       Alert.alert(
@@ -207,8 +154,6 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
-
-  const isLoading = isSubmitting || isCreatingPost;
 
   return (
     <Modal
@@ -233,7 +178,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                 <TouchableOpacity
                   style={styles.closeButton}
                   onPress={onCancel}
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                 >
                   <Ionicons name="close" size={24} color={themePalette.text} />
                 </TouchableOpacity>
@@ -304,7 +249,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                     <Switch
                       value={shareToSocial}
                       onValueChange={setShareToSocial}
-                      disabled={isLoading}
+                      disabled={isSubmitting}
                       trackColor={{ 
                         false: themePalette.text_tertiary, 
                         true: `${themePalette.success}60` 
@@ -347,7 +292,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                       placeholderTextColor={themePalette.text_tertiary}
                       maxLength={500}
                       textAlignVertical="top"
-                      editable={!isLoading}
+                      editable={!isSubmitting}
                     />
                     
                     <Text style={[styles.characterCount, { color: themePalette.text_tertiary }]}>
@@ -374,7 +319,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                           }
                         ]}
                         onPress={() => setMood(option.value)}
-                        disabled={isLoading}
+                        disabled={isSubmitting}
                       >
                         <Ionicons 
                           name={option.icon} 
@@ -411,7 +356,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                             : { borderColor: themePalette.border, backgroundColor: 'transparent' }
                         ]}
                         onPress={() => setDifficulty(option.value)}
-                        disabled={isLoading}
+                        disabled={isSubmitting}
                       >
                         <Text 
                           style={[
@@ -450,7 +395,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                     placeholder={t('enter_workout_notes')}
                     placeholderTextColor={themePalette.text_tertiary}
                     textAlignVertical="top"
-                    editable={!isLoading}
+                    editable={!isSubmitting}
                   />
                 </View>
                 
@@ -473,7 +418,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                     onChangeText={setTags}
                     placeholder={t('enter_tags_example')}
                     placeholderTextColor={themePalette.text_tertiary}
-                    editable={!isLoading}
+                    editable={!isSubmitting}
                   />
                 </View>
 
@@ -487,11 +432,11 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                     styles.cancelButton, 
                     { 
                       borderColor: themePalette.border,
-                      opacity: isLoading ? 0.6 : 1
+                      opacity: isSubmitting ? 0.6 : 1
                     }
                   ]}
                   onPress={onCancel}
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                 >
                   <Text style={[styles.cancelButtonText, { color: themePalette.text }]}>
                     {t('cancel')}
@@ -503,13 +448,13 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                     styles.submitButton, 
                     { 
                       backgroundColor: themePalette.success,
-                      opacity: isLoading ? 0.6 : 1
+                      opacity: isSubmitting ? 0.6 : 1
                     }
                   ]}
                   onPress={handleSubmit}
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                 >
-                  {isLoading ? (
+                  {isSubmitting ? (
                     <View style={styles.submitButtonContent}>
                       <Text style={styles.submitButtonText}>
                         {shareToSocial ? t('saving_and_sharing') : t('saving')}...
