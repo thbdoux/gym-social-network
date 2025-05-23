@@ -137,38 +137,38 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
           <TouchableOpacity 
             style={[
               styles.iconButton, 
-              { borderColor: palette.border },
-              hasActiveFilters && { borderColor: palette.highlight }
+              { borderColor: palette.text},
+              hasActiveFilters && { borderColor: palette.text }
             ]}
             onPress={onToggleFilter}
           >
             <Feather 
               name="filter" 
               size={18} 
-              color={hasActiveFilters ? palette.highlight : palette.text + '80'} 
+              color={hasActiveFilters ? palette.text : palette.text} 
             />
             {hasActiveFilters && (
-              <View style={[styles.badge, { backgroundColor: palette.highlight }]} />
+              <View style={[styles.badge, { backgroundColor: palette.text }]} />
             )}
           </TouchableOpacity>
           
           {/* Reset Button */}
           <TouchableOpacity 
-            style={[styles.iconButton, { borderColor: palette.border }]} 
+            style={[styles.iconButton, { borderColor: palette.text }]} 
             onPress={onResetFilters}
             disabled={!hasActiveFilters}
           >
             <Feather 
               name="refresh-cw" 
               size={18} 
-              color={hasActiveFilters ? palette.highlight : palette.text + '40'} 
+              color={hasActiveFilters ? palette.text : palette.text} 
             />
           </TouchableOpacity>
         </View>
       </View>
       
       {/* Tabs Container - styled like WorkoutTabs */}
-      <View style={[styles.tabContainer, { backgroundColor: palette.layout }]}>
+      <View style={[styles.tabContainer, { backgroundColor: palette.page_background }]}>
         <View style={styles.tabsContainer}>
           {viewOptions.map((viewType) => {
             const isActive = analyticsView === viewType.id;
@@ -212,7 +212,7 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
                     <Ionicons 
                       name={isActive ? viewType.activeIcon : viewType.icon} 
                       size={22} 
-                      color={isActive ? "#FFFFFF" : "#6B7280"} 
+                      color={isActive ? "#FFFFFF" : palette.accent} 
                       style={isActive ? styles.activeTabIcon : styles.inactiveTabIcon}
                     />
                     
@@ -303,9 +303,9 @@ const styles = StyleSheet.create({
   
   // Tab styles - enhanced with animation support
   tabContainer: {
-    paddingTop: 0,
+    paddingTop: 8,
     paddingHorizontal: 12,
-    paddingBottom: 16,
+    paddingBottom: 10,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },

@@ -7,6 +7,7 @@ import {
   ScrollView
 } from 'react-native';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { ProgramFormData } from '../ProgramWizard';
 import { Check } from 'react-native-feather';
 
@@ -30,6 +31,7 @@ type DifficultyOption = {
 
 const Step2Focus = ({ formData, updateFormData }: Step2FocusProps) => {
   const { t } = useLanguage();
+  const { programPalette, palette } = useTheme();
 
   // Constant focus choices - using translation keys
   const FOCUS_CHOICES: FocusOption[] = [
@@ -68,7 +70,9 @@ const Step2Focus = ({ formData, updateFormData }: Step2FocusProps) => {
     >
       {/* Focus Selection - Grid Layout */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('program_focus_question')}</Text>
+        <Text style={[styles.sectionTitle, { color: programPalette.text }]}>
+          {t('program_focus_question')}
+        </Text>
         
         <View style={styles.focusGrid}>
           {FOCUS_CHOICES.map((focus) => {
@@ -79,22 +83,35 @@ const Step2Focus = ({ formData, updateFormData }: Step2FocusProps) => {
                 key={focus.value}
                 style={[
                   styles.focusCard,
-                  isSelected && styles.focusCardSelected
+                  { 
+                    backgroundColor: palette.card_background,
+                    borderColor: isSelected ? programPalette.highlight : palette.border,
+                    borderWidth: isSelected ? 2 : 1
+                  }
                 ]}
                 onPress={() => handleFocusSelect(focus.value)}
                 activeOpacity={0.7}
               >
                 <View style={[
                   styles.focusIconContainer,
-                  isSelected && styles.focusIconSelected
+                  { 
+                    backgroundColor: isSelected 
+                      ? programPalette.highlight 
+                      : palette.input_background
+                  }
                 ]}>
                   <Text style={styles.focusIcon}>{focus.icon}</Text>
                 </View>
                 
-                <Text style={styles.focusLabel}>{focus.label}</Text>
+                <Text style={[
+                  styles.focusLabel, 
+                  { color: isSelected ? programPalette.text : palette.text_secondary }
+                ]}>
+                  {focus.label}
+                </Text>
                 
                 {isSelected && (
-                  <View style={styles.checkCircle}>
+                  <View style={[styles.checkCircle, { backgroundColor: programPalette.highlight }]}>
                     <Check width={14} height={14} color="#FFFFFF" />
                   </View>
                 )}
@@ -106,7 +123,9 @@ const Step2Focus = ({ formData, updateFormData }: Step2FocusProps) => {
 
       {/* Difficulty Selection */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('select_difficulty')}</Text>
+        <Text style={[styles.sectionTitle, { color: programPalette.text }]}>
+          {t('select_difficulty')}
+        </Text>
         
         <View style={styles.difficultyContainer}>
           {DIFFICULTY_LEVELS.map((level) => {
@@ -117,22 +136,38 @@ const Step2Focus = ({ formData, updateFormData }: Step2FocusProps) => {
                 key={level.value}
                 style={[
                   styles.difficultyCard,
-                  isSelected && styles.difficultyCardSelected
+                  { 
+                    backgroundColor: palette.card_background,
+                    borderColor: isSelected ? programPalette.highlight : palette.border,
+                    borderWidth: isSelected ? 2 : 1
+                  }
                 ]}
                 onPress={() => handleDifficultySelect(level.value)}
                 activeOpacity={0.7}
               >
                 <View style={[
                   styles.difficultyIconContainer,
-                  isSelected && styles.difficultyIconSelected
+                  { 
+                    backgroundColor: isSelected 
+                      ? programPalette.highlight 
+                      : palette.input_background
+                  }
                 ]}>
                   <Text style={styles.difficultyIcon}>{level.icon}</Text>
                 </View>
                 
-                <Text style={styles.difficultyLabel}>{level.label}</Text>
+                <Text style={[
+                  styles.difficultyLabel,
+                  { color: isSelected ? programPalette.text : palette.text_secondary }
+                ]}>
+                  {level.label}
+                </Text>
                 
                 {isSelected && (
-                  <View style={styles.selectedIndicator} />
+                  <View style={[
+                    styles.selectedIndicator, 
+                    { backgroundColor: programPalette.highlight }
+                  ]} />
                 )}
               </TouchableOpacity>
             );
@@ -154,7 +189,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -165,30 +199,19 @@ const styles = StyleSheet.create({
   },
   focusCard: {
     width: '48%',
-    backgroundColor: '#1F2937',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
     padding: 16,
     marginBottom: 12,
     alignItems: 'center',
     position: 'relative',
   },
-  focusCardSelected: {
-    borderColor: '#9333ea',
-    backgroundColor: 'rgba(126, 34, 206, 0.1)', // purple-700 with opacity
-  },
   focusIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#374151',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-  },
-  focusIconSelected: {
-    backgroundColor: '#9333ea', // purple-600
   },
   focusIcon: {
     fontSize: 24,
@@ -196,7 +219,6 @@ const styles = StyleSheet.create({
   focusLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
     textAlign: 'center',
   },
   checkCircle: {
@@ -206,7 +228,6 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#9333ea', // purple-600
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -216,32 +237,20 @@ const styles = StyleSheet.create({
   },
   difficultyCard: {
     flex: 1,
-    backgroundColor: '#1F2937',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
     padding: 16,
     marginHorizontal: 4,
     alignItems: 'center',
     position: 'relative',
     overflow: 'hidden',
   },
-  difficultyCardSelected: {
-    borderWidth: 1,
-    borderColor: '#9333ea',
-    backgroundColor: 'rgba(126, 34, 206, 0.1)', // purple-700 with opacity
-  },
   difficultyIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#374151',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-  },
-  difficultyIconSelected: {
-    backgroundColor: '#9333ea', // purple-600
   },
   difficultyIcon: {
     fontSize: 24,
@@ -249,7 +258,6 @@ const styles = StyleSheet.create({
   difficultyLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
     textAlign: 'center',
   },
   selectedIndicator: {
@@ -258,7 +266,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 3,
-    backgroundColor: '#9333ea', // purple-600
   }
 });
 

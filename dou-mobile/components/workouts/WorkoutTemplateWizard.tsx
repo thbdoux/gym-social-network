@@ -9,10 +9,11 @@ import {
   StatusBar,
   Dimensions
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Using Ionicons instead of react-native-feather
+import { Ionicons } from '@expo/vector-icons';
 import Step1WorkoutName from './workout-steps/Step1WorkoutName';
 import StepExercises from './workout-steps/StepExercises';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Define exercise type
@@ -92,6 +93,8 @@ const { width } = Dimensions.get('window');
 
 const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: WorkoutTemplateWizardProps) => {
   const { t } = useLanguage();
+  const { workoutPalette, palette } = useTheme();
+  
   const [formData, setFormData] = useState<WorkoutTemplateFormData>(() => initializeFormData(template));
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -201,26 +204,26 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={palette.page_background} />
         
         {/* Header with integrated progress bar */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.page_background }]}>
           <LinearGradient
-            colors={['#0ea5e9', '#0284c7']} // Blue gradient for workout theme
+            colors={[workoutPalette.background, workoutPalette.highlight]} // Blue gradient for workout theme
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerGradient}
           >
             <View style={styles.headerContent}>
               <View style={styles.titleContainer}>
-                <Text style={styles.title}>
+                <Text style={[styles.title, { color: workoutPalette.text }]}>
                   {template ? t('edit_workout_template') : t('create_new_workout')}
                 </Text>
               </View>
               
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={22} color={workoutPalette.text} />
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -241,15 +244,17 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
                   {/* Circle indicator */}
                   <View style={[
                     styles.stepCircle,
-                    index < currentStep ? styles.stepCompleted : 
-                    index === currentStep ? styles.stepCurrent : 
-                    styles.stepUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: workoutPalette.background } : 
+                      index === currentStep ? 
+                        { backgroundColor: workoutPalette.highlight } : 
+                        { backgroundColor: palette.input_background }
                   ]}>
                     <Text style={[
                       styles.stepNumber,
-                      index < currentStep ? styles.stepCompletedText : 
-                      index === currentStep ? styles.stepCurrentText : 
-                      styles.stepUpcomingText
+                      index < currentStep || index === currentStep ? 
+                        { color: '#FFFFFF' } : 
+                        { color: palette.text_tertiary }
                     ]}>
                       {index + 1}
                     </Text>
@@ -257,9 +262,11 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
                   
                   <Text style={[
                     styles.stepName,
-                    index < currentStep ? styles.stepCompletedText : 
-                    index === currentStep ? styles.stepCurrentText : 
-                    styles.stepUpcomingText
+                    index < currentStep ? 
+                      { color: workoutPalette.text } : 
+                      index === currentStep ? 
+                        { color: workoutPalette.text } : 
+                        { color: palette.text_tertiary }
                   ]}>
                     {step.name}
                   </Text>
@@ -269,7 +276,9 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
                 {index < steps.length - 1 && (
                   <View style={[
                     styles.stepConnector,
-                    index < currentStep ? styles.stepConnectorCompleted : styles.stepConnectorUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: workoutPalette.background } : 
+                      { backgroundColor: palette.input_background }
                   ]} />
                 )}
               </React.Fragment>
@@ -287,18 +296,24 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
         </View>
         
         {/* Footer with navigation buttons */}
-        <View style={styles.footer}>
+        <View style={[
+          styles.footer, 
+          { 
+            borderTopColor: palette.border,
+            backgroundColor: palette.page_background
+          }
+        ]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: palette.input_background }]}
             onPress={currentStep === 0 ? onClose : goToPrevStep}
           >
-            <Text style={styles.backButtonText}>
+            <Text style={[styles.backButtonText, { color: palette.text }]}>
               {currentStep === 0 ? t('cancel') : t('back')}
             </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.nextButton}
+            style={[styles.nextButton, { backgroundColor: workoutPalette.background }]}
             onPress={goToNextStep}
           >
             {currentStep === steps.length - 1 ? (
@@ -323,12 +338,9 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   headerGradient: {
     paddingHorizontal: 16,
@@ -346,7 +358,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   closeButton: {
     padding: 8,
@@ -379,38 +390,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  stepCompleted: {
-    backgroundColor: '#0ea5e9', // blue-500
-  },
-  stepCurrent: {
-    backgroundColor: '#0284c7', // blue-600
-  },
-  stepUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
-  },
   stepNumber: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  stepCompletedText: {
-    color: '#FFFFFF',
-  },
-  stepCurrentText: {
-    color: '#FFFFFF',
-  },
-  stepUpcomingText: {
-    color: '#6B7280', // gray-500
   },
   stepConnector: {
     width: (width - 180) / 1, // Dynamic width based on screen size (adjusted for 2 steps)
     height: 2,
     marginTop: -20, // Position in the middle of circles
-  },
-  stepConnectorCompleted: {
-    backgroundColor: '#0ea5e9', // blue-500
-  },
-  stepConnectorUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
   },
   content: {
     flex: 1,
@@ -422,24 +409,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   backButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#1F2937', // gray-800
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#E5E7EB', // gray-200
     fontWeight: '500',
     fontSize: 14,
   },
   nextButton: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: '#0284c7', // blue-600
     borderRadius: 8,
   },
   buttonContent: {

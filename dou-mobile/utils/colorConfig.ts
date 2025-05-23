@@ -41,7 +41,6 @@ export interface WorkoutLogPalette extends WorkoutPalette {}
 export interface ProgramWorkoutPalette extends WorkoutPalette {}
 export interface GroupWorkoutPalette extends WorkoutPalette {}
 
-// MUCH BETTER color palettes with excellent contrast and readability
 const COLOR_PALETTES: Record<Personality, ColorPalette> = {
   optimizer: {
     // Professional blue theme - clean and precise
@@ -86,7 +85,7 @@ const COLOR_PALETTES: Record<Personality, ColorPalette> = {
     layout: '#7c2d92',             // Rich purple header
     page_background: '#1e0a24',    // Deep purple
     text: '#fdf4ff',               // Near white with purple tint
-    border: '#a855f7',             // Bright purple border
+    border: '#c996fa',             // Bright purple border
     accent: '#9333ea',             // Rich purple
     highlight: '#c084fc',          // Light purple
     
@@ -100,24 +99,25 @@ const COLOR_PALETTES: Record<Personality, ColorPalette> = {
     info: '#06b6d4',               // Cyan
   },
 
-  mentor: {
-    // Warm red-brown theme - authoritative and trustworthy
-    layout: '#b91c1c',             // Strong red header
-    page_background: '#1f0a0a',    // Deep warm dark
-    text: '#fef2f2',               // Near white with warm tint
-    border: '#f87171',             // Warm red border
-    accent: '#dc2626',             // Strong red
-    highlight: '#f87171',          // Light red
-    
-    text_secondary: '#fecaca',     // Light warm tint
-    text_tertiary: '#a85757',      // Medium warm for placeholders
-    card_background: '#3c1414',    // Dark warm cards
-    input_background: '#5a2121',   // Warm-tinted inputs
-    success: '#22c55e',            // Green
-    warning: '#eab308',            // Amber
-    error: '#ef4444',              // Red
-    info: '#06b6d4',               // Cyan
-  },
+  mentor : {
+    layout: '#fa0d1b',              // Rosewood – deep header/nav background
+    page_background: '#270202',     // Root Beer – dark, rich canvas background
+    text: '#fef2f2',                // Soft off-white for strong contrast on dark reds
+    border: '#c93631',              // Sangria – distinct but balanced for outlines/dividers
+    accent: '#c93631',              // Persian Red – vibrant color for links, focus rings, etc.
+    highlight: '#fa0d1b',           // Vivid Red – powerful highlight for alerts or CTAs
+  
+    text_secondary: '#fca5a5',      // Light coral – softens subtext while staying visible
+    text_tertiary: '#f87171',       // Muted red – ideal for placeholders, tertiary labels
+    card_background: '#3b0a0a',     // Slightly lighter than Root Beer – for card surfaces
+    input_background: '#4b0e0e',    // Mid-tone red – adds input field clarity on dark base
+  
+    success: '#22c55e',             // Clean green – universal color for success (keeps UX consistent)
+    warning: '#eab308',             // Amber – balances well with red hues
+    error: '#ef4444',               // Bright red – matches intensity but stands out clearly
+    info: '#06b6d4',                // Cyan – contrasting for info/tooltips
+  }
+  
 };
 
 // Clean workout palettes (blue tones) - same structure, better colors
@@ -149,7 +149,7 @@ const WORKOUT_PALETTES: Record<Personality, WorkoutPalette> = {
     card_identity: 'template',
   },
   diplomate: {
-    background: '#1976d2',
+    background: '#1e40af',
     text: '#ffffff',
     text_secondary: '#c3e8ff',
     highlight: '#64b5f6',
@@ -205,7 +205,7 @@ const PROGRAM_PALETTES: Record<Personality, ProgramPalette> = {
     card_identity: 'program',
   },
   diplomate: {
-    background: '#9333ea',
+    background: '#581c87',
     text: '#ffffff',
     text_secondary: '#f3e8ff',
     highlight: '#c084fc',
@@ -235,7 +235,7 @@ const PROGRAM_PALETTES: Record<Personality, ProgramPalette> = {
 // Clean workout log palettes (green tones)
 const WORKOUT_LOG_PALETTES: Record<Personality, WorkoutLogPalette> = {
   optimizer: {
-    background: '#16a34a',
+    background: '#166534',
     text: '#ffffff',
     text_secondary: '#dcfce7',
     highlight: '#4ade80',
@@ -261,7 +261,7 @@ const WORKOUT_LOG_PALETTES: Record<Personality, WorkoutLogPalette> = {
     card_identity: 'log',
   },
   diplomate: {
-    background: '#10b981',
+    background: '#15803d',
     text: '#ffffff',
     text_secondary: '#d1fae5',
     highlight: '#34d399',
@@ -274,7 +274,7 @@ const WORKOUT_LOG_PALETTES: Record<Personality, WorkoutLogPalette> = {
     card_identity: 'log',
   },
   mentor: {
-    background: '#16a34a',
+    background: '#15803d',
     text: '#ffffff',
     text_secondary: '#dcfce7',
     highlight: '#4ade80',
@@ -317,7 +317,7 @@ const PROGRAM_WORKOUT_PALETTES: Record<Personality, ProgramWorkoutPalette> = {
     card_identity: 'program_workout',
   },
   diplomate: {
-    background: '#6366f1',
+    background: '#1e40af',
     text: '#ffffff',
     text_secondary: '#e0e7ff',
     highlight: '#818cf8',
@@ -344,59 +344,66 @@ const PROGRAM_WORKOUT_PALETTES: Record<Personality, ProgramWorkoutPalette> = {
   },
 };
 
-// Clean group workout palettes (amber tones)
 const GROUP_WORKOUT_PALETTES: Record<Personality, GroupWorkoutPalette> = {
   optimizer: {
-    background: '#d97706',
+    background: '#f59e0b', // Primary amber for solid backgrounds
     text: '#ffffff',
-    text_secondary: '#fef3c7',
-    highlight: '#fbbf24',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(217, 119, 6, 0.8)',
-    action_bg: 'rgba(255, 255, 255, 0.95)',
-    pattern_opacity: 0.1,
-    pattern_color: '#fde68a',
+    text_secondary: '#fef7e6', // Better contrast warm white
+    highlight: '#fcd34d', // Brighter amber-300
+    border: 'rgba(255, 255, 255, 0.25)',
+    badge_bg: 'rgba(217, 119, 6, 0.9)',
+    action_bg: 'rgba(255, 255, 255, 0.98)',
+    pattern_opacity: 0.08,
+    pattern_color: '#fed7aa',
     pattern_secondary_color: '#b45309',
     card_identity: 'group_workout',
+    gradient_start: '#f59e0b', // amber-500
+    gradient_end: '#d97706',   // amber-600
   },
   versatile: {
     background: '#f59e0b',
     text: '#ffffff',
-    text_secondary: '#fef3c7',
-    highlight: '#fbbf24',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(245, 158, 11, 0.8)',
-    action_bg: 'rgba(255, 255, 255, 0.95)',
-    pattern_opacity: 0.1,
-    pattern_color: '#fde68a',
-    pattern_secondary_color: '#d97706',
+    text_secondary: '#fef7e6',
+    highlight: '#fb923c', // Orange-400 for variety
+    border: 'rgba(255, 255, 255, 0.25)',
+    badge_bg: 'rgba(245, 158, 11, 0.9)',
+    action_bg: 'rgba(255, 255, 255, 0.98)',
+    pattern_opacity: 0.08,
+    pattern_color: '#fed7aa',
+    pattern_secondary_color: '#c2410c',
     card_identity: 'group_workout',
+    gradient_start: '#f59e0b', // amber-500
+    gradient_end: '#ea580c',   // orange-600
   },
   diplomate: {
-    background: '#f59e0b',
+    background: '#b45309', // Softer yellow-amber
     text: '#ffffff',
-    text_secondary: '#fef3c7',
-    highlight: '#fcd34d',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(245, 158, 11, 0.8)',
-    action_bg: 'rgba(255, 255, 255, 0.95)',
-    pattern_opacity: 0.1,
-    pattern_color: '#fde68a',
-    pattern_secondary_color: '#d97706',
+    text_secondary: '#fef7e6',
+    highlight: '#fbbf24',
+    border: 'rgba(255, 255, 255, 0.25)',
+    badge_bg: 'rgba(234, 179, 8, 0.9)',
+    action_bg: 'rgba(255, 255, 255, 0.98)',
+    pattern_opacity: 0.08,
+    pattern_color: '#fef3c7',
+    pattern_secondary_color: '#a16207',
     card_identity: 'group_workout',
+    gradient_start: '#eab308', // yellow-500
+    gradient_end: '#f59e0b',   // amber-500
   },
   mentor: {
-    background: '#d97706',
+    background: '#dc2626', // Red to orange - authoritative
     text: '#ffffff',
-    text_secondary: '#fef3c7',
-    highlight: '#fbbf24',
-    border: 'rgba(255, 255, 255, 0.2)',
-    badge_bg: 'rgba(217, 119, 6, 0.8)',
-    action_bg: 'rgba(255, 255, 255, 0.95)',
-    pattern_opacity: 0.1,
-    pattern_color: '#fde68a',
-    pattern_secondary_color: '#92400e',
+    text_secondary: '#fef2f2',
+    highlight: '#f87171', // Red-400
+    border: 'rgba(255, 255, 255, 0.25)',
+    badge_bg: 'rgba(220, 38, 38, 0.9)',
+    action_bg: 'rgba(255, 255, 255, 0.98)',
+    pattern_opacity: 0.08,
+    pattern_color: '#fecaca',
+    pattern_secondary_color: '#991b1b',
     card_identity: 'group_workout',
+    gradient_start: '#dc2626', // red-600
+    gradient_end: '#ea580c',   // orange-600
   },
 };
 

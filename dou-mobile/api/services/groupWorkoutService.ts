@@ -236,6 +236,76 @@ const groupWorkoutService = {
     });
     return response.data;
   },
+
+// Propose a workout template for a group workout
+proposeWorkout: async (groupWorkoutId: number, workoutTemplateId: number): Promise<any> => {
+  console.log('wID : ', workoutTemplateId, 'group ID : ', groupWorkoutId);
+  try {
+    const response = await apiClient.post(`/workouts/group-workouts/${groupWorkoutId}/propose/`, {
+      workout_template_id: workoutTemplateId
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error proposing workout:', error);
+    if (error.response && error.response.data) {
+      console.error('API Error Response:', JSON.stringify(error.response.data));
+    }
+    throw error;
+  }
+},
+
+// Get all proposals for a group workout
+getProposals: async (groupWorkoutId: number): Promise<any[]> => {
+  const response = await apiClient.get(`/workouts/group-workouts/${groupWorkoutId}/proposals/`);
+  return extractData(response);
+},
+
+// Vote for a proposed workout
+voteForProposal: async (groupWorkoutId: number, proposalId: number): Promise<any> => {
+  try {
+    const response = await apiClient.post(`/workouts/group-workouts/${groupWorkoutId}/vote/`, {
+      proposal_id: proposalId
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error voting for proposal:', error);
+    throw error;
+  }
+},
+
+// Remove a vote from a proposal
+removeVote: async (groupWorkoutId: number, proposalId: number): Promise<any> => {
+  try {
+    const response = await apiClient.delete(`/workouts/group-workouts/${groupWorkoutId}/remove-vote/`, {
+      data: { proposal_id: proposalId }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error removing vote:', error);
+    throw error;
+  }
+},
+
+// Get the most voted proposal
+getMostVotedProposal: async (groupWorkoutId: number): Promise<any> => {
+  try {
+    const response = await apiClient.get(`/workouts/group-workouts/${groupWorkoutId}/most-voted-proposal/`);
+    return response.data;
+  } catch (error) {
+    // If it's a 404, just return null to indicate no proposals
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    console.error('Error getting most voted proposal:', error);
+    throw error;
+  }
+},
+
+// Get user's workout templates (to propose)
+getUserWorkoutTemplates: async (userId: number): Promise<any[]> => {
+  const response = await apiClient.get(`/workouts/templates/?user_id=${userId}`);
+  return extractData(response);
+},
 };
 
 export default groupWorkoutService;

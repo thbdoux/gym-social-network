@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Import Steps
@@ -68,6 +69,7 @@ const GroupWorkoutWizard = ({
   user
 }: GroupWorkoutWizardProps) => {
   const { t } = useLanguage();
+  const { groupWorkoutPalette, palette } = useTheme();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -284,24 +286,26 @@ const GroupWorkoutWizard = ({
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={palette.page_background} />
         
         {/* Header with integrated progress bar */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.page_background }]}>
           <LinearGradient
-            colors={['#f97316', '#fb923c']}
+            colors={[groupWorkoutPalette.background, groupWorkoutPalette.highlight]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerGradient}
           >
             <View style={styles.headerContent}>
               <View style={styles.titleContainer}>
-                <Text style={styles.title}>{t('create_group_workout')}</Text>
+                <Text style={[styles.title, { color: groupWorkoutPalette.text }]}>
+                  {t('create_group_workout')}
+                </Text>
               </View>
               
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={22} color={groupWorkoutPalette.text} />
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -322,15 +326,17 @@ const GroupWorkoutWizard = ({
                   {/* Circle indicator */}
                   <View style={[
                     styles.stepCircle,
-                    index < currentStep ? styles.stepCompleted : 
-                    index === currentStep ? styles.stepCurrent : 
-                    styles.stepUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: groupWorkoutPalette.background } : 
+                      index === currentStep ? 
+                        { backgroundColor: groupWorkoutPalette.highlight } : 
+                        { backgroundColor: palette.input_background }
                   ]}>
                     <Text style={[
                       styles.stepNumber,
-                      index < currentStep ? styles.stepCompletedText : 
-                      index === currentStep ? styles.stepCurrentText : 
-                      styles.stepUpcomingText
+                      index < currentStep || index === currentStep ? 
+                        { color: '#FFFFFF' } : 
+                        { color: palette.text_tertiary }
                     ]}>
                       {index + 1}
                     </Text>
@@ -338,9 +344,11 @@ const GroupWorkoutWizard = ({
                   
                   <Text style={[
                     styles.stepName,
-                    index < currentStep ? styles.stepCompletedText : 
-                    index === currentStep ? styles.stepCurrentText : 
-                    styles.stepUpcomingText
+                    index < currentStep ? 
+                      { color: groupWorkoutPalette.text } : 
+                      index === currentStep ? 
+                        { color: groupWorkoutPalette.text } : 
+                        { color: palette.text_tertiary }
                   ]}>
                     {step.name}
                   </Text>
@@ -350,7 +358,9 @@ const GroupWorkoutWizard = ({
                 {index < steps.length - 1 && (
                   <View style={[
                     styles.stepConnector,
-                    index < currentStep ? styles.stepConnectorCompleted : styles.stepConnectorUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: groupWorkoutPalette.background } : 
+                      { backgroundColor: palette.input_background }
                   ]} />
                 )}
               </React.Fragment>
@@ -366,22 +376,43 @@ const GroupWorkoutWizard = ({
             errors={errors}
             user={user}
           />
+          
+          {isSubmitting && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={groupWorkoutPalette.highlight} />
+              <Text style={[styles.loadingText, { color: palette.text }]}>
+                {t('saving_group_workout')}
+              </Text>
+            </View>
+          )}
         </ScrollView>
         
         {/* Footer with navigation buttons */}
-        <View style={styles.footer}>
+        <View style={[
+          styles.footer, 
+          { 
+            borderTopColor: palette.border,
+            backgroundColor: palette.page_background
+          }
+        ]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: palette.input_background }]}
             onPress={currentStep === 0 ? onClose : goToPrevStep}
+            disabled={isSubmitting}
           >
-            <Text style={styles.backButtonText}>
+            <Text style={[styles.backButtonText, { color: palette.text }]}>
               {currentStep === 0 ? t('cancel') : t('back')}
             </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.nextButton}
+            style={[
+              styles.nextButton, 
+              { backgroundColor: groupWorkoutPalette.background },
+              isSubmitting && { opacity: 0.7 }
+            ]}
             onPress={goToNextStep}
+            disabled={isSubmitting}
           >
             {currentStep === steps.length - 1 ? (
               <View style={styles.buttonContent}>
@@ -406,12 +437,9 @@ const GroupWorkoutWizard = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   headerGradient: {
     paddingHorizontal: 16,
@@ -429,7 +457,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   closeButton: {
     padding: 8,
@@ -462,38 +489,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  stepCompleted: {
-    backgroundColor: '#f97316', // orange-600
-  },
-  stepCurrent: {
-    backgroundColor: '#fb923c', // orange-500
-  },
-  stepUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
-  },
   stepNumber: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  stepCompletedText: {
-    color: '#FFFFFF',
-  },
-  stepCurrentText: {
-    color: '#FFFFFF',
-  },
-  stepUpcomingText: {
-    color: '#6B7280', // gray-500
   },
   stepConnector: {
     width: (width - 200) / 2, // Dynamic width based on screen size (adjusted for 3 steps)
     height: 2,
     marginTop: -20, // Position in the middle of circles
-  },
-  stepConnectorCompleted: {
-    backgroundColor: '#f97316', // orange-600
-  },
-  stepConnectorUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
   },
   content: {
     flex: 1,
@@ -508,24 +511,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   backButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#1F2937', // gray-800
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#E5E7EB', // gray-200
     fontWeight: '500',
     fontSize: 14,
   },
   nextButton: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: '#f97316', // orange-600
     borderRadius: 8,
   },
   buttonContent: {
@@ -538,6 +536,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
   },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+  }
 });
 
 export default GroupWorkoutWizard;

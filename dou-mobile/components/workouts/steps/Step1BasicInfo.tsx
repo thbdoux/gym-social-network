@@ -5,9 +5,12 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  ScrollView
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { ProgramFormData } from '../ProgramWizard';
 
 type Step1BasicInfoProps = {
@@ -18,6 +21,7 @@ type Step1BasicInfoProps = {
 
 const Step1BasicInfo = ({ formData, updateFormData, errors }: Step1BasicInfoProps) => {
   const { t } = useLanguage();
+  const { programPalette, palette } = useTheme();
   
   // Program name suggestions
   const PROGRAM_SUGGESTIONS = [
@@ -31,49 +35,72 @@ const Step1BasicInfo = ({ formData, updateFormData, errors }: Step1BasicInfoProp
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
     >
-      <Text style={styles.title}>{t('program_name_question')}</Text>
-      
-      <TextInput
-        value={formData.name}
-        onChangeText={(text) => updateFormData({ name: text })}
-        style={[
-          styles.input,
-          errors.name && styles.inputError
-        ]}
-        placeholder={t('enter_program_name')}
-        placeholderTextColor="#6B7280"
-        selectionColor="#9333ea"
-        autoCapitalize="words"
-      />
-      
-      {errors.name ? (
-        <Text style={styles.errorText}>{errors.name}</Text>
-      ) : null}
-      
-      {/* Suggestion chips */}
-      <View style={styles.suggestionsContainer}>
-        <Text style={styles.suggestionsTitle}>{t('name_suggestions')}</Text>
-        <View style={styles.suggestionsRow}>
-          {PROGRAM_SUGGESTIONS.map((suggestion, index) => (
-            <TouchableOpacity
-              key={index}
-              onPress={() => handleSuggestionClick(suggestion)}
-              style={styles.suggestionChip}
-            >
-              <Text style={styles.suggestionText}>{suggestion}</Text>
-            </TouchableOpacity>
-          ))}
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={[styles.title, { color: programPalette.text }]}>
+          {t('program_name_question')}
+        </Text>
+        
+        <TextInput
+          value={formData.name}
+          onChangeText={(text) => updateFormData({ name: text })}
+          style={[
+            styles.input,
+            { 
+              backgroundColor: palette.input_background,
+              borderColor: errors.name ? palette.error : palette.border,
+              color: programPalette.text
+            }
+          ]}
+          placeholder={t('enter_program_name')}
+          placeholderTextColor={palette.text_tertiary}
+          selectionColor={programPalette.highlight}
+          autoCapitalize="words"
+        />
+        
+        {errors.name ? (
+          <Text style={[styles.errorText, { color: palette.error }]}>
+            {errors.name}
+          </Text>
+        ) : null}
+        
+        {/* Suggestion chips */}
+        <View style={styles.suggestionsContainer}>
+          <Text style={[styles.suggestionsTitle, { color: palette.text_secondary }]}>
+            {t('name_suggestions')}
+          </Text>
+          <View style={styles.suggestionsRow}>
+            {PROGRAM_SUGGESTIONS.map((suggestion, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => handleSuggestionClick(suggestion)}
+                style={[
+                  styles.suggestionChip,
+                  { 
+                    backgroundColor: 'rgba(126, 34, 206, 0.1)',
+                    borderColor: 'rgba(147, 51, 234, 0.3)'
+                  }
+                ]}
+              >
+                <Text style={[styles.suggestionText, { color: programPalette.highlight }]}>
+                  {suggestion}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
-      
-      <Text style={styles.helpText}>
-        {t('program_name_help')}
-      </Text>
-    </ScrollView>
+        
+        <Text style={[styles.helpText, { color: palette.text_secondary }]}>
+          {t('program_name_help')}
+        </Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -86,27 +113,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 24,
   },
   input: {
     width: '100%',
-    backgroundColor: '#1F2937',
     borderWidth: 1,
-    borderColor: '#374151',
     borderRadius: 8,
     padding: 16,
     fontSize: 18,
-    color: '#FFFFFF',
     marginBottom: 8,
-  },
-  inputError: {
-    borderColor: '#EF4444', // red-500
   },
   errorText: {
     alignSelf: 'flex-start',
-    color: '#EF4444',
     fontSize: 14,
     marginBottom: 16,
   },
@@ -117,7 +136,6 @@ const styles = StyleSheet.create({
   },
   suggestionsTitle: {
     fontSize: 14,
-    color: '#9CA3AF',
     marginBottom: 8,
   },
   suggestionsRow: {
@@ -126,20 +144,16 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
   },
   suggestionChip: {
-    backgroundColor: 'rgba(126, 34, 206, 0.1)', // purple-700 with opacity
     borderWidth: 1,
-    borderColor: 'rgba(147, 51, 234, 0.3)', // purple-600 with opacity
     borderRadius: 16,
     paddingVertical: 6,
     paddingHorizontal: 12,
     margin: 4,
   },
   suggestionText: {
-    color: '#c084fc', // purple-400
     fontSize: 14,
   },
   helpText: {
-    color: '#9CA3AF',
     fontSize: 14,
     textAlign: 'center',
     paddingHorizontal: 16,

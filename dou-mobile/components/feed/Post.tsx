@@ -591,7 +591,7 @@ const Post: React.FC<PostProps> = ({
                 
                 {/* FIXED: Added proper boolean check */}
                 {Boolean(post.is_share) && (
-                  <Text style={[styles.sharedLabel, { color: palette.border }]}>
+                  <Text style={[styles.sharedLabel, { color: palette.text }]}>
                     {t('shared_a_post')}
                   </Text>
                 )}

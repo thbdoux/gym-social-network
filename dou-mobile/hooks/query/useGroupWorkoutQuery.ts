@@ -18,6 +18,9 @@ export const groupWorkoutKeys = {
   joinRequests: (id) => [...groupWorkoutKeys.detail(id), 'joinRequests'],
   participants: (id) => [...groupWorkoutKeys.detail(id), 'participants'],
   userWorkouts: (userId) => [...groupWorkoutKeys.lists(), 'user', userId],
+  proposals: (id) => [...groupWorkoutKeys.detail(id), 'proposals'],
+  mostVotedProposal: (id) => [...groupWorkoutKeys.detail(id), 'mostVotedProposal'],
+  userTemplates: (userId) => ['workoutTemplates', 'user', userId],
 };
 
 // Get all group workouts with optional filters
@@ -458,4 +461,95 @@ export const useParticipantsCountByStatus = (id, status = 'joined') => {
     ...participantsQuery,
     count
   };
+};
+
+// Get a user's workout templates
+export const useUserWorkoutTemplates = (userId) => {
+  return useQuery({
+    queryKey: groupWorkoutKeys.userTemplates(userId),
+    queryFn: () => groupWorkoutService.getUserWorkoutTemplates(userId),
+    enabled: !!userId,
+  });
+};
+
+// Get all proposals for a group workout
+export const useGroupWorkoutProposals = (id) => {
+  return useQuery({
+    queryKey: groupWorkoutKeys.proposals(id),
+    queryFn: () => groupWorkoutService.getProposals(id),
+    enabled: !!id,
+  });
+};
+
+// Get the most voted proposal
+export const useMostVotedProposal = (id) => {
+  return useQuery({
+    queryKey: groupWorkoutKeys.mostVotedProposal(id),
+    queryFn: async () => {
+      try {
+        return await groupWorkoutService.getMostVotedProposal(id);
+      } catch (error) {
+        // If the error is 404 (not found), return null instead of throwing
+        if (error.response && error.response.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    enabled: !!id,
+  });
+};
+
+// Propose a workout
+export const useProposeWorkout = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ groupWorkoutId, workoutTemplateId }) => 
+      groupWorkoutService.proposeWorkout(groupWorkoutId, workoutTemplateId),
+    onSuccess: (_, { groupWorkoutId }) => {
+      // Invalidate proposals list
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.proposals(groupWorkoutId) });
+      // Invalidate most voted proposal
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.mostVotedProposal(groupWorkoutId) });
+      // Invalidate the workout detail to update the most voted proposal
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.detail(groupWorkoutId) });
+    },
+  });
+};
+
+// Vote for a proposal
+export const useVoteForProposal = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ groupWorkoutId, proposalId }) => 
+      groupWorkoutService.voteForProposal(groupWorkoutId, proposalId),
+    onSuccess: (_, { groupWorkoutId }) => {
+      // Invalidate proposals list
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.proposals(groupWorkoutId) });
+      // Invalidate most voted proposal
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.mostVotedProposal(groupWorkoutId) });
+      // Invalidate the workout detail
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.detail(groupWorkoutId) });
+    },
+  });
+};
+
+// Remove vote from a proposal
+export const useRemoveVote = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ groupWorkoutId, proposalId }) => 
+      groupWorkoutService.removeVote(groupWorkoutId, proposalId),
+    onSuccess: (_, { groupWorkoutId }) => {
+      // Invalidate proposals list
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.proposals(groupWorkoutId) });
+      // Invalidate most voted proposal
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.mostVotedProposal(groupWorkoutId) });
+      // Invalidate the workout detail
+      queryClient.invalidateQueries({ queryKey: groupWorkoutKeys.detail(groupWorkoutId) });
+    },
+  });
 };

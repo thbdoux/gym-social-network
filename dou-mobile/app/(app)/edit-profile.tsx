@@ -205,12 +205,12 @@ export default function EditProfileScreen() {
   const { displayText: gymDisplayText, gym } = useGymDisplay(profile?.id, preferredGym);
   
   // Get gradient colors from theme
-  const gradientColors = [palette.primary, palette.secondary];
+  const gradientColors = [palette.background, palette.secondary];
   
   // Render loading state
   if (profileLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: palette.background }]}>
+      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
         <ActivityIndicator size="large" color={palette.primary} />
         <Text style={[styles.loadingText, { color: palette.text }]}>{t('loading_profile')}</Text>
       </View>
@@ -218,7 +218,7 @@ export default function EditProfileScreen() {
   }
   
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
@@ -264,10 +264,10 @@ export default function EditProfileScreen() {
                 style={styles.avatar}
               />
               <View style={[styles.editAvatarButton, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]}>
-                <Ionicons name="camera" size={20} color="#FFFFFF" />
+                <Ionicons name="camera" size={20} color={palette.text} />
               </View>
             </TouchableOpacity>
-            <Text style={[styles.changePhotoText, { color: palette.primary }]}>{t('tap_to_change_photo')}</Text>
+            <Text style={[styles.changePhotoText, { color: palette.text }]}>{t('tap_to_change_photo')}</Text>
           </View>
           
           {/* Username (read-only) */}
@@ -278,7 +278,7 @@ export default function EditProfileScreen() {
                 styles.textInput, 
                 styles.readOnlyInput, 
                 { 
-                  backgroundColor: palette.inputBackground,
+                  backgroundColor: palette.input_background,
                   borderColor: palette.border,
                   color: palette.text
                 }
@@ -297,7 +297,7 @@ export default function EditProfileScreen() {
                 styles.textInput, 
                 styles.multilineInput,
                 { 
-                  backgroundColor: palette.inputBackground,
+                  backgroundColor: palette.input_background,
                   borderColor: palette.border,
                   color: palette.text
                 }
@@ -320,7 +320,7 @@ export default function EditProfileScreen() {
                 styles.textInput, 
                 styles.multilineInput,
                 { 
-                  backgroundColor: palette.inputBackground,
+                  backgroundColor: palette.input_background,
                   borderColor: palette.border,
                   color: palette.text
                 }
@@ -342,7 +342,7 @@ export default function EditProfileScreen() {
               style={[
                 styles.pickerButton,
                 { 
-                  backgroundColor: palette.inputBackground,
+                  backgroundColor: palette.input_background,
                   borderColor: palette.border
                 }
               ]}
@@ -362,7 +362,7 @@ export default function EditProfileScreen() {
               style={[
                 styles.pickerButton,
                 { 
-                  backgroundColor: palette.inputBackground,
+                  backgroundColor: palette.input_background,
                   borderColor: palette.border
                 }
               ]}
@@ -382,7 +382,7 @@ export default function EditProfileScreen() {
               style={[
                 styles.pickerButton,
                 { 
-                  backgroundColor: palette.inputBackground,
+                  backgroundColor: palette.input_background,
                   borderColor: palette.border
                 }
               ]}
@@ -399,8 +399,8 @@ export default function EditProfileScreen() {
           <TouchableOpacity
             style={[
               styles.submitButton,
-              { backgroundColor: palette.primary },
-              isSubmitting && { backgroundColor: `${palette.primary}80` } // Add transparency for disabled state
+              { backgroundColor: palette.highlight },
+              isSubmitting && { backgroundColor: `${palette.text}80` } // Add transparency for disabled state
             ]}
             onPress={handleSubmit}
             disabled={isSubmitting}
@@ -425,7 +425,7 @@ export default function EditProfileScreen() {
         onRequestClose={() => setTrainingLevelModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: palette.modalBackground }]}>
+          <View style={[styles.modalContent, { backgroundColor: palette.page_background }]}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
             <Text style={[styles.modalTitle, { color: palette.text }]}>{t('select_training_level')}</Text>
             
@@ -437,8 +437,8 @@ export default function EditProfileScreen() {
                   trainingLevel === level.value && [
                     styles.modalOptionSelected,
                     { 
-                      backgroundColor: `${palette.primary}20`,
-                      borderColor: `${palette.primary}40`
+                      backgroundColor: palette.page_background,
+                      borderColor: palette.border
                     }
                   ]
                 ]}
@@ -451,13 +451,13 @@ export default function EditProfileScreen() {
                   style={[
                     styles.modalOptionText,
                     { color: palette.text },
-                    trainingLevel === level.value && { color: palette.primary, fontWeight: 'bold' }
+                    trainingLevel === level.value && { color: palette.text, fontWeight: 'bold' }
                   ]}
                 >
                   {level.label}
                 </Text>
                 {trainingLevel === level.value && (
-                  <Ionicons name="checkmark" size={20} color={palette.primary} />
+                  <Ionicons name="checkmark" size={20} color={palette.text} />
                 )}
               </TouchableOpacity>
             ))}
@@ -466,7 +466,7 @@ export default function EditProfileScreen() {
               style={[styles.modalCancelButton, { borderTopColor: palette.border }]}
               onPress={() => setTrainingLevelModalVisible(false)}
             >
-              <Text style={[styles.modalCancelText, { color: palette.danger }]}>{t('cancel')}</Text>
+              <Text style={[styles.modalCancelText, { color: palette.text }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -480,7 +480,7 @@ export default function EditProfileScreen() {
         onRequestClose={() => setPersonalityModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: palette.modalBackground }]}>
+          <View style={[styles.modalContent, { backgroundColor: palette.page_background }]}>
             <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
             <Text style={[styles.modalTitle, { color: palette.text }]}>{t('select_personality_type')}</Text>
             
@@ -492,8 +492,8 @@ export default function EditProfileScreen() {
                   personalityType === type.value && [
                     styles.modalOptionSelected,
                     { 
-                      backgroundColor: `${palette.primary}20`,
-                      borderColor: `${palette.primary}40`
+                      backgroundColor: palette.page_background,
+                      borderColor: palette.border
                     }
                   ]
                 ]}
@@ -506,13 +506,13 @@ export default function EditProfileScreen() {
                   style={[
                     styles.modalOptionText,
                     { color: palette.text },
-                    personalityType === type.value && { color: palette.primary, fontWeight: 'bold' }
+                    personalityType === type.value && { color: palette.text, fontWeight: 'bold' }
                   ]}
                 >
                   {type.label}
                 </Text>
                 {personalityType === type.value && (
-                  <Ionicons name="checkmark" size={20} color={palette.primary} />
+                  <Ionicons name="checkmark" size={20} color={palette.text} />
                 )}
               </TouchableOpacity>
             ))}
@@ -521,7 +521,7 @@ export default function EditProfileScreen() {
               style={[styles.modalCancelButton, { borderTopColor: palette.border }]}
               onPress={() => setPersonalityModalVisible(false)}
             >
-              <Text style={[styles.modalCancelText, { color: palette.danger }]}>{t('cancel')}</Text>
+              <Text style={[styles.modalCancelText, { color: palette.text }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -535,11 +535,11 @@ export default function EditProfileScreen() {
         onRequestClose={() => setGymModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: palette.layout }]}>
+          <View style={[styles.modalContent, { backgroundColor: palette.page_background }]}>
             <Text style={[styles.modalTitle, { color: palette.text }]}>{t('select_gym')}</Text>
             
             {gymsLoading ? (
-              <ActivityIndicator size="small" color={palette.primary} style={styles.modalLoading} />
+              <ActivityIndicator size="small" color={palette.text} style={styles.modalLoading} />
             ) : (
               <ScrollView style={styles.modalScroll}>
                 <TouchableOpacity
@@ -548,8 +548,8 @@ export default function EditProfileScreen() {
                     preferredGym === null && [
                       styles.modalOptionSelected,
                       { 
-                        backgroundColor: `${palette.highlight}20`,
-                        borderColor: `${palette.highlight}40`
+                        backgroundColor: palette.highlight,
+                        borderColor: palette.highlight
                       }
                     ]
                   ]}
@@ -562,13 +562,13 @@ export default function EditProfileScreen() {
                     style={[
                       styles.modalOptionText,
                       { color: palette.text },
-                      preferredGym === null && { color: palette.primary, fontWeight: 'bold' }
+                      preferredGym === null && { color: palette.text, fontWeight: 'bold' }
                     ]}
                   >
                     {t('no_preferred_gym')}
                   </Text>
                   {preferredGym === null && (
-                    <Ionicons name="checkmark" size={20} color={palette.primary} />
+                    <Ionicons name="checkmark" size={20} color={palette.highlight} />
                   )}
                 </TouchableOpacity>
                 
@@ -580,8 +580,8 @@ export default function EditProfileScreen() {
                       preferredGym === gym.id && [
                         styles.modalOptionSelected,
                         { 
-                          backgroundColor: `${palette.primary}20`,
-                          borderColor: `${palette.primary}40`
+                          backgroundColor: palette.page_background,
+                          borderColor: palette.border
                         }
                       ]
                     ]}
@@ -595,7 +595,7 @@ export default function EditProfileScreen() {
                         style={[
                           styles.modalOptionText,
                           { color: palette.text },
-                          preferredGym === gym.id && { color: palette.primary, fontWeight: 'bold' }
+                          preferredGym === gym.id && { color: palette.text, fontWeight: 'bold' }
                         ]}
                       >
                         {gym.name}
@@ -606,7 +606,7 @@ export default function EditProfileScreen() {
                     </View>
                     
                     {preferredGym === gym.id && (
-                      <Ionicons name="checkmark" size={20} color={palette.primary} />
+                      <Ionicons name="checkmark" size={20} color={palette.text} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -614,15 +614,15 @@ export default function EditProfileScreen() {
                 <TouchableOpacity
                   style={[
                     styles.addGymButton, 
-                    { backgroundColor: `${palette.primary}20` }
+                    { backgroundColor: palette.highlight }
                   ]}
                   onPress={() => {
                     setGymModalVisible(false);
                     router.push('/workout-log/create-gym');
                   }}
                 >
-                  <Ionicons name="add-circle" size={20} color={palette.primary} />
-                  <Text style={[styles.addGymText, { color: palette.primary }]}>{t('add_new_gym')}</Text>
+                  <Ionicons name="add-circle" size={20} color='FFFFF' />
+                  <Text style={[styles.addGymText, { color: 'FFFFF' }]}>{t('add_new_gym')}</Text>
                 </TouchableOpacity>
               </ScrollView>
             )}
@@ -631,7 +631,7 @@ export default function EditProfileScreen() {
               style={[styles.modalCancelButton, { borderTopColor: palette.border }]}
               onPress={() => setGymModalVisible(false)}
             >
-              <Text style={[styles.modalCancelText, { color: palette.danger }]}>{t('cancel')}</Text>
+              <Text style={[styles.modalCancelText, { color: palette.text }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

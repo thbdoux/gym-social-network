@@ -1,12 +1,17 @@
 // api/services/userService.ts
 import apiClient from '../index';
 import { extractData } from '../utils/responseParser';
+import { compressImage } from '../../utils/imageUtils';
+
+// Add any missing imports to ensure the code works correctly
+import { Platform } from 'react-native';
 
 interface User {
   id: number;
   username: string;
   email: string;
   email_verified?: boolean;
+  avatar?: string;
   [key: string]: any;
 }
 
@@ -32,6 +37,9 @@ interface RegisterUserData {
   bio?: string;
 }
 
+// Used to store the most recently uploaded avatar path
+let lastUploadedAvatarPath: string | null = null;
+
 /**
  * Service for user API operations
  */
@@ -40,6 +48,16 @@ const userService = {
   getCurrentUser: async (): Promise<User> => {
     const response = await apiClient.get('/users/me/');
     return response.data;
+  },
+  
+  // Get the last uploaded avatar path
+  getLastUploadedAvatarPath: () => {
+    return lastUploadedAvatarPath;
+  },
+  
+  // Clear the last uploaded avatar path
+  clearLastUploadedAvatarPath: () => {
+    lastUploadedAvatarPath = null;
   },
   
   searchUsers: async (query: string): Promise<User[]> => {
@@ -75,17 +93,73 @@ const userService = {
   updateUser: async (updates: Partial<User> | FormData): Promise<User> => {
     try {
       let response;
+      let hasAvatarUpdate = false;
       
       // Check if updates is FormData (for file uploads)
       if (updates instanceof FormData) {
         console.log('Using FormData for update');
         
+        // Check if FormData contains an avatar/profile picture
+        const processedFormData = new FormData();
+        let hasProfileImage = false;
+        let avatarFieldName = '';
+        
+        // Clone and process the FormData
+        for (const [key, value] of (updates as any).entries()) {
+          // Check if this is an image field (avatar, profile_picture, etc.)
+          const isImageField = key === 'avatar' || key === 'profile_picture' || key === 'profile_image';
+          
+          if (isImageField && typeof value === 'object' && value.uri) {
+            hasProfileImage = true;
+            hasAvatarUpdate = true;
+            avatarFieldName = key;
+            
+            try {
+              // Log original image details
+              console.log(`Original image: ${JSON.stringify({
+                uri: value.uri,
+                type: value.type,
+                name: value.name
+              })}`);
+              
+              // Compress the image before adding to FormData
+              console.log('Compressing profile image before upload');
+              const compressedUri = await compressImage(value.uri, {
+                maxWidth: 1000,
+                maxHeight: 1000,
+                quality: 0.8,
+                maxSizeKB: 800
+              });
+              
+              // Create a new file object with the compressed URI
+              const compressedFile = {
+                uri: compressedUri,
+                type: value.type || 'image/jpeg',
+                name: value.name || 'profile-picture.jpg'
+              };
+              
+              processedFormData.append(key, compressedFile as any);
+              console.log(`Added compressed image to FormData (${key})`);
+            } catch (compressionError) {
+              console.error('Error compressing image:', compressionError);
+              // Fall back to original image if compression fails
+              processedFormData.append(key, value);
+            }
+          } else {
+            // For non-image fields, just copy as is
+            processedFormData.append(key, value);
+          }
+        }
+        
+        if (hasProfileImage) {
+          console.log('Uploading with compressed profile image');
+        }
+        
         // For FormData with file uploads, explicit configuration is needed
-        response = await apiClient.patch('/users/me/', updates, {
+        response = await apiClient.patch('/users/me/', processedFormData, {
           headers: {
             'Accept': 'application/json',
             // Don't set Content-Type header - let Axios set it with boundary
-            // 'Content-Type': 'multipart/form-data',
           },
           // Add this to make axios handle the FormData correctly
           transformRequest: (data, headers) => {
@@ -94,10 +168,34 @@ const userService = {
             return data;
           }
         });
+        
+        // If this was an avatar update, store the path for later use
+        if (hasAvatarUpdate && response.data && response.data[avatarFieldName]) {
+          lastUploadedAvatarPath = response.data[avatarFieldName];
+          console.log('Updated avatar path:', lastUploadedAvatarPath);
+        }
       } else {
         // For regular JSON data
         console.log('Using JSON for update:', JSON.stringify(updates));
+        
+        // Check if this is an avatar update via JSON
+        if (updates.avatar) {
+          hasAvatarUpdate = true;
+        }
+        
         response = await apiClient.patch('/users/me/', updates);
+        
+        // If this was an avatar update, store the path for later use
+        if (hasAvatarUpdate && response.data && response.data.avatar) {
+          lastUploadedAvatarPath = response.data.avatar;
+          console.log('Updated avatar path:', lastUploadedAvatarPath);
+        }
+      }
+      
+      // If this was an avatar update, force a refresh of the avatar in the UI
+      // by adding a timestamp-based cache buster for components to use
+      if (hasAvatarUpdate) {
+        console.log('Avatar updated successfully');
       }
       
       return response.data;
@@ -111,12 +209,18 @@ const userService = {
           headers: error.response.headers,
           status: error.response.status
         }));
+        
+        // Show friendly message for 413 errors
+        if (error.response.status === 413) {
+          throw new Error('The image is too large. Please try a smaller image or try again.');
+        }
       }
       
       throw error;
     }
   },
   
+  // Rest of the service methods remain unchanged
   updateLanguagePreference: async (language: string): Promise<User> => {
     const response = await apiClient.post('/users/update-language/', { language });
     return response.data;

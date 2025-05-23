@@ -7,6 +7,7 @@ import {
   ScrollView
 } from 'react-native';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { ProgramFormData } from '../ProgramWizard';
 import { Calendar } from 'react-native-feather';
 
@@ -18,6 +19,7 @@ type Step3ScheduleProps = {
 
 const Step3Schedule = ({ formData, updateFormData }: Step3ScheduleProps) => {
   const { t } = useLanguage();
+  const { programPalette, palette } = useTheme();
 
   // Days options (0-7)
   const daysOptions = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -32,63 +34,81 @@ const Step3Schedule = ({ formData, updateFormData }: Step3ScheduleProps) => {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>
+      <Text style={[styles.title, { color: programPalette.text }]}>
         {t('training_days_question')}
       </Text>
       
       {/* Days gauge selector */}
       <View style={styles.gaugeContainer}>
-        <View style={styles.gaugeTrack}>
+        <View style={[styles.gaugeTrack, { backgroundColor: palette.input_background }]}>
           <View 
             style={[
               styles.gaugeFill, 
-              { width: `${(formData.sessions_per_week / 7) * 100}%` }
+              { 
+                width: `${(formData.sessions_per_week / 7) * 100}%`,
+                backgroundColor: programPalette.highlight
+              }
             ]} 
           />
         </View>
         
         <View style={styles.markersContainer}>
-          {daysOptions.map((day) => (
-            <TouchableOpacity
-              key={day}
-              onPress={() => handleDaySelection(day)}
-              style={[
-                styles.marker,
-                formData.sessions_per_week === day && styles.markerActive
-              ]}
-            >
-              <Text style={[
-                styles.markerValue,
-                formData.sessions_per_week === day && styles.markerValueActive
-              ]}>
-                {day}
-              </Text>
-              <Text style={styles.markerLabel}>
-                {day === 0 ? t('days_none') : 
-                 day === 1 ? t('days_singular') : 
-                 t('days_plural')}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {daysOptions.map((day) => {
+            const isActive = formData.sessions_per_week === day;
+            return (
+              <TouchableOpacity
+                key={day}
+                onPress={() => handleDaySelection(day)}
+                style={[
+                  styles.marker,
+                  isActive && styles.markerActive
+                ]}
+              >
+                <Text style={[
+                  styles.markerValue,
+                  { 
+                    backgroundColor: isActive ? programPalette.highlight : palette.input_background,
+                    color: isActive ? '#FFFFFF' : palette.text_secondary
+                  }
+                ]}>
+                  {day}
+                </Text>
+                <Text style={[styles.markerLabel, { color: palette.text_tertiary }]}>
+                  {day === 0 ? t('days_none') : 
+                   day === 1 ? t('days_singular') : 
+                   t('days_plural')}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
       
       {/* Show selected value */}
       <View style={styles.selectionDisplay}>
-        <Text style={styles.selectionLabel}>
+        <Text style={[styles.selectionLabel, { color: palette.text_secondary }]}>
           {t('selected_training_days')}:
         </Text>
-        <Text style={styles.selectionValue}>
+        <Text style={[styles.selectionValue, { color: programPalette.text }]}>
           {formData.sessions_per_week} {formData.sessions_per_week === 1 ? 
             t('day_per_week') : t('days_per_week')}
         </Text>
       </View>
       
-      <View style={styles.infoContainer}>
-        <View style={styles.infoIcon}>
-          <Calendar width={24} height={24} color="#9333ea" />
+      <View style={[
+        styles.infoContainer, 
+        { 
+          backgroundColor: palette.card_background,
+          borderColor: palette.border
+        }
+      ]}>
+        <View style={[
+          styles.infoIcon,
+          { backgroundColor: 'rgba(126, 34, 206, 0.1)' }
+        ]}>
+          <Calendar width={24} height={24} color={programPalette.highlight} />
         </View>
-        <Text style={styles.infoText}>
+        <Text style={[styles.infoText, { color: palette.text_secondary }]}>
           {t('training_frequency_info')}
         </Text>
       </View>
@@ -104,7 +124,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -115,14 +134,12 @@ const styles = StyleSheet.create({
   gaugeTrack: {
     width: '100%',
     height: 12,
-    backgroundColor: '#374151',
     borderRadius: 6,
     marginBottom: 20,
     overflow: 'hidden',
   },
   gaugeFill: {
     height: '100%',
-    backgroundColor: '#9333ea',
     borderRadius: 6,
   },
   markersContainer: {
@@ -141,20 +158,14 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#374151',
     textAlign: 'center',
     textAlignVertical: 'center',
-    color: '#FFFFFF',
     fontSize: 14,
     lineHeight: 26,
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  markerValueActive: {
-    backgroundColor: '#9333ea',
-  },
   markerLabel: {
-    color: '#9CA3AF',
     fontSize: 10,
   },
   selectionDisplay: {
@@ -164,19 +175,17 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   selectionLabel: {
-    color: '#D1D5DB',
     fontSize: 16,
     marginRight: 8,
   },
   selectionValue: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
   infoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1F2937',
+    borderWidth: 1,
     borderRadius: 12,
     padding: 16,
     marginTop: 10,
@@ -185,7 +194,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(126, 34, 206, 0.1)', // purple-700 with opacity
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -193,7 +201,6 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#D1D5DB',
   }
 });
 

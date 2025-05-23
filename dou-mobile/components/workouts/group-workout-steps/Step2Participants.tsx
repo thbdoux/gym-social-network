@@ -14,8 +14,9 @@ import {
 import { useLanguage } from '../../../context/LanguageContext';
 import { GroupWorkoutFormData } from '../GroupWorkoutWizard';
 import { Ionicons } from '@expo/vector-icons';
-import { useUsers, useFriends, useUser } from '../../../hooks/query/useUserQuery';
+import { useUsers, useFriends } from '../../../hooks/query/useUserQuery';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import userService from '../../../api/services/userService';
 
 type Step2ParticipantsProps = {
   formData: GroupWorkoutFormData;
@@ -48,6 +49,16 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
   const { data: allUsers = [], isLoading: usersLoading } = useUsers();
   const { data: friends = [], isLoading: friendsLoading } = useFriends();
   
+  // Get user details directly from userService
+  const getUserDetail = async (id) => {
+    try {
+      return await userService.getUserById(id);
+    } catch (err) {
+      console.error(`Failed to load user ${id}:`, err);
+      return { id, username: `User ${id}` };
+    }
+  };
+
   // Fetch participant details for users that don't have full details
   useEffect(() => {
     // Only load details for participants that we don't already have details for
@@ -57,15 +68,26 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
     
     if (participantsToLoad.length > 0) {
       const loadParticipantDetails = async () => {
+        // Try to find users in multiple sources
         const loadedDetails = await Promise.all(
           participantsToLoad.map(async (id) => {
             try {
-              // Find in already loaded users or fetch
+              // Search strategy 1: Check allUsers list first
               const userFromList = allUsers.find(u => u.id === id);
               if (userFromList) return userFromList;
               
-              // If not found, use useUser hook (assuming it returns a promise-based API)
-              return await useUser(id).data;
+              // Search strategy 2: Check friends list
+              const userFromFriends = friends.find(f => 
+                (f.id === id) || 
+                (f.friend && f.friend.id === id)
+              );
+              if (userFromFriends) {
+                // Return either the friend object or the nested friend property
+                return userFromFriends.friend || userFromFriends;
+              }
+              
+              // Search strategy 3: Direct API call as last resort
+              return await getUserDetail(id);
             } catch (err) {
               console.error(`Failed to load user ${id}:`, err);
               return { id, username: `User ${id}` };
@@ -73,17 +95,33 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
           })
         );
         
-        setParticipantsDetails(prev => [...prev, ...loadedDetails]);
+        // Update local state and form data
+        setParticipantsDetails(prev => {
+          const newDetails = [...prev];
+          
+          // Add only users that aren't already in the list
+          loadedDetails.forEach(user => {
+            if (!newDetails.some(p => p.id === user.id)) {
+              newDetails.push(user);
+            }
+          });
+          
+          return newDetails;
+        });
         
-        // Update form data with the loaded details
+        // Update form data
         updateFormData({
-          participants_details: [...participantsDetails, ...loadedDetails]
+          participants_details: participantsDetails.concat(
+            loadedDetails.filter(user => 
+              !participantsDetails.some(p => p.id === user.id)
+            )
+          )
         });
       };
       
       loadParticipantDetails();
     }
-  }, [participantIds]);
+  }, [participantIds, allUsers, friends]);
   
   // Search users when query changes
   useEffect(() => {
@@ -142,35 +180,10 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
     setSearchQuery('');
   };
   
-  // Remove user
-  const handleRemoveUser = (userId: number) => {
-    // Cannot remove creator (first participant)
-    if (userId === user.id) {
-      Alert.alert(t('error'), t('cannot_remove_creator'));
-      return;
-    }
-    
-    // Remove from invited users
-    const newInvitedUsers = invitedUsers.filter(id => id !== userId);
-    setInvitedUsers(newInvitedUsers);
-    
-    // Remove from participants
-    const newParticipants = participantIds.filter(id => id !== userId);
-    
-    // Remove from participant details
-    const newParticipantsDetails = participantsDetails.filter(p => p.id !== userId);
-    
-    // Update form data
-    updateFormData({
-      invited_users: newInvitedUsers,
-      participants: newParticipants,
-      participants_details: newParticipantsDetails
-    });
-  };
-  
-  // Render friend suggestion item
+
+  // Friend suggestions - Vertical layout
   const renderFriendSuggestionItem = ({ item }) => {
-    // Skip if already invited or is the creator
+    // Handle both direct friend objects and objects with friend property
     const friendUser = item.friend || item;
     
     if (
@@ -250,6 +263,32 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
       <Ionicons name="add-circle" size={24} color="#f97316" />
     </TouchableOpacity>
   );
+  
+  // Remove user
+  const handleRemoveUser = (userId: number) => {
+    // Cannot remove creator (first participant)
+    if (userId === user.id) {
+      Alert.alert(t('error'), t('cannot_remove_creator'));
+      return;
+    }
+    
+    // Remove from invited users
+    const newInvitedUsers = invitedUsers.filter(id => id !== userId);
+    setInvitedUsers(newInvitedUsers);
+    
+    // Remove from participants
+    const newParticipants = participantIds.filter(id => id !== userId);
+    
+    // Remove from participant details
+    const newParticipantsDetails = participantsDetails.filter(p => p.id !== userId);
+    
+    // Update form data
+    updateFormData({
+      invited_users: newInvitedUsers,
+      participants: newParticipants,
+      participants_details: newParticipantsDetails
+    });
+  };
 
   return (
     <ScrollView 
