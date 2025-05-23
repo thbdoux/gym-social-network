@@ -65,6 +65,11 @@
     "typescript": "~5.8.3",
     "victory-native": "^41.16.2"
   },
+    "overrides": {
+      "wrap-ansi": "7.0.0",
+      "string-width": "4.1.0"
+    },
+  
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/jest": "^29.5.12",
@@ -74,8 +79,5 @@
     "jest-expo": "~53.0.5",
     "typescript": "~5.8.3"
   },
-  "private": true,
-  "overrides": {
-    "wrap-ansi": "7.0.0"
-  }
+  "private": true
 }
