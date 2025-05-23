@@ -190,67 +190,57 @@ const programService = {
   },
 
   updateProgramWorkout: async (programId: number, workoutId: number, updates: Partial<Workout>): Promise<Workout> => {
-    // Handle weekday-only updates
-    if (Object.keys(updates).length === 1 && 'preferred_weekday' in updates) {
-      // Get current workout data
-      const currentWorkout = await programService.getProgramWorkout(programId, workoutId);
-      
-      // Create updated workout with just the weekday changed
-      const updatedWorkout = {
-        ...currentWorkout,
-        preferred_weekday: updates.preferred_weekday
-      };
-      
-      // Send the update
-      const response = await apiClient.put(
-        `/workouts/programs/${programId}/workouts/${workoutId}/`,
-        updatedWorkout,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-      
-      return response.data;
-    }
+    // First get the current workout to preserve required fields
+    const currentWorkout = await apiClient.get(`/workouts/programs/${programId}/workouts/${workoutId}/`);
+    const existingData = currentWorkout.data;
     
-    // Handle full updates
-    const formattedUpdates: any = {
-      name: updates.name,
-      description: updates.description || '',
-      split_method: updates.split_method,
-      preferred_weekday: updates.preferred_weekday,
-      difficulty_level: updates.difficulty_level,
-      equipment_required: updates.equipment_required,
-      estimated_duration: updates.estimated_duration,
-      tags: updates.tags,
-      order: updates.order,
-      program: updates.program,
-      exercises: updates.exercises?.map(exercise => ({
+    // Create a complete workout object that includes all required fields
+    const completeUpdates = {
+      // Preserve these required fields from the existing data
+      name: updates.name || existingData.name,
+      split_method: updates.split_method || existingData.split_method,
+      order: existingData.order, // Always preserve the order
+      program: programId, // Always include the program ID
+      preferred_weekday: updates.preferred_weekday !== undefined 
+        ? updates.preferred_weekday 
+        : existingData.preferred_weekday,
+      difficulty_level: updates.difficulty_level || existingData.difficulty_level,
+      estimated_duration: updates.estimated_duration || existingData.estimated_duration,
+      description: updates.description !== undefined ? updates.description : existingData.description,
+      equipment_required: updates.equipment_required || existingData.equipment_required,
+      tags: updates.tags || existingData.tags,
+    };
+    
+    // If exercises are provided, format them properly
+    if (updates.exercises) {
+      completeUpdates.exercises = updates.exercises.map(exercise => ({
         name: exercise.name,
         equipment: exercise.equipment || '',
         notes: exercise.notes || '',
         order: exercise.order,
+        is_superset: !!exercise.is_superset,
+        superset_with: exercise.superset_with || null,
+        superset_rest_time: exercise.superset_rest_time || null,
         sets: exercise.sets.map((set, idx) => ({
-          reps: parseInt(String(set.reps)),
-          weight: parseFloat(String(set.weight)),
-          rest_time: parseInt(String(set.rest_time)),
+          reps: parseInt(String(set.reps) || '0'),
+          weight: parseFloat(String(set.weight) || '0'),
+          rest_time: parseInt(String(set.rest_time) || '60'),
           order: idx
         }))
-      })) || []
-    };
-
+      }));
+    }
+  
+    // Send the complete update
     const response = await apiClient.put(
       `/workouts/programs/${programId}/workouts/${workoutId}/`,
-      formattedUpdates,
+      completeUpdates,
       {
         headers: {
           'Content-Type': 'application/json',
         }
       }
     );
-
+  
     return response.data;
   },
 

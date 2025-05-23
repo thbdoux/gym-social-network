@@ -307,6 +307,7 @@ const workout = {
     neutral:"Neutral",
     poor: "Poor",
     terrible: "Terrible",
+    no_exercises: 'No Exercises',
   },
   fr: {
     workouts: 'Entraînements',
@@ -1835,6 +1836,9 @@ const realtime_logger = {
     "success": "Success",
     "error": "Error",
     "optional": "optional",
+    "select_gym_or_home": "Select a gym",
+    "no_gym_home_workout" : "No gym",
+    "workout_at_home_or_anywhere": "You train at home, in a park, ...",
     
     // Workout Setup & Controls
     "start_workout": "Start Workout",
@@ -1938,7 +1942,13 @@ const realtime_logger = {
     "tags": "Tags",
     "comma_separated": "comma separated",
     "enter_tags_example": "leg day, morning, PR...",
-    "save_workout": "Save Workout"
+    "save_workout": "Save Workout",
+    'no_gyms_match_search' : 'No gym matching search',
+    'post_content':'Post content',
+    'save_and_share' : 'Save & Share',
+    'write_about_workout': 'Write about workout',
+    'rest_timer' : 'Rest time',
+    'workout_complete' : 'Workout complete',
   },
   fr: {
     // General
@@ -1953,6 +1963,14 @@ const realtime_logger = {
     "success": "Succès",
     "error": "Erreur",
     "optional": "optionnel",
+    "no_gym_home_workout" : "Pas de salle",
+    "workout_at_home_or_anywhere": "Tu t'entraînes à la maison, dans un parc, ...",
+    'no_gyms_match_search' : 'Aucune salle correspondante',
+    'post_content':'Contenu du post',
+    'save_and_share' : 'Partager',
+    'write_about_workout': 'Un commentaire?',
+    'rest_timer' : 'Repos',
+    'workout_complete' : 'Terminer l\'entraînement',
     
     // Workout Setup & Controls
     "start_workout": "Commencer l'Entraînement",
@@ -2056,7 +2074,7 @@ const realtime_logger = {
     "tags": "Tags",
     "comma_separated": "séparés par des virgules",
     "enter_tags_example": "jambes, matin, record personnel...",
-    "save_workout": "Sauvegarder l'Entraînement"
+    "save_workout": "Sauvegarder"
   }
 };
 

@@ -317,7 +317,7 @@ const ExerciseSelector = ({
       <View style={styles.filterModalContainer}>
         <View style={styles.filterModalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('filter_exercises')}</Text>
+            <Text style={styles.modalTitle}>{t('filters')}</Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setFilterModalVisible(false)}

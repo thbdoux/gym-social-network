@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useGyms } from '../../hooks/query/useGymQuery';
 import { useLanguage } from '../../context/LanguageContext';
 import { createThemedStyles } from '../../utils/createThemedStyles';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Gym {
   id: number;
@@ -29,7 +30,6 @@ interface GymSelectionModalProps {
   onClose: () => void;
   onSelectGym: (gym: Gym | null) => void;
   selectedGym: Gym | null;
-  themePalette: any;
 }
 
 const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
@@ -37,14 +37,16 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
   onClose,
   onSelectGym,
   selectedGym,
-  themePalette
 }) => {
   const { t } = useLanguage();
   const { data: gyms, isLoading, error } = useGyms();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredGyms, setFilteredGyms] = useState<Gym[]>([]);
 
-  const styles = themedStyles(themePalette);
+  const { workoutPalette, palette } = useTheme();
+
+  const styles = themedStyles(palette);
+
 
   // Filter gyms based on search query
   useEffect(() => {
@@ -92,26 +94,26 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
               <Ionicons 
                 name="fitness" 
                 size={24} 
-                color={isSelected ? themePalette.accent : themePalette.text_secondary} 
+                color={isSelected ? palette.accent : palette.text_secondary} 
               />
             </View>
             <View style={styles.gymItemText}>
               <Text style={[
                 styles.gymName,
-                { color: isSelected ? themePalette.accent : themePalette.text }
+                { color: isSelected ? palette.accent : palette.text }
               ]}>
                 {item.name}
               </Text>
               <Text style={[
                 styles.gymLocation,
-                { color: isSelected ? themePalette.accent : themePalette.text_secondary }
+                { color: isSelected ? palette.accent : palette.text_secondary }
               ]}>
                 {item.location}
               </Text>
               {item.description && (
                 <Text style={[
                   styles.gymDescription,
-                  { color: isSelected ? themePalette.accent : themePalette.text_tertiary }
+                  { color: isSelected ? palette.accent : palette.text_tertiary }
                 ]}>
                   {item.description}
                 </Text>
@@ -119,7 +121,7 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
             </View>
           </View>
           {isSelected && (
-            <Ionicons name="checkmark-circle" size={24} color={themePalette.accent} />
+            <Ionicons name="checkmark-circle" size={24} color={palette.accent} />
           )}
         </View>
       </TouchableOpacity>
@@ -130,8 +132,8 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themePalette.accent} />
-          <Text style={[styles.loadingText, { color: themePalette.text_secondary }]}>
+          <ActivityIndicator size="large" color={palette.accent} />
+          <Text style={[styles.loadingText, { color: palette.text_secondary }]}>
             {t('loading_gyms')}
           </Text>
         </View>
@@ -141,12 +143,12 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
     if (error) {
       return (
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color={themePalette.error} />
-          <Text style={[styles.errorText, { color: themePalette.error }]}>
+          <Ionicons name="alert-circle" size={48} color={palette.error} />
+          <Text style={[styles.errorText, { color: palette.error }]}>
             {t('error_loading_gyms')}
           </Text>
           <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: themePalette.accent }]}
+            style={[styles.retryButton, { backgroundColor: palette.accent }]}
             onPress={() => window.location.reload()}
           >
             <Text style={styles.retryButtonText}>{t('retry')}</Text>
@@ -158,11 +160,11 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
     if (!gyms || gyms.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="fitness-outline" size={48} color={themePalette.text_tertiary} />
-          <Text style={[styles.emptyText, { color: themePalette.text_secondary }]}>
+          <Ionicons name="fitness-outline" size={48} color={palette.text_tertiary} />
+          <Text style={[styles.emptyText, { color: palette.text_secondary }]}>
             {t('no_gyms_available')}
           </Text>
-          <Text style={[styles.emptySubtext, { color: themePalette.text_tertiary }]}>
+          <Text style={[styles.emptySubtext, { color: palette.text_tertiary }]}>
             {t('contact_admin_to_add_gyms')}
           </Text>
         </View>
@@ -178,8 +180,8 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
         contentContainerStyle={styles.gymList}
         ListEmptyComponent={
           <View style={styles.emptySearchContainer}>
-            <Ionicons name="search" size={32} color={themePalette.text_tertiary} />
-            <Text style={[styles.noResultsText, { color: themePalette.text_secondary }]}>
+            <Ionicons name="search" size={32} color={palette.text_tertiary} />
+            <Text style={[styles.noResultsText, { color: palette.text_secondary }]}>
               {t('no_gyms_match_search')}
             </Text>
           </View>
@@ -199,9 +201,9 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color={themePalette.text} />
+            <Ionicons name="close" size={24} color={palette.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: themePalette.text }]}>
+          <Text style={[styles.headerTitle, { color: palette.text }]}>
             {t('select_gym')}
           </Text>
           <View style={styles.headerSpacer} />
@@ -210,11 +212,11 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
-            <Ionicons name="search" size={20} color={themePalette.text_secondary} />
+            <Ionicons name="search" size={20} color={palette.text_secondary} />
             <TextInput
-              style={[styles.searchInput, { color: themePalette.text }]}
+              style={[styles.searchInput, { color: palette.text }]}
               placeholder={t('search_gyms')}
-              placeholderTextColor={themePalette.text_tertiary}
+              placeholderTextColor={palette.text_tertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCapitalize="none"
@@ -222,7 +224,7 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color={themePalette.text_secondary} />
+                <Ionicons name="close-circle" size={20} color={palette.text_secondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -242,26 +244,26 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
                 <Ionicons 
                   name="home-outline" 
                   size={24} 
-                  color={!selectedGym ? themePalette.accent : themePalette.text_secondary} 
+                  color={!selectedGym ? palette.accent : palette.text_secondary} 
                 />
               </View>
               <View style={styles.gymItemText}>
                 <Text style={[
                   styles.gymName,
-                  { color: !selectedGym ? themePalette.accent : themePalette.text }
+                  { color: !selectedGym ? palette.accent : palette.text }
                 ]}>
                   {t('no_gym_home_workout')}
                 </Text>
                 <Text style={[
                   styles.gymLocation,
-                  { color: !selectedGym ? themePalette.accent : themePalette.text_secondary }
+                  { color: !selectedGym ? palette.accent : palette.text_secondary }
                 ]}>
                   {t('workout_at_home_or_anywhere')}
                 </Text>
               </View>
             </View>
             {!selectedGym && (
-              <Ionicons name="checkmark-circle" size={24} color={themePalette.accent} />
+              <Ionicons name="checkmark-circle" size={24} color={palette.accent} />
             )}
           </View>
         </TouchableOpacity>
