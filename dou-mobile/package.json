@@ -63,8 +63,7 @@
     "react-native-webview": "13.13.5",
     "react-use-websockets": "^3.4.1",
     "typescript": "~5.8.3",
-    "victory-native": "^41.16.2",
-    "wrap-ansi": "^9.0.0"
+    "victory-native": "^41.16.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -75,5 +74,8 @@
     "jest-expo": "~53.0.5",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "wrap-ansi": "7.0.0"
+  }
 }
