@@ -273,11 +273,13 @@ class WorkoutLogCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutLog
         fields = [
+            'id',
             'name', 'based_on_instance', 'program', 'date',
             'gym', 'notes', 'completed', 'exercises',
             'mood_rating', 'perceived_difficulty',
             'performance_notes', 'media'
         ]
+        read_only_fields = ['id']
     
     def validate(self, data):
         """Add validation debugging"""

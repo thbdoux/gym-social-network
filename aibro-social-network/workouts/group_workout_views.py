@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.db.models import Count 
 from django.utils import timezone
 from django.db.models import Q
 
@@ -10,14 +11,18 @@ from .group_workouts import (
     GroupWorkout, 
     GroupWorkoutParticipant, 
     GroupWorkoutJoinRequest, 
-    GroupWorkoutMessage
+    GroupWorkoutMessage,
+    GroupWorkoutVote,
+    GroupWorkoutProposal
 )
 from .group_workout_serializers import (
     GroupWorkoutSerializer,
     GroupWorkoutDetailSerializer,
     GroupWorkoutParticipantSerializer,
     GroupWorkoutJoinRequestSerializer,
-    GroupWorkoutMessageSerializer
+    GroupWorkoutMessageSerializer,
+    GroupWorkoutProposalSerializer,
+    GroupWorkoutVoteSerializer
 )
 from .models import WorkoutLog
 from notifications.services import NotificationService
@@ -695,3 +700,203 @@ class GroupWorkoutViewSet(viewsets.ModelViewSet):
                 "message": "Group workout marked as completed and workout logs created.",
                 "created_logs": created_logs
             })
+
+    @action(detail=True, methods=['post'])
+    def propose(self, request, pk=None):
+        """Propose a workout template for a group workout"""
+        group_workout = self.get_object()
+        user = request.user
+        
+        # Check if user is a participant or creator
+        is_participant = GroupWorkoutParticipant.objects.filter(
+            group_workout=group_workout,
+            user=user,
+            status='joined'
+        ).exists()
+        
+        if not is_participant and user != group_workout.creator:
+            return Response(
+                {"detail": "You must be a participant to propose workouts."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get the workout template ID
+        workout_template_id = request.data.get('workout_template_id')
+        if not workout_template_id:
+            return Response(
+                {"detail": "Workout template ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if template exists
+        try:
+            from .models import WorkoutTemplate
+            workout_template = WorkoutTemplate.objects.get(id=workout_template_id)
+        except WorkoutTemplate.DoesNotExist:
+            return Response(
+                {"detail": "Workout template not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if already proposed
+        if GroupWorkoutProposal.objects.filter(
+            group_workout=group_workout,
+            workout_template=workout_template
+        ).exists():
+            return Response(
+                {"detail": "This workout template has already been proposed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create proposal
+        proposal = GroupWorkoutProposal.objects.create(
+            group_workout=group_workout,
+            workout_template=workout_template,
+            proposed_by=user
+        )
+        
+        # Auto-vote for your own proposal
+        GroupWorkoutVote.objects.create(
+            proposal=proposal,
+            user=user
+        )
+        
+        serializer = GroupWorkoutProposalSerializer(proposal, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def proposals(self, request, pk=None):
+        """Get all proposals for a group workout"""
+        group_workout = self.get_object()
+        
+        # Check if user can access
+        is_participant = GroupWorkoutParticipant.objects.filter(
+            group_workout=group_workout,
+            user=request.user,
+            status='joined'
+        ).exists()
+        
+        if not is_participant and request.user != group_workout.creator:
+            return Response(
+                {"detail": "You must be a participant to view proposals."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get proposals with vote counts
+        proposals = group_workout.proposals.annotate(
+            votes_count=Count('votes')
+        ).order_by('-votes_count', 'created_at')
+        
+        serializer = GroupWorkoutProposalSerializer(proposals, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def vote(self, request, pk=None):
+        """Vote for a workout proposal"""
+        group_workout = self.get_object()
+        user = request.user
+        
+        # Check if user can vote
+        is_participant = GroupWorkoutParticipant.objects.filter(
+            group_workout=group_workout,
+            user=user,
+            status='joined'
+        ).exists()
+        
+        if not is_participant and user != group_workout.creator:
+            return Response(
+                {"detail": "You must be a participant to vote."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get proposal ID
+        proposal_id = request.data.get('proposal_id')
+        if not proposal_id:
+            return Response(
+                {"detail": "Proposal ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if proposal exists
+        try:
+            proposal = GroupWorkoutProposal.objects.get(
+                id=proposal_id,
+                group_workout=group_workout
+            )
+        except GroupWorkoutProposal.DoesNotExist:
+            return Response(
+                {"detail": "Proposal not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Create vote if not already voted
+        vote, created = GroupWorkoutVote.objects.get_or_create(
+            proposal=proposal,
+            user=user
+        )
+        
+        if not created:
+            return Response(
+                {"detail": "You have already voted for this proposal."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = GroupWorkoutProposalSerializer(proposal, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['delete'])
+    def remove_vote(self, request, pk=None):
+        """Remove vote from a proposal"""
+        group_workout = self.get_object()
+        user = request.user
+        
+        proposal_id = request.data.get('proposal_id')
+        if not proposal_id:
+            return Response(
+                {"detail": "Proposal ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            proposal = GroupWorkoutProposal.objects.get(
+                id=proposal_id,
+                group_workout=group_workout
+            )
+        except GroupWorkoutProposal.DoesNotExist:
+            return Response(
+                {"detail": "Proposal not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Delete vote if exists
+        deleted, _ = GroupWorkoutVote.objects.filter(
+            proposal=proposal,
+            user=user
+        ).delete()
+        
+        if not deleted:
+            return Response(
+                {"detail": "You haven't voted for this proposal."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = GroupWorkoutProposalSerializer(proposal, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def most_voted_proposal(self, request, pk=None):
+        """Get the most voted proposal"""
+        group_workout = self.get_object()
+        
+        most_voted = group_workout.proposals.annotate(
+            votes_count=Count('votes')
+        ).order_by('-votes_count').first()
+        
+        if not most_voted:
+            return Response(
+                {"detail": "No proposals found for this group workout."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = GroupWorkoutProposalSerializer(most_voted, context={'request': request})
+        return Response(serializer.data)

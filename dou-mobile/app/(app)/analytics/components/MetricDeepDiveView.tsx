@@ -148,20 +148,20 @@ export const MetricDeepDiveView: React.FC<MetricDeepDiveViewProps> = memo(({ met
       <MetricInsights metricType={metricType} />
 
       {/* Muscle Group Distribution */}
-      <View style={[styles.chartCard, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
+      {/* <View style={[styles.chartCard, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
         <Text style={[styles.sectionTitle, { color: palette.text }]}>
           {t('muscle_group_distribution')}
         </Text>
         <MuscleGroupPieChart metricType={metricType} />
-      </View>
+      </View> */}
 
       {/* Top Exercises */}
-      <View style={[styles.chartCard, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
+      {/* <View style={[styles.chartCard, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
         <Text style={[styles.sectionTitle, { color: palette.text }]}>
           {t('top_exercises')}
         </Text>
         <TopExercisesChart metricType={metricType} />
-      </View>
+      </View> */}
     </ScrollView>
   );
 });

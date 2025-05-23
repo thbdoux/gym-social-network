@@ -535,7 +535,7 @@ export default function ProfileScreen() {
             <View style={styles.emptyProgram}>
               <Ionicons name="barbell-outline" size={48} color={palette.border} />
               <Text style={[styles.emptyProgramText, { color: palette.border }]}>{t('no_active_program')}</Text>
-              <TouchableOpacity onPress={() => router.push('/programs')}>
+              <TouchableOpacity onPress={() => router.push('/workouts')}>
                 <LinearGradient
                   colors={[palette.layout, palette.highlight]}
                   start={{ x: 0, y: 0 }}

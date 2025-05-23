@@ -23,7 +23,7 @@ class GroupWorkout(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     creator = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='created_group_workouts')
-    workout_template = models.ForeignKey('workouts.WorkoutInstance', on_delete=models.SET_NULL, 
+    workout_template = models.ForeignKey('workouts.WorkoutTemplate', on_delete=models.SET_NULL, 
                                        null=True, blank=True, related_name='group_workouts')
     gym = models.ForeignKey('gyms.Gym', on_delete=models.SET_NULL, null=True, blank=True, related_name='group_workouts')
     scheduled_time = models.DateTimeField()
@@ -104,3 +104,33 @@ class GroupWorkoutMessage(models.Model):
     
     def __str__(self):
         return f"{self.user.username}: {self.content[:50]}..."
+
+class GroupWorkoutProposal(models.Model):
+    """
+    A workout template proposed for a group workout
+    """
+    group_workout = models.ForeignKey(GroupWorkout, on_delete=models.CASCADE, related_name='proposals')
+    workout_template = models.ForeignKey('workouts.WorkoutTemplate', on_delete=models.CASCADE, related_name='proposed_for_groups')
+    proposed_by = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='workout_proposals')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['group_workout', 'workout_template']
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.workout_template.name} proposed for {self.group_workout.title}"
+
+class GroupWorkoutVote(models.Model):
+    """
+    A vote for a proposed workout template
+    """
+    proposal = models.ForeignKey(GroupWorkoutProposal, on_delete=models.CASCADE, related_name='votes')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='workout_votes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['proposal', 'user']
+    
+    def __str__(self):
+        return f"{self.user.username} voted for {self.proposal.workout_template.name}"
