@@ -1,23 +1,26 @@
 {
   "expo": {
     "name": "dou-mobile",
-    "slug": "dou-mobile",
+    "slug": "dou-social-network-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dou",  
+    "scheme": "dou",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.doucompany.dou"  
+      "bundleIdentifier": "com.doucompany.dou",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.doucompany.dou" 
+      "package": "com.doucompany.dou"
     },
     "web": {
       "bundler": "metro",
@@ -46,6 +49,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2297eb90-1775-4516-8c5c-3f6f0fe9b1d4"
+      }
     }
   }
 }
