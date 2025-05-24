@@ -49,7 +49,9 @@ export default function LoginScreen() {
       const success = await login(formData.username, formData.password);
       if (success) {
         // Navigate to feed page with proper group path
-        router.replace('/(app)/feed');
+        setTimeout(() => {
+          router.replace('/(app)/feed');
+        }, 100);
       } else {
         Alert.alert(t('error'), t('invalid_credentials'));
       }
