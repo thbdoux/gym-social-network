@@ -10,8 +10,8 @@ export default function AuthLayout() {
         contentStyle: {
           backgroundColor: '#080f19',
         },
-        animation: 'slide_from_right',
-        animationDuration: 200,
+        // animation: 'slide_from_right',
+        // animationDuration: 200,
       }}
     >
       <Stack.Screen
