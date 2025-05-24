@@ -1,33 +1,12 @@
-// context/AuthContext.tsx
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+// context/AuthContext.tsx - Fixed version to prevent infinite loops
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import userService from '../api/services/userService';
 import { useQueryClient } from '@tanstack/react-query';
 import { userKeys } from '../hooks/query/useUserQuery';
 import { authEvents } from '../api/utils/authEvents';
-// import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
-
-// Initialize GoogleSignin with the correct client IDs
-// You'll need to replace these with your actual client IDs from Google Cloud Console
-// GoogleSignin.configure({
-//   // The web client ID is required for all platforms
-//   webClientId: '38465928219-lnt8gkdkhn1id2vh93a54j41h8516op9.apps.googleusercontent.com',
-  
-//   // Only include iOS client ID when running on iOS
-//   ...(Platform.OS === 'ios' && {
-//     iosClientId: '38465928219-ouf41lc4o75ruaspr62s7o0bqr99fi22.apps.googleusercontent.com',
-//   }),
-  
-//   // Only include Android client ID when running on Android
-//   ...(Platform.OS === 'android' && {
-//     androidClientId: '123456789012-androidabcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
-//   }),
-  
-//   offlineAccess: true,
-//   forceCodeForRefreshToken: true,
-// });
 
 interface User {
   id: number;
@@ -45,9 +24,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
   registerUser: (userData: any) => Promise<{ success: boolean; message: string }>;
-  // googleLogin: () => Promise<boolean>;
-  // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
-  // resendVerification: (email: string) => Promise<boolean>;
+  error: string | null;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -60,271 +37,273 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Social login handler - commented out for now
+  // Refs to prevent infinite loops and multiple simultaneous operations
+  const authCheckInProgress = useRef(false);
+  const loginInProgress = useRef(false);
+  const logoutInProgress = useRef(false);
+  const mountedRef = useRef(true);
+  const initialLoadComplete = useRef(false);
+
+  // Safe state setter that checks if component is still mounted
+  const safeSetState = useCallback((setter: Function, value: any) => {
+    if (mountedRef.current) {
+      setter(value);
+    }
+  }, []);
+
+  // Social login handler - commented out for now but keeping structure
   const handleSocialLogin = async (provider: string, token: string) => {
     try {
-      console.log(`Sending ${provider} token to backend...`);
+      console.log(`🔐 Sending ${provider} token to backend...`);
       const response = await userService.socialLogin(provider, token);
       
       if (response?.access) {
-        // Store the JWT token
         await SecureStore.setItemAsync('token', response.access);
-        
-        // Update user state
-        setUser(response.user);
-        setIsAuthenticated(true);
-        
-        // Cache the user data
+        safeSetState(setUser, response.user);
+        safeSetState(setIsAuthenticated, true);
+        safeSetState(setError, null);
         queryClient.setQueryData(userKeys.current(), response.user);
-        
         return true;
       }
       return false;
     } catch (error) {
-      console.error(`${provider} login error:`, error);
+      console.error(`🚨 ${provider} login error:`, error);
       return false;
     }
   };
 
-  // Google login implementation
-  // const googleLogin = async (): Promise<boolean> => {
-  //   try {
-  //     setIsLoading(true);
-      
-  //     // Make sure Google Play Services are available (Android only)
-  //     if (Platform.OS === 'android') {
-  //       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  //     }
-      
-  //     // Check if user is already signed in
-  //     const isSignedIn = await GoogleSignin.isSignedIn();
-  //     if (isSignedIn) {
-  //       await GoogleSignin.signOut();
-  //     }
-      
-  //     console.log('Starting Google Sign-In...');
-      
-  //     // Perform Google Sign-In
-  //     const userInfo = await GoogleSignin.signIn();
-  //     console.log('Google Sign-In successful, getting token...');
-      
-  //     // Get the ID token to send to our backend
-  //     const { idToken } = await GoogleSignin.getTokens();
-      
-  //     if (idToken) {
-  //       console.log('Got Google ID token, authenticating with backend...');
-  //       // Send the ID token to your backend for verification
-  //       return await handleSocialLogin('google', idToken);
-  //     } else {
-  //       console.error('No ID token received from Google');
-  //       return false;
-  //     }
-  //   } catch (error: any) {
-  //     // Handle specific Google Sign-In errors
-  //     if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-  //       console.log('User cancelled the login flow');
-  //     } else if (error.code === statusCodes.IN_PROGRESS) {
-  //       console.log('Sign in is in progress already');
-  //     } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-  //       console.log('Play services not available or outdated');
-  //     } else {
-  //       console.error('Google sign in error:', error);
-  //     }
-  //     return false;
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
   // Register new user
   const registerUser = async (userData: any): Promise<{ success: boolean; message: string }> => {
     try {
-      setIsLoading(true);
+      safeSetState(setIsLoading, true);
+      safeSetState(setError, null);
+      
       await userService.register(userData);
+      console.log('✅ Registration successful');
+      
       return {
         success: true,
         message: "Registration successful! You can now log in."
-        // TEMPORARILY CHANGED - TODO: Re-enable email verification
-        // Changed from: "Registration successful! Please check your email to verify your account."
       };
     } catch (error: any) {
-      console.error('Registration error:', error);
+      console.error('🚨 Registration error:', error);
+      const errorMessage = error.response?.data?.detail || "Registration failed. Please try again.";
+      safeSetState(setError, errorMessage);
+      
       return {
         success: false,
-        message: error.response?.data?.detail || "Registration failed. Please try again."
+        message: errorMessage
       };
     } finally {
-      setIsLoading(false);
+      safeSetState(setIsLoading, false);
     }
   };
 
-  // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
-  // Resend verification email
-  // const resendVerification = async (email: string): Promise<boolean> => {
-  //   try {
-  //     setIsLoading(true);
-  //     await userService.resendVerification(email);
-  //     return true;
-  //   } catch (error) {
-  //     console.error('Resend verification error:', error);
-  //     return false;
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
   // Define a reusable logout function
   const handleLogout = useCallback(async () => {
-    try {
-      console.log('AuthContext: Logging out user', user?.id);
-      
-      // Sign out from Google if signed in - commented out for now
-      // const isSignedIn = await GoogleSignin.isSignedIn();
-      // if (isSignedIn) {
-      //   await GoogleSignin.signOut();
-      //   console.log('Signed out from Google');
-      // }
-      
-      // STEP 1: Clear token
-      await SecureStore.deleteItemAsync('token');
-      
-      // STEP 2: Update authentication state
-      setUser(null);
-      setIsAuthenticated(false);
-      
-      // STEP 3: Clear all cached queries
-      const allQueryKeys = [
-        userKeys.all,
-        userKeys.current(),
-        ['posts'], 
-        ['programs'],
-        ['workouts'],
-        ['logs'],
-        ['gyms'],
-        ['profilePreviews']
-      ];
-      
-      // Invalidate each query key
-      allQueryKeys.forEach(key => {
-        queryClient.invalidateQueries({ queryKey: key, exact: key === userKeys.current() });
-        queryClient.removeQueries({ queryKey: key, exact: key === userKeys.current() });
-      });
-      
-      // STEP 3: Complete cache purge
-      queryClient.clear();
-      
-      // STEP 4: Reset query cache
-      queryClient.resetQueries();
-      
-      // STEP 5: Add a small delay to ensure cache operations complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // STEP 6: Navigate to login
-      router.replace('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still try to navigate to login in case of error
-      router.replace('/login');
+    // Prevent multiple simultaneous logout attempts
+    if (logoutInProgress.current) {
+      console.log('🔒 Logout already in progress, skipping...');
+      return;
     }
-  }, [queryClient, user?.id]);
 
-  // Load user data on mount or token change
-  useEffect(() => {
-    const loadUser = async () => {
+    logoutInProgress.current = true;
+    console.log('🚪 Starting logout process...');
+
+    try {
+      // STEP 1: Clear token first
+      await SecureStore.deleteItemAsync('token');
+      console.log('🗑️ Token cleared from secure store');
+      
+      // STEP 2: Update authentication state immediately
+      safeSetState(setUser, null);
+      safeSetState(setIsAuthenticated, false);
+      safeSetState(setError, null);
+      
+      // STEP 3: Clear cache (but don't await to prevent delays)
+      setTimeout(() => {
+        queryClient.clear();
+        console.log('🗑️ Query cache cleared');
+      }, 0);
+      
+      console.log('✅ Logout completed successfully');
+      
+      // STEP 4: Navigate after a small delay to ensure state is updated
+      setTimeout(() => {
+        if (mountedRef.current) {
+          router.replace('/(auth)/login');
+          console.log('📍 Redirected to login');
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('🚨 Logout error:', error);
+      // Still try to navigate to login in case of error
+      if (mountedRef.current) {
+        router.replace('/(auth)/login');
+      }
+    } finally {
+      logoutInProgress.current = false;
+    }
+  }, [queryClient, safeSetState]);
+
+  // Load user data on mount - with better error handling
+  const loadUser = useCallback(async () => {
+    // Prevent multiple simultaneous auth checks
+    if (authCheckInProgress.current) {
+      console.log('🔒 Auth check already in progress, skipping...');
+      return;
+    }
+
+    authCheckInProgress.current = true;
+    console.log('🔍 Starting auth check...');
+
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      
+      if (!token) {
+        console.log('❌ No token found');
+        safeSetState(setUser, null);
+        safeSetState(setIsAuthenticated, false);
+        safeSetState(setError, null);
+        return;
+      }
+
+      console.log('📱 Token found, fetching user data...');
+      
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Request timeout, aborting...');
+        controller.abort();
+      }, 10000);
+
       try {
-        const token = await SecureStore.getItemAsync('token');
-        if (token) {
-          try {
-            // Clear cache before fetching fresh user data
-            queryClient.invalidateQueries({ queryKey: userKeys.current() });
-            
-            const userData = await userService.getCurrentUser();
-            console.log('AuthContext: Loaded user data', userData?.id);
-            setUser(userData);
-            setIsAuthenticated(true);
-            
-            // Cache the user data
-            queryClient.setQueryData(userKeys.current(), userData);
+        // Clear any stale user data from cache before fetching
+        queryClient.removeQueries({ queryKey: userKeys.current() });
+        
+        const userData = await userService.getCurrentUser();
+        clearTimeout(timeoutId);
+        
+        console.log('✅ User data fetched successfully:', userData?.id);
+        safeSetState(setUser, userData);
+        safeSetState(setIsAuthenticated, true);
+        safeSetState(setError, null);
+        
+        // Cache the user data
+        queryClient.setQueryData(userKeys.current(), userData);
+        
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        console.log('🚨 Error fetching user data:', fetchError?.response?.status || fetchError.message);
+        
+        // Only clear auth state for actual auth errors (401, 403)
+        if (fetchError?.response?.status === 401 || fetchError?.response?.status === 403) {
+          console.log('🔑 Token expired/invalid, clearing auth state...');
+          await SecureStore.deleteItemAsync('token');
+          safeSetState(setUser, null);
+          safeSetState(setIsAuthenticated, false);
+          safeSetState(setError, 'Session expired');
           
-          } catch (error) {
-            // If token is invalid or expired, clear it and reset auth state
-            console.error('Error fetching user:', error);
-            await SecureStore.deleteItemAsync('token');
-            setUser(null);
-            setIsAuthenticated(false);
-            
-            // Clear any cached data
-            queryClient.clear();
-            
-            // Redirect to login screen
-            router.replace('/login');
+          // Clear cache
+          queryClient.clear();
+          
+          // Only redirect if this is not the initial load
+          if (initialLoadComplete.current && mountedRef.current) {
+            setTimeout(() => {
+              router.replace('/(auth)/login');
+            }, 100);
           }
         } else {
-          console.log('AuthContext: No token found');
-          setUser(null);
-          setIsAuthenticated(false);
+          // For network errors, keep current state but set error
+          console.log('🌐 Network error, maintaining current state');
+          safeSetState(setError, 'Network error');
         }
-      } catch (error) {
-        console.error('Error loading user:', error);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    loadUser();
-  }, [queryClient]);
+      
+    } catch (error) {
+      console.error('🚨 Unexpected error in loadUser:', error);
+      safeSetState(setError, 'Authentication error');
+    } finally {
+      authCheckInProgress.current = false;
+      safeSetState(setIsLoading, false);
+      initialLoadComplete.current = true;
+      console.log('✅ Auth check completed');
+    }
+  }, [queryClient, safeSetState]);
 
   // Listen for auth events
   useEffect(() => {
     const unsubscribe = authEvents.subscribe((eventType) => {
       if (eventType === 'tokenExpired') {
-        console.log('Token expired event received, logging out...');
+        console.log('🔔 Token expired event received');
         handleLogout();
       }
     });
     
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [handleLogout]);
 
+  // Initial load effect - only run once
+  useEffect(() => {
+    console.log('🚀 AuthProvider mounted, checking initial auth status...');
+    loadUser();
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🔚 AuthProvider unmounting...');
+      mountedRef.current = false;
+    };
+  }, []); // Empty dependency array - only run once!
+
   // Regular username/password login
   const login = async (username: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
+    // Prevent multiple simultaneous login attempts
+    if (loginInProgress.current) {
+      console.log('🔒 Login already in progress, skipping...');
+      return false;
+    }
 
+    loginInProgress.current = true;
+    safeSetState(setIsLoading, true);
+    safeSetState(setError, null);
+    console.log('🔐 Starting login process...');
+
+    try {
+      // Clear any existing cache first
       queryClient.clear();
+      
       const tokenData = await userService.login(username, password);
       await SecureStore.setItemAsync('token', tokenData.access);
+      console.log('🔑 Token stored successfully');
 
-      queryClient.invalidateQueries({ queryKey: userKeys.all });
-      queryClient.invalidateQueries({ queryKey: userKeys.current() });
-      
       const userData = await userService.getCurrentUser();
+      console.log('👤 User data fetched after login:', userData?.id);
       
-      // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification check
-      // Check if user email is verified before allowing login
-      // if (!userData.email_verified) {
-      //   // If email is not verified, redirect to verification reminder
-      //   setUser(userData);
-      //   setIsAuthenticated(false); // Keep as false until verified
-      //   router.replace('/verify-email-reminder');
-      //   return false;
-      // }
-      
-      setUser(userData);
-      setIsAuthenticated(true);
+      safeSetState(setUser, userData);
+      safeSetState(setIsAuthenticated, true);
+      safeSetState(setError, null);
       
       queryClient.setQueryData(userKeys.current(), userData);
+      console.log('✅ Login successful');
+      
       return true;
-    } catch (error) {
-      console.error('Login error:', error);
-      setUser(null);
-      setIsAuthenticated(false);
+    } catch (error: any) {
+      console.error('🚨 Login error:', error);
+      
+      const errorMessage = error?.response?.data?.detail || 'Login failed';
+      safeSetState(setError, errorMessage);
+      safeSetState(setUser, null);
+      safeSetState(setIsAuthenticated, false);
+      
       return false;
     } finally {
-      setIsLoading(false);
+      loginInProgress.current = false;
+      safeSetState(setIsLoading, false);
     }
   };
 
@@ -338,11 +317,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading, 
         login, 
         logout,
-        setUser,
+        setUser: (user) => safeSetState(setUser, user),
         registerUser,
-        // googleLogin,
-        // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
-        // resendVerification
+        error,
       }}
     >
       {children}

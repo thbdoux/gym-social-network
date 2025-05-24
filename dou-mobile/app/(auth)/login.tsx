@@ -1,5 +1,5 @@
-// app/(auth)/login.tsx
-import React, { useState, useEffect } from 'react';
+// app/(auth)/login.tsx - Updated to work with fixed AuthContext
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,16 +24,12 @@ export default function LoginScreen() {
     username: '',
     password: '',
   });
-  const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState('');
-  // const { login, googleLogin } = useAuth();
-  
-  // TEMPORARILY COMMENTED OUT - TODO: Re-enable email verification
-  // const { login, resendVerification } = useAuth();
-  const { login } = useAuth();
-  
-  // Track focused input for animation
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  
+  const { login, isLoading, error } = useAuth();
+  
+  // Prevent multiple login attempts
+  const loginAttemptRef = useRef(false);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -43,44 +39,61 @@ export default function LoginScreen() {
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
+    // Prevent multiple simultaneous login attempts
+    if (isLoading || loginAttemptRef.current) {
+      console.log('🔒 Login already in progress, ignoring...');
+      return;
+    }
+
+    // Basic validation
+    if (!formData.username.trim() || !formData.password.trim()) {
+      Alert.alert(t('error') || 'Error', 'Please enter both username and password');
+      return;
+    }
+
+    loginAttemptRef.current = true;
+    console.log('🔐 Starting login process...');
 
     try {
-      const success = await login(formData.username, formData.password);
+      const success = await login(formData.username.trim(), formData.password);
+      console.log('📱 Login result:', success);
+      
       if (success) {
-        // Navigate to feed page with proper group path
+        console.log('✅ Login successful, navigating to feed...');
+        // Navigate after a small delay to ensure state is updated
         setTimeout(() => {
           router.replace('/(app)/feed');
-        }, 100);
+        }, 200);
       } else {
-        Alert.alert(t('error'), t('invalid_credentials'));
+        console.log('❌ Login failed');
+        Alert.alert(
+          t('error') || 'Error', 
+          error || t('invalid_credentials') || 'Invalid username or password'
+        );
       }
-    } catch (err) {
-      Alert.alert(t('error'), `${t('error')} ${t('login')}`);
+    } catch (err: any) {
+      console.log('🚨 Unexpected login error:', err);
+      Alert.alert(
+        t('error') || 'Error', 
+        'An unexpected error occurred. Please try again.'
+      );
     } finally {
-      setLoading(false);
+      // Reset with delay to prevent rapid state changes
+      setTimeout(() => {
+        loginAttemptRef.current = false;
+      }, 500);
     }
   };
 
-  // Navigate to personality wizard when register is clicked
   const handleNavigateToRegister = () => {
-    router.push('/personality-wizard');
+    if (isLoading) {
+      console.log('🔒 Navigation blocked - login in progress');
+      return;
+    }
+    
+    console.log('📍 Navigating to personality wizard...');
+    router.push('/(auth)/personality-wizard');
   };
-  
-  // Google login
-  // const handleGoogleLogin = async () => {
-  //   setSocialLoading('google');
-  //   try {
-  //     const success = await googleLogin();
-  //     if (!success) {
-  //       Alert.alert(t('error'), t('google_login_failed'));
-  //     }
-  //   } catch (err) {
-  //     Alert.alert(t('error'), `${t('error')} ${t('google_login')}`);
-  //   } finally {
-  //     setSocialLoading('');
-  //   }
-  // };
 
   return (
     <KeyboardAvoidingView
@@ -98,6 +111,14 @@ export default function LoginScreen() {
         
         {/* Form Container */}
         <View style={styles.formContainer}>
+          {/* Error Message */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color="#EF4444" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           {/* Input Fields */}
           <View style={[
             styles.inputContainer, 
@@ -111,13 +132,14 @@ export default function LoginScreen() {
             />
             <TextInput
               style={styles.input}
-              placeholder={t('username')}
+              placeholder={t('username') || 'Username'}
               placeholderTextColor="#9CA3AF"
               value={formData.username}
               onChangeText={(text) => handleInputChange('username', text)}
               autoCapitalize="none"
               onFocus={() => setFocusedInput('username')}
               onBlur={() => setFocusedInput(null)}
+              editable={!isLoading}
             />
           </View>
 
@@ -133,33 +155,44 @@ export default function LoginScreen() {
             />
             <TextInput
               style={styles.input}
-              placeholder={t('password')}
+              placeholder={t('password') || 'Password'}
               placeholderTextColor="#9CA3AF"
               value={formData.password}
               onChangeText={(text) => handleInputChange('password', text)}
               secureTextEntry
               onFocus={() => setFocusedInput('password')}
               onBlur={() => setFocusedInput(null)}
+              editable={!isLoading}
             />
           </View>
 
           <TouchableOpacity style={styles.forgotPassword} activeOpacity={0.7}>
-            <Text style={styles.forgotPasswordText}>{t('forgot_password')}</Text>
+            <Text style={styles.forgotPasswordText}>{t('forgot_password') || 'Forgot Password?'}</Text>
           </TouchableOpacity>
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={styles.button}
+            style={[
+              styles.button,
+              (isLoading || !formData.username.trim() || !formData.password.trim()) && {
+                opacity: 0.6
+              }
+            ]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={isLoading || !formData.username.trim() || !formData.password.trim()}
             activeOpacity={0.8}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
+            {isLoading ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={[styles.buttonText, { marginLeft: 8 }]}>
+                  Signing in...
+                </Text>
+              </View>
             ) : (
               <View style={styles.buttonContent}>
                 <Text style={styles.buttonText}>
-                  {t('continue')}
+                  {t('continue') || 'Continue'}
                 </Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </View>
@@ -169,38 +202,21 @@ export default function LoginScreen() {
           {/* Social Login Divider */}
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
-            <Text style={styles.dividerText}>{t('or_continue_with')}</Text>
+            <Text style={styles.dividerText}>{t('or_continue_with') || 'or continue with'}</Text>
             <View style={styles.divider} />
           </View>
-          
-          {/* Social Login Button */}
-          {/* <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={handleGoogleLogin}
-              disabled={!!socialLoading}
-            >
-              {socialLoading === 'google' ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={20} color="#FFFFFF" />
-                  <Text style={styles.socialButtonText}>{t('google')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View> */}
 
           {/* Toggle Login/Register */}
           <TouchableOpacity
             style={styles.toggleContainer}
             onPress={handleNavigateToRegister}
             activeOpacity={0.7}
+            disabled={isLoading}
           >
             <Text style={styles.toggleText}>
-              {t('dont_have_account')}
+              {t('dont_have_account') || "Don't have an account?"}
               <Text style={styles.toggleActionText}>
-                {' ' + t('register')}
+                {' ' + (t('register') || 'Register')}
               </Text>
             </Text>
           </TouchableOpacity>
@@ -223,45 +239,8 @@ export default function LoginScreen() {
   );
 }
 
-// Add these to existing styles
+// Updated styles with error container
 const styles = StyleSheet.create({
-  // Existing styles...
-  
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(75, 85, 99, 0.3)',
-  },
-  dividerText: {
-    color: '#9CA3AF',
-    paddingHorizontal: 10,
-    fontSize: 14,
-  },
-  socialButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DB4437', // Google red
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    width: '100%',
-  },
-  socialButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginLeft: 8,
-  },
   container: {
     flex: 1,
     backgroundColor: '#080f19',
@@ -289,6 +268,22 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -300,14 +295,11 @@ const styles = StyleSheet.create({
     height: 54,
     paddingHorizontal: 4,
     overflow: 'hidden',
-    // Add transition effect
-    transform: [{scale: 1}],
   },
   inputContainerFocused: {
     borderColor: '#3B82F6',
     backgroundColor: 'rgba(31, 41, 55, 0.6)',
     borderWidth: 1.5,
-    transform: [{scale: 1.02}],
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
@@ -357,6 +349,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     marginRight: 8,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(75, 85, 99, 0.3)',
+  },
+  dividerText: {
+    color: '#9CA3AF',
+    paddingHorizontal: 10,
+    fontSize: 14,
   },
   toggleContainer: {
     alignItems: 'center',
