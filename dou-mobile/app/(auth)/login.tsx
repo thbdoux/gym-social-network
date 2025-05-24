@@ -1,5 +1,5 @@
-// app/(auth)/login.tsx - Updated to work with fixed AuthContext
-import React, { useState, useRef } from 'react';
+// app/(auth)/login.tsx - Version ultra-interactive pour iOS
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -25,33 +25,45 @@ export default function LoginScreen() {
     password: '',
   });
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   
-  const { login, isLoading, error } = useAuth();
-  
-  // Prevent multiple login attempts
-  const loginAttemptRef = useRef(false);
+  // Get auth but don't depend on its loading state for UI interactions
+  const { login } = useAuth();
+
+  console.log('🖥️ LoginScreen render - LocalLoading:', localLoading);
 
   const handleInputChange = (field: string, value: string) => {
+    console.log('📝 Input change:', field, value.length);
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
+    // Clear error when user types
+    if (localError) {
+      setLocalError(null);
+    }
   };
 
   const handleSubmit = async () => {
-    // Prevent multiple simultaneous login attempts
-    if (isLoading || loginAttemptRef.current) {
-      console.log('🔒 Login already in progress, ignoring...');
+    console.log('🔐 Login button pressed');
+
+    // Prevent multiple submissions with local state only
+    if (localLoading) {
+      console.log('🔒 Already logging in locally');
       return;
     }
 
     // Basic validation
     if (!formData.username.trim() || !formData.password.trim()) {
-      Alert.alert(t('error') || 'Error', 'Please enter both username and password');
+      setLocalError('Please enter both username and password');
+      Alert.alert('Error', 'Please enter both username and password');
       return;
     }
 
-    loginAttemptRef.current = true;
+    // Use ONLY local loading state - never depends on AuthContext
+    setLocalLoading(true);
+    setLocalError(null);
     console.log('🔐 Starting login process...');
 
     try {
@@ -59,41 +71,39 @@ export default function LoginScreen() {
       console.log('📱 Login result:', success);
       
       if (success) {
-        console.log('✅ Login successful, navigating to feed...');
-        // Navigate after a small delay to ensure state is updated
-        setTimeout(() => {
-          router.replace('/(app)/feed');
-        }, 200);
+        console.log('✅ Login successful, navigating...');
+        // Immediate navigation - don't wait for auth state
+        router.replace('/(app)/feed');
       } else {
         console.log('❌ Login failed');
-        Alert.alert(
-          t('error') || 'Error', 
-          error || t('invalid_credentials') || 'Invalid username or password'
-        );
+        setLocalError('Invalid username or password');
+        Alert.alert('Error', 'Invalid username or password');
       }
     } catch (err: any) {
-      console.log('🚨 Unexpected login error:', err);
-      Alert.alert(
-        t('error') || 'Error', 
-        'An unexpected error occurred. Please try again.'
-      );
+      console.log('🚨 Login error:', err);
+      const errorMsg = 'Login failed. Please try again.';
+      setLocalError(errorMsg);
+      Alert.alert('Error', errorMsg);
     } finally {
-      // Reset with delay to prevent rapid state changes
+      // Always reset local loading after delay
       setTimeout(() => {
-        loginAttemptRef.current = false;
+        setLocalLoading(false);
+        console.log('✅ Local loading reset');
       }, 500);
     }
   };
 
   const handleNavigateToRegister = () => {
-    if (isLoading) {
-      console.log('🔒 Navigation blocked - login in progress');
+    console.log('📍 Navigate to register pressed');
+    if (localLoading) {
+      console.log('🔒 Navigation blocked - local loading');
       return;
     }
     
-    console.log('📍 Navigating to personality wizard...');
     router.push('/(auth)/personality-wizard');
   };
+
+  const isFormValid = formData.username.trim() && formData.password.trim();
 
   return (
     <KeyboardAvoidingView
@@ -103,6 +113,7 @@ export default function LoginScreen() {
       <ScrollView 
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" // CRITICAL for iOS button interaction
       >
         {/* Logo */}
         <View style={styles.logoContainer}>
@@ -111,11 +122,11 @@ export default function LoginScreen() {
         
         {/* Form Container */}
         <View style={styles.formContainer}>
-          {/* Error Message */}
-          {error && (
+          {/* Local Error Message */}
+          {localError && (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={16} color="#EF4444" />
-              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.errorText}>{localError}</Text>
             </View>
           )}
 
@@ -132,14 +143,15 @@ export default function LoginScreen() {
             />
             <TextInput
               style={styles.input}
-              placeholder={t('username') || 'Username'}
+              placeholder="Username"
               placeholderTextColor="#9CA3AF"
               value={formData.username}
               onChangeText={(text) => handleInputChange('username', text)}
               autoCapitalize="none"
               onFocus={() => setFocusedInput('username')}
               onBlur={() => setFocusedInput(null)}
-              editable={!isLoading}
+              editable={!localLoading} // Only depends on local loading
+              returnKeyType="next"
             />
           </View>
 
@@ -155,45 +167,47 @@ export default function LoginScreen() {
             />
             <TextInput
               style={styles.input}
-              placeholder={t('password') || 'Password'}
+              placeholder="Password"
               placeholderTextColor="#9CA3AF"
               value={formData.password}
               onChangeText={(text) => handleInputChange('password', text)}
               secureTextEntry
               onFocus={() => setFocusedInput('password')}
               onBlur={() => setFocusedInput(null)}
-              editable={!isLoading}
+              editable={!localLoading} // Only depends on local loading
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
             />
           </View>
 
-          <TouchableOpacity style={styles.forgotPassword} activeOpacity={0.7}>
-            <Text style={styles.forgotPasswordText}>{t('forgot_password') || 'Forgot Password?'}</Text>
+          <TouchableOpacity 
+            style={styles.forgotPassword} 
+            activeOpacity={0.7}
+            disabled={localLoading}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          {/* Submit Button */}
+          {/* Submit Button - ALWAYS INTERACTIVE unless local loading */}
           <TouchableOpacity
             style={[
               styles.button,
-              (isLoading || !formData.username.trim() || !formData.password.trim()) && {
-                opacity: 0.6
-              }
+              (!isFormValid || localLoading) && { opacity: 0.6 }
             ]}
             onPress={handleSubmit}
-            disabled={isLoading || !formData.username.trim() || !formData.password.trim()}
+            disabled={!isFormValid || localLoading}
             activeOpacity={0.8}
           >
-            {isLoading ? (
+            {localLoading ? (
               <View style={styles.buttonContent}>
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
                 <Text style={[styles.buttonText, { marginLeft: 8 }]}>
                   Signing in...
                 </Text>
               </View>
             ) : (
               <View style={styles.buttonContent}>
-                <Text style={styles.buttonText}>
-                  {t('continue') || 'Continue'}
-                </Text>
+                <Text style={styles.buttonText}>Continue</Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </View>
             )}
@@ -202,34 +216,43 @@ export default function LoginScreen() {
           {/* Social Login Divider */}
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
-            <Text style={styles.dividerText}>{t('or_continue_with') || 'or continue with'}</Text>
+            <Text style={styles.dividerText}>or continue with</Text>
             <View style={styles.divider} />
           </View>
 
-          {/* Toggle Login/Register */}
+          {/* Toggle Login/Register - ALWAYS INTERACTIVE */}
           <TouchableOpacity
             style={styles.toggleContainer}
             onPress={handleNavigateToRegister}
             activeOpacity={0.7}
-            disabled={isLoading}
+            disabled={localLoading}
           >
-            <Text style={styles.toggleText}>
-              {t('dont_have_account') || "Don't have an account?"}
-              <Text style={styles.toggleActionText}>
-                {' ' + (t('register') || 'Register')}
-              </Text>
+            <Text style={[
+              styles.toggleText,
+              localLoading && { opacity: 0.6 }
+            ]}>
+              Don't have an account?
+              <Text style={styles.toggleActionText}> Register</Text>
             </Text>
           </TouchableOpacity>
+
+          {/* Debug Info */}
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugText}>
+              Form Valid: {isFormValid ? 'Yes' : 'No'} | 
+              Local Loading: {localLoading ? 'Yes' : 'No'}
+            </Text>
+          </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2025 dou</Text>
           <View style={styles.footerLinks}>
-            <TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7}>
               <Text style={styles.footerLink}>Terms</Text>
             </TouchableOpacity>
-            <TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7}>
               <Text style={styles.footerLink}>Privacy</Text>
             </TouchableOpacity>
           </View>
@@ -239,7 +262,6 @@ export default function LoginScreen() {
   );
 }
 
-// Updated styles with error container
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -377,6 +399,17 @@ const styles = StyleSheet.create({
   toggleActionText: {
     color: '#3B82F6',
     fontWeight: '500',
+  },
+  debugContainer: {
+    marginTop: 20,
+    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 4,
+  },
+  debugText: {
+    color: '#6B7280',
+    fontSize: 10,
+    textAlign: 'center',
   },
   footer: {
     alignItems: 'center',

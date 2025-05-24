@@ -1,4 +1,4 @@
-// context/AuthContext.tsx - Fixed version to prevent infinite loops
+// context/AuthContext.tsx - Version ultra-conservative pour iOS
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
@@ -6,7 +6,6 @@ import userService from '../api/services/userService';
 import { useQueryClient } from '@tanstack/react-query';
 import { userKeys } from '../hooks/query/useUserQuery';
 import { authEvents } from '../api/utils/authEvents';
-import { Platform } from 'react-native';
 
 interface User {
   id: number;
@@ -40,43 +39,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Refs to prevent infinite loops and multiple simultaneous operations
-  const authCheckInProgress = useRef(false);
-  const loginInProgress = useRef(false);
-  const logoutInProgress = useRef(false);
+  // CRITICAL: Prevent all simultaneous operations and API loops
+  const operationLock = useRef(false);
   const mountedRef = useRef(true);
-  const initialLoadComplete = useRef(false);
+  const hasCheckedInitialAuth = useRef(false);
 
-  // Safe state setter that checks if component is still mounted
+  console.log('🔄 AuthProvider render - Auth:', isAuthenticated, 'Loading:', isLoading, 'User:', !!user);
+
+  // Safe state setter
   const safeSetState = useCallback((setter: Function, value: any) => {
-    if (mountedRef.current) {
+    if (mountedRef.current && !operationLock.current) {
       setter(value);
     }
   }, []);
 
-  // Social login handler - commented out for now but keeping structure
-  const handleSocialLogin = async (provider: string, token: string) => {
-    try {
-      console.log(`🔐 Sending ${provider} token to backend...`);
-      const response = await userService.socialLogin(provider, token);
-      
-      if (response?.access) {
-        await SecureStore.setItemAsync('token', response.access);
-        safeSetState(setUser, response.user);
-        safeSetState(setIsAuthenticated, true);
-        safeSetState(setError, null);
-        queryClient.setQueryData(userKeys.current(), response.user);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error(`🚨 ${provider} login error:`, error);
-      return false;
-    }
-  };
-
   // Register new user
   const registerUser = async (userData: any): Promise<{ success: boolean; message: string }> => {
+    if (operationLock.current) {
+      console.log('🔒 Operation locked, skipping register');
+      return { success: false, message: 'Operation in progress' };
+    }
+
+    operationLock.current = true;
+    
     try {
       safeSetState(setIsLoading, true);
       safeSetState(setError, null);
@@ -99,148 +84,174 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
     } finally {
       safeSetState(setIsLoading, false);
+      operationLock.current = false;
     }
   };
 
-  // Define a reusable logout function
+  // Logout function - immediate and clean
   const handleLogout = useCallback(async () => {
-    // Prevent multiple simultaneous logout attempts
-    if (logoutInProgress.current) {
-      console.log('🔒 Logout already in progress, skipping...');
+    if (operationLock.current) {
+      console.log('🔒 Operation locked, skipping logout');
       return;
     }
 
-    logoutInProgress.current = true;
-    console.log('🚪 Starting logout process...');
+    operationLock.current = true;
+    console.log('🚪 Starting immediate logout...');
 
     try {
-      // STEP 1: Clear token first
-      await SecureStore.deleteItemAsync('token');
-      console.log('🗑️ Token cleared from secure store');
+      // STEP 1: Clear token immediately - no await delays
+      SecureStore.deleteItemAsync('token').catch(() => {}); // Fire and forget
       
-      // STEP 2: Update authentication state immediately
-      safeSetState(setUser, null);
-      safeSetState(setIsAuthenticated, false);
-      safeSetState(setError, null);
+      // STEP 2: Update state immediately
+      setUser(null);
+      setIsAuthenticated(false);
+      setError(null);
       
-      // STEP 3: Clear cache (but don't await to prevent delays)
+      // STEP 3: Clear cache in background - no await
       setTimeout(() => {
         queryClient.clear();
-        console.log('🗑️ Query cache cleared');
       }, 0);
       
-      console.log('✅ Logout completed successfully');
-      
-      // STEP 4: Navigate after a small delay to ensure state is updated
-      setTimeout(() => {
-        if (mountedRef.current) {
-          router.replace('/(auth)/login');
-          console.log('📍 Redirected to login');
-        }
-      }, 100);
+      console.log('✅ Logout completed immediately');
       
     } catch (error) {
       console.error('🚨 Logout error:', error);
-      // Still try to navigate to login in case of error
-      if (mountedRef.current) {
-        router.replace('/(auth)/login');
-      }
     } finally {
-      logoutInProgress.current = false;
+      operationLock.current = false;
     }
-  }, [queryClient, safeSetState]);
+  }, [queryClient]);
 
-  // Load user data on mount - with better error handling
-  const loadUser = useCallback(async () => {
-    // Prevent multiple simultaneous auth checks
-    if (authCheckInProgress.current) {
-      console.log('🔒 Auth check already in progress, skipping...');
+  // ULTRA CONSERVATIVE: Only check auth ONCE on mount, no retries, no loops
+  const checkInitialAuth = useCallback(async () => {
+    if (hasCheckedInitialAuth.current || operationLock.current) {
+      console.log('🔒 Auth already checked or operation locked');
       return;
     }
 
-    authCheckInProgress.current = true;
-    console.log('🔍 Starting auth check...');
+    hasCheckedInitialAuth.current = true;
+    operationLock.current = true;
+    console.log('🔍 Checking initial auth (ONE TIME ONLY)...');
 
     try {
       const token = await SecureStore.getItemAsync('token');
       
       if (!token) {
-        console.log('❌ No token found');
-        safeSetState(setUser, null);
-        safeSetState(setIsAuthenticated, false);
-        safeSetState(setError, null);
+        console.log('❌ No token found - setting unauthenticated');
+        setUser(null);
+        setIsAuthenticated(false);
+        setError(null);
         return;
       }
 
-      console.log('📱 Token found, fetching user data...');
+      console.log('📱 Token found, attempting ONE API call...');
       
-      // Add timeout to prevent hanging requests
+      // ONE SINGLE API CALL with short timeout - no retries
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('⏰ Request timeout, aborting...');
+        console.log('⏰ API timeout - aborting');
         controller.abort();
-      }, 10000);
+      }, 5000); // Short 5 second timeout
 
       try {
-        // Clear any stale user data from cache before fetching
-        queryClient.removeQueries({ queryKey: userKeys.current() });
-        
         const userData = await userService.getCurrentUser();
         clearTimeout(timeoutId);
         
-        console.log('✅ User data fetched successfully:', userData?.id);
-        safeSetState(setUser, userData);
-        safeSetState(setIsAuthenticated, true);
-        safeSetState(setError, null);
+        console.log('✅ User data received successfully');
+        setUser(userData);
+        setIsAuthenticated(true);
+        setError(null);
         
-        // Cache the user data
-        queryClient.setQueryData(userKeys.current(), userData);
+        // Cache in background
+        setTimeout(() => {
+          queryClient.setQueryData(userKeys.current(), userData);
+        }, 0);
         
-      } catch (fetchError: any) {
+      } catch (apiError: any) {
         clearTimeout(timeoutId);
+        console.log('🚨 API call failed:', apiError?.response?.status || apiError.message);
         
-        console.log('🚨 Error fetching user data:', fetchError?.response?.status || fetchError.message);
+        // CRITICAL: Clear token and never retry
+        SecureStore.deleteItemAsync('token').catch(() => {});
+        setUser(null);
+        setIsAuthenticated(false);
         
-        // Only clear auth state for actual auth errors (401, 403)
-        if (fetchError?.response?.status === 401 || fetchError?.response?.status === 403) {
-          console.log('🔑 Token expired/invalid, clearing auth state...');
-          await SecureStore.deleteItemAsync('token');
-          safeSetState(setUser, null);
-          safeSetState(setIsAuthenticated, false);
-          safeSetState(setError, 'Session expired');
-          
-          // Clear cache
-          queryClient.clear();
-          
-          // Only redirect if this is not the initial load
-          if (initialLoadComplete.current && mountedRef.current) {
-            setTimeout(() => {
-              router.replace('/(auth)/login');
-            }, 100);
-          }
+        // Set error but don't retry
+        if (apiError?.response?.status === 401 || apiError?.response?.status === 403) {
+          setError('Session expired');
         } else {
-          // For network errors, keep current state but set error
-          console.log('🌐 Network error, maintaining current state');
-          safeSetState(setError, 'Network error');
+          setError('Unable to verify session');
         }
       }
       
     } catch (error) {
-      console.error('🚨 Unexpected error in loadUser:', error);
-      safeSetState(setError, 'Authentication error');
+      console.error('🚨 Critical auth error:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+      setError('Authentication failed');
     } finally {
-      authCheckInProgress.current = false;
-      safeSetState(setIsLoading, false);
-      initialLoadComplete.current = true;
-      console.log('✅ Auth check completed');
+      setIsLoading(false);
+      operationLock.current = false;
+      console.log('✅ Initial auth check completed - NEVER RUNS AGAIN');
     }
-  }, [queryClient, safeSetState]);
+  }, [queryClient]);
 
-  // Listen for auth events
+  // Login function - clean and simple
+  const login = async (username: string, password: string): Promise<boolean> => {
+    if (operationLock.current) {
+      console.log('🔒 Login operation locked');
+      return false;
+    }
+
+    operationLock.current = true;
+    setIsLoading(true);
+    setError(null);
+    console.log('🔐 Starting login...');
+
+    try {
+      // Clear any existing cache
+      queryClient.clear();
+      
+      // Login API call
+      const tokenData = await userService.login(username, password);
+      await SecureStore.setItemAsync('token', tokenData.access);
+      console.log('🔑 Token stored');
+
+      // Get user data
+      const userData = await userService.getCurrentUser();
+      console.log('👤 User data received');
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      setError(null);
+      
+      // Cache in background
+      setTimeout(() => {
+        queryClient.setQueryData(userKeys.current(), userData);
+      }, 0);
+      
+      console.log('✅ Login successful');
+      return true;
+      
+    } catch (error: any) {
+      console.error('🚨 Login failed:', error);
+      
+      const errorMessage = error?.response?.data?.detail || 'Login failed';
+      setError(errorMessage);
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      return false;
+    } finally {
+      setIsLoading(false);
+      operationLock.current = false;
+    }
+  };
+
+  // Auth events listener - but no automatic actions
   useEffect(() => {
     const unsubscribe = authEvents.subscribe((eventType) => {
       if (eventType === 'tokenExpired') {
-        console.log('🔔 Token expired event received');
+        console.log('🔔 Token expired event - logging out');
         handleLogout();
       }
     });
@@ -248,66 +259,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => unsubscribe();
   }, [handleLogout]);
 
-  // Initial load effect - only run once
+  // CRITICAL: Only run auth check ONCE on mount
   useEffect(() => {
-    console.log('🚀 AuthProvider mounted, checking initial auth status...');
-    loadUser();
+    console.log('🚀 AuthProvider mounted - running ONE-TIME auth check');
+    checkInitialAuth();
 
-    // Cleanup on unmount
     return () => {
-      console.log('🔚 AuthProvider unmounting...');
+      console.log('🔚 AuthProvider unmounting');
       mountedRef.current = false;
     };
-  }, []); // Empty dependency array - only run once!
-
-  // Regular username/password login
-  const login = async (username: string, password: string): Promise<boolean> => {
-    // Prevent multiple simultaneous login attempts
-    if (loginInProgress.current) {
-      console.log('🔒 Login already in progress, skipping...');
-      return false;
-    }
-
-    loginInProgress.current = true;
-    safeSetState(setIsLoading, true);
-    safeSetState(setError, null);
-    console.log('🔐 Starting login process...');
-
-    try {
-      // Clear any existing cache first
-      queryClient.clear();
-      
-      const tokenData = await userService.login(username, password);
-      await SecureStore.setItemAsync('token', tokenData.access);
-      console.log('🔑 Token stored successfully');
-
-      const userData = await userService.getCurrentUser();
-      console.log('👤 User data fetched after login:', userData?.id);
-      
-      safeSetState(setUser, userData);
-      safeSetState(setIsAuthenticated, true);
-      safeSetState(setError, null);
-      
-      queryClient.setQueryData(userKeys.current(), userData);
-      console.log('✅ Login successful');
-      
-      return true;
-    } catch (error: any) {
-      console.error('🚨 Login error:', error);
-      
-      const errorMessage = error?.response?.data?.detail || 'Login failed';
-      safeSetState(setError, errorMessage);
-      safeSetState(setUser, null);
-      safeSetState(setIsAuthenticated, false);
-      
-      return false;
-    } finally {
-      loginInProgress.current = false;
-      safeSetState(setIsLoading, false);
-    }
-  };
-
-  const logout = handleLogout;
+  }, []); // Empty array - runs ONLY once!
 
   return (
     <AuthContext.Provider 
@@ -316,8 +277,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated, 
         isLoading, 
         login, 
-        logout,
-        setUser: (user) => safeSetState(setUser, user),
+        logout: handleLogout,
+        setUser,
         registerUser,
         error,
       }}
