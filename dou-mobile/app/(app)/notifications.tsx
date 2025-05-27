@@ -33,6 +33,8 @@ import { formatDistanceToNow, isToday, isYesterday, differenceInDays } from 'dat
 import { Image } from 'expo-image';
 import { useLanguage } from '../../context/LanguageContext';
 import { getAvatarUrl } from '../../utils/imageUtils';
+// Import userService for friend request handling
+import userService from '../../api/services/userService';
 
 // Component to display content preview based on notification type
 const ContentPreview = ({ notification, postData }) => {
@@ -422,14 +424,25 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: false });
   
   // Handle accept friend request or workout invitation/join request
-  const handleAccept = () => {
+  const handleAccept = async () => {
     // Mark notification as read first
     onMarkAsRead(notification.id);
     
     // Check notification type and take appropriate action
     if (notification.notification_type === 'friend_request') {
-      // Existing friend request accept logic
-      // API call for accepting friend request
+      try {
+        // Accept the friend request using the userService
+        console.log(notification)
+        await userService.respondToFriendRequest(notification.sender, 'accept');
+        
+        // Navigate to the friend's profile after successful acceptance
+        setTimeout(() => {
+          router.push(`/user/${notification.sender}`);
+        }, 300);
+      } catch (error) {
+        console.error('Error accepting friend request:', error);
+        // You might want to show an error message to the user here
+      }
     } else if (notification.notification_type === 'workout_invitation') {
       // Call joinGroupWorkout API for the workout
       if (notification.object_id) {
@@ -470,14 +483,19 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
   };
   
     // Update the handleDecline function
-  const handleDecline = () => {
+  const handleDecline = async () => {
     // Mark notification as read
     onMarkAsRead(notification.id);
     
     // Check notification type and take appropriate action
     if (notification.notification_type === 'friend_request') {
-      // Existing friend request decline logic
-      // API call for declining friend request
+      try {
+        // Decline the friend request using the userService
+        await userService.respondToFriendRequest(notification.sender.id, 'reject');
+      } catch (error) {
+        console.error('Error declining friend request:', error);
+        // You might want to show an error message to the user here
+      }
     } else if (notification.notification_type === 'workout_invitation') {
       // Call appropriate API to decline the workout invitation
       if (notification.object_id) {
@@ -952,7 +970,9 @@ const themedStyles = createThemedStyles((palette) => ({
     backgroundColor: 'transparent',
   },
   unreadNotification: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)', // Subtle background for unread
+    backgroundColor: palette.highlight, // Changed to use highlight color for better visibility
+    borderLeftWidth: 4,
+    borderLeftColor: palette.primary, // Add a colored left border for unread notifications
   },
   avatarWrapper: {
     marginRight: 12,

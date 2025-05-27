@@ -11,6 +11,7 @@ import {
   ImageBackground,
   TouchableOpacity,
   Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,6 +28,7 @@ import PostTypeModal from '../../components/feed/PostTypeModal';
 import SidebarButton from '../../components/navigation/SidebarButton';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import FeedViewSelector, { FEED_VIEW_TYPES } from '../../components/feed/FeedViewSelector';
+import { getAvatarUrl } from '../../utils/imageUtils';
 import {
   useLikePost,
   useCommentOnPost,
@@ -39,6 +41,47 @@ import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
 import { imageManager, useImagePreloading } from '../../utils/imageManager';
 import { useNotificationCount } from '../../hooks/query/useNotificationQuery';
+
+// Enhanced Post Creation Row Component with Avatar Image
+const PostCreationRow: React.FC<{
+  user: any;
+  onAvatarPress: () => void;
+  onInputPress: () => void;
+  styles: any;
+  t: (key: string) => string;
+}> = ({ user, onAvatarPress, onInputPress, styles, t }) => {
+  const avatarUrl = getAvatarUrl(user?.avatar, 40);
+  
+  return (
+    <View style={styles.postCreationRow}>
+      <TouchableOpacity onPress={onAvatarPress} style={styles.postCreationAvatar}>
+        {user?.avatar ? (
+          <Image 
+            source={{ uri: avatarUrl }} 
+            style={styles.avatarImage}
+            defaultSource={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username?.[0] || 'U')}&size=40&background=random` }}
+          />
+        ) : (
+          <View style={styles.avatarContainer}>
+            <Text style={styles.avatarText}>
+              {user?.username?.[0]?.toUpperCase() || user?.displayName?.[0]?.toUpperCase() || 'U'}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.postCreationInput} 
+        onPress={onInputPress}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.postCreationInputText}>
+          {t('whats_on_your_mind') || "What's on your mind?"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -76,9 +119,17 @@ export default function FeedScreen() {
   const { mutateAsync: reactToPost } = useReactToPost();
   const { mutateAsync: unreactToPost } = useUnreactToPost();
 
+  // Enhanced changeView function with animation reset
   const changeView = (viewType: string) => {
-    setCurrentFeedView(viewType);
-    scrollY.setValue(0);
+    if (viewType !== currentFeedView) {
+      setCurrentFeedView(viewType);
+      scrollY.setValue(0);
+    }
+  };
+
+  // New handler for view changes from FeedContainer swipes
+  const handleViewChangeFromSwipe = (newView: string) => {
+    changeView(newView);
   };
 
   const welcomeContent = useMemo(() => {
@@ -145,21 +196,40 @@ export default function FeedScreen() {
     setShowPostModal(true);
   };
   
+  // New handlers for post creation row
+  const handleAvatarPress = () => {
+    if (user?.id) {
+      router.push(`/user/${user.id}`);
+    }
+  };
+  
+  const handlePostInputPress = () => {
+    setSelectedPostType('regular');
+    setShowPostModal(true);
+  };
+  
   const handleModalClose = () => { setShowPostModal(false); setTimeout(() => setSelectedPostType('regular'), 300); };
   const handlePostCreated = () => refetchPosts();
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false });
 
   const renderWelcomeHeader = useMemo(() => (
     <View>
-      {/* <View style={styles.welcomeContainer}>
-        <ImageBackground source={welcomeContent.backgroundImage} style={styles.welcomeBackground} imageStyle={styles.welcomeBackgroundImage}>
-          <Text style={styles.welcomeText}>{welcomeContent.message}</Text>
-          <Text style={styles.welcomeUsername}>{user?.displayName || user?.username || 'Friend'}?</Text>
-        </ImageBackground>
-      </View> */}
-      <FeedViewSelector currentView={currentFeedView} changeView={changeView} />
+      {/* Post Creation Row - Facebook style */}
+      <PostCreationRow
+        user={user}
+        onAvatarPress={handleAvatarPress}
+        onInputPress={handlePostInputPress}
+        styles={styles}
+        t={t}
+      />
+      
+      {/* Feed View Selector - Back in the header */}
+      <FeedViewSelector 
+        currentView={currentFeedView} 
+        changeView={changeView}
+      />
     </View>
-  ), [welcomeContent, user?.displayName, user?.username, styles, currentFeedView, changeView, t]);
+  ), [user, styles, t, currentFeedView, changeView]);
 
   const handleProgramSelect = (program: any) => {
     let programId: number | null = typeof program === 'number' ? program : (program?.id || program?.program_id || program?.programId || program?.program_details?.id);
@@ -196,9 +266,9 @@ export default function FeedScreen() {
               </TouchableOpacity>
               
               {/* Simple + Icon replacing FAB menu */}
-              <TouchableOpacity style={styles.createPostButton} onPress={handleShowPostTypeModal}>
+              {/* <TouchableOpacity style={styles.createPostButton} onPress={handleShowPostTypeModal}>
                 <Ionicons name="add" size={26} color={palette.text} />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </View>
         </Animated.View>
@@ -228,6 +298,7 @@ export default function FeedScreen() {
               refreshing={refreshing} onRefresh={handleRefresh} onScroll={handleScroll}
               scrollEventThrottle={16} contentContainerStyle={styles.feedContentContainer}
               ListHeaderComponent={renderWelcomeHeader} filterMode={currentFeedView}
+              onViewChange={handleViewChangeFromSwipe} // New prop for swipe handling
             />
           )}
         </View>
@@ -259,7 +330,8 @@ const themedStyles = createThemedStyles((palette) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between', // Space between logo and right icons
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
+    paddingLeft: 16,
     height: '100%',
   },
   headerRightContainer: {
@@ -273,15 +345,17 @@ const themedStyles = createThemedStyles((palette) => ({
   },
   notificationBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: 'red',
+    top: 2,
+    right: 2,
+    backgroundColor: '#FF3B30', // Red color for the badge
     borderRadius: 10,
     minWidth: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: palette.layout, // Border to make it stand out from the background
   },
   notificationBadgeText: {
     color: 'white',
@@ -316,4 +390,50 @@ const themedStyles = createThemedStyles((palette) => ({
   errorText: { marginTop: 10, marginBottom: 20, color: withAlpha(palette.text, 0.7), textAlign: 'center' },
   retryButton: { backgroundColor: palette.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   retryButtonText: { color: palette.page_background, fontWeight: '600' },
+  
+  // Enhanced styles for post creation row with avatar image
+  postCreationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: palette.layout,
+    marginBottom: 8,
+  },
+  postCreationAvatar: {
+    marginRight: 12,
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.text,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarText: {
+    color: palette.page_background,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  postCreationInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: withAlpha(palette.border, 0.2),
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: withAlpha(palette.text, 0.7),
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  postCreationInputText: {
+    color: palette.text,
+    fontSize: 16,
+  },
 }));

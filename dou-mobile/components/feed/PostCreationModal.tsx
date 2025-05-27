@@ -20,7 +20,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 import { useCreatePost } from '../../hooks/query/usePostQuery';
+import { getAvatarUrl } from '../../utils/imageUtils';
 import WorkoutLogSelector from './WorkoutLogSelector';
 import ProgramSelector from './ProgramSelector';
 import GroupWorkoutSelector from './GroupWorkoutSelector';
@@ -50,6 +53,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
 }) => {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { palette, workoutPalette, programPalette, workoutLogPalette, groupWorkoutPalette } = useTheme();
   
   // Animation references
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -72,31 +76,34 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
   // Use the post creation mutation hook
   const { mutateAsync: createPost, isLoading: isPosting } = useCreatePost();
   
-  // Post type definitions
+  // Create themed styles
+  const styles = themedStyles(palette);
+  
+  // Post type definitions with themed colors
   const postTypes: Record<string, PostType> = {
     regular: {
       id: 'regular',
       label: t('regular_post'),
       icon: 'create-outline',
-      color: '#60A5FA'
+      color: palette.accent
     },
     workout_log: {
       id: 'workout_log',
       label: t('share_workout'),
       icon: 'fitness-outline',
-      color: '#34D399'
+      color: workoutLogPalette.background
     },
     program: {
       id: 'program',
       label: t('share_program'),
       icon: 'barbell-outline',
-      color: '#A78BFA'
+      color: programPalette.background
     },
     group_workout: {
       id: 'group_workout',
       label: t('group_workout'),
       icon: 'people-outline',
-      color: '#FB923C'
+      color: groupWorkoutPalette.background
     }
   };
   
@@ -278,188 +285,198 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
     setSelectedGroupWorkout(null);
     setStep(1); // Always set to content entry
   };
+
+  // Handle keyboard done button
+  const handleTextInputSubmit = () => {
+    Keyboard.dismiss();
+  };
   
   const renderContentEntry = () => {
     const currentPostType = postTypes[postType];
+    const avatarUrl = getAvatarUrl(user?.avatar, 40);
     
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardAvoidView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-      >
-        <View style={styles.contentContainer}>
-          <View style={styles.postTypeHeader}>
-            <View style={[styles.postTypeHeaderIcon, { backgroundColor: `${currentPostType.color}20` }]}>
-              <Ionicons name={currentPostType.icon as any} size={18} color={currentPostType.color} />
-            </View>
-            <Text style={styles.postTypeHeaderText}>{currentPostType.label}</Text>
-          </View>
-          
-          <ScrollView style={styles.scrollContainer}>
-            <View style={styles.userInfo}>
-              <View style={styles.userAvatar}>
+      <View style={styles.contentContainer}>
+        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.userInfo}>
+            {user?.avatar ? (
+              <Image 
+                source={{ uri: avatarUrl }} 
+                style={styles.userAvatarImage}
+                defaultSource={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username?.[0] || 'U')}&size=40&background=random` }}
+              />
+            ) : (
+              <View style={[styles.userAvatar, { backgroundColor: palette.accent }]}>
                 <Text style={styles.userAvatarText}>
                   {user?.username?.[0]?.toUpperCase() || 'U'}
                 </Text>
               </View>
-              <Text style={styles.username}>{user?.username}</Text>
-            </View>
-            
-            <TextInput
-              style={styles.contentInput}
-              multiline
-              placeholder={
-                postType === 'program' && selectedProgram 
-                  ? t('add_program_note') 
-                  : postType === 'workout_log' && selectedWorkoutLog
-                  ? t('add_workout_note')
-                  : t('whats_on_your_mind')
-              }
-              placeholderTextColor="#9CA3AF"
-              value={content}
-              onChangeText={setContent}
-              autoFocus={true}
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
-              blurOnSubmit={false}
-            />
-            
-            {/* Program Preview using ProgramCard */}
-            {selectedProgram && (
-              <View style={styles.cardPreviewWrapper}>
-                <View style={styles.cardPreviewHeader}>
-                  <Text style={styles.cardPreviewTitle}>{t('program_preview')}</Text>
-                  <TouchableOpacity 
-                    style={styles.removeButton}
-                    onPress={() => {
-                      setSelectedProgram(null);
-                      setPostType('regular');
-                    }}
-                  >
-                    <Ionicons name="close-circle" size={24} color="#9CA3AF" />
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity 
-                  activeOpacity={0.7}
-                  onPress={() => setShowProgramSelector(true)}
-                >
-                  <ProgramCard
-                    programId={selectedProgram.id}
-                    program={selectedProgram}
-                    inFeedMode={true}
-                    currentUser={user?.username}
-                    disableNavigation={true}
-                  />
-                </TouchableOpacity>
-              </View>
             )}
-            
-            {/* Workout Log Preview using WorkoutLogCard */}
-            {selectedWorkoutLog && (
-              <View style={styles.cardPreviewWrapper}>
-                <View style={styles.cardPreviewHeader}>
-                  <Text style={styles.cardPreviewTitle}>{t('workout_preview')}</Text>
-                  <TouchableOpacity 
-                    style={styles.removeButton}
-                    onPress={() => {
-                      setSelectedWorkoutLog(null);
-                      setPostType('regular');
-                    }}
-                  >
-                    <Ionicons name="close-circle" size={24} color="#9CA3AF" />
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity 
-                  activeOpacity={0.7}
-                  onPress={() => setShowWorkoutLogSelector(true)}
-                >
-                  <WorkoutLogCard
-                    logId={selectedWorkoutLog.id}
-                    log={selectedWorkoutLog}
-                    user={user?.username}
-                    inFeedMode={true}
-                    disableNavigation={true}
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Group Workout Preview */}
-            {selectedGroupWorkout && (
-              <View style={styles.cardPreviewWrapper}>
-                <View style={styles.cardPreviewHeader}>
-                  <Text style={styles.cardPreviewTitle}>{t('group_workout_preview')}</Text>
-                  <TouchableOpacity 
-                    style={styles.removeButton}
-                    onPress={() => {
-                      setSelectedGroupWorkout(null);
-                      setPostType('regular');
-                    }}
-                  >
-                    <Ionicons name="close-circle" size={24} color="#9CA3AF" />
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity 
-                  activeOpacity={0.7}
-                  onPress={() => setShowGroupWorkoutSelector(true)}
-                >
-                  <GroupWorkoutCard
-                    groupWorkoutId={selectedGroupWorkout.id}
-                    groupWorkout={selectedGroupWorkout}
-                    selectionMode={false}
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
-            
-            {/* Image Preview */}
-            {image && (
-              <View style={styles.imagePreviewContainer}>
-                <Image 
-                  source={{ uri: image }} 
-                  style={styles.imagePreview} 
-                />
-                <TouchableOpacity 
-                  style={styles.removeImageButton}
-                  onPress={() => setImage(null)}
-                >
-                  <Ionicons name="close-circle" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </ScrollView>
+            <Text style={styles.username}>{user?.username}</Text>
+          </View>
           
+          <TextInput
+            style={styles.contentInput}
+            multiline
+            placeholder={
+              postType === 'program' && selectedProgram 
+                ? t('add_program_note') 
+                : postType === 'workout_log' && selectedWorkoutLog
+                ? t('add_workout_note')
+                : t('whats_on_your_mind')
+            }
+            placeholderTextColor={palette.text_tertiary}
+            value={content}
+            onChangeText={setContent}
+            autoFocus={true}
+            returnKeyType="done"
+            onSubmitEditing={handleTextInputSubmit}
+            blurOnSubmit={true}
+          />
+          
+          {/* Program Preview using ProgramCard */}
+          {selectedProgram && (
+            <View style={styles.cardPreviewWrapper}>
+              <View style={styles.cardPreviewHeader}>
+                <Text style={styles.cardPreviewTitle}>{t('program_preview')}</Text>
+                <TouchableOpacity 
+                  style={styles.removeButton}
+                  onPress={() => {
+                    setSelectedProgram(null);
+                    setPostType('regular');
+                  }}
+                >
+                  <Ionicons name="close-circle" size={24} color={palette.text_secondary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={() => setShowProgramSelector(true)}
+              >
+                <ProgramCard
+                  programId={selectedProgram.id}
+                  program={selectedProgram}
+                  inFeedMode={true}
+                  currentUser={user?.username}
+                  disableNavigation={true}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {/* Workout Log Preview using WorkoutLogCard */}
+          {selectedWorkoutLog && (
+            <View style={styles.cardPreviewWrapper}>
+              <View style={styles.cardPreviewHeader}>
+                <Text style={styles.cardPreviewTitle}>{t('workout_preview')}</Text>
+                <TouchableOpacity 
+                  style={styles.removeButton}
+                  onPress={() => {
+                    setSelectedWorkoutLog(null);
+                    setPostType('regular');
+                  }}
+                >
+                  <Ionicons name="close-circle" size={24} color={palette.text_secondary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={() => setShowWorkoutLogSelector(true)}
+              >
+                <WorkoutLogCard
+                  logId={selectedWorkoutLog.id}
+                  log={selectedWorkoutLog}
+                  user={user?.username}
+                  inFeedMode={true}
+                  disableNavigation={true}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Group Workout Preview */}
+          {selectedGroupWorkout && (
+            <View style={styles.cardPreviewWrapper}>
+              <View style={styles.cardPreviewHeader}>
+                <Text style={styles.cardPreviewTitle}>{t('group_workout_preview')}</Text>
+                <TouchableOpacity 
+                  style={styles.removeButton}
+                  onPress={() => {
+                    setSelectedGroupWorkout(null);
+                    setPostType('regular');
+                  }}
+                >
+                  <Ionicons name="close-circle" size={24} color={palette.text_secondary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={() => setShowGroupWorkoutSelector(true)}
+              >
+                <GroupWorkoutCard
+                  groupWorkoutId={selectedGroupWorkout.id}
+                  groupWorkout={selectedGroupWorkout}
+                  selectionMode={false}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {/* Image Preview */}
+          {image && (
+            <View style={styles.imagePreviewContainer}>
+              <Image 
+                source={{ uri: image }} 
+                style={styles.imagePreview} 
+              />
+              <TouchableOpacity 
+                style={styles.removeImageButton}
+                onPress={() => setImage(null)}
+              >
+                <Ionicons name="close-circle" size={24} color={palette.text} />
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {/* Add some padding at the bottom to ensure content is not hidden behind action bar */}
+          <View style={styles.scrollBottomPadding} />
+        </ScrollView>
+        
+        {/* Action Bar - Positioned at bottom, outside of ScrollView */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 160 : 20}
+        >
           <View style={styles.actionBar}>
             <View style={styles.mediaButtons}>
               <TouchableOpacity 
-                style={styles.mediaButton}
+                style={[styles.mediaButton, { backgroundColor: withAlpha(palette.accent, 0.1) }]}
                 onPress={pickImage}
               >
-                <Ionicons name="image-outline" size={24} color="#60A5FA" />
+                <Ionicons name="image-outline" size={24} color={palette.accent} />
               </TouchableOpacity>
               
               {postType === 'regular' && (
                 <>
                   <TouchableOpacity 
-                    style={styles.mediaButton}
+                    style={[styles.mediaButton, { backgroundColor: withAlpha(programPalette.background, 0.1) }]}
                     onPress={() => setShowProgramSelector(true)}
                   >
-                    <Ionicons name="barbell-outline" size={24} color="#A78BFA" />
+                    <Ionicons name="barbell-outline" size={24} color={programPalette.background} />
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                    style={styles.mediaButton}
+                    style={[styles.mediaButton, { backgroundColor: withAlpha(workoutLogPalette.background, 0.1) }]}
                     onPress={() => setShowWorkoutLogSelector(true)}
                   >
-                    <Ionicons name="fitness-outline" size={24} color="#34D399" />
+                    <Ionicons name="fitness-outline" size={24} color={workoutLogPalette.background} />
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={styles.mediaButton}
+                    style={[styles.mediaButton, { backgroundColor: withAlpha(groupWorkoutPalette.background, 0.1) }]}
                     onPress={() => setShowGroupWorkoutSelector(true)}
                   >
-                    <Ionicons name="people-outline" size={24} color="#FB923C" />
+                    <Ionicons name="people-outline" size={24} color={groupWorkoutPalette.background} />
                   </TouchableOpacity>
                 </>
               )}
@@ -469,7 +486,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
                   style={[styles.mediaButton, styles.keyboardDismissButton]}
                   onPress={() => Keyboard.dismiss()}
                 >
-                  <Ionicons name="chevron-down" size={24} color="#FFFFFF" />
+                  <Ionicons name="chevron-down" size={24} color={palette.text} />
                 </TouchableOpacity>
               )}
             </View>
@@ -483,17 +500,17 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
               disabled={(!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) || loading || isPosting}
             >
               {loading || isPosting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color={palette.page_background} size="small" />
               ) : (
                 <>
-                  <Ionicons name="send" size={18} color="#FFFFFF" />
+                  <Ionicons name="send" size={18} color={palette.page_background} />
                   <Text style={styles.postButtonText}>{t('post')}</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
     );
   };
   
@@ -513,7 +530,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
               {postTypes[postType]?.label || t('create_post')}
             </Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color="#9CA3AF" />
+              <Ionicons name="close" size={24} color={palette.text_secondary} />
             </TouchableOpacity>
           </View>
           
@@ -550,7 +567,8 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+// Themed styles using createThemedStyles pattern
+const themedStyles = createThemedStyles((palette) => ({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -558,7 +576,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     height: '90%',
-    backgroundColor: '#080f19',
+    backgroundColor: palette.page_background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
@@ -569,12 +587,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.5)',
+    borderBottomColor: withAlpha(palette.border, 0.3),
+    backgroundColor: palette.layout,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: palette.text,
   },
   closeButton: {
     padding: 8,
@@ -590,12 +609,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: palette.text,
     marginBottom: 24,
     textAlign: 'center',
-  },
-  keyboardAvoidView: {
-    flex: 1,
   },
   contentContainer: {
     flex: 1,
@@ -607,7 +623,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55, 65, 81, 0.3)',
+    borderBottomColor: withAlpha(palette.border, 0.3),
   },
   postTypeHeaderIcon: {
     width: 36,
@@ -620,11 +636,14 @@ const styles = StyleSheet.create({
   postTypeHeaderText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#FFFFFF',
+    color: palette.text,
   },
   scrollContainer: {
     flex: 1,
     padding: 16,
+  },
+  scrollBottomPadding: {
+    height: 20, // Add padding so content is not hidden behind action bar
   },
   userInfo: {
     flexDirection: 'row',
@@ -635,55 +654,64 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
+  userAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
   userAvatarText: {
-    color: '#FFFFFF',
+    color: palette.text,
     fontSize: 16,
     fontWeight: '600',
   },
   username: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: palette.text,
   },
   contentInput: {
-    backgroundColor: '#1F2937',
+    backgroundColor: palette.input_background,
     borderRadius: 12,
     padding: 16,
-    color: '#FFFFFF',
+    color: palette.text,
     fontSize: 16,
-    height: 120,
+    minHeight: 120,
+    maxHeight: 200,
     textAlignVertical: 'top',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: withAlpha(palette.border, 0.3),
   },
   cardPreviewWrapper: {
-    marginTop: 16,
+    marginBottom: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#1F2937',
+    backgroundColor: palette.card_background,
     borderWidth: 1,
-    borderColor: 'rgba(55, 65, 81, 0.5)',
+    borderColor: withAlpha(palette.border, 0.3),
   },
   cardPreviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: withAlpha(palette.layout, 0.5),
   },
   cardPreviewTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: palette.text,
   },
   removeButton: {
     padding: 4,
   },
   imagePreviewContainer: {
-    marginTop: 16,
+    marginBottom: 16,
     position: 'relative',
     borderRadius: 12,
     overflow: 'hidden',
@@ -696,8 +724,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withAlpha(palette.page_background, 0.8),
     borderRadius: 16,
+    padding: 4,
   },
   actionBar: {
     flexDirection: 'row',
@@ -705,8 +734,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(55, 65, 81, 0.5)',
-    backgroundColor: '#111827',
+    borderTopColor: withAlpha(palette.border, 0.3),
+    backgroundColor: palette.page_background,
   },
   mediaButtons: {
     flexDirection: 'row',
@@ -715,18 +744,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1F2937',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: withAlpha(palette.border, 0.2),
   },
   keyboardDismissButton: {
-    backgroundColor: '#4B5563',
+    backgroundColor: withAlpha(palette.text_secondary, 0.1),
   },
   postButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3B82F6',
+    backgroundColor: palette.accent,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
@@ -735,11 +765,11 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   postButtonText: {
-    color: '#FFFFFF',
+    color: palette.page_background,
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 8,
   },
-});
+}));
 
 export default PostCreationModal;

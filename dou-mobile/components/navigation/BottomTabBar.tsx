@@ -91,7 +91,7 @@ const TabIcon: React.FC<TabIconProps> = ({
         <View style={[active && [styles.activeIndicator, { backgroundColor: palette.text }]]} />
         <Ionicons 
           name={iconName} 
-          size={isWorkoutButton ? 24 : 22} 
+          size={isWorkoutButton ? 40 : 22} 
           color={iconColor} 
         />
         
@@ -166,7 +166,7 @@ const BottomTabBar: React.FC = () => {
           {/* Workout button wrapped with WorkoutNavigationGuard */}
           <WorkoutNavigationGuard targetRoute="/realtime-workout">
             <TabIcon
-              name="play-circle"
+              name="add-circle"
               active={pathname === '/realtime-workout'}
               onPress={() => navigateTo('/realtime-workout')}
               isWorkoutButton={true}
@@ -204,8 +204,8 @@ const BottomTabBar: React.FC = () => {
 const themedStyles = createThemedStyles((palette) => ({
   container: {
     flexDirection: 'row',
-    height: Platform.OS === 'ios' ? 70 : 64,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    height: Platform.OS === 'ios' ? 80 : 64,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 8,
     justifyContent: 'space-between',
     borderTopWidth: 1,
     paddingHorizontal: 20,
@@ -234,7 +234,7 @@ const themedStyles = createThemedStyles((palette) => ({
     position: 'relative',
   },
   workoutButton: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    // backgroundColor: withAlpha(palette.text, 0.2),
   },
   activeTabIconContainer: {
     backgroundColor: 'rgba(59, 130, 246, 0.2)',

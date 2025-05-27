@@ -1,5 +1,5 @@
 // components/feed/FeedContainer.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   RefreshControl,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  PanResponder,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import Post from './Post';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
@@ -17,8 +20,10 @@ import { useUsers } from '../../hooks/query/useUserQuery';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext'; 
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
-import { FEED_VIEW_TYPES } from './FeedViewSelector';
+import { FEED_VIEW_TYPES, FEED_VIEW_ORDER } from './FeedViewSelector';
 import { useLanguage } from '@/context/LanguageContext';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 interface Post {
   id: number;
@@ -55,6 +60,7 @@ interface FeedContainerProps {
   scrollEventThrottle?: number;
   ListHeaderComponent?: React.ReactElement | (() => React.ReactElement) | null;
   filterMode?: string; // Prop for view filtering
+  onViewChange?: (newView: string) => void; // New prop for handling view changes
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
@@ -79,12 +85,22 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   scrollEventThrottle = 16,
   ListHeaderComponent,
   filterMode = FEED_VIEW_TYPES.FRIENDS, // Default to friends view
+  onViewChange, // New prop
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
   const { palette } = useTheme();
   const styles = themedStyles(palette);
   const { t } = useLanguage();
+  
+  // Animation and swipe state
+  const [isSwipeInProgress, setIsSwipeInProgress] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+  
+  // Swipe configuration
+  const SWIPE_THRESHOLD = 80; // Minimum distance to trigger swipe
+  const SWIPE_VELOCITY_THRESHOLD = 0.5; // Minimum velocity to trigger swipe
+  const HORIZONTAL_THRESHOLD = 15; // Minimum horizontal movement to start tracking
   
   // Use React Query hooks
   const { 
@@ -107,6 +123,76 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   } = useUsers();
   
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+
+  // Get current view index for navigation
+  const getCurrentViewIndex = () => {
+    return FEED_VIEW_ORDER.findIndex(view => view === filterMode);
+  };
+
+  // Handle view change with animation
+  const handleViewChange = (newView: string) => {
+    if (newView !== filterMode && onViewChange) {
+      onViewChange(newView);
+    }
+  };
+
+  // Pan responder for swipe gestures
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Only respond to predominantly horizontal swipes
+        const { dx, dy } = gestureState;
+        const isHorizontalSwipe = Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > HORIZONTAL_THRESHOLD;
+        
+        // Don't interfere with vertical scrolling
+        if (Math.abs(dy) > Math.abs(dx)) return false;
+        
+        return isHorizontalSwipe && !isSwipeInProgress;
+      },
+      
+      onPanResponderGrant: () => {
+        setIsSwipeInProgress(true);
+      },
+      
+      onPanResponderMove: (evt, gestureState) => {
+        // We're not doing visual feedback during swipe anymore
+        // Just tracking the gesture
+      },
+      
+      onPanResponderRelease: (evt, gestureState) => {
+        const { dx, vx } = gestureState;
+        const currentIndex = getCurrentViewIndex();
+        
+        setIsSwipeInProgress(false);
+        
+        // Determine if swipe was strong enough
+        const shouldSwipe = Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(vx) > SWIPE_VELOCITY_THRESHOLD;
+        
+        if (!shouldSwipe) return;
+        
+        let targetView = filterMode; // Default to current view
+        
+        // Handle swipe right (go to previous view)
+        if (dx > 0 && currentIndex > 0) {
+          targetView = FEED_VIEW_ORDER[currentIndex - 1];
+        }
+        // Handle swipe left (go to next view)
+        else if (dx < 0 && currentIndex < FEED_VIEW_ORDER.length - 1) {
+          targetView = FEED_VIEW_ORDER[currentIndex + 1];
+        }
+        
+        // Change view immediately if needed
+        if (targetView !== filterMode) {
+          handleViewChange(targetView);
+        }
+      },
+      
+      onPanResponderTerminate: () => {
+        // Reset state if gesture is terminated
+        setIsSwipeInProgress(false);
+      },
+    })
+  ).current;
 
   // Create a memoized map of user data by username for better performance
   const usersData = useMemo(() => {
@@ -205,7 +291,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 
   if (filteredPosts.length === 0) {
     return (
-      <>
+      <View style={styles.container} {...panResponder.panHandlers}>
         {/* Still render the ListHeaderComponent even when no posts are available */}
         {ListHeaderComponent && (
           typeof ListHeaderComponent === 'function' 
@@ -220,7 +306,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
               : t('no_post_yet_description_2')}
           </Text>
         </View>
-      </>
+      </View>
     );
   }
 
@@ -232,47 +318,54 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   };
 
   return (
-    <FlatList
-      data={filteredPosts}
-      keyExtractor={(item) => item.id.toString()}
-      ListHeaderComponent={ListHeaderComponent}
-      renderItem={({ item }) => (
-        <Post
-          post={item}
-          currentUser={currentUser}
-          onLike={onLike}
-          onReact={onReact}
-          onUnreact={onUnreact}
-          onComment={onComment}
-          onShare={onShare}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          userData={usersData[item.user_username]}
-          onProgramClick={onProgramSelect}
-          onWorkoutLogClick={onWorkoutLogSelect}
-          onGroupWorkoutClick={onGroupWorkoutSelect}
-          onForkProgram={onForkProgram}
-          onProfileClick={onProfileClick}
-          onNavigateToProfile={onNavigateToProfile}
-          onPostClick={onPostClick}
-        />
-      )}
-      contentContainerStyle={themedContentContainerStyle}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          tintColor={palette.accent}
-          colors={[palette.accent]}
-        />
-      }
-      onScroll={onScroll}
-      scrollEventThrottle={scrollEventThrottle}
-    />
+    <View style={styles.container} {...panResponder.panHandlers}>
+      <FlatList
+        ref={flatListRef}
+        data={filteredPosts}
+        keyExtractor={(item) => item.id.toString()}
+        ListHeaderComponent={ListHeaderComponent}
+        renderItem={({ item }) => (
+          <Post
+            post={item}
+            currentUser={currentUser}
+            onLike={onLike}
+            onReact={onReact}
+            onUnreact={onUnreact}
+            onComment={onComment}
+            onShare={onShare}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            userData={usersData[item.user_username]}
+            onProgramClick={onProgramSelect}
+            onWorkoutLogClick={onWorkoutLogSelect}
+            onGroupWorkoutClick={onGroupWorkoutSelect}
+            onForkProgram={onForkProgram}
+            onProfileClick={onProfileClick}
+            onNavigateToProfile={onNavigateToProfile}
+            onPostClick={onPostClick}
+          />
+        )}
+        contentContainerStyle={themedContentContainerStyle}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={palette.accent}
+            colors={[palette.accent]}
+          />
+        }
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
+        scrollEnabled={!isSwipeInProgress} // Disable scroll during swipe
+      />
+    </View>
   );
 };
 
 const themedStyles = createThemedStyles((palette) => ({
+  container: {
+    flex: 1,
+  },
   listContainer: {
     paddingHorizontal: 0,
     paddingTop: 0,

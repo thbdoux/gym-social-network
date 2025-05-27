@@ -1,4 +1,4 @@
-// components/feed/Post.tsx - Update for reaction integrations
+// components/feed/Post.tsx - Enhanced with always-visible comment section in detail mode
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
@@ -16,8 +16,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import { usePostLikers, usePostComments, usePostReactions } from '../../hooks/query/usePostQuery';
 import CommentSection from './CommentSection';
@@ -87,7 +89,8 @@ interface PostProps {
   onNavigateToProfile?: (userId: number) => void;
   onGroupWorkoutClick?: (groupWorkoutId: number) => void;
   detailMode?: boolean; 
-  onPostClick?: (postId: number) => void; 
+  onPostClick?: (postId: number) => void;
+  showCommentsByDefault?: boolean; // New prop to control default comment visibility
 }
 
 const Post: React.FC<PostProps> = ({
@@ -107,23 +110,31 @@ const Post: React.FC<PostProps> = ({
   onForkProgram,
   onProfileClick,
   onNavigateToProfile,
-  detailMode,
-  onPostClick  
+  detailMode = false,
+  onPostClick,
+  showCommentsByDefault = false
 }) => {
   const { t } = useLanguage();
   const { palette, personality } = useTheme();
-  const [showCommentInput, setShowCommentInput] = useState(false);
+  const router = useRouter();
+  
+  // Comment input visibility - show by default if showCommentsByDefault is true
+  const [showCommentInput, setShowCommentInput] = useState(showCommentsByDefault);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareText, setShareText] = useState('');
   
   // Use local states for immediate UI updates
   const [liked, setLiked] = useState(post.is_liked);
   const [localCommentsCount, setLocalCommentsCount] = useState(post.comments_count);
+  const [localReactionsCount, setLocalReactionsCount] = useState(post.reactions_count || post.likes_count || 0);
   
-  // Animation values for button hover effects
+  // Animation values for smooth transitions
+  const reactionsOpacityAnim = useRef(new Animated.Value(localReactionsCount > 0 ? 1 : 0)).current;
+  const reactionsScaleAnim = useRef(new Animated.Value(localReactionsCount > 0 ? 1 : 0)).current;
   const likeScaleAnim = useRef(new Animated.Value(1)).current;
   const commentScaleAnim = useRef(new Animated.Value(1)).current;
   const shareScaleAnim = useRef(new Animated.Value(1)).current;
+  const commentSectionOpacity = useRef(new Animated.Value(showCommentsByDefault ? 1 : 0)).current;
   
   // Fetch likers
   const { data: likers = [], isLoading: isLoadingLikers } = usePostLikers(post.id);
@@ -134,17 +145,71 @@ const Post: React.FC<PostProps> = ({
   // Fetch reactions
   const { data: reactions = [] } = usePostReactions(post.id);
 
+  // Create themed styles
+  const styles = themedStyles(palette);
+
   // Update local states when post props change
   useEffect(() => {
     setLiked(post.is_liked);
     setLocalCommentsCount(post.comments_count);
-  }, [post.is_liked, post.comments_count]);
+    
+    const newReactionsCount = post.reactions_count || post.likes_count || 0;
+    const hadReactions = localReactionsCount > 0;
+    const hasReactions = newReactionsCount > 0;
+    
+    setLocalReactionsCount(newReactionsCount);
+    
+    // Animate reactions counter appearance/disappearance
+    if (!hadReactions && hasReactions) {
+      // Reactions just appeared
+      Animated.parallel([
+        Animated.spring(reactionsScaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 8,
+        }),
+        Animated.timing(reactionsOpacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else if (hadReactions && !hasReactions) {
+      // Reactions just disappeared
+      Animated.parallel([
+        Animated.timing(reactionsScaleAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(reactionsOpacityAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+    
+  }, [post.is_liked, post.comments_count, post.reactions_count, post.likes_count]);
+
+  // Show comment section by default in detail mode
+  useEffect(() => {
+    if (showCommentsByDefault && !showCommentInput) {
+      setShowCommentInput(true);
+      Animated.timing(commentSectionOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showCommentsByDefault]);
   
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(post.content);
 
-  // Animation references
+  // Animation references for post click
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
@@ -170,12 +235,12 @@ const Post: React.FC<PostProps> = ({
     Animated.sequence([
       Animated.timing(animValue, {
         toValue: 0.9,
-        duration: 150,
+        duration: 100,
         useNativeDriver: true
       }),
       Animated.timing(animValue, {
         toValue: 1,
-        duration: 150,
+        duration: 100,
         useNativeDriver: true
       })
     ]).start();
@@ -183,7 +248,6 @@ const Post: React.FC<PostProps> = ({
   
   // Get post type details including colors for gradient
   const getPostTypeDetails = (type: string = 'regular') => {
-    // Base gradient colors on the theme palette accent and highlight
     const defaultGradient = [palette.accent, palette.highlight];
     
     switch(type) {
@@ -236,10 +300,7 @@ const Post: React.FC<PostProps> = ({
 
   // Get avatar gradient colors based on user personality
   const getPersonalityGradient = () => {
-    // Use the post personality or fallback to the current user's personality
     const postPersonality = post.personality || personality || 'versatile';
-    
-    // Use the theme palette colors for gradients
     return [palette.accent, palette.highlight];
   };
   
@@ -247,10 +308,8 @@ const Post: React.FC<PostProps> = ({
   const showPostOptions = () => {
     const isCurrentUserPost = post.user_username === currentUser;
     
-    // Create buttons array based on whether the current user owns the post
     const buttons = [];
     
-    // Add "View Profile" for all posts
     buttons.push({
       text: t('view_profile'),
       onPress: () => {
@@ -262,7 +321,6 @@ const Post: React.FC<PostProps> = ({
       }
     });
     
-    // Add Edit and Delete options only for the post owner
     if (isCurrentUserPost) {
       buttons.push({
         text: t('edit_post'),
@@ -276,21 +334,15 @@ const Post: React.FC<PostProps> = ({
       });
     }
     
-    // Add Cancel button
     buttons.push({
       text: t('cancel'),
       style: 'cancel'
     });
     
-    Alert.alert(
-      t('post_options'),
-      '',
-      buttons
-    );
+    Alert.alert(t('post_options'), '', buttons);
   };
   
   const handleShare = () => {
-    // Animate button press
     animateButtonPress(shareScaleAnim);
     
     if (post.is_share) {
@@ -310,7 +362,11 @@ const Post: React.FC<PostProps> = ({
 
   // Handle clicking on the post content area
   const handlePostClick = () => {
-    // Animate the touch feedback
+    if (detailMode) {
+      // In detail mode, don't do anything on post click
+      return;
+    }
+    
     Animated.sequence([
       Animated.parallel([
         Animated.timing(scaleAnim, {
@@ -337,8 +393,7 @@ const Post: React.FC<PostProps> = ({
         }),
       ]),
     ]).start(() => {
-      // Only navigate if we're not in detail mode and a handler is provided
-      if (!detailMode && onPostClick) {
+      if (onPostClick) {
         onPostClick(post.id);
       }
     });
@@ -346,13 +401,11 @@ const Post: React.FC<PostProps> = ({
 
   // Handle clicking on username or profile picture
   const handleUserProfileClick = (event) => {
-    // Stop event propagation to prevent triggering the post click
     event.stopPropagation();
     
     if (post.user_id && onNavigateToProfile) {
       onNavigateToProfile(post.user_id);
     } else if (post.user_id && onProfileClick) {
-      // Fallback to modal if navigation isn't provided
       onProfileClick(post.user_id);
     }
   };
@@ -373,7 +426,6 @@ const Post: React.FC<PostProps> = ({
     }
   };
   
-  // Separate confirmation for delete
   const handleDeleteConfirmation = () => {
     Alert.alert(
       t('delete_post'),
@@ -393,13 +445,11 @@ const Post: React.FC<PostProps> = ({
     );
   };
 
-  // Start editing post
   const handleStartEditing = () => {
     setEditText(post.content);
     setIsEditing(true);
   };
   
-  // Submit edited post
   const handleSubmitEdit = () => {
     if (onEdit && editText.trim() !== '') {
       onEdit(post, editText);
@@ -407,7 +457,6 @@ const Post: React.FC<PostProps> = ({
     setIsEditing(false);
   };
 
-  // Handle clicking on shared post profile
   const handleSharedProfileClick = (event) => {
     event.stopPropagation();
     if (post.original_post_details?.user_id && onNavigateToProfile) {
@@ -417,11 +466,32 @@ const Post: React.FC<PostProps> = ({
     }
   };
 
-  // Handle comment button press
+  // Enhanced comment button handling
   const handleCommentPress = () => {
-    // Animate button press
     animateButtonPress(commentScaleAnim);
-    setShowCommentInput(!showCommentInput);
+    
+    if (detailMode) {
+      // In detail mode, toggle comment input visibility if not shown by default
+      if (!showCommentsByDefault) {
+        const newShowState = !showCommentInput;
+        setShowCommentInput(newShowState);
+        
+        Animated.timing(commentSectionOpacity, {
+          toValue: newShowState ? 1 : 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
+      // If comments are shown by default, do nothing or scroll to comment input
+    } else {
+      // In feed, navigate to post detail page
+      if (onPostClick) {
+        onPostClick(post.id);
+      } else {
+        // Fallback navigation
+        router.push(`/post/${post.id}`);
+      }
+    }
   };
 
   // Handle reacting to a post
@@ -434,16 +504,9 @@ const Post: React.FC<PostProps> = ({
     onUnreact(postId);
   };
 
-  // Updated to handle like/unlike (dislike) properly
   const handleLike = () => {
-    // Animate button press
     animateButtonPress(likeScaleAnim);
-    
-    // Toggle the liked state locally for immediate UI feedback
     setLiked(!liked);
-    
-    // Call the onLike function with the post ID and current liked status
-    // so the backend knows whether to like or unlike
     onLike(post.id, liked);
   };
 
@@ -459,12 +522,6 @@ const Post: React.FC<PostProps> = ({
     : post.post_type || 'regular';
   
   const postTypeDetails = getPostTypeDetails(effectivePostType);
-  
-  // Create themed background style
-  const containerBackgroundStyle = {
-    backgroundColor: palette.page_background,
-    borderColor: palette.border,
-  };
 
   // Check if the user has reacted to the post
   const hasReacted = !!post.user_reaction;
@@ -473,14 +530,12 @@ const Post: React.FC<PostProps> = ({
   const getTopReactions = () => {
     if (!reactions || reactions.length === 0) return [];
     
-    // Count reactions by type
     const reactionCounts = {};
     reactions.forEach(reaction => {
       const type = reaction.reaction_type;
       reactionCounts[type] = (reactionCounts[type] || 0) + 1;
     });
     
-    // Sort reaction types by count
     return Object.entries(reactionCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
@@ -511,20 +566,15 @@ const Post: React.FC<PostProps> = ({
     >
       <Animated.View 
         style={[
-          styles.container, 
-          containerBackgroundStyle,
+          styles.container,
           {
+            backgroundColor: palette.page_background,
+            borderColor: palette.border,
             transform: [{ scale: scaleAnim }],
             opacity: opacityAnim
           }
         ]}
       >
-        {/* Blur effect background */}
-        <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
-        
-        {/* Glow effect for premium posts */}
-        <View style={[styles.glowEffect, { backgroundColor: palette.page_background }]} />
-        
         {/* Gradient top line */}
         <LinearGradient
           colors={postTypeDetails.colors.gradient}
@@ -536,7 +586,7 @@ const Post: React.FC<PostProps> = ({
         {/* Post Header */}
         <View style={styles.header}>
           <View style={styles.authorContainer}>
-            {/* User Avatar with Activity Ring - Now clickable */}
+            {/* User Avatar with Activity Ring */}
             <TouchableOpacity 
               style={styles.avatarWrapper}
               onPress={handleUserProfileClick}
@@ -556,8 +606,8 @@ const Post: React.FC<PostProps> = ({
                 </View>
               </LinearGradient>
               
-              {/* Streak indicator - FIXED: Added proper boolean check */}
-              {Boolean(userStreak > 0) && (
+              {/* Streak indicator */}
+              {userStreak > 0 && (
                 <View style={[styles.streakBadge, { backgroundColor: palette.accent }]}>
                   <Text style={styles.streakText}>{userStreak}</Text>
                 </View>
@@ -566,7 +616,6 @@ const Post: React.FC<PostProps> = ({
             
             <View style={styles.authorInfo}>
               <View style={styles.authorNameRow}>
-                {/* Username is now clickable */}
                 <TouchableOpacity 
                   onPress={handleUserProfileClick}
                   activeOpacity={0.7}
@@ -576,8 +625,8 @@ const Post: React.FC<PostProps> = ({
                   </Text>
                 </TouchableOpacity>
                 
-                {/* Post Type Badge - FIXED: Added proper boolean checks */}
-                {Boolean(post.post_type && post.post_type !== 'regular' && !post.is_share) && (
+                {/* Post Type Badge */}
+                {post.post_type && post.post_type !== 'regular' && !post.is_share && (
                   <LinearGradient
                     colors={postTypeDetails.colors.gradient}
                     start={{ x: 0, y: 0 }}
@@ -589,8 +638,7 @@ const Post: React.FC<PostProps> = ({
                   </LinearGradient>
                 )}
                 
-                {/* FIXED: Added proper boolean check */}
-                {Boolean(post.is_share) && (
+                {post.is_share && (
                   <Text style={[styles.sharedLabel, { color: palette.text }]}>
                     {t('shared_a_post')}
                   </Text>
@@ -607,7 +655,7 @@ const Post: React.FC<PostProps> = ({
             style={styles.menuButton}
             onPress={showPostOptions}
           >
-            <Ionicons name="ellipsis-horizontal" size={20} color={palette.border} />
+            <Ionicons name="ellipsis-horizontal" size={20} color={withAlpha(palette.text, 0.6)} />
           </TouchableOpacity>
         </View>
         
@@ -630,56 +678,74 @@ const Post: React.FC<PostProps> = ({
           />
         </View>
 
-        {/* Reactions and Likers Preview - FIXED: Simplified boolean logic */}
-        {Boolean((post.likes_count || 0) > 0 || (post.reactions_count || 0) > 0) && (
-          <View style={styles.likersContainer}>
-            {/* Show reaction icons - FIXED: Added proper boolean check */}
-            {Boolean(topReactions.length > 0) && (
-              <View style={styles.reactionsIconsContainer}>
-                {topReactions.map((reactionType, index) => (
-                  <View 
-                    key={`reaction-${reactionType}`}
-                    style={[
-                      styles.reactionIconWrapper,
-                      { marginLeft: index > 0 ? -8 : 0 }
-                    ]}
-                  >
-                    <Text style={styles.reactionIcon}>
-                      {getReactionEmoji(reactionType)}
-                    </Text>
+        {/* Reactions and Likers Preview with smooth animation */}
+        <View style={styles.likersContainer}>
+          <Animated.View 
+            style={[
+              styles.likersContent,
+              {
+                opacity: reactionsOpacityAnim,
+                transform: [{ scale: reactionsScaleAnim }]
+              }
+            ]}
+          >
+            {localReactionsCount > 0 ? (
+              <View style={styles.likersInnerContent}>
+                {/* Show reaction icons */}
+                {topReactions.length > 0 && (
+                  <View style={styles.reactionsIconsContainer}>
+                    {topReactions.map((reactionType, index) => (
+                      <View 
+                        key={`reaction-${reactionType}`}
+                        style={[
+                          styles.reactionIconWrapper,
+                          { marginLeft: index > 0 ? -8 : 0 }
+                        ]}
+                      >
+                        <Text style={styles.reactionIcon}>
+                          {getReactionEmoji(reactionType)}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
+                )}
+                
+                {/* Show liker avatars if no reactions */}
+                {topReactions.length === 0 && likers.length > 0 && (
+                  <View style={styles.likersAvatarsContainer}>
+                    {likers.slice(0, 3).map((liker, index) => (
+                      <TouchableOpacity
+                        key={liker.id}
+                        onPress={() => handleLikerProfileClick(liker.id)}
+                        style={[
+                          styles.likerAvatarWrapper,
+                          { marginLeft: index > 0 ? -12 : 0 }
+                        ]}
+                      >
+                        <Image
+                          source={{ uri: getAvatarUrl(liker.avatar) }}
+                          style={styles.likerAvatar}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                
+                <Text style={[styles.likersText, { color: palette.text }]}>
+                  {`${localReactionsCount} ${localReactionsCount === 1 ? t('reaction') : t('reactions')}`}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.placeholderContainer}>
+                <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
+                  {t('be_the_first_to_react') || 'Be the first to react'}
+                </Text>
               </View>
             )}
-            
-            {/* Show liker avatars if there are no reactions - FIXED: Proper boolean checks */}
-            {Boolean(topReactions.length === 0 && likers.length > 0) && (
-              <View style={styles.likersAvatarsContainer}>
-                {likers.slice(0, 3).map((liker, index) => (
-                  <TouchableOpacity
-                    key={liker.id}
-                    onPress={() => handleLikerProfileClick(liker.id)}
-                    style={[
-                      styles.likerAvatarWrapper,
-                      { marginLeft: index > 0 ? -12 : 0 }
-                    ]}
-                  >
-                    <Image
-                      source={{ uri: getAvatarUrl(liker.avatar) }}
-                      style={styles.likerAvatar}
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            
-            <Text style={[styles.likersText, { color: palette.text }]}>
-              {`${(post.reactions_count || post.likes_count || 0)} ${(post.reactions_count || post.likes_count || 0) === 1 ? t('reaction') : t('reactions')}`}
-            </Text>
-          </View>
-        )}
+          </Animated.View>
+        </View>
         
-        {/* Action Buttons - IMPROVED ALIGNMENT AND HOVER ANIMATIONS */}
+        {/* Action Buttons */}
         <View style={[styles.actionsContainer, { borderTopColor: palette.border }]}>
           {/* Reaction Button */}
           <Animated.View style={{ flex: 1, transform: [{ scale: likeScaleAnim }] }}>
@@ -687,10 +753,9 @@ const Post: React.FC<PostProps> = ({
               postId={post.id}
               isReacted={hasReacted}
               reactionType={post.user_reaction}
-              reactionsCount={post.reactions_count || post.likes_count || 0}
+              reactionsCount={localReactionsCount}
               onReact={handleReact}
               onUnreact={handleUnreact}
-              palette={palette}
             />
           </Animated.View>
           
@@ -701,8 +766,8 @@ const Post: React.FC<PostProps> = ({
               onPress={handleCommentPress}
               activeOpacity={0.7}
             >
-              <Ionicons name="chatbubble-outline" size={20} color={palette.border} />
-              <Text style={[styles.actionText, { color: palette.border }]}>
+              <Ionicons name="chatbubble-outline" size={20} color={palette.text_secondary} />
+              <Text style={[styles.actionText, { color: palette.text_secondary }]}>
                 {localCommentsCount || 0}
               </Text>
             </TouchableOpacity>
@@ -719,13 +784,12 @@ const Post: React.FC<PostProps> = ({
               <Ionicons 
                 name="share-social-outline" 
                 size={20} 
-                color={post.is_share ? "#6B7280" : palette.border} 
+                color={post.is_share ? palette.text_tertiary : palette.text_secondary} 
               />
               <Text 
                 style={[
                   styles.actionText,
-                  { color: palette.border }, 
-                  post.is_share && styles.disabledText
+                  { color: post.is_share ? palette.text_tertiary : palette.text_secondary }
                 ]}
               >
                 {post.shares_count || 0}
@@ -734,15 +798,17 @@ const Post: React.FC<PostProps> = ({
           </Animated.View>
         </View>
         
-        {/* Comments Section - FIXED: Added proper boolean check */}
-        {Boolean(showCommentInput || detailMode) && (
-          <CommentSection 
-            postId={post.id}
-            comments={comments}
-            userData={userData}
-            onNavigateToProfile={onNavigateToProfile}
-            onProfileClick={onProfileClick}
-          />
+        {/* Comments Section - Show based on showCommentInput state */}
+        {showCommentInput && (
+          <Animated.View style={{ opacity: commentSectionOpacity }}>
+            <CommentSection 
+              postId={post.id}
+              comments={comments}
+              userData={userData}
+              onNavigateToProfile={onNavigateToProfile}
+              onProfileClick={onProfileClick}
+            />
+          </Animated.View>
         )}
         
         {/* Share Modal */}
@@ -770,22 +836,22 @@ const Post: React.FC<PostProps> = ({
               
               <TextInput
                 style={[styles.shareInput, { 
-                  backgroundColor: palette.layout,
+                  backgroundColor: palette.input_background,
                   borderColor: palette.border,
                   color: palette.text 
                 }]}
                 placeholder={t('add_your_thoughts')}
-                placeholderTextColor={palette.border}
+                placeholderTextColor={palette.text_tertiary}
                 multiline
                 value={shareText}
                 onChangeText={setShareText}
               />
               
               <View style={[styles.sharedPostPreview, { 
-                backgroundColor: palette.layout,
+                backgroundColor: palette.card_background,
                 borderColor: palette.border 
               }]}>
-                <Text style={[styles.sharedLabel, { color: palette.border }]}>
+                <Text style={[styles.sharedLabel, { color: palette.text_secondary }]}>
                   {`${t('original_post_by')} ${post.user_username || ''}`}
                 </Text>
                 <Text style={[styles.sharedPreviewText, { color: palette.text }]} numberOfLines={2}>
@@ -797,7 +863,9 @@ const Post: React.FC<PostProps> = ({
                 style={[styles.shareButton, { backgroundColor: palette.accent }]}
                 onPress={submitShare}
               >
-                <Text style={styles.shareButtonText}>{t('share')}</Text>
+                <Text style={[styles.shareButtonText, { color: palette.page_background }]}>
+                  {t('share')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -807,32 +875,17 @@ const Post: React.FC<PostProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+// Themed styles
+const themedStyles = createThemedStyles((palette) => ({
   postWrapper: {
-    marginBottom: 0,
+    marginBottom: 10,
     position: 'relative',
   },
   container: {
     borderRadius: 0,
     overflow: 'hidden',
-    borderBottomWidth: 1,
     position: 'relative',
-  },
-  blurBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 24,
-  },
-  glowEffect: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 24,
+    // borderWidth: 1,
   },
   gradientLine: {
     height: 0,
@@ -884,10 +937,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#080f19',
+    borderColor: palette.page_background,
   },
   streakText: {
-    color: '#FFFFFF',
+    color: palette.page_background,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -904,7 +957,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginRight: 8,
   },
-  // Post type badge styles
   postTypeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -934,12 +986,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 0,
   },
-  // Likers section
+  
+  // Enhanced likers section with consistent spacing
   likersContainer: {
+    height: 40, // Fixed height to prevent layout jumping
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  likersContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  likersInnerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  },
+  placeholderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   likersAvatarsContainer: {
     flexDirection: 'row',
@@ -953,7 +1022,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: 'rgba(31, 41, 55, 0.6)',
+    backgroundColor: withAlpha(palette.card_background, 0.8),
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
@@ -966,7 +1035,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#111827',
+    borderColor: palette.border,
     overflow: 'hidden',
     zIndex: 1,
   },
@@ -977,7 +1046,8 @@ const styles = StyleSheet.create({
   likersText: {
     fontSize: 12,
   },
-  // Action buttons - IMPROVED ALIGNMENT AND SPACING
+  
+  // Action buttons
   actionsContainer: {
     flexDirection: 'row',
     borderTopWidth: 0.2,
@@ -994,13 +1064,9 @@ const styles = StyleSheet.create({
   actionText: {
     marginLeft: 6,
     fontSize: 14,
+    fontWeight: '500',
   },
-  likedText: {
-    color: '#F87171',
-  },
-  disabledText: {
-    color: '#6B7280',
-  },
+  
   // Share modal
   modalOverlay: {
     flex: 1,
@@ -1062,10 +1128,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
-});
+}));
 
 export default Post;

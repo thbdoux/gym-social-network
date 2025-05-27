@@ -15,6 +15,7 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    min_ago: 'min ago',
     language_settings : 'Language Settings',
     edit_language: "Edit Language",
     updating_language: "Updating Language",
@@ -73,6 +74,12 @@ const common = {
     'or_continue_with': "or continue with",
   },
   fr: {
+    no_programs_created : 'Aucun programme',
+    no_workout_logged: 'Aucun entraînement enregistré',
+    no_group_workouts: 'Aucun entraînement de groupe',
+    reaction:'réaction',
+    reactions: 'réactions',
+    min_ago: 'min plus tôt',
     language_settings : 'Paramètres de langue',
     edit_language: "Changer la langue",
     updating_language: "Modification de la langue",
@@ -230,7 +237,7 @@ const post_creation = {
         check_out_program: 'Découvrez ce programme',
         just_completed: 'Je viens de terminer',
         a_workout: 'un entraînement',
-        select_program_to_share: 'Sélectionner un programme à partager',
+        select_program_to_share: 'Partager un programme',
         cancel: 'Annuler',
         program_preview: 'Aperçu du programme',
         workout_preview: 'Aperçu de l\'entraînement',
@@ -240,7 +247,7 @@ const post_creation = {
         no_date: 'Pas de date',
         exercises: 'Exercices',
         workouts: 'Entraînements',
-        select_workout_log: 'Sélectionner un entraînement',
+        select_workout_log: 'Partage d\'entraînement',
         search_workouts : 'Rechercher',
         search_program : 'Rechercher',
     }
@@ -1952,6 +1959,7 @@ const realtime_logger = {
   },
   fr: {
     // General
+    'select_gym_or_home' : 'Choisir une salle de sport',
     "realtime_workout" : "Démarrer un entraînement",
     "track_workout_in_realtime" : "Suivre votre entraînement en temps-réel",
     "cancel": "Annuler",
@@ -1973,7 +1981,7 @@ const realtime_logger = {
     'workout_complete' : 'Terminer l\'entraînement',
     
     // Workout Setup & Controls
-    "start_workout": "Commencer l'Entraînement",
+    "start_workout": "Commencer",
     "workout_name": "Nom de l'Entraînement",
     "enter_workout_name": "Entrez le nom de l'entraînement",
     "notes": "Notes",
@@ -2316,7 +2324,7 @@ const group_workout = {
 "invited_users": "Utilisateurs Invités",
 "workout_at_home": "Entraînement à Domicile",
 "enter_custom_location": "Entrez un lieu personnalisé",
-"select_group_workout": "Sélectionner un Entraînement de Groupe",
+"select_group_workout": "Entraînement de Groupe",
 "search_group_workouts": "Rechercher des entraînements de groupe",
 "select_template_for_group_workout": "Sélectionner un Modèle pour l'Entraînement de Groupe",
 
