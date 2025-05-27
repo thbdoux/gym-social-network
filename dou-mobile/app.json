@@ -4,7 +4,7 @@
     "slug": "dou-social-network-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "dou",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -12,7 +12,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.doucompany.dou",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription":      "Allow %@ to pick images for your posts.",
+        "NSPhotoLibraryAddUsageDescription":   "Allow %@ to save the edited picture.",
+        "NSCameraUsageDescription":            "Allow %@ to take a new photo.",
+        "NSMicrophoneUsageDescription":        "Needed for video posts with sound." 
       }
     },
     "android": {
@@ -45,7 +49,14 @@
           "iosUrlScheme": "com.googleusercontent.apps.38465928219-ouf41lc4o75ruaspr62s7o0bqr99fi22",
           "webClientId": "38465928219-lnt8gkdkhn1id2vh93a54j41h8516op9.apps.googleusercontent.com"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Let %@ access your photos."
+        }
       ]
+
     ],
     "experiments": {
       "typedRoutes": true
