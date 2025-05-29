@@ -1,9 +1,16 @@
-// context/WorkoutContext.tsx - Simplified single source of truth
+// context/WorkoutContext.tsx - Enhanced with rest timer persistence
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Alert } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { WorkoutPersistenceManager, ActiveWorkoutSession } from '../app/(app)/realtime-workout/utils/workoutPersistence';
 import { useLanguage } from './LanguageContext';
+
+interface RestTimerState {
+  isActive: boolean;
+  totalSeconds: number;
+  startTime: string;
+  remainingSeconds: number;
+}
 
 interface WorkoutState {
   id: string;
@@ -17,7 +24,10 @@ interface WorkoutState {
   templateId?: number;
   programId?: number;
   workoutId?: number;
+  gym_id?: number;
   isTimerActive: boolean;
+  // Rest timer state
+  restTimer?: RestTimerState;
 }
 
 interface WorkoutContextType {
@@ -34,6 +44,12 @@ interface WorkoutContextType {
   
   // Timer
   toggleTimer: () => Promise<void>;
+  
+  // Rest Timer
+  startRestTimer: (seconds: number) => Promise<void>;
+  stopRestTimer: () => Promise<void>;
+  pauseRestTimer: () => Promise<void>;
+  resumeRestTimer: () => Promise<void>;
 }
 
 const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
@@ -53,6 +69,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const [activeWorkout, setActiveWorkout] = useState<WorkoutState | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const restTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Check if currently on workout page
   const isOnWorkoutPage = pathname?.includes('/realtime-workout') || false;
@@ -63,7 +80,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     loadActiveWorkout();
   }, []);
   
-  // Timer management
+  // Workout timer management
   useEffect(() => {
     if (activeWorkout?.isTimerActive && activeWorkout.started) {
       startTimerInterval();
@@ -73,6 +90,17 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     return () => stopTimerInterval();
   }, [activeWorkout?.isTimerActive, activeWorkout?.started]);
+  
+  // Rest timer management
+  useEffect(() => {
+    if (activeWorkout?.restTimer?.isActive) {
+      startRestTimerInterval();
+    } else {
+      stopRestTimerInterval();
+    }
+    
+    return () => stopRestTimerInterval();
+  }, [activeWorkout?.restTimer?.isActive]);
   
   const loadActiveWorkout = async () => {
     try {
@@ -90,10 +118,31 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
           templateId: workout.templateId,
           programId: workout.programId,
           workoutId: workout.workoutId,
-          isTimerActive: workout.lastUpdated ? true : false // Resume timer if recently updated
+          gym_id: workout.gym_id,
+          isTimerActive: workout.lastUpdated ? true : false,
+          restTimer: (workout as any).restTimer || undefined
         };
         
+        // Calculate current rest timer remaining time if active
+        if (workoutState.restTimer?.isActive) {
+          const restStartTime = new Date(workoutState.restTimer.startTime).getTime();
+          const now = new Date().getTime();
+          const elapsedSeconds = Math.floor((now - restStartTime) / 1000);
+          const remainingSeconds = Math.max(0, workoutState.restTimer.totalSeconds - elapsedSeconds);
+          
+          if (remainingSeconds > 0) {
+            workoutState.restTimer.remainingSeconds = remainingSeconds;
+          } else {
+            // Timer has expired, clear it
+            workoutState.restTimer = undefined;
+          }
+        }
+        
         console.log('Loaded workout from persistence:', workoutState.name, `${workoutState.exercises.length} exercises`);
+        if (workoutState.restTimer?.isActive) {
+          console.log('Rest timer active:', workoutState.restTimer.remainingSeconds, 'seconds remaining');
+        }
+        
         setActiveWorkout(workoutState);
       }
     } catch (error) {
@@ -103,7 +152,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const saveActiveWorkout = async (workoutState: WorkoutState) => {
     try {
-      const session: ActiveWorkoutSession = {
+      const session: ActiveWorkoutSession & { restTimer?: RestTimerState } = {
         id: workoutState.id,
         name: workoutState.name,
         exercises: workoutState.exercises,
@@ -115,11 +164,17 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         templateId: workoutState.templateId,
         programId: workoutState.programId,
         workoutId: workoutState.workoutId,
-        lastUpdated: new Date().toISOString()
+        gym_id: workoutState.gym_id,
+        lastUpdated: new Date().toISOString(),
+        restTimer: workoutState.restTimer
       };
       
       console.log('Saving workout to persistence:', session.name, `${session.exercises.length} exercises`);
-      await persistenceManager.saveActiveWorkout(session);
+      if (session.restTimer?.isActive) {
+        console.log('Saving rest timer:', session.restTimer.remainingSeconds, 'seconds remaining');
+      }
+      
+      await persistenceManager.saveActiveWorkout(session as ActiveWorkoutSession);
     } catch (error) {
       console.error('Error saving active workout:', error);
     }
@@ -150,6 +205,47 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
   
+  const startRestTimerInterval = () => {
+    if (restTimerIntervalRef.current) {
+      clearInterval(restTimerIntervalRef.current);
+    }
+    
+    restTimerIntervalRef.current = setInterval(() => {
+      setActiveWorkout(prev => {
+        if (!prev?.restTimer?.isActive) return prev;
+        
+        const restStartTime = new Date(prev.restTimer.startTime).getTime();
+        const now = new Date().getTime();
+        const elapsedSeconds = Math.floor((now - restStartTime) / 1000);
+        const remainingSeconds = Math.max(0, prev.restTimer.totalSeconds - elapsedSeconds);
+        
+        if (remainingSeconds <= 0) {
+          // Timer expired
+          console.log('Rest timer expired');
+          return {
+            ...prev,
+            restTimer: undefined
+          };
+        }
+        
+        return {
+          ...prev,
+          restTimer: {
+            ...prev.restTimer,
+            remainingSeconds
+          }
+        };
+      });
+    }, 1000);
+  };
+  
+  const stopRestTimerInterval = () => {
+    if (restTimerIntervalRef.current) {
+      clearInterval(restTimerIntervalRef.current);
+      restTimerIntervalRef.current = null;
+    }
+  };
+  
   const startWorkout = async (workoutData: Partial<WorkoutState>) => {
     console.log('Starting new workout:', workoutData.name);
     
@@ -165,6 +261,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
       templateId: workoutData.templateId,
       programId: workoutData.programId,
       workoutId: workoutData.workoutId,
+      gym_id: workoutData.gym_id,
       isTimerActive: true,
       ...workoutData
     };
@@ -198,6 +295,77 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await saveActiveWorkout(updatedWorkout);
   };
   
+  const startRestTimer = async (seconds: number) => {
+    if (!activeWorkout) return;
+    
+    console.log('Starting rest timer:', seconds, 'seconds');
+    
+    const restTimer: RestTimerState = {
+      isActive: true,
+      totalSeconds: seconds,
+      startTime: new Date().toISOString(),
+      remainingSeconds: seconds
+    };
+    
+    const updatedWorkout = {
+      ...activeWorkout,
+      restTimer
+    };
+    
+    setActiveWorkout(updatedWorkout);
+    await saveActiveWorkout(updatedWorkout);
+  };
+  
+  const stopRestTimer = async () => {
+    if (!activeWorkout) return;
+    
+    console.log('Stopping rest timer');
+    
+    const updatedWorkout = {
+      ...activeWorkout,
+      restTimer: undefined
+    };
+    
+    setActiveWorkout(updatedWorkout);
+    await saveActiveWorkout(updatedWorkout);
+  };
+  
+  const pauseRestTimer = async () => {
+    if (!activeWorkout?.restTimer?.isActive) return;
+    
+    console.log('Pausing rest timer');
+    
+    const updatedWorkout = {
+      ...activeWorkout,
+      restTimer: {
+        ...activeWorkout.restTimer,
+        isActive: false
+      }
+    };
+    
+    setActiveWorkout(updatedWorkout);
+    await saveActiveWorkout(updatedWorkout);
+  };
+  
+  const resumeRestTimer = async () => {
+    if (!activeWorkout?.restTimer || activeWorkout.restTimer.isActive) return;
+    
+    console.log('Resuming rest timer');
+    
+    const updatedWorkout = {
+      ...activeWorkout,
+      restTimer: {
+        ...activeWorkout.restTimer,
+        isActive: true,
+        startTime: new Date().toISOString(),
+        totalSeconds: activeWorkout.restTimer.remainingSeconds
+      }
+    };
+    
+    setActiveWorkout(updatedWorkout);
+    await saveActiveWorkout(updatedWorkout);
+  };
+  
   const endWorkout = async (force: boolean = false) => {
     if (!activeWorkout) return;
     
@@ -208,6 +376,7 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
         await persistenceManager.clearActiveWorkout();
         setActiveWorkout(null);
         stopTimerInterval();
+        stopRestTimerInterval();
         
         // Navigate away from workout page if currently on it
         if (isOnWorkoutPage) {
@@ -259,7 +428,11 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateWorkout,
     endWorkout,
     navigateToWorkout,
-    toggleTimer
+    toggleTimer,
+    startRestTimer,
+    stopRestTimer,
+    pauseRestTimer,
+    resumeRestTimer
   };
   
   return (

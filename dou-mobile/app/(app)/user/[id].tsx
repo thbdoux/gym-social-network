@@ -556,6 +556,15 @@ export default function ProfilePreviewPage() {
               </View>
             </View>
             
+            {/* Bio Section */}
+            {userData?.bio && (
+              <View style={styles.bioContainer}>
+                <Text style={[styles.bioText, { color: `${userPalette.text}CC` }]}>
+                  {userData.bio}
+                </Text>
+              </View>
+            )}
+            
             {/* Friendship action button */}
             {renderFriendshipAction()}
             
@@ -941,6 +950,17 @@ const styles = StyleSheet.create({
   gymText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  // Bio styles
+  bioContainer: {
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  bioText: {
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'left',
   },
   statsRow: {
     flexDirection: 'row',

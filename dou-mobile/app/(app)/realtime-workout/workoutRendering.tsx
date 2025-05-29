@@ -47,17 +47,77 @@ export const createWorkoutRendering = ({
   hasIncompleteExercises,
   // Gym selection props
   selectedGym,
-  gymModalVisible
+  gymModalVisible,
+  // Template selection props
+  selectedTemplate,
+  templateModalVisible,
+  templates,
+  templatesLoading
 }: any) => {
 
-  // Updated Start Screen with gym selection
+  // Updated Start Screen with template selection
   const renderStartScreen = () => (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <KeyboardAvoidingView 
         style={styles.startScreenContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.startScreenContent}>
+        <ScrollView 
+          contentContainerStyle={styles.startScreenContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Template Selection */}
+          <View style={styles.templateSection}>
+            <Text style={[styles.inputLabel, { color: palette.text }]}>
+              {t('template')} ({t('optional')})
+            </Text>
+            <TouchableOpacity
+              style={[styles.templateSelector, { 
+                backgroundColor: palette.input_background,
+                borderColor: selectedTemplate ? palette.success : palette.border
+              }]}
+              onPress={handlers.handleOpenTemplateModal}
+            >
+              <View style={styles.templateSelectorLeft}>
+                <Ionicons 
+                  name={selectedTemplate ? "document-text" : "document-text-outline"} 
+                  size={24} 
+                  color={selectedTemplate ? palette.success : palette.text_secondary}
+                  style={styles.templateIcon}
+                />
+                <View style={styles.templateSelectorText}>
+                  {selectedTemplate ? (
+                    <>
+                      <Text style={[styles.templateName, { color: palette.text }]}>
+                        {selectedTemplate.name}
+                      </Text>
+                      <Text style={[styles.templateInfo, { color: palette.text_secondary }]}>
+                        {selectedTemplate.exercises?.length || 0} {t('exercises')}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
+                      {t('select_template_optional')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              
+              {selectedTemplate && (
+                <TouchableOpacity
+                  style={styles.templateClearButton}
+                  onPress={handlers.handleClearTemplate}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={20} color={palette.text_secondary} />
+                </TouchableOpacity>
+              )}
+              
+              <Ionicons name="chevron-forward" size={20} color={palette.text_secondary} />
+            </TouchableOpacity>
+          </View>
+
           {/* Workout Name Input */}
           <View style={styles.inputSection}>
             <Text style={[styles.inputLabel, { color: palette.text }]}>
@@ -71,18 +131,18 @@ export const createWorkoutRendering = ({
               }]}
               value={workoutName}
               onChangeText={setWorkoutName}
-              placeholder={t('enter_workout_name')}
+              placeholder={selectedTemplate ? selectedTemplate.name : t('enter_workout_name')}
               placeholderTextColor={palette.text_tertiary}
               returnKeyType="done"
               blurOnSubmit={true}
-              autoFocus={true}
+              autoFocus={!selectedTemplate} // Only auto-focus if no template is selected
             />
           </View>
 
           {/* Gym Selection */}
           <View style={styles.gymSection}>
             <Text style={[styles.inputLabel, { color: palette.text }]}>
-              {t('gym_location')}
+              {t('gym_location')} ({t('optional')})
             </Text>
             <TouchableOpacity
               style={[styles.gymSelector, { 
@@ -142,7 +202,7 @@ export const createWorkoutRendering = ({
               <Text style={styles.startButtonText}>{t('start_workout')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
@@ -199,6 +259,16 @@ export const createWorkoutRendering = ({
           </TouchableOpacity>
         </View>
       </LinearGradient>
+      
+      {/* Rest timer - inline component instead of modal */}
+      {restTimerActive && (
+        <RestTimer
+          seconds={restTimeSeconds}
+          onComplete={handlers.stopRestTimer}
+          onCancel={handlers.stopRestTimer}
+          themePalette={palette}
+        />
+      )}
       
       {/* Progress bar */}
       <View style={styles.progressBarContainer}>
@@ -316,16 +386,6 @@ export const createWorkoutRendering = ({
         />
       </View>
       
-      {/* Rest timer if active */}
-      {restTimerActive && (
-        <RestTimer
-          seconds={restTimeSeconds}
-          onComplete={handlers.stopRestTimer}
-          onCancel={handlers.stopRestTimer}
-          themePalette={palette}
-        />
-      )}
-      
       {/* Main workout view */}
       <View style={styles.workoutContent}>
         <ScrollView 
@@ -349,13 +409,18 @@ export const createWorkoutRendering = ({
           ) : (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyStateText, { color: palette.text_secondary }]}>
-                {t('no_exercises_added')}
+                {selectedTemplate 
+                  ? t('template_exercises_will_appear_here')
+                  : t('no_exercises_added')
+                }
               </Text>
               <TouchableOpacity
                 style={[styles.addExerciseButton, { backgroundColor: palette.highlight }]}
                 onPress={() => setSelectingExercise(true)}
               >
-                <Text style={styles.addExerciseButtonText}>{t('add_exercise')}</Text>
+                <Text style={styles.addExerciseButtonText}>
+                  {selectedTemplate ? t('start_first_exercise') : t('add_exercise')}
+                </Text>
               </TouchableOpacity>
             </View>
           )}

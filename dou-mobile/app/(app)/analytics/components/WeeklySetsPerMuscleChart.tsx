@@ -15,7 +15,7 @@ interface WeeklySetsPerMuscleChartProps {
   maxValue: number;
 }
 
-// Weekly Sets Per Muscle Group Chart
+// Weekly Sets Per Muscle Group Chart with weighted contributions
 export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> = memo(({
   title,
   data,
@@ -29,20 +29,68 @@ export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> =
   // Only use the most recent weeks for display (show at most 8 weeks)
   const displayData = data.length > 8 ? data.slice(-8) : data;
 
-  // Define standard muscle groups for consistent order
-  const muscleGroups = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'];
-  
-  // Generate muscle group color mapping
-  const muscleGroupColors: Record<string, string> = {
-    'chest': '#f87171', // red
-    'back': '#60a5fa', // blue
-    'legs': '#4ade80', // green
-    'shoulders': '#a78bfa', // purple
-    'arms': '#fbbf24', // yellow
-    'core': '#f97316', // orange
-    'full_body': '#64748b', // slate
-    'cardio': '#ec4899', // pink
-    'other': '#94a3b8', // gray
+  // Define muscle groups with better organization and color mapping
+  const muscleGroupConfig = {
+    // Major muscle groups with their subcategories
+    'pectorals': { category: 'chest', color: '#f87171', displayName: 'Chest' },
+    'upper_pectorals': { category: 'chest', color: '#f87171', displayName: 'Upper Chest' },
+    'lower_pectorals': { category: 'chest', color: '#f87171', displayName: 'Lower Chest' },
+    
+    'latissimus_dorsi': { category: 'back', color: '#60a5fa', displayName: 'Lats' },
+    'upper_back': { category: 'back', color: '#60a5fa', displayName: 'Upper Back' },
+    'middle_back': { category: 'back', color: '#60a5fa', displayName: 'Mid Back' },
+    'lower_back': { category: 'back', color: '#60a5fa', displayName: 'Lower Back' },
+    'rhomboids': { category: 'back', color: '#60a5fa', displayName: 'Rhomboids' },
+    
+    'deltoids': { category: 'shoulders', color: '#a78bfa', displayName: 'Shoulders' },
+    'anterior_deltoids': { category: 'shoulders', color: '#a78bfa', displayName: 'Front Delts' },
+    'lateral_deltoids': { category: 'shoulders', color: '#a78bfa', displayName: 'Side Delts' },
+    'posterior_deltoids': { category: 'shoulders', color: '#a78bfa', displayName: 'Rear Delts' },
+    'trapezius': { category: 'shoulders', color: '#a78bfa', displayName: 'Traps' },
+    
+    'biceps': { category: 'arms', color: '#fbbf24', displayName: 'Biceps' },
+    'triceps': { category: 'arms', color: '#fbbf24', displayName: 'Triceps' },
+    'brachialis_biceps': { category: 'arms', color: '#fbbf24', displayName: 'Brachialis' },
+    'forearms': { category: 'arms', color: '#fbbf24', displayName: 'Forearms' },
+    
+    'quadriceps': { category: 'legs', color: '#4ade80', displayName: 'Quads' },
+    'quadriceps_glutes': { category: 'legs', color: '#4ade80', displayName: 'Quads & Glutes' },
+    'hamstrings': { category: 'legs', color: '#4ade80', displayName: 'Hamstrings' },
+    'hamstrings_glutes': { category: 'legs', color: '#4ade80', displayName: 'Hamstrings & Glutes' },
+    'hamstrings_lower_back': { category: 'legs', color: '#4ade80', displayName: 'Hamstrings & Lower Back' },
+    'glutes': { category: 'legs', color: '#4ade80', displayName: 'Glutes' },
+    'calves': { category: 'legs', color: '#4ade80', displayName: 'Calves' },
+    
+    'core': { category: 'core', color: '#f97316', displayName: 'Core' },
+    'rectus_abdominis': { category: 'core', color: '#f97316', displayName: 'Abs' },
+    'obliques': { category: 'core', color: '#f97316', displayName: 'Obliques' },
+    'lower_abs': { category: 'core', color: '#f97316', displayName: 'Lower Abs' },
+    'deep_core_stabilizers': { category: 'core', color: '#f97316', displayName: 'Deep Core' },
+    'full_core': { category: 'core', color: '#f97316', displayName: 'Full Core' },
+    'core_hip_flexors': { category: 'core', color: '#f97316', displayName: 'Core & Hip Flexors' },
+    'rectus_abdominis_obliques': { category: 'core', color: '#f97316', displayName: 'Abs & Obliques' },
+    
+    'cardiovascular_system': { category: 'cardio', color: '#ec4899', displayName: 'Cardio' },
+    'cardiovascular_system_full_body': { category: 'cardio', color: '#ec4899', displayName: 'Full Body Cardio' },
+    'cardiovascular_system_legs': { category: 'cardio', color: '#ec4899', displayName: 'Lower Body Cardio' },
+    'cardiovascular_system_upper_body': { category: 'cardio', color: '#ec4899', displayName: 'Upper Body Cardio' },
+    
+    'full_body': { category: 'functional', color: '#64748b', displayName: 'Full Body' },
+    'shoulders_core': { category: 'functional', color: '#64748b', displayName: 'Shoulders & Core' },
+    'grip_core_legs': { category: 'functional', color: '#64748b', displayName: 'Grip, Core & Legs' },
+    
+    'other': { category: 'other', color: '#94a3b8', displayName: 'Other' }
+  };
+
+  // Get muscle group color
+  const getMuscleGroupColor = (muscleGroup: string): string => {
+    return muscleGroupConfig[muscleGroup as keyof typeof muscleGroupConfig]?.color || '#94a3b8';
+  };
+
+  // Get muscle group display name
+  const getMuscleGroupDisplayName = (muscleGroup: string): string => {
+    return muscleGroupConfig[muscleGroup as keyof typeof muscleGroupConfig]?.displayName || 
+           muscleGroup.charAt(0).toUpperCase() + muscleGroup.slice(1).replace(/_/g, ' ');
   };
 
   // Calculate average growth in total sets
@@ -65,24 +113,25 @@ export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> =
   // Get selected week data
   const selectedWeek = selectedWeekIndex !== null ? displayData[selectedWeekIndex] : null;
   
-  // Get breakdown by muscle group for selected week
+  // Get breakdown by muscle group for selected week with weighted contributions
   const muscleGroupBreakdown = useMemo(() => {
     if (!selectedWeek) return null;
     
-    const result = muscleGroups.map(group => {
-      const setCount = selectedWeek.setsPerMuscleGroup[group] || 0;
-      return {
+    const result = Object.entries(selectedWeek.setsPerMuscleGroup)
+      .filter(([_, setCount]) => setCount > 0)
+      .map(([group, setCount]) => ({
         muscleGroup: group,
-        setCount,
+        displayName: getMuscleGroupDisplayName(group),
+        setCount: Math.round(setCount * 10) / 10, // Round to 1 decimal place for weighted sets
         percentage: selectedWeek.totalSets > 0 
           ? Math.round((setCount / selectedWeek.totalSets) * 100) 
-          : 0
-      };
-    }).filter(item => item.setCount > 0)
+          : 0,
+        color: getMuscleGroupColor(group)
+      }))
       .sort((a, b) => b.setCount - a.setCount);
     
     return result;
-  }, [selectedWeek, muscleGroups]);
+  }, [selectedWeek]);
   
   // Handle week selection
   const handleWeekPress = (index: number) => {
@@ -101,9 +150,14 @@ export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> =
         <Text style={[styles.title, { color: palette.text }]}>{title}</Text>
         
         {selectedWeek ? (
-          <Text style={[styles.subtitle, { color: palette.highlight }]}>
-            {selectedWeek.label}
-          </Text>
+          <View style={styles.selectedWeekInfo}>
+            <Text style={[styles.subtitle, { color: palette.highlight }]}>
+              {selectedWeek.label}
+            </Text>
+            <Text style={[styles.totalSetsText, { color: palette.text + '80' }]}>
+              {Math.round(selectedWeek.totalSets * 10) / 10} {t('total_sets')}
+            </Text>
+          </View>
         ) : (
           <View style={styles.trendContainer}>
             <Text style={[
@@ -142,7 +196,7 @@ export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> =
                 {/* Always show total value above bar */}
                 <View style={styles.barValueContainer}>
                   <Text style={[styles.barValueText, { color: palette.text + 'A0' }]}>
-                    {totalSets}
+                    {Math.round(totalSets * 10) / 10}
                   </Text>
                 </View>
                 
@@ -161,6 +215,7 @@ export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> =
                       {weekMuscleGroups.map(([muscleGroup, sets], idx) => {
                         const percentage = totalSets > 0 ? (sets / totalSets) : 0;
                         const segmentHeight = barHeight * percentage;
+                        const color = getMuscleGroupColor(muscleGroup);
                         
                         return (
                           <View 
@@ -168,7 +223,7 @@ export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> =
                             style={[
                               styles.barSegment,
                               { 
-                                backgroundColor: muscleGroupColors[muscleGroup] || '#94a3b8', // Default color if not found
+                                backgroundColor: color,
                                 height: segmentHeight,
                                 width: 40,
                                 // Position segments bottom-up
@@ -218,21 +273,34 @@ export const WeeklySetsPerMuscleChart: React.FC<WeeklySetsPerMuscleChartProps> =
             {t('muscle_group_breakdown')}
           </Text>
           
-          <View style={styles.legendContainer}>
-            {muscleGroupBreakdown.map(item => (
-              <View key={item.muscleGroup} style={styles.legendItem}>
-                <View 
-                  style={[
-                    styles.legendColor, 
-                    { backgroundColor: muscleGroupColors[item.muscleGroup] }
-                  ]} 
-                />
-                <Text style={[styles.legendText, { color: palette.text }]}>
-                  {item.muscleGroup.charAt(0).toUpperCase() + item.muscleGroup.slice(1)}
-                  {' : '}{item.setCount}{' '}{t('sets')}{' '}({item.percentage}%)
-                </Text>
-              </View>
-            ))}
+          <ScrollView style={styles.legendScroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.legendContainer}>
+              {muscleGroupBreakdown.map(item => (
+                <View key={item.muscleGroup} style={styles.legendItem}>
+                  <View 
+                    style={[
+                      styles.legendColor, 
+                      { backgroundColor: item.color }
+                    ]} 
+                  />
+                  <View style={styles.legendTextContainer}>
+                    <Text style={[styles.legendText, { color: palette.text }]}>
+                      {item.displayName}
+                    </Text>
+                    <Text style={[styles.legendStats, { color: palette.text + '80' }]}>
+                      {item.setCount}{' '}{t('sets')}{' '}({item.percentage}%)
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+          
+          {/* Note about weighted contributions */}
+          <View style={styles.noteContainer}>
+            <Text style={[styles.noteText, { color: palette.text + '60' }]}>
+              * {t('secondary_muscles_half_credit', 'Secondary muscles count as 0.5 sets each')}
+            </Text>
           </View>
         </View>
       )}
@@ -256,10 +324,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
+    flex: 1,
+  },
+  selectedWeekInfo: {
+    alignItems: 'flex-end',
   },
   subtitle: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  totalSetsText: {
+    fontSize: 12,
+    marginTop: 2,
   },
   trendContainer: {
     flexDirection: 'column',
@@ -323,35 +399,55 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   breakdownContainer: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.05)',
   },
   breakdownTitle: {
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  legendScroll: {
+    maxHeight: 120, // Limit height to prevent overflow
   },
   legendContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 4,
+    paddingBottom: 8,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
     marginBottom: 8,
+    paddingHorizontal: 4,
   },
   legendColor: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    marginRight: 4,
+    marginRight: 8,
+  },
+  legendTextContainer: {
+    flex: 1,
   },
   legendText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  legendStats: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  noteContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  noteText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });
 

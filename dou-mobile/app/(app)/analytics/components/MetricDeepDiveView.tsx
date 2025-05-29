@@ -51,7 +51,7 @@ export const MetricDeepDiveView: React.FC<MetricDeepDiveViewProps> = memo(({ met
     }
   }, [weeklyMetrics, metricType]);
 
-  // Calculate AVERAGE value (instead of current)
+  // Calculate AVERAGE value (instead of current) with weighted support
   const averageValue = useMemo(() => {
     if (!weeklyMetrics || weeklyMetrics.length === 0) return 0;
     
@@ -85,16 +85,56 @@ export const MetricDeepDiveView: React.FC<MetricDeepDiveViewProps> = memo(({ met
     return totalGrowth / monthsSpanned;
   }, [weeklyMetrics, metricType]);
 
-  // Format current value based on metric type
+  // Format current value based on metric type with weighted support
   const getFormattedValue = (value: number) => {
     switch (metricType) {
       case 'totalWeightLifted': 
       case 'averageWeightPerRep': 
         return formatWeight(value);
       case 'totalSets':
+        // Show decimal places for weighted sets
         return value.toFixed(1);
     }
   };
+
+  // Calculate muscle group diversity for totalSets
+  const muscleGroupDiversity = useMemo(() => {
+    if (metricType !== 'totalSets' || !weeklyMetrics || weeklyMetrics.length === 0) {
+      return { totalGroups: 0, mostEngaged: '', distribution: [] };
+    }
+
+    const muscleGroupTotals: Record<string, number> = {};
+    let totalSets = 0;
+
+    // Aggregate muscle group sets across all weeks
+    weeklyMetrics.forEach(week => {
+      if (week.setsPerMuscleGroup) {
+        Object.entries(week.setsPerMuscleGroup).forEach(([muscle, sets]) => {
+          if (sets > 0) {
+            muscleGroupTotals[muscle] = (muscleGroupTotals[muscle] || 0) + sets;
+            totalSets += sets;
+          }
+        });
+      }
+    });
+
+    // Calculate distribution
+    const distribution = Object.entries(muscleGroupTotals)
+      .map(([muscle, sets]) => ({
+        muscle: muscle.charAt(0).toUpperCase() + muscle.slice(1).replace(/_/g, ' '),
+        sets: Math.round(sets * 10) / 10, // Round to 1 decimal place
+        percentage: totalSets > 0 ? Math.round((sets / totalSets) * 100) : 0
+      }))
+      .sort((a, b) => b.sets - a.sets);
+
+    const mostEngaged = distribution.length > 0 ? distribution[0].muscle : '';
+    
+    return {
+      totalGroups: Object.keys(muscleGroupTotals).length,
+      mostEngaged,
+      distribution: distribution.slice(0, 5) // Top 5 muscle groups
+    };
+  }, [weeklyMetrics, metricType]);
 
   return (
     <ScrollView
@@ -106,6 +146,11 @@ export const MetricDeepDiveView: React.FC<MetricDeepDiveViewProps> = memo(({ met
       <View style={[styles.currentValueCard, { backgroundColor: palette.highlight + '10', borderColor: palette.border }]}>
         <Text style={[styles.metricLabel, { color: palette.text + '90' }]}>
           {getMetricTitle()} • {t('average')}
+          {metricType === 'totalSets' && (
+            <Text style={[styles.weightedNote, { color: palette.text + '60' }]}>
+              {' '}({t('weighted')})
+            </Text>
+          )}
         </Text>
         <View style={styles.valueRow}>
           <Text style={[styles.currentValue, { color: palette.text }]}>
@@ -140,6 +185,7 @@ export const MetricDeepDiveView: React.FC<MetricDeepDiveViewProps> = memo(({ met
             metricColor={getMetricColor()}
             maxValue={maxValue}
             showMonthlyXAxis={true}
+            formatValue={metricType === 'totalSets' ? (value) => value.toFixed(1) : undefined}
           />
         </View>
       </View>
@@ -147,21 +193,78 @@ export const MetricDeepDiveView: React.FC<MetricDeepDiveViewProps> = memo(({ met
       {/* Key Insights */}
       <MetricInsights metricType={metricType} />
 
-      {/* Muscle Group Distribution */}
-      {/* <View style={[styles.chartCard, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
-        <Text style={[styles.sectionTitle, { color: palette.text }]}>
-          {t('muscle_group_distribution')}
-        </Text>
-        <MuscleGroupPieChart metricType={metricType} />
-      </View> */}
+      {/* Muscle Group Diversity (only for totalSets) */}
+      {metricType === 'totalSets' && muscleGroupDiversity.totalGroups > 0 && (
+        <View style={[styles.chartCard, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
+          <Text style={[styles.sectionTitle, { color: palette.text }]}>
+            {t('muscle_group_distribution')}
+          </Text>
+          
+          <View style={styles.diversityStats}>
+            <View style={styles.diversityStat}>
+              <Text style={[styles.diversityStatValue, { color: palette.text }]}>
+                {muscleGroupDiversity.totalGroups}
+              </Text>
+              <Text style={[styles.diversityStatLabel, { color: palette.text + '80' }]}>
+                {t('muscle_groups')}
+              </Text>
+            </View>
+            
+            <View style={styles.diversityStat}>
+              <Text style={[styles.diversityStatValue, { color: palette.text }]}>
+                {muscleGroupDiversity.mostEngaged}
+              </Text>
+              <Text style={[styles.diversityStatLabel, { color: palette.text + '80' }]}>
+                {t('most_trained')}
+              </Text>
+            </View>
+          </View>
 
-      {/* Top Exercises */}
-      {/* <View style={[styles.chartCard, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
-        <Text style={[styles.sectionTitle, { color: palette.text }]}>
-          {t('top_exercises')}
-        </Text>
-        <TopExercisesChart metricType={metricType} />
-      </View> */}
+          <View style={styles.distributionList}>
+            <Text style={[styles.distributionTitle, { color: palette.text }]}>
+              {t('top_muscle_groups')}
+            </Text>
+            {muscleGroupDiversity.distribution.map((item, index) => (
+              <View key={index} style={styles.distributionItem}>
+                <View style={styles.distributionMuscle}>
+                  <View style={[
+                    styles.distributionRank,
+                    { backgroundColor: index === 0 ? '#10b981' : palette.text + '20' }
+                  ]}>
+                    <Text style={[
+                      styles.distributionRankText,
+                      { color: index === 0 ? '#FFFFFF' : palette.text }
+                    ]}>
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <Text style={[styles.distributionMuscleText, { color: palette.text }]}>
+                    {item.muscle}
+                  </Text>
+                </View>
+                <View style={styles.distributionStats}>
+                  <Text style={[styles.distributionSets, { color: palette.text }]}>
+                    {item.sets} {t('sets')}
+                  </Text>
+                  <Text style={[styles.distributionPercentage, { color: palette.text + '80' }]}>
+                    {item.percentage}%
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Weighted explanation */}
+          <View style={styles.weightedExplanation}>
+            <Text style={[styles.weightedExplanationTitle, { color: palette.text + '80' }]}>
+              {t('about_weighted_sets')}:
+            </Text>
+            <Text style={[styles.weightedExplanationText, { color: palette.text + '70' }]}>
+              {t('weighted_sets_explanation')}
+            </Text>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 });
@@ -184,6 +287,10 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 14,
     marginBottom: 8,
+  },
+  weightedNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   valueRow: {
     flexDirection: 'row',
@@ -224,7 +331,92 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     marginHorizontal: -8, // Expand the chart to use the full card width
-  }
+  },
+  // Muscle group diversity styles
+  diversityStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    borderRadius: 8,
+  },
+  diversityStat: {
+    alignItems: 'center',
+  },
+  diversityStatValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  diversityStatLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  distributionList: {
+    marginBottom: 16,
+  },
+  distributionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  distributionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  distributionMuscle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  distributionRank: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  distributionRankText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  distributionMuscleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  distributionStats: {
+    alignItems: 'flex-end',
+  },
+  distributionSets: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  distributionPercentage: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  weightedExplanation: {
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  weightedExplanationTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  weightedExplanationText: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
 });
 
 export default MetricDeepDiveView;

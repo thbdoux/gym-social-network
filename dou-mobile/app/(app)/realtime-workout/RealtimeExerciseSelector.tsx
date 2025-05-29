@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -23,6 +22,7 @@ import {
   getExerciseName,
   getEquipmentName,
   getTargetMuscleName,
+  getSecondaryMuscleNames,
   toggleFavorite, 
   ExerciseItem,
   FilterCriteria 
@@ -72,6 +72,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
             nameKey: exercise.nameKey,
             equipmentKey: exercise.equipmentKey,
             targetMuscleKey: exercise.targetMuscleKey,
+            secondaryMuscleKeys: exercise.secondaryMuscleKeys || [],
             difficulty: exercise.difficulty,
             favorite: exercise.favorite || false,
             category: category.id,
@@ -181,6 +182,8 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
         equipmentKey: exercise.equipmentKey,
         muscle_group: getTargetMuscleName(exercise, language),
         targetMuscleKey: exercise.targetMuscleKey,
+        secondary_muscles: getSecondaryMuscleNames(exercise, language),
+        secondaryMuscleKeys: exercise.secondaryMuscleKeys || [],
         difficulty: exercise.difficulty,
         favorite: exercise.favorite || false,
         category: category?.id || '',
@@ -232,6 +235,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
       name: searchQuery.trim(),
       equipment: t('equipment_other'),
       muscle_group: t('muscle_other'),
+      secondary_muscles: [],
       notes: '',
       sets: [
         { reps: 10, weight: 0, rest_time: 60 }
@@ -258,6 +262,25 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
         </Text>
       </View>
     );
+  };
+
+  // Render secondary muscles tags
+  const renderSecondaryMuscles = (secondaryMuscles: string[]) => {
+    if (!secondaryMuscles || secondaryMuscles.length === 0) return null;
+    
+    return secondaryMuscles.slice(0, 2).map((muscle, index) => (
+      <View 
+        key={index} 
+        style={[
+          styles.exerciseTag, 
+          { backgroundColor: `${themePalette.warning}30` }
+        ]}
+      >
+        <Text style={[styles.exerciseTagText, { color: themePalette.warning }]}>
+          {muscle}
+        </Text>
+      </View>
+    ));
   };
   
   // Render each exercise item
@@ -289,6 +312,43 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
             />
           </TouchableOpacity>
         </View>
+        
+        {/* Primary muscle group */}
+        {item.muscle_group && (
+          <View style={styles.primaryMuscleContainer}>
+            <Text style={[styles.primaryMuscleLabel, { color: themePalette.text_secondary }]}>
+              {t('primary')}:
+            </Text>
+            <Text style={[styles.primaryMuscleText, { color: themePalette.success }]}>
+              {item.muscle_group}
+            </Text>
+          </View>
+        )}
+        
+        {/* Secondary muscles */}
+        {item.secondary_muscles && item.secondary_muscles.length > 0 && (
+          <View style={styles.secondaryMusclesContainer}>
+            <Text style={[styles.secondaryMusclesLabel, { color: themePalette.text_secondary }]}>
+              {t('secondary')}:
+            </Text>
+            <View style={styles.secondaryMusclesList}>
+              {item.secondary_muscles.slice(0, 3).map((muscle: string, index: number) => (
+                <Text 
+                  key={index} 
+                  style={[styles.secondaryMuscleText, { color: themePalette.warning }]}
+                >
+                  {muscle}{index < Math.min(2, item.secondary_muscles.length - 1) ? ', ' : ''}
+                </Text>
+              ))}
+              {item.secondary_muscles.length > 3 && (
+                <Text style={[styles.secondaryMuscleText, { color: themePalette.warning }]}>
+                  , +{item.secondary_muscles.length - 3}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+        
         <View style={styles.exerciseMeta}>
           {item.equipment && (
             <View style={[
@@ -297,16 +357,6 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
             ]}>
               <Text style={[styles.exerciseTagText, { color: themePalette.accent }]}>
                 {item.equipment}
-              </Text>
-            </View>
-          )}
-          {item.muscle_group && (
-            <View style={[
-              styles.exerciseTag, 
-              { backgroundColor: `${themePalette.highlight}30` }
-            ]}>
-              <Text style={[styles.exerciseTagText, { color: themePalette.highlight }]}>
-                {item.muscle_group}
               </Text>
             </View>
           )}
@@ -877,7 +927,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   exerciseName: {
     fontSize: 16,
@@ -887,9 +937,46 @@ const styles = StyleSheet.create({
   favoriteButton: {
     padding: 4,
   },
+  // Primary muscle styles
+  primaryMuscleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  primaryMuscleLabel: {
+    fontSize: 12,
+    marginRight: 4,
+    fontWeight: '600',
+  },
+  primaryMuscleText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Secondary muscles styles
+  secondaryMusclesContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  secondaryMusclesLabel: {
+    fontSize: 12,
+    marginRight: 4,
+    fontWeight: '600',
+  },
+  secondaryMusclesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  secondaryMuscleText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
   exerciseMeta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginTop: 4,
   },
   exerciseTag: {
     paddingHorizontal: 8,

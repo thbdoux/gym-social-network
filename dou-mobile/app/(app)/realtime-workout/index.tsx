@@ -1,4 +1,4 @@
-// app/(app)/realtime-workout/index.tsx - Updated with gym selection
+// app/(app)/realtime-workout/index.tsx - Updated with template selection
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -17,13 +17,14 @@ import { useWorkout } from '../../../context/WorkoutContext';
 import { useCreateLog } from '../../../hooks/query/useLogQuery';
 import { useCreatePost } from '../../../hooks/query/usePostQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
-import { useWorkoutTemplate } from '../../../hooks/query/useWorkoutQuery';
+import { useWorkoutTemplate, useWorkoutTemplates } from '../../../hooks/query/useWorkoutQuery';
 import { useCurrentUser } from '../../../hooks/query/useUserQuery';
 import { useGyms, useGym, useGymDisplay } from '../../../hooks/query/useGymQuery';
 import { useTheme } from '../../../context/ThemeContext';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { createWorkoutRendering } from './workoutRendering';
 import GymSelectionModal from '../../../components/workouts/GymSelectionModal';
+import TemplateSelectionModal from '../../../components/workouts/TemplateSelectionModal';
 
 interface Gym {
   id: number;
@@ -43,6 +44,7 @@ export default function RealtimeWorkoutLogger() {
   // User and gym data
   const { data: currentUser } = useCurrentUser();
   const { data: gyms } = useGyms();
+  const { data: templates, isLoading: templatesLoading } = useWorkoutTemplates();
   
   // Context is the SINGLE source of truth
   const workoutContext = useWorkout();
@@ -71,7 +73,9 @@ export default function RealtimeWorkoutLogger() {
   // Local UI state only (not workout data)
   const [workoutName, setWorkoutName] = useState('');
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
   const [gymModalVisible, setGymModalVisible] = useState(false);
+  const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [selectingExercise, setSelectingExercise] = useState(false);
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [restTimeSeconds, setRestTimeSeconds] = useState(0);
@@ -267,7 +271,7 @@ export default function RealtimeWorkoutLogger() {
     return true;
   };
   
-  // Updated to include gym selection validation
+  // Updated to include gym selection validation and template handling
   const handleStartWorkout = async () => {
     if (!workoutName.trim()) {
       Alert.alert(t('error'), t('please_enter_workout_name'));
@@ -275,7 +279,11 @@ export default function RealtimeWorkoutLogger() {
     }
     
     let initialExercises: any[] = [];
-    if (sourceType === 'template' && template) {
+    
+    // Priority: selected template > URL template > program workout
+    if (selectedTemplate) {
+      initialExercises = prepareExercisesFromTemplate(selectedTemplate);
+    } else if (sourceType === 'template' && template) {
       initialExercises = prepareExercisesFromTemplate(template);
     } else if (sourceType === 'program' && programWorkout) {
       initialExercises = prepareExercisesFromProgramWorkout(programWorkout);
@@ -284,8 +292,8 @@ export default function RealtimeWorkoutLogger() {
     await startWorkout({
       name: workoutName,
       exercises: initialExercises,
-      sourceType,
-      templateId,
+      sourceType: selectedTemplate ? 'template' : sourceType,
+      templateId: selectedTemplate ? selectedTemplate.id : templateId,
       programId,
       workoutId,
       currentExerciseIndex: 0,
@@ -295,6 +303,26 @@ export default function RealtimeWorkoutLogger() {
     if (initialExercises.length === 0) {
       setSelectingExercise(true);
     }
+  };
+
+  // Template selection handlers
+  const handleSelectTemplate = (template: any) => {
+    setSelectedTemplate(template);
+    setWorkoutName(template.name); // Auto-fill workout name
+    setTemplateModalVisible(false);
+  };
+
+  const handleClearTemplate = () => {
+    setSelectedTemplate(null);
+    setWorkoutName(''); // Clear workout name
+  };
+
+  const handleOpenTemplateModal = () => {
+    setTemplateModalVisible(true);
+  };
+
+  const handleCloseTemplateModal = () => {
+    setTemplateModalVisible(false);
   };
 
   // Gym selection handlers
@@ -604,7 +632,12 @@ export default function RealtimeWorkoutLogger() {
     // Gym handlers
     handleSelectGym,
     handleOpenGymModal,
-    handleCloseGymModal
+    handleCloseGymModal,
+    // Template handlers
+    handleSelectTemplate,
+    handleClearTemplate,
+    handleOpenTemplateModal,
+    handleCloseTemplateModal
   };
   
   // Set up back handler
@@ -640,7 +673,12 @@ export default function RealtimeWorkoutLogger() {
     hasIncompleteExercises,
     // Gym related props
     selectedGym,
-    gymModalVisible
+    gymModalVisible,
+    // Template related props
+    selectedTemplate,
+    templateModalVisible,
+    templates,
+    templatesLoading
   });
   
   return (
@@ -657,12 +695,22 @@ export default function RealtimeWorkoutLogger() {
           selectedGym={selectedGym}
           themePalette={palette}
         />
+        
+        {/* Template Selection Modal */}
+        <TemplateSelectionModal
+          visible={templateModalVisible}
+          onClose={handleCloseTemplateModal}
+          onTemplateSelected={handleSelectTemplate}
+          templates={templates || []}
+          templatesLoading={templatesLoading}
+          user={currentUser}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
-// Styles remain the same with additions for gym selection
+// Styles remain the same with additions for template selection
 const themedStyles = createThemedStyles((palette) => ({
   safeArea: {
     flex: 1,
@@ -704,6 +752,46 @@ const themedStyles = createThemedStyles((palette) => ({
     fontSize: 16,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  
+  // Template selection styles
+  templateSection: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  templateSelector: {
+    width: '100%',
+    minHeight: 56,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  templateSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  templateIcon: {
+    marginRight: 12,
+  },
+  templateSelectorText: {
+    flex: 1,
+  },
+  templateName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  templateInfo: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  templateClearButton: {
+    padding: 4,
+    marginRight: 8,
   },
   
   // Gym selection styles

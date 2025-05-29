@@ -51,13 +51,13 @@
    * @param level - The difficulty level string
    * @returns Emoji representing the difficulty
    */
-  export const getDifficultyIndicator = (level?: string): string => {
+  export const getDifficultyIndicator = (level?: int): string => {
     if (!level) return '🔥';
     
-    switch(level.toLowerCase()) {
-      case 'beginner': return '🔥';
-      case 'intermediate': return '🔥🔥';
-      case 'advanced': return '🔥🔥🔥';
+    switch(level) {
+      case 0: return '🔥';
+      case 1: return '🔥🔥';
+      case 2: return '🔥🔥🔥';
       default: return '🔥';
     }
   };

@@ -25,6 +25,7 @@ import {
   getExerciseName,
   getEquipmentName,
   getTargetMuscleName,
+  getSecondaryMuscleNames,
   toggleFavorite,
   FilterCriteria,
   getAllExercises,
@@ -181,6 +182,8 @@ const ExerciseSelector = ({
         equipmentKey: exercise.equipmentKey,
         muscle_group: getTargetMuscleName(exercise, language),
         targetMuscleKey: exercise.targetMuscleKey,
+        secondary_muscles: getSecondaryMuscleNames(exercise, language),
+        secondaryMuscleKeys: exercise.secondaryMuscleKeys,
         difficulty: exercise.difficulty,
         favorite: exercise.favorite || false,
         category: category?.id || '',
@@ -255,6 +258,29 @@ const ExerciseSelector = ({
         <Text style={[styles.exerciseTagText, { color: difficultyInfo.color }]}>
           {t(difficultyInfo.nameKey)}
         </Text>
+      </View>
+    );
+  };
+
+  // Render secondary muscles tags
+  const renderSecondaryMuscles = (secondaryMuscles: string[]) => {
+    if (!secondaryMuscles || secondaryMuscles.length === 0) return null;
+    
+    return (
+      <View style={styles.secondaryMusclesContainer}>
+        <Text style={styles.secondaryMusclesLabel}>{t('secondary')}:</Text>
+        <View style={styles.secondaryMusclesList}>
+          {secondaryMuscles.slice(0, 3).map((muscle, index) => (
+            <View key={index} style={styles.secondaryMuscleTag}>
+              <Text style={styles.secondaryMuscleText}>{muscle}</Text>
+            </View>
+          ))}
+          {secondaryMuscles.length > 3 && (
+            <View style={styles.secondaryMuscleTag}>
+              <Text style={styles.secondaryMuscleText}>+{secondaryMuscles.length - 3}</Text>
+            </View>
+          )}
+        </View>
       </View>
     );
   };
@@ -611,10 +637,13 @@ const ExerciseSelector = ({
                     <View style={styles.exerciseTags}>
                       {item.muscle_group && (
                         <View style={styles.muscleGroupContainer}>
-                          <Text style={styles.muscleGroupLabel}>{t('target')}:</Text>
+                          <Text style={styles.muscleGroupLabel}>{t('primary')}:</Text>
                           <Text style={styles.muscleGroupValue}>{item.muscle_group}</Text>
                         </View>
                       )}
+                      
+                      {/* Secondary muscles */}
+                      {renderSecondaryMuscles(item.secondary_muscles)}
                       
                       {item.equipment && (
                         <View style={styles.equipmentContainer}>
@@ -821,11 +850,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     marginRight: 4,
+    fontWeight: '600',
   },
   muscleGroupValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#E5E7EB',
+    color: '#10B981', // Green for primary muscle
+  },
+  // Secondary muscles styles
+  secondaryMusclesContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  secondaryMusclesLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginRight: 4,
+    fontWeight: '600',
+  },
+  secondaryMusclesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  secondaryMuscleTag: {
+    backgroundColor: 'rgba(168, 85, 247, 0.2)', // Purple background for secondary
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 4,
+    marginBottom: 2,
+  },
+  secondaryMuscleText: {
+    fontSize: 11,
+    color: '#A855F7', // Purple text for secondary muscles
+    fontWeight: '500',
   },
   equipmentContainer: {
     flexDirection: 'row',
@@ -923,7 +984,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   
-  // Filter modal
+  // Filter modal (unchanged from original)
   filterModalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

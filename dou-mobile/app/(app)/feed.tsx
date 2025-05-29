@@ -104,7 +104,7 @@ export default function FeedScreen() {
   
   // Get notification count
   const { data: notificationCount } = useNotificationCount();
-  const unreadCount = notificationCount?.unread_count || 0;
+  const unreadCount = notificationCount?.unread || 0;
 
   useEffect(() => {
     setScrollY(scrollY);

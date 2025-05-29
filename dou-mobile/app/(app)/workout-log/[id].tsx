@@ -65,7 +65,7 @@ export default function WorkoutLogDetailScreen() {
   const [logDescription, setLogDescription] = useState('');
   const [logNotes, setLogNotes] = useState('');
   const [logDuration, setLogDuration] = useState(0);
-  const [logDifficulty, setLogDifficulty] = useState('beginner');
+  const [logDifficulty, setLogDifficulty] = useState(0);
   const [logMoodRating, setLogMoodRating] = useState(5);
   const [logCompleted, setLogCompleted] = useState(false);
   const [logDate, setLogDate] = useState('');
@@ -82,20 +82,15 @@ export default function WorkoutLogDetailScreen() {
   const { data: log, isLoading, refetch } = useLog(logId);
   const { mutateAsync: updateLog } = useUpdateLog();
   const { mutateAsync: deleteLog } = useDeleteLog();
-  
-  const { data: gymData, isLoading: isGymLoading } = useGym(
-    log?.gym || null, 
-    { enabled: !!log?.gym }
-  );
+  const { data: gymData, isLoading: isGymLoading } = useGym(log?.gym || undefined);
   
   // Initialize form state when log data is loaded
   useEffect(() => {
     if (log) {
       setLogName(log.name);
-      setLogDescription(log.description || '');
       setLogNotes(log.notes || '');
-      setLogDuration(log.duration_minutes || 0);
-      setLogDifficulty(log.difficulty_level || 'beginner');
+      setLogDuration(log.duration || 0);
+      setLogDifficulty(log.perceived_difficulty || 0);
       setLogMoodRating(log.mood_rating || 5);
       setLogCompleted(log.completed || false);
       setLogDate(log.date || '');
@@ -204,10 +199,6 @@ export default function WorkoutLogDetailScreen() {
           onPress: () => handleEditLogName()
         },
         {
-          text: t('description'),
-          onPress: () => handleEditLogDescription()
-        },
-        {
           text: t('notes'),
           onPress: () => handleEditLogNotes()
         },
@@ -256,29 +247,6 @@ export default function WorkoutLogDetailScreen() {
     );
   };
 
-  // Handle editing log description
-  const handleEditLogDescription = () => {
-    Alert.prompt(
-      t('edit_description'),
-      t('enter_new_log_description'),
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        },
-        {
-          text: t('save'),
-          onPress: (description) => {
-            setLogDescription(description || '');
-            handleSaveLogField('description', description || '');
-          }
-        }
-      ],
-      'plain-text',
-      logDescription
-    );
-  };
-
   // Handle editing log notes
   const handleEditLogNotes = () => {
     Alert.prompt(
@@ -317,7 +285,7 @@ export default function WorkoutLogDetailScreen() {
           onPress: (durationText) => {
             const duration = parseInt(durationText || '0', 10);
             setLogDuration(duration);
-            handleSaveLogField('duration_minutes', duration);
+            handleSaveLogField('duration', duration);
           }
         }
       ],
@@ -336,22 +304,22 @@ export default function WorkoutLogDetailScreen() {
         {
           text: t('beginner'),
           onPress: () => {
-            setLogDifficulty('beginner');
-            handleSaveLogField('difficulty_level', 'beginner');
+            setLogDifficulty(0);
+            handleSaveLogField('perceived_difficulty',0);
           }
         },
         {
           text: t('intermediate'),
           onPress: () => {
-            setLogDifficulty('intermediate');
-            handleSaveLogField('difficulty_level', 'intermediate');
+            setLogDifficulty(1);
+            handleSaveLogField('perceived_difficulty', 1);
           }
         },
         {
           text: t('advanced'),
           onPress: () => {
-            setLogDifficulty('advanced');
-            handleSaveLogField('difficulty_level', 'advanced');
+            setLogDifficulty(2);
+            handleSaveLogField('perceived_difficulty', 2);
           }
         },
         {
@@ -420,6 +388,7 @@ export default function WorkoutLogDetailScreen() {
         // Explicitly include exercises to ensure they're not lost
         exercises: log.exercises || []
       };
+      console.log(updates);
       
       await updateLog({
         id: logId,
@@ -431,22 +400,7 @@ export default function WorkoutLogDetailScreen() {
       Alert.alert(t('error'), t('failed_to_update_log'));
     }
   };
-  
-  // Handle toggling completed status
-  const handleToggleCompleted = async () => {
-    try {
-      const newCompleted = !logCompleted;
-      setLogCompleted(newCompleted);
-      await updateLog({
-        id: logId,
-        logData: { completed: newCompleted }
-      });
-      await refetch();
-    } catch (error) {
-      console.error('Failed to toggle completed status:', error);
-      Alert.alert(t('error'), t('failed_to_update_log'));
-    }
-  };
+
   
   // Handle deleting the log
   const handleDeleteLog = () => {
@@ -477,11 +431,11 @@ export default function WorkoutLogDetailScreen() {
     try {
       setSelectedGym(gym);
       const gymData = gym ? {
-        gym_id: gym.id,
+        gym: gym.id,
         gym_name: gym.name,
         location: gym.location
       } : {
-        gym_id: null,
+        gym: null,
         gym_name: null,
         location: 'Home'
       };
@@ -608,10 +562,7 @@ export default function WorkoutLogDetailScreen() {
           {/* Difficulty */}
           <View style={styles.workoutInfoItem}>
             <Text style={styles.infoIcon}>
-              {getDifficultyIndicator(log.difficulty_level)}
-            </Text>
-            <Text style={styles.infoText}>
-              {t(log.difficulty_level || 'beginner')}
+              {getDifficultyIndicator(log.perceived_difficulty)}
             </Text>
           </View>
           
@@ -639,15 +590,6 @@ export default function WorkoutLogDetailScreen() {
             </View>
           )}
         </View>
-        
-        {/* Description - only if available */}
-        {log.description && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionText} numberOfLines={2}>
-              {log.description}
-            </Text>
-          </View>
-        )}
         
         {/* Notes - only if available */}
         {log.notes && (

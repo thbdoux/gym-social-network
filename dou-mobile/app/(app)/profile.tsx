@@ -49,7 +49,7 @@ export default function ProfileScreen() {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  
+  console.log(user)
   // Use the theme context
   const { palette, personality } = useTheme();
   const styles = themedStyles(palette);
@@ -403,6 +403,15 @@ export default function ProfileScreen() {
             </View>
           </View>
           
+          {/* Bio Section */}
+          {profile?.bio && (
+            <View style={styles.bioContainer}>
+              <Text style={[styles.bioText, { color: `${palette.text}CC` }]}>
+                {profile.bio}
+              </Text>
+            </View>
+          )}
+          
           {/* Stats row (below profile info) */}
           <View style={styles.statsRow}>
             <TouchableOpacity 
@@ -676,6 +685,17 @@ const themedStyles = createThemedStyles((palette) => ({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '500',
+  },
+  // Bio styles
+  bioContainer: {
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  bioText: {
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'left',
   },
   statsRow: {
     flexDirection: 'row',
