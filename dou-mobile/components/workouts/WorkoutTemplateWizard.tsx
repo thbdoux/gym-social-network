@@ -16,10 +16,16 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// Define exercise type
+// Updated types to match the new structure
 export type ExerciseSet = {
-  reps: number;
-  weight: number;
+  id?: number;
+  reps?: number | null;
+  weight?: number | null;
+  weight_unit?: 'kg' | 'lbs';
+  weight_unit_display?: string;
+  weight_display?: string;
+  duration?: number | null;
+  distance?: number | null;
   rest_time: number;
   order?: number;
 };
@@ -27,13 +33,15 @@ export type ExerciseSet = {
 export type Exercise = {
   id?: number;
   name: string;
-  sets: ExerciseSet[];
+  equipment?: string;
   notes?: string;
   order?: number;
-  equipment?: string;
+  effort_type?: 'reps' | 'time' | 'distance';
+  effort_type_display?: string;
   superset_with?: number | null;
   is_superset?: boolean; 
   superset_rest_time?: number;
+  sets: ExerciseSet[];
 };
 
 // Define form data type
@@ -74,7 +82,7 @@ const initializeFormData = (template: WorkoutTemplateFormData | null | undefined
     };
   }
 
-  // Use existing template data if provided
+  // Use existing template data if provided, ensuring proper structure for updated types
   return {
     name: template.name || '',
     description: template.description || '',
@@ -82,7 +90,30 @@ const initializeFormData = (template: WorkoutTemplateFormData | null | undefined
     difficulty_level: template.difficulty_level || 'intermediate',
     focus: template.focus || 'strength',
     is_active: template.is_active ?? true,
-    exercises: template.exercises || [],
+    exercises: template.exercises ? template.exercises.map(exercise => ({
+      id: exercise.id,
+      name: exercise.name,
+      equipment: exercise.equipment || '',
+      notes: exercise.notes || '',
+      order: exercise.order || 0,
+      effort_type: exercise.effort_type || 'reps',
+      effort_type_display: exercise.effort_type_display,
+      superset_with: exercise.superset_with || null,
+      is_superset: exercise.is_superset || false,
+      superset_rest_time: exercise.superset_rest_time || 60,
+      sets: exercise.sets ? exercise.sets.map(set => ({
+        id: set.id,
+        reps: set.reps,
+        weight: set.weight,
+        weight_unit: set.weight_unit || 'kg',
+        weight_unit_display: set.weight_unit_display,
+        weight_display: set.weight_display,
+        duration: set.duration,
+        distance: set.distance,
+        rest_time: set.rest_time || 60,
+        order: set.order || 0
+      })) : []
+    })) : [],
     equipment_required: template.equipment_required || [],
     split_method: template.split_method || 'custom',
     tags: template.tags || []
@@ -187,8 +218,21 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
         updatedFormData.estimated_duration = Math.max(estimatedDuration, 15); // Minimum 15 minutes
       }
       
+      // Ensure exercises have proper structure for backend
+      const finalData = {
+        ...updatedFormData,
+        exercises: updatedFormData.exercises.map(exercise => ({
+          ...exercise,
+          effort_type: exercise.effort_type || 'reps',
+          sets: exercise.sets.map(set => ({
+            ...set,
+            weight_unit: set.weight_unit || 'kg'
+          }))
+        }))
+      };
+      
       // Submit the form data
-      onSubmit(updatedFormData);
+      onSubmit(finalData);
     }
   };
 
@@ -207,7 +251,7 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
       <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
         <StatusBar barStyle="light-content" backgroundColor={palette.page_background} />
         
-        {/* Header with integrated progress bar */}
+        {/* Smaller Header with integrated progress bar */}
         <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.page_background }]}>
           <LinearGradient
             colors={[workoutPalette.background, workoutPalette.highlight]} // Blue gradient for workout theme
@@ -223,12 +267,12 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
               </View>
               
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Ionicons name="close" size={22} color={workoutPalette.text} />
+                <Ionicons name="close" size={20} color={workoutPalette.text} />
               </TouchableOpacity>
             </View>
           </LinearGradient>
           
-          {/* Progress bar */}
+          {/* Smaller Progress bar */}
           <View style={styles.progressContainer}>
             {steps.map((step, index) => (
               <React.Fragment key={index}>
@@ -295,7 +339,7 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
           />
         </View>
         
-        {/* Footer with navigation buttons */}
+        {/* Smaller Footer with navigation buttons */}
         <View style={[
           styles.footer, 
           { 
@@ -318,7 +362,7 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
           >
             {currentStep === steps.length - 1 ? (
               <View style={styles.buttonContent}>
-                <Ionicons name="save-outline" size={18} color="#FFFFFF" />
+                <Ionicons name="save-outline" size={16} color="#FFFFFF" />
                 <Text style={styles.nextButtonText}>
                   {template ? t('update_template') : t('create_template')}
                 </Text>
@@ -344,7 +388,7 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8, // Reduced from 12
   },
   headerContent: {
     flexDirection: 'row',
@@ -356,19 +400,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18, // Reduced from 20
     fontWeight: 'bold',
   },
   closeButton: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 6, // Reduced from 8
+    borderRadius: 6,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 8, // Reduced from 12
   },
   stepIndicator: {
     flexDirection: 'column',
@@ -379,25 +423,25 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28, // Reduced from 32
+    height: 28, // Reduced from 32
+    borderRadius: 14, // Reduced from 16
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 3, // Reduced from 4
   },
   stepName: {
-    fontSize: 12,
+    fontSize: 10, // Reduced from 12
     fontWeight: '500',
   },
   stepNumber: {
-    fontSize: 14,
+    fontSize: 12, // Reduced from 14
     fontWeight: '600',
   },
   stepConnector: {
     width: (width - 180) / 1, // Dynamic width based on screen size (adjusted for 2 steps)
     height: 2,
-    marginTop: -20, // Position in the middle of circles
+    marginTop: -17, // Adjusted for smaller circles
   },
   content: {
     flex: 1,
@@ -407,22 +451,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 12, // Reduced from 16
     borderTopWidth: 1,
   },
   backButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 8, // Reduced from 10
+    paddingHorizontal: 14, // Reduced from 16
+    borderRadius: 6, // Reduced from 8
   },
   backButtonText: {
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 13, // Reduced from 14
   },
   nextButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 8, // Reduced from 10
+    paddingHorizontal: 18, // Reduced from 20
+    borderRadius: 6, // Reduced from 8
   },
   buttonContent: {
     flexDirection: 'row',
@@ -431,8 +475,8 @@ const styles = StyleSheet.create({
   nextButtonText: {
     color: '#FFFFFF',
     fontWeight: '500',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 13, // Reduced from 14
+    marginLeft: 6, // Reduced from 8
   },
 });
 

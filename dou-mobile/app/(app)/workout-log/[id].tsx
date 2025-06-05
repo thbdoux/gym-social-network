@@ -1,5 +1,5 @@
 // app/(app)/log/[id].tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
   Platform,
   Alert,
   TextInput,
-  Keyboard
+  Keyboard,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -31,14 +32,223 @@ import {
 // Shared components
 import LogExerciseManager from './LogExerciseManager';
 import GymSelectionModal from '../../../components/workouts/GymSelectionModal';
+import WorkoutPartnersManagerModal from '../../../components/workouts/WorkoutPartnersManagerModal';
+import OverlappedAvatars from '../../../components/shared/OverlappedAvatars';
 import { formatRestTime, getDifficultyIndicator } from './../workout/formatters';
 
 import { useGym } from '../../../hooks/query/useGymQuery';
+import { useUser } from '../../../hooks/query/useUserQuery';
+
+// Helper functions for different effort types
+const formatTime = (seconds: number): string => {
+  if (seconds === 0) return '-';
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return secs > 0 ? `${minutes}m ${secs}s` : `${minutes}m`;
+};
+
+const formatDistance = (meters: number): string => {
+  if (meters >= 1000) {
+    return `${(meters / 1000).toFixed(1)} km`;
+  }
+  return `${meters} m`;
+};
+
+const formatWeightDisplay = (weight: number | null, unit: 'kg' | 'lbs' = 'kg'): string => {
+  if (!weight || weight === 0) return '-';
+  return `${weight}${unit}`;
+};
+
+const getEffortTypeDisplay = (effortType: string, t: any) => {
+  switch (effortType) {
+    case 'time':
+      return t('time');
+    case 'distance':
+      return t('distance');
+    case 'reps':
+    default:
+      return t('reps');
+  }
+};
+
+const getEffortTypeIcon = (effortType: string) => {
+  switch (effortType) {
+    case 'time':
+      return 'time-outline';
+    case 'distance':
+      return 'location-outline';
+    case 'reps':
+    default:
+      return 'repeat-outline';
+  }
+};
+
+const getEffortTypeColor = (effortType: string) => {
+  switch (effortType) {
+    case 'time':
+      return '#10B981';
+    case 'distance':
+      return '#3B82F6';
+    case 'reps':
+    default:
+      return '#F59E0B';
+  }
+};
+
+// Enhanced set display with proper effort value formatting
+const formatEffortValue = (set: any, effortType: string): string => {
+  switch (effortType) {
+    case 'time':
+      const duration = set.duration ? formatTime(set.duration) : '-';
+      const weight = set.weight && set.weight > 0 ? formatWeightDisplay(set.weight, set.weight_unit) : null;
+      return weight ? `${duration} @ ${weight}` : duration;
+      
+    case 'distance':
+      const distance = set.distance ? formatDistance(set.distance) : '-';
+      const time = set.duration ? formatTime(set.duration) : null;
+      return time ? `${distance} in ${time}` : distance;
+      
+    case 'reps':
+    default:
+      const reps = set.reps || '-';
+      const setWeight = set.weight && set.weight > 0 ? formatWeightDisplay(set.weight, set.weight_unit) : null;
+      return setWeight ? `${reps} × ${setWeight}` : `${reps} reps`;
+  }
+};
+
+// Component to render set data based on effort type
+const SetDataDisplay = ({ set, effortType, t }) => {
+  switch (effortType) {
+    case 'time':
+      return (
+        <>
+          <Text style={styles.setCell}>
+            {set.duration ? formatTime(set.duration) : '-'}
+          </Text>
+          <Text style={styles.setCell}>
+            {formatWeightDisplay(set.weight, set.weight_unit)}
+          </Text>
+          <Text style={styles.setCell}>{formatRestTime(set.rest_time)}</Text>
+        </>
+      );
+    case 'distance':
+      return (
+        <>
+          <Text style={styles.setCell}>
+            {set.distance ? formatDistance(set.distance) : '-'}
+          </Text>
+          <Text style={styles.setCell}>
+            {set.duration ? formatTime(set.duration) : '-'}
+          </Text>
+          <Text style={styles.setCell}>{formatRestTime(set.rest_time)}</Text>
+        </>
+      );
+    case 'reps':
+    default:
+      return (
+        <>
+          <Text style={styles.setCell}>{set.reps || '-'}</Text>
+          <Text style={styles.setCell}>
+            {formatWeightDisplay(set.weight, set.weight_unit)}
+          </Text>
+          <Text style={styles.setCell}>{formatRestTime(set.rest_time)}</Text>
+        </>
+      );
+  }
+};
+
+// Component to render table headers based on effort type
+const TableHeaders = ({ effortType, t }) => {
+  switch (effortType) {
+    case 'time':
+      return (
+        <>
+          <Text style={styles.setColumnHeader}>{t('set')}</Text>
+          <Text style={styles.setColumnHeader}>{t('time')}</Text>
+          <Text style={styles.setColumnHeader}>{t('weight')}</Text>
+          <Text style={styles.setColumnHeader}>{t('rest')}</Text>
+        </>
+      );
+    case 'distance':
+      return (
+        <>
+          <Text style={styles.setColumnHeader}>{t('set')}</Text>
+          <Text style={styles.setColumnHeader}>{t('distance')}</Text>
+          <Text style={styles.setColumnHeader}>{t('time')}</Text>
+          <Text style={styles.setColumnHeader}>{t('rest')}</Text>
+        </>
+      );
+    case 'reps':
+    default:
+      return (
+        <>
+          <Text style={styles.setColumnHeader}>{t('set')}</Text>
+          <Text style={styles.setColumnHeader}>{t('reps')}</Text>
+          <Text style={styles.setColumnHeader}>{t('weight')}</Text>
+          <Text style={styles.setColumnHeader}>{t('rest')}</Text>
+        </>
+      );
+  }
+};
+
+// Enhanced volume calculation with weight unit conversion
+const calculateTotalVolume = (exercises: any[], targetUnit: 'kg' | 'lbs' = 'kg'): number => {
+  let totalVolume = 0;
+  
+  exercises.forEach(exercise => {
+    if (exercise.effort_type === 'reps' || !exercise.effort_type) {
+      exercise.sets.forEach(set => {
+        if (set.reps && set.weight) {
+          let weight = set.weight;
+          
+          // Convert weight if needed
+          if (set.weight_unit !== targetUnit) {
+            if (set.weight_unit === 'lbs' && targetUnit === 'kg') {
+              weight = weight * 0.453592;
+            } else if (set.weight_unit === 'kg' && targetUnit === 'lbs') {
+              weight = weight * 2.20462;
+            }
+          }
+          
+          totalVolume += weight * set.reps;
+        }
+      });
+    }
+  });
+  
+  return Math.round(totalVolume * 100) / 100;
+};
 
 export default function WorkoutLogDetailScreen() {
   // Get log ID from route params
   const { id } = useLocalSearchParams();
   const logId = typeof id === 'string' ? parseInt(id, 10) : 0;
+  
+  // Animation setup
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const HEADER_MAX_HEIGHT = 230; // Increased to accommodate all content
+  const HEADER_MIN_HEIGHT = 50;  // Reduced to show just top row
+  const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+  
+  // Animated values
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, HEADER_SCROLL_DISTANCE],
+    outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  const expandedContentOpacity = scrollY.interpolate({
+    inputRange: [0, HEADER_SCROLL_DISTANCE / 3, HEADER_SCROLL_DISTANCE],
+    outputRange: [1, 0.3, 0],
+    extrapolate: 'clamp',
+  });
+
+  const titleScale = scrollY.interpolate({
+    inputRange: [0, HEADER_SCROLL_DISTANCE],
+    outputRange: [1, 0.9],
+    extrapolate: 'clamp',
+  });
   
   // Get theme context
   const { workoutLogPalette, palette } = useTheme();
@@ -70,17 +280,19 @@ export default function WorkoutLogDetailScreen() {
   const [logCompleted, setLogCompleted] = useState(false);
   const [logDate, setLogDate] = useState('');
   const [selectedGym, setSelectedGym] = useState(null);
+  const [workoutPartners, setWorkoutPartners] = useState<number[]>([]);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   
-  // UI state
+  // UI state - simplified with unified modal
   const [isExerciseManagerVisible, setIsExerciseManagerVisible] = useState(false);
   const [isGymSelectionVisible, setIsGymSelectionVisible] = useState(false);
+  const [isPartnersManagerVisible, setIsPartnersManagerVisible] = useState(false);
   
   // Hooks
   const { user } = useAuth();
   const { t } = useLanguage();
   const { data: log, isLoading, refetch } = useLog(logId);
-  const { mutateAsync: updateLog } = useUpdateLog();
+  const { mutateAsync: updateLog, isPending: isUpdating } = useUpdateLog();
   const { mutateAsync: deleteLog } = useDeleteLog();
   const { data: gymData, isLoading: isGymLoading } = useGym(log?.gym || undefined);
   
@@ -94,6 +306,7 @@ export default function WorkoutLogDetailScreen() {
       setLogMoodRating(log.mood_rating || 5);
       setLogCompleted(log.completed || false);
       setLogDate(log.date || '');
+      setWorkoutPartners(log.workout_partners || []);
       
       // Set gym information
       if (gymData) {
@@ -113,7 +326,7 @@ export default function WorkoutLogDetailScreen() {
         setSelectedGym(null);
       }
     }
-  }, [log, gymData]); // Add gymData to dependencies
+  }, [log, gymData]);
   
   // Add keyboard event listeners
   useEffect(() => {
@@ -140,17 +353,63 @@ export default function WorkoutLogDetailScreen() {
   const isCreator = log?.username === user?.username;
   
   // Format date for display
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
+  const formatDate = (
+    dateInput: string | Date | number | null | undefined, 
+    dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' = 'DD/MM/YYYY'
+  ): string => {
+    if (!dateInput && dateInput !== 0) return '';
+    
+    let date: Date;
+    
+    try {
+      if (dateInput instanceof Date) {
+        date = dateInput;
+      } else if (typeof dateInput === 'string') {
+        const trimmedInput = dateInput.trim();
+        const slashDateMatch = trimmedInput.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        
+        if (slashDateMatch) {
+          const [, first, second, year] = slashDateMatch;
+          const yearNum = parseInt(year, 10);
+          
+          let day: number, month: number;
+          if (dateFormat === 'DD/MM/YYYY') {
+            day = parseInt(first, 10);
+            month = parseInt(second, 10) - 1;
+          } else {
+            month = parseInt(first, 10) - 1;
+            day = parseInt(second, 10);
+          }
+          
+          if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+            date = new Date(yearNum, month, day);
+          } else {
+            throw new Error(`Invalid date components`);
+          }
+        } else {
+          date = new Date(dateInput);
+        }
+      } else {
+        date = new Date(dateInput as any);
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date provided:', dateInput);
+        return '';
+      }
+      
+      return date.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      
+    } catch (error) {
+      console.error('Error formatting date:', error, 'Input:', dateInput);
+      return '';
+    }
   };
-  
+
   // Get mood emoji
   const getMoodEmoji = (rating?: number): string => {
     if (!rating) return '😐';
@@ -159,6 +418,27 @@ export default function WorkoutLogDetailScreen() {
     if (rating <= 6) return '🙂';
     if (rating <= 8) return '😊';
     return '😄';
+  };
+
+  // Handle updating workout partners
+  const handleUpdatePartners = async (partners: number[]) => {
+    try {
+      setWorkoutPartners(partners);
+      const updatedData = {
+        workout_partners: partners,
+        exercises: log.exercises || []
+      };
+      
+      await updateLog({
+        id: logId,
+        logData: updatedData
+      });
+      await refetch();
+    } catch (error) {
+      console.error('Failed to update workout partners:', error);
+      Alert.alert(t('error'), t('failed_to_update_partners'));
+      setWorkoutPartners(log?.workout_partners || []);
+    }
   };
   
   // Handle options menu
@@ -174,6 +454,10 @@ export default function WorkoutLogDetailScreen() {
         {
           text: t('gym'),
           onPress: () => setIsGymSelectionVisible(true)
+        },
+        {
+          text: t('workout_partners'),
+          onPress: () => setIsPartnersManagerVisible(true)
         },
         {
           text: t('delete'),
@@ -382,13 +666,11 @@ export default function WorkoutLogDetailScreen() {
   // Handle saving individual log field
   const handleSaveLogField = async (field, value) => {
     try {
-      // Create updates with just the field being changed
       const updates = { 
         [field]: value,
-        // Explicitly include exercises to ensure they're not lost
-        exercises: log.exercises || []
+        exercises: log.exercises || [],
+        workout_partners: workoutPartners
       };
-      console.log(updates);
       
       await updateLog({
         id: logId,
@@ -401,7 +683,6 @@ export default function WorkoutLogDetailScreen() {
     }
   };
 
-  
   // Handle deleting the log
   const handleDeleteLog = () => {
     Alert.alert(
@@ -440,10 +721,10 @@ export default function WorkoutLogDetailScreen() {
         location: 'Home'
       };
       
-      // Include exercises to ensure they're not lost during update
       const updatedData = {
         ...gymData,
-        exercises: log.exercises || []
+        exercises: log.exercises || [],
+        workout_partners: workoutPartners
       };
       
       await updateLog({
@@ -461,6 +742,13 @@ export default function WorkoutLogDetailScreen() {
   const handleExerciseManagerComplete = async () => {
     setIsExerciseManagerVisible(false);
     await refetch();
+  };
+
+  // Handle clicking on workout partners section
+  const handlePartnersPress = () => {
+    if (isCreator || workoutPartners.length > 0) {
+      setIsPartnersManagerVisible(true);
+    }
   };
   
   // Render loading state
@@ -489,132 +777,146 @@ export default function WorkoutLogDetailScreen() {
   }
   
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: COLORS.background }]}>
+    <View style={[styles.container, { backgroundColor: COLORS.background }]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       
-      {/* Header */}
-      <LinearGradient
-        colors={[COLORS.primary, COLORS.secondary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        {/* Top Row: Back button, Title, Options */}
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
-          </TouchableOpacity>
-          
-          <View style={styles.titleContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {log.name}
-            </Text>
-            {logCompleted && (
-              <Ionicons name="checkmark-circle" size={20} color={COLORS.success} style={styles.completedIcon} />
+      {/* Animated Header */}
+      <Animated.View style={[styles.header, { height: headerHeight }]}>
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          {/* Top Row: Always visible */}
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity 
+              style={styles.headerBackButton} 
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+            </TouchableOpacity>
+            
+            <Animated.View style={[styles.titleContainer, { transform: [{ scale: titleScale }] }]}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {log.name}
+              </Text>
+            </Animated.View>
+            
+            {isCreator && (
+              <TouchableOpacity 
+                style={styles.optionsButton}
+                onPress={handleOptionsMenu}
+              >
+                <Ionicons name="ellipsis-vertical" size={24} color={COLORS.text.primary} />
+              </TouchableOpacity>
             )}
           </View>
           
-          {isCreator && (
-            <TouchableOpacity 
-              style={styles.optionsButton}
-              onPress={handleOptionsMenu}
-            >
-              <Ionicons name="ellipsis-vertical" size={24} color={COLORS.text.primary} />
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        {/* Creator info row */}
-        <View style={styles.creatorRow}>
-          <View style={styles.creatorInfo}>
-            <Ionicons name="person" size={14} color={COLORS.text.secondary} />
-            <Text style={styles.creatorText}>{log.username}</Text>
-          </View>
-          <View style={[styles.typeBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-            <Text style={styles.typeBadgeText}>
-              {t('workout_log')}
-            </Text>
-          </View>
-        </View>
-        
-        {/* Date Row */}
-        <View style={styles.dateRow}>
-          <Ionicons name="calendar-outline" size={16} color={COLORS.text.secondary} />
-          <Text style={styles.dateText}>{log.date}</Text>
-        </View>
-        
-        {/* Workout Info Row */}
-        <View style={styles.workoutInfoRow}>
-          
-          {/* Duration */}
-          {logDuration > 0 && (
-            <View style={styles.workoutInfoItem}>
-              <Ionicons name="time-outline" size={14} color={COLORS.text.secondary} />
-              <Text style={styles.infoText}>
-                {logDuration} {t('min')}
-              </Text>
+          {/* Collapsible Content */}
+          <Animated.View style={[styles.expandableContent, { opacity: expandedContentOpacity }]}>
+            {/* Workout Stats Row */}
+            <View style={styles.workoutStatsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>{t('date')}</Text>
+                <Text style={styles.statValue}>{formatDate(log.date)}</Text>
+              </View>
+              
+              {logDuration > 0 && (
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>{t('duration')}</Text>
+                  <Text style={styles.statValue}>{logDuration}m</Text>
+                </View>
+              )}
+              
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>{t('gym')}</Text>
+                <Text style={styles.statValue}>
+                  {log.gym_name}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>{t('mood')}</Text>
+                <Text style={styles.statValue}>
+                  {getMoodEmoji(logMoodRating)}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>{t('difficulty')}</Text>
+                <Text style={styles.statValue}>
+                  {getDifficultyIndicator(log.perceived_difficulty)}
+                </Text>
+              </View>
             </View>
-          )}
-          
-          {/* Difficulty */}
-          <View style={styles.workoutInfoItem}>
-            <Text style={styles.infoIcon}>
-              {getDifficultyIndicator(log.perceived_difficulty)}
-            </Text>
-          </View>
-          
-          {/* Mood */}
-          
-          {/* Gym/Location */}
-          <View style={styles.workoutInfoItem}>
-            <Ionicons 
-              name={selectedGym ? "fitness" : "home"} 
-              size={14} 
-              color={COLORS.text.secondary} 
-              />
-            <Text style={styles.infoText}>
-              {selectedGym ? `${selectedGym.name} - ${selectedGym.location}` : t('home')}
-            </Text>
-          </View>
-          {logMoodRating > 0 && (
-            <View style={styles.workoutInfoItem}>
-              <Text style={styles.infoIcon}>
-                {getMoodEmoji(logMoodRating)}
-              </Text>
-              <Text style={styles.infoText}>
-                {t('mood')}: {logMoodRating}/10
-              </Text>
-            </View>
-          )}
-        </View>
-        
-        {/* Notes - only if available */}
-        {log.notes && (
-          <View style={styles.notesContainer}>
-            <Text style={styles.notesLabel}>{t('notes')}:</Text>
-            <Text style={styles.notesText} numberOfLines={2}>
-              {log.notes}
-            </Text>
-          </View>
-        )}
-      </LinearGradient>
+
+            
+            {/* Workout Partners Section */}
+            {(workoutPartners.length > 0 || isCreator) && (
+              <View style={styles.partnersSection}>
+                <TouchableOpacity
+                  style={styles.partnersContainer}
+                  onPress={handlePartnersPress}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.partnersInfo}>
+                    <Ionicons name="people-outline" size={16} color={COLORS.text.secondary} />
+                    <Text style={styles.partnersLabel}>
+                      {workoutPartners.length > 0 
+                        ? `${t('workout_partners')}`
+                        : t('add_workout_partners')
+                      }
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.partnersRight}>
+                    {workoutPartners.length > 0 ? (
+                      <>
+                        <OverlappedAvatars
+                          userIds={workoutPartners}
+                          size="small"
+                          maxVisible={4}
+                          style={styles.partnersAvatars}
+                        />
+                        <Ionicons name="chevron-forward" size={16} color={COLORS.text.secondary} />
+                      </>
+                    ) : isCreator ? (
+                      <Ionicons name="add-circle" size={20} color={COLORS.success} />
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {/* Notes - only if available */}
+            {log.notes && (
+              <View style={styles.notesContainer}>
+                <Text style={styles.notesLabel}>{t('notes')}:</Text>
+                <Text style={styles.notesText} numberOfLines={2}>
+                  {log.notes}
+                </Text>
+              </View>
+            )}
+          </Animated.View>
+        </LinearGradient>
+      </Animated.View>
       
       {/* Main Content */}
-      <ScrollView style={styles.contentContainer}>
+      <Animated.ScrollView
+        style={styles.contentScrollView}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: HEADER_MAX_HEIGHT + 16 }]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+      >
         <View style={styles.exercisesSection}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>{t('exercises')}</Text>
             <View style={styles.exerciseControls}>
-              <Text style={[styles.exerciseCount, { color: COLORS.text.secondary }]}>
-                {log.exercises?.length || 0} {t('total')}
-              </Text>
-              
               {isCreator && (
                 <TouchableOpacity 
-                  style={styles.editExercisesButton}
+                  style={[styles.editExercisesButton, { backgroundColor: `rgba(${COLORS.secondary.replace('#', '')}, 0.1)` }]}
                   onPress={() => setIsExerciseManagerVisible(true)}
                 >
                   <Ionicons name="create-outline" size={16} color={COLORS.secondary} />
@@ -630,10 +932,12 @@ export default function WorkoutLogDetailScreen() {
           {log.exercises && log.exercises.length > 0 ? (
             <View style={styles.exercisesList}>
               {log.exercises.map((exercise, index) => {
-                // Find paired exercise name if this is a superset
                 const pairedExerciseName = exercise.is_superset && exercise.superset_with !== null
                   ? log.exercises.find(ex => ex.order === exercise.superset_with)?.name
                   : null;
+                
+                const effortType = exercise.effort_type || 'reps';
+                const effortTypeColor = getEffortTypeColor(effortType);
                 
                 return (
                   <View 
@@ -653,7 +957,29 @@ export default function WorkoutLogDetailScreen() {
                         </View>
                         
                         <View style={styles.exerciseTitleContainer}>
-                          <Text style={styles.exerciseTitle}>{exercise.name}</Text>
+                          <View style={styles.exerciseNameRow}>
+                            <Text style={styles.exerciseTitle}>{exercise.name}</Text>
+                            
+                            {/* Effort type indicator */}
+                            <View style={[styles.effortTypeBadge, { backgroundColor: `${effortTypeColor}30` }]}>
+                              <Ionicons 
+                                name={getEffortTypeIcon(effortType)} 
+                                size={12} 
+                                color={effortTypeColor} 
+                              />
+                              <Text style={[styles.effortTypeText, { color: effortTypeColor }]}>
+                                {getEffortTypeDisplay(effortType, t)}
+                              </Text>
+                            </View>
+                          </View>
+                        
+                          {/* Equipment info */}
+                          {exercise.equipment && (
+                            <View style={styles.equipmentInfo}>
+                              <Ionicons name="barbell-outline" size={12} color="rgba(255, 255, 255, 0.6)" />
+                              <Text style={styles.equipmentText}>{exercise.equipment}</Text>
+                            </View>
+                          )}
                           
                           {/* Superset info */}
                           {exercise.is_superset && pairedExerciseName && (
@@ -666,23 +992,13 @@ export default function WorkoutLogDetailScreen() {
                           )}
                         </View>
                       </View>
-                      
-                      {/* Set count badge */}
-                      <View style={styles.setCountBadge}>
-                        <Text style={styles.setCountText}>
-                          {exercise.sets.length} {exercise.sets.length === 1 ? t('set') : t('sets')}
-                        </Text>
-                      </View>
                     </View>
                     
                     {/* Exercise Sets Table */}
                     <View style={styles.setsTable}>
-                      {/* Table Header */}
+                      {/* Table Header - Dynamic based on effort type */}
                       <View style={styles.setsTableHeader}>
-                        <Text style={styles.setColumnHeader}>{t('set')}</Text>
-                        <Text style={styles.setColumnHeader}>{t('reps')}</Text>
-                        <Text style={styles.setColumnHeader}>{t('weight')}</Text>
-                        <Text style={styles.setColumnHeader}>{t('rest')}</Text>
+                        <TableHeaders effortType={effortType} t={t} />
                       </View>
                       
                       {/* Table Rows */}
@@ -695,9 +1011,7 @@ export default function WorkoutLogDetailScreen() {
                           ]}
                         >
                           <Text style={styles.setCell}>{setIndex + 1}</Text>
-                          <Text style={styles.setCell}>{set.reps || '-'}</Text>
-                          <Text style={styles.setCell}>{set.weight ? `${set.weight}kg` : '-'}</Text>
-                          <Text style={styles.setCell}>{formatRestTime(set.rest_time)}</Text>
+                          <SetDataDisplay set={set} effortType={effortType} t={t} />
                         </View>
                       ))}
                     </View>
@@ -780,7 +1094,7 @@ export default function WorkoutLogDetailScreen() {
         
         {/* Bottom padding */}
         <View style={styles.bottomPadding} />
-      </ScrollView>
+      </Animated.ScrollView>
       
       {/* Log Exercise Manager Modal */}
       {isExerciseManagerVisible && (
@@ -800,14 +1114,23 @@ export default function WorkoutLogDetailScreen() {
         onSelectGym={handleGymSelection}
         selectedGym={selectedGym}
       />
-    </SafeAreaView>
+      
+      {/* Unified Workout Partners Manager Modal */}
+      <WorkoutPartnersManagerModal
+        visible={isPartnersManagerVisible}
+        onClose={() => setIsPartnersManagerVisible(false)}
+        currentPartnerIds={workoutPartners}
+        onUpdatePartners={handleUpdatePartners}
+        workoutName={log?.name}
+        isCreator={isCreator}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     flex: 1,
@@ -839,26 +1162,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  
+  // Animated Header
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  headerGradient: {
+    flex: 1,
     padding: 12,
     paddingBottom: 16,
   },
+  
+  // Header Top Row (Always Visible)
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    height: 48,
+    marginBottom: 8,
+  },
+  headerBackButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   titleContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 10,
+    justifyContent: 'center',
+    marginHorizontal: 10,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginRight: 5,
+    textAlign: 'center',
   },
   completedIcon: {
     marginLeft: 6,
@@ -868,14 +1216,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
+  
+  // Expandable Content
+  expandableContent: {
+    flex: 1,
+  },
   creatorRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   creatorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 12,
   },
   creatorText: {
     fontSize: 14,
@@ -895,13 +1249,34 @@ const styles = StyleSheet.create({
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   dateText: {
     fontSize: 15,
     color: '#FFFFFF',
     marginLeft: 6,
     fontWeight: '500',
+  },
+  workoutStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   workoutInfoRow: {
     flexDirection: 'row',
@@ -921,26 +1296,43 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   infoIcon: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 16,
   },
-  descriptionContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 4,
+  
+  // Partners Section
+  partnersSection: {
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 8,
   },
-  descriptionText: {
-    fontSize: 13,
+  partnersContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  partnersInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  partnersLabel: {
+    fontSize: 14,
     color: '#FFFFFF',
-    lineHeight: 18,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  partnersRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  partnersAvatars: {
+    marginRight: 100,
   },
   notesContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.15)',
     borderRadius: 8,
     padding: 10,
-    marginTop: 4,
   },
   notesLabel: {
     fontSize: 12,
@@ -954,8 +1346,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontStyle: 'italic',
   },
-  contentContainer: {
+  
+  // Content
+  contentScrollView: {
     flex: 1,
+  },
+  contentContainer: {
+    flexGrow: 1,
     padding: 16,
   },
   exercisesSection: {
@@ -975,20 +1372,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  exerciseCount: {
-    fontSize: 14,
-    marginRight: 12,
-  },
   editExercisesButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(66, 153, 225, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 16,
   },
   editExercisesText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     marginLeft: 4,
   },
@@ -1007,14 +1399,14 @@ const styles = StyleSheet.create({
   exerciseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   exerciseHeaderLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
   },
   exerciseIndexBadge: {
@@ -1025,6 +1417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    marginTop: 2,
   },
   exerciseIndexText: {
     fontSize: 12,
@@ -1034,10 +1427,48 @@ const styles = StyleSheet.create({
   exerciseTitleContainer: {
     flex: 1,
   },
+  exerciseNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   exerciseTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+    flex: 1,
+  },
+  effortTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  effortTypeText: {
+    fontSize: 10,
+    marginLeft: 3,
+    fontWeight: '600',
+  },
+  exercisePreview: {
+    marginBottom: 4,
+  },
+  exercisePreviewText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+  },
+  equipmentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  equipmentText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginLeft: 4,
   },
   supersetInfo: {
     flexDirection: 'row',
@@ -1048,17 +1479,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0ea5e9',
     marginLeft: 4,
-  },
-  setCountBadge: {
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  setCountText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
   },
   setsTable: {
     padding: 12,

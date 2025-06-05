@@ -1,4 +1,4 @@
-// components/wizard/steps/Step3MotivationCheck.tsx
+// components/wizard/steps/Step3MotivationCheck.tsx - Simplified compact version
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -26,7 +26,7 @@ type MotivationType = {
 };
 
 interface Step3MotivationCheckProps {
-  onComplete: (data: ScoreType) => void;
+  onComplete: (data: ScoreType & { responses: any }) => void;
   initialScores?: ScoreType;
 }
 
@@ -35,43 +35,55 @@ const Step3MotivationCheck: React.FC<Step3MotivationCheckProps> = ({ onComplete,
   const [selectedMotivations, setSelectedMotivations] = useState<string[]>([]);
   const [animation] = useState(new Animated.Value(0));
   
-  // List of motivations
+  // Simplified motivations - just titles, no descriptions
   const motivations: MotivationType[] = [
     {
       id: 'see_friends_records',
       icon: 'trophy',
       name: 'motivation_friends_records',
-      score: { optimizer: 1, diplomate: 2, mentor: 2, versatile: 0 }
+      score: { optimizer: 1, diplomate: 3, mentor: 2, versatile: 1 }
     },
     {
       id: 'meet_people',
       icon: 'people',
       name: 'motivation_meet_people',
-      score: { optimizer: 0, diplomate: 3, mentor: 2, versatile: 0 }
+      score: { optimizer: 0, diplomate: 3, mentor: 2, versatile: 1 }
     },
     {
       id: 'take_up_sport',
       icon: 'flash',
       name: 'motivation_take_up_sport',
-      score: { optimizer: 1, diplomate: 2, mentor: 0, versatile: 2 }
+      score: { optimizer: 1, diplomate: 1, mentor: 1, versatile: 3 }
     },
     {
       id: 'physical_transformation',
       icon: 'fitness',
       name: 'motivation_physical_transformation',
-      score: { optimizer: 3, diplomate: 0, mentor: 0, versatile: 1 }
+      score: { optimizer: 2, diplomate: 0, mentor: 1, versatile: 2 }
     },
     {
       id: 'monitor_exercise',
       icon: 'analytics',
       name: 'motivation_monitor_exercise',
-      score: { optimizer: 3, diplomate: 0, mentor: 1, versatile: 0 }
+      score: { optimizer: 2, diplomate: 0, mentor: 1, versatile: 1 }
     },
     {
       id: 'flex_performance',
       icon: 'trending-up',
       name: 'motivation_flex_performance',
-      score: { optimizer: 2, diplomate: 1, mentor: 1, versatile: 1 }
+      score: { optimizer: 2, diplomate: 2, mentor: 1, versatile: 1 }
+    },
+    {
+      id: 'help_others_succeed',
+      icon: 'heart',
+      name: 'motivation_help_others',
+      score: { optimizer: 0, diplomate: 2, mentor: 3, versatile: 1 }
+    },
+    {
+      id: 'explore_new_activities',
+      icon: 'compass',
+      name: 'motivation_explore_new',
+      score: { optimizer: 1, diplomate: 1, mentor: 1, versatile: 3 }
     }
   ];
   
@@ -104,10 +116,16 @@ const Step3MotivationCheck: React.FC<Step3MotivationCheckProps> = ({ onComplete,
       versatile: 0
     };
     
+    // Store user responses (simplified)
+    const responses = {
+      selected_motivations: selectedMotivations,
+      total_selections: selectedMotivations.length,
+    };
+    
     // If user didn't select anything, provide a balanced score
     if (selectedMotivations.length === 0) {
       Object.keys(calculatedScores).forEach(key => {
-        calculatedScores[key as keyof ScoreType] = 1; // Balanced default
+        calculatedScores[key as keyof ScoreType] = 1;
       });
     } else {
       selectedMotivations.forEach(id => {
@@ -120,35 +138,31 @@ const Step3MotivationCheck: React.FC<Step3MotivationCheckProps> = ({ onComplete,
       });
     }
     
-    onComplete(calculatedScores);
+    onComplete({ ...calculatedScores, responses });
   };
-  
-  // Calculated animated values
-  const fadeIn = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1]
-  });
-  
-  const translateY = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0]
-  });
   
   return (
     <Animated.View 
       style={[
         styles.container,
         {
-          opacity: fadeIn,
-          transform: [{ translateY }]
+          opacity: animation,
+          transform: [
+            {
+              translateY: animation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [30, 0]
+              })
+            }
+          ]
         }
       ]}
     >
       <Text style={styles.title}>{t('motivation_title')}</Text>
-      <Text style={styles.subtitle}>{t('motivation_subtitle')}</Text>
+      <Text style={styles.subtitle}>{t('motivation_subtitle') || 'Select all that apply'}</Text>
       
       <View style={styles.motivationsGrid}>
-        {motivations.map((motivation) => {
+        {motivations.map((motivation, index) => {
           const isSelected = selectedMotivations.includes(motivation.id);
           
           return (
@@ -156,7 +170,7 @@ const Step3MotivationCheck: React.FC<Step3MotivationCheckProps> = ({ onComplete,
               key={motivation.id}
               style={[
                 styles.motivationCard,
-                isSelected && styles.selectedMotivationCard
+                isSelected && styles.selectedCard
               ]}
               onPress={() => toggleMotivation(motivation.id)}
               activeOpacity={0.8}
@@ -167,16 +181,23 @@ const Step3MotivationCheck: React.FC<Step3MotivationCheckProps> = ({ onComplete,
               ]}>
                 <Ionicons 
                   name={motivation.icon as any} 
-                  size={24} 
-                  color={isSelected ? "white" : "#9CA3AF"} 
+                  size={18} 
+                  color={isSelected ? "#FFFFFF" : "#9CA3AF"} 
                 />
               </View>
+              
               <Text style={[
                 styles.motivationText,
-                isSelected && styles.selectedMotivationText
+                isSelected && styles.selectedText
               ]}>
                 {t(motivation.name)}
               </Text>
+              
+              {isSelected && (
+                <View style={styles.checkmark}>
+                  <Ionicons name="checkmark" size={12} color="#10B981" />
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -197,7 +218,7 @@ const Step3MotivationCheck: React.FC<Step3MotivationCheckProps> = ({ onComplete,
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 10,
+    paddingTop: 20,
   },
   title: {
     fontSize: 20,
@@ -216,7 +237,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 32,
   },
   motivationCard: {
     width: '48%',
@@ -224,48 +245,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(75, 85, 99, 0.3)',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     marginBottom: 12,
     alignItems: 'center',
+    position: 'relative',
+    minHeight: 80,
   },
-  selectedMotivationCard: {
+  selectedCard: {
     backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderColor: 'rgba(59, 130, 246, 0.5)',
-    transform: [{scale: 1.05}],
+    borderColor: 'rgba(59, 130, 246, 0.4)',
+    transform: [{ scale: 1.02 }],
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(31, 41, 55, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   selectedIconContainer: {
-    backgroundColor: 'rgba(59, 130, 246, 0.3)',
+    backgroundColor: 'rgba(59, 130, 246, 0.6)',
   },
   motivationText: {
     color: '#D1D5DB',
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
+    lineHeight: 16,
   },
-  selectedMotivationText: {
-    color: 'white',
+  selectedText: {
+    color: '#FFFFFF',
     fontWeight: '500',
   },
-  infoContainer: {
-    backgroundColor: 'rgba(31, 41, 55, 0.6)',
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  checkmark: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 24,
-  },
-  infoText: {
-    color: '#9CA3AF',
-    fontSize: 14,
+    justifyContent: 'center',
   },
   continueButton: {
     flexDirection: 'row',

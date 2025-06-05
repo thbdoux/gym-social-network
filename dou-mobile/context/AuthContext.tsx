@@ -1,4 +1,4 @@
-// context/AuthContext.tsx - Version ultra-conservative pour iOS
+// context/AuthContext.tsx - Fixed version to prevent infinite loops
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
@@ -39,19 +39,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // CRITICAL: Prevent all simultaneous operations and API loops
+  // Enhanced guards to prevent infinite loops
   const operationLock = useRef(false);
   const mountedRef = useRef(true);
   const hasCheckedInitialAuth = useRef(false);
+  const isLoggingOut = useRef(false);
+  const lastAuthCheck = useRef(0);
 
   console.log('🔄 AuthProvider render - Auth:', isAuthenticated, 'Loading:', isLoading, 'User:', !!user);
 
-  // Safe state setter
+  // Safe state setter with additional guards
   const safeSetState = useCallback((setter: Function, value: any) => {
     if (mountedRef.current && !operationLock.current) {
       setter(value);
     }
   }, []);
+
+  // Enhanced logout function - called by auth events
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut.current || operationLock.current) {
+      console.log('🔒 Logout already in progress or operation locked');
+      return;
+    }
+
+    isLoggingOut.current = true;
+    operationLock.current = true;
+    console.log('🚪 AuthContext: Starting logout process...');
+
+    try {
+      // Clear all auth state immediately
+      setUser(null);
+      setIsAuthenticated(false);
+      setError(null);
+      setIsLoading(false);
+      
+      // Clear cache in background
+      setTimeout(() => {
+        queryClient.clear();
+      }, 0);
+      
+      console.log('✅ AuthContext: Logout completed');
+      
+    } catch (error) {
+      console.error('🚨 AuthContext logout error:', error);
+    } finally {
+      // Reset flags after delay
+      setTimeout(() => {
+        isLoggingOut.current = false;
+        operationLock.current = false;
+      }, 500);
+    }
+  }, [queryClient]);
 
   // Register new user
   const registerUser = async (userData: any): Promise<{ success: boolean; message: string }> => {
@@ -88,47 +126,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Logout function - immediate and clean
-  const handleLogout = useCallback(async () => {
-    if (operationLock.current) {
-      console.log('🔒 Operation locked, skipping logout');
-      return;
-    }
-
-    operationLock.current = true;
-    console.log('🚪 Starting immediate logout...');
-
-    try {
-      // STEP 1: Clear token immediately - no await delays
-      SecureStore.deleteItemAsync('token').catch(() => {}); // Fire and forget
-      
-      // STEP 2: Update state immediately
-      setUser(null);
-      setIsAuthenticated(false);
-      setError(null);
-      
-      // STEP 3: Clear cache in background - no await
-      setTimeout(() => {
-        queryClient.clear();
-      }, 0);
-      
-      console.log('✅ Logout completed immediately');
-      
-    } catch (error) {
-      console.error('🚨 Logout error:', error);
-    } finally {
-      operationLock.current = false;
-    }
-  }, [queryClient]);
-
-  // ULTRA CONSERVATIVE: Only check auth ONCE on mount, no retries, no loops
+  // Enhanced initial auth check with better guards
   const checkInitialAuth = useCallback(async () => {
-    if (hasCheckedInitialAuth.current || operationLock.current) {
-      console.log('🔒 Auth already checked or operation locked');
+    const now = Date.now();
+    
+    // Multiple protection layers against infinite loops
+    if (
+      hasCheckedInitialAuth.current || 
+      operationLock.current || 
+      isLoggingOut.current ||
+      (now - lastAuthCheck.current < 5000) // Minimum 5 seconds between checks
+    ) {
+      console.log('🔒 Auth check blocked - already checked or operation in progress');
       return;
     }
 
     hasCheckedInitialAuth.current = true;
+    lastAuthCheck.current = now;
     operationLock.current = true;
     console.log('🔍 Checking initial auth (ONE TIME ONLY)...');
 
@@ -140,65 +154,72 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(null);
         setIsAuthenticated(false);
         setError(null);
+        setIsLoading(false);
         return;
       }
 
-      console.log('📱 Token found, attempting ONE API call...');
+      console.log('📱 Token found, attempting user verification...');
       
-      // ONE SINGLE API CALL with short timeout - no retries
+      // Single API call with timeout - no retries
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('⏰ API timeout - aborting');
+        console.log('⏰ API timeout - aborting auth check');
         controller.abort();
-      }, 5000); // Short 5 second timeout
+      }, 8000); // 8 second timeout
 
       try {
         const userData = await userService.getCurrentUser();
         clearTimeout(timeoutId);
         
-        console.log('✅ User data received successfully');
-        setUser(userData);
-        setIsAuthenticated(true);
-        setError(null);
-        
-        // Cache in background
-        setTimeout(() => {
-          queryClient.setQueryData(userKeys.current(), userData);
-        }, 0);
+        if (mountedRef.current) {
+          console.log('✅ User verified successfully');
+          setUser(userData);
+          setIsAuthenticated(true);
+          setError(null);
+          
+          // Cache in background
+          setTimeout(() => {
+            queryClient.setQueryData(userKeys.current(), userData);
+          }, 0);
+        }
         
       } catch (apiError: any) {
         clearTimeout(timeoutId);
-        console.log('🚨 API call failed:', apiError?.response?.status || apiError.message);
+        console.log('🚨 User verification failed:', apiError?.response?.status || apiError.message);
         
-        // CRITICAL: Clear token and never retry
-        SecureStore.deleteItemAsync('token').catch(() => {});
-        setUser(null);
-        setIsAuthenticated(false);
-        
-        // Set error but don't retry
-        if (apiError?.response?.status === 401 || apiError?.response?.status === 403) {
-          setError('Session expired');
-        } else {
-          setError('Unable to verify session');
+        // Don't handle 401/403 here - let the API interceptor handle it
+        // Just clear local state
+        if (mountedRef.current) {
+          setUser(null);
+          setIsAuthenticated(false);
+          
+          // Only set error if it's not a 401/403 (those are handled by interceptor)
+          if (apiError?.response?.status !== 401 && apiError?.response?.status !== 403) {
+            setError('Unable to verify session');
+          }
         }
       }
       
     } catch (error) {
       console.error('🚨 Critical auth error:', error);
-      setUser(null);
-      setIsAuthenticated(false);
-      setError('Authentication failed');
+      if (mountedRef.current) {
+        setUser(null);
+        setIsAuthenticated(false);
+        setError('Authentication failed');
+      }
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
       operationLock.current = false;
-      console.log('✅ Initial auth check completed - NEVER RUNS AGAIN');
+      console.log('✅ Initial auth check completed');
     }
   }, [queryClient]);
 
-  // Login function - clean and simple
+  // Login function
   const login = async (username: string, password: string): Promise<boolean> => {
-    if (operationLock.current) {
-      console.log('🔒 Login operation locked');
+    if (operationLock.current || isLoggingOut.current) {
+      console.log('🔒 Login operation blocked');
       return false;
     }
 
@@ -247,11 +268,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Auth events listener - but no automatic actions
+  // Manual logout function (for user-initiated logout)
+  const manualLogout = useCallback(async () => {
+    if (isLoggingOut.current || operationLock.current) {
+      console.log('🔒 Manual logout blocked - operation in progress');
+      return;
+    }
+
+    console.log('🚪 Manual logout initiated');
+    
+    // Clear token first
+    try {
+      await SecureStore.deleteItemAsync('token');
+    } catch (error) {
+      console.error('Error clearing token:', error);
+    }
+    
+    // Call the internal logout handler
+    await handleLogout();
+    
+    // Navigate to login
+    router.replace('/(auth)/login');
+  }, [handleLogout]);
+
+  // Auth events listener - only for automatic logout (401/403)
   useEffect(() => {
     const unsubscribe = authEvents.subscribe((eventType) => {
       if (eventType === 'tokenExpired') {
-        console.log('🔔 Token expired event - logging out');
+        console.log('🔔 Token expired event received - processing logout');
         handleLogout();
       }
     });
@@ -277,7 +321,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated, 
         isLoading, 
         login, 
-        logout: handleLogout,
+        logout: manualLogout, // Use manual logout for user-initiated actions
         setUser,
         registerUser,
         error,

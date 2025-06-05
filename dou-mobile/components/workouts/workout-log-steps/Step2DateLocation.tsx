@@ -6,11 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
-  Animated,
   Modal,
-  PanResponder,
-  Dimensions,
-  TextInput,
   FlatList,
   KeyboardAvoidingView
 } from 'react-native';
@@ -21,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useGyms } from '../../../hooks/query/useGymQuery';
 import { useAuth } from '../../../hooks/useAuth';
+import GymSelectionModal from '../GymSelectionModal';
 
 type Step2DateLocationProps = {
   formData: WorkoutLogFormData;
@@ -35,24 +32,19 @@ type GymType = {
   [key: string]: any;
 };
 
-const { width } = Dimensions.get('window');
-
 const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocationProps) => {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { workoutLogPalette, palette } = useTheme();
   
-  // State for Date & Time pickers
+  // State for Date picker
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   
   // State for gym selector
   const [gymSelectorVisible, setGymSelectorVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGymChain, setSelectedGymChain] = useState<string | null>(null);
   
-  // Duration state
-  const [durationAnimation] = useState(new Animated.Value(formData.duration_minutes || 45));
+  // State for duration picker
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
   
   // Get preferred gym from user
   const [preferredGym, setPreferredGym] = useState<GymType | null>(null);
@@ -60,74 +52,39 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
   // Get gyms from hook
   const { data: gyms = [], isLoading: gymsLoading } = useGyms();
   
-  // Create PanResponder for duration gauge
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (evt, gestureState) => {
-      const { locationX } = evt.nativeEvent;
-      handleDurationSliderChange(locationX);
-    },
-    onPanResponderMove: (evt, gestureState) => {
-      const { locationX } = evt.nativeEvent;
-      handleDurationSliderChange(locationX);
-    },
-    onPanResponderRelease: () => {},
-  });
+  // Generate duration options in 5-minute steps
+  const durationOptions = useMemo(() => {
+    const options = [];
+    for (let i = 5; i <= 180; i += 5) { // 5 minutes to 3 hours in 5-minute steps
+      options.push(i);
+    }
+    return options;
+  }, []);
   
-  // Extract unique gym chains (names)
-  const gymChains = useMemo(() => {
-    if (!gyms.length) return [];
-    const uniqueGymNames = [...new Set(gyms.map(gym => gym.name))];
-    return uniqueGymNames.sort();
-  }, [gyms]);
+  // Format duration for display
+  const formatDuration = (minutes: number) => {
+    if (minutes < 60) {
+      return `${minutes} ${t('min')}`;
+    } else {
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      if (remainingMinutes === 0) {
+        return `${hours}h`;
+      } else {
+        return `${hours}h ${remainingMinutes}${t('min')}`;
+      }
+    }
+  };
   
-  // Filter gyms based on search query and selected gym chain
-  const filteredGyms = useMemo(() => {
-    if (!gyms.length) return [];
-    
-    return gyms.filter(gym => {
-      const matchesSearch = searchQuery === '' || 
-        gym.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        gym.location.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesChain = selectedGymChain === null || gym.name === selectedGymChain;
-      
-      return matchesSearch && matchesChain;
-    });
-  }, [gyms, searchQuery, selectedGymChain]);
+  // Toggle duration picker
+  const toggleDurationPicker = () => {
+    setShowDurationPicker(!showDurationPicker);
+  };
   
-  // Filter locations based on selected gym chain
-  const locationsForSelectedChain = useMemo(() => {
-    if (!gyms.length || !selectedGymChain) return [];
-    
-    const locations = gyms
-      .filter(gym => gym.name === selectedGymChain)
-      .map(gym => gym.location);
-    
-    return [...new Set(locations)].sort();
-  }, [gyms, selectedGymChain]);
-  
-  // Handle duration slider change
-  const handleDurationSliderChange = (positionX: number) => {
-    // Get the gauge element width
-    const gaugeWidth = width - 80; // Approximate width based on padding/margins
-    
-    // Calculate percentage of the gauge that was touched
-    const percentage = Math.max(0, Math.min(1, positionX / gaugeWidth));
-    
-    // Calculate duration based on percentage (max 120 minutes)
-    const newDuration = Math.round(percentage * 120);
-    
-    // Update form data
-    updateFormData({ duration_minutes: newDuration === 0 ? 5 : newDuration }); // Minimum 5 minutes
-    
-    // Animate duration gauge
-    Animated.timing(durationAnimation, {
-      toValue: newDuration === 0 ? 5 : newDuration,
-      duration: 100,
-      useNativeDriver: false
-    }).start();
+  // Handle duration selection
+  const handleDurationChange = (duration: number) => {
+    updateFormData({ duration_minutes: duration });
+    setShowDurationPicker(false);
   };
   
   // Find preferred gym
@@ -170,13 +127,6 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
   // Toggle date picker
   const toggleDatePicker = () => {
     setShowDatePicker(!showDatePicker);
-    if (showTimePicker) setShowTimePicker(false);
-  };
-  
-  // Toggle time picker
-  const toggleTimePicker = () => {
-    setShowTimePicker(!showTimePicker);
-    if (showDatePicker) setShowDatePicker(false);
   };
   
   // Handle date change
@@ -184,65 +134,33 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
     setShowDatePicker(false);
     
     if (selectedDate) {
-      const currentTime = formData.date;
-      selectedDate.setHours(currentTime.getHours());
-      selectedDate.setMinutes(currentTime.getMinutes());
-      
       updateFormData({ date: selectedDate });
     }
   };
   
-  // Handle time change
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    
-    if (selectedTime) {
-      const newDate = new Date(formData.date);
-      newDate.setHours(selectedTime.getHours());
-      newDate.setMinutes(selectedTime.getMinutes());
-      
-      updateFormData({ date: newDate });
-    }
-  };
-  
-  // Clear gym chain selection
-  const clearGymChainSelection = () => {
-    setSelectedGymChain(null);
-    setSearchQuery('');
-  };
-  
-  // Handle gym selection
-  const handleGymSelection = (gym?: GymType) => {
+  // Handle gym selection from modal
+  const handleGymSelection = (gym: GymType | null) => {
     if (gym) {
       updateFormData({ 
         gym_id: gym.id,
         gym_name: gym.name,
         location: gym.location
       });
-      setGymSelectorVisible(false);
     } else {
-      // Show gym selector modal
-      setGymSelectorVisible(true);
-      if (formData.gym_name) {
-        setSelectedGymChain(formData.gym_name);
-      }
+      // Handle "No Gym" / Home workout selection
+      updateFormData({ 
+        gym_id: undefined,
+        gym_name: undefined,
+        location: 'Home'
+      });
     }
   };
   
-  // Handle home selection
-  const handleHomeSelection = () => {
-    updateFormData({ 
-      gym_id: undefined,
-      gym_name: undefined,
-      location: 'Home'
-    });
-  };
-  
-  const durationWidth = durationAnimation.interpolate({
-    inputRange: [0, 120],
-    outputRange: ['0%', '100%'],
-    extrapolate: 'clamp'
-  });
+  // Get currently selected gym for modal
+  const selectedGym = useMemo(() => {
+    if (!formData.gym_id || !gyms.length) return null;
+    return gyms.find(gym => gym.id === formData.gym_id) || null;
+  }, [formData.gym_id, gyms]);
 
   return (
     <KeyboardAvoidingView 
@@ -253,101 +171,55 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Date and Time cards (side by side) */}
-        <View style={styles.rowContainer}>
-          {/* Date card */}
-          <View style={[
-            styles.card, 
-            styles.halfCard, 
-            { 
-              backgroundColor: palette.card_background, 
-              borderColor: errors.date ? palette.error : palette.border 
-            }
-          ]}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="calendar-outline" size={20} color={workoutLogPalette.highlight} />
-              <Text style={[styles.cardTitle, { color: workoutLogPalette.text }]}>
-                {t('date')}
-              </Text>
-            </View>
-            
-            <TouchableOpacity 
-              style={[
-                styles.dateTimeButton,
-                { 
-                  backgroundColor: palette.input_background,
-                  borderColor: errors.date ? palette.error : palette.border 
-                }
-              ]}
-              onPress={toggleDatePicker}
-            >
-              <Text style={[styles.dateTimeText, { color: workoutLogPalette.text }]}>
-                {formatDate(formData.date)}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={palette.text_tertiary} />
-            </TouchableOpacity>
-            
-            {errors.date ? (
-              <Text style={[styles.errorText, { color: palette.error }]}>
-                {errors.date}
-              </Text>
-            ) : null}
-            
-            {showDatePicker && (
-              <DateTimePicker
-                value={formData.date}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleDateChange}
-                maximumDate={new Date()} // Can't log future workouts
-              />
-            )}
+        {/* Date card - now full width */}
+        <View style={[
+          styles.card, 
+          { 
+            backgroundColor: palette.card_background, 
+            borderColor: errors.date ? palette.error : palette.border 
+          }
+        ]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="calendar-outline" size={20} color={workoutLogPalette.highlight} />
+            <Text style={[styles.cardTitle, { color: workoutLogPalette.text }]}>
+              {t('date')} • {formatTime(formData.date)}
+            </Text>
           </View>
           
-          {/* Time card */}
-          <View style={[
-            styles.card, 
-            styles.halfCard,
-            { 
-              backgroundColor: palette.card_background,
-              borderColor: palette.border 
-            }
-          ]}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="time-outline" size={20} color={workoutLogPalette.highlight} />
-              <Text style={[styles.cardTitle, { color: workoutLogPalette.text }]}>
-                {t('time')}
-              </Text>
-            </View>
-            
-            <TouchableOpacity 
-              style={[
-                styles.dateTimeButton,
-                { 
-                  backgroundColor: palette.input_background,
-                  borderColor: palette.border 
-                }
-              ]}
-              onPress={toggleTimePicker}
-            >
-              <Text style={[styles.dateTimeText, { color: workoutLogPalette.text }]}>
-                {formatTime(formData.date)}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={palette.text_tertiary} />
-            </TouchableOpacity>
-            
-            {showTimePicker && (
-              <DateTimePicker
-                value={formData.date}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleTimeChange}
-              />
-            )}
-          </View>
+          <TouchableOpacity 
+            style={[
+              styles.dateTimeButton,
+              { 
+                backgroundColor: palette.input_background,
+                borderColor: errors.date ? palette.error : palette.border 
+              }
+            ]}
+            onPress={toggleDatePicker}
+          >
+            <Text style={[styles.dateTimeText, { color: workoutLogPalette.text }]}>
+              {formatDate(formData.date)}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={palette.text_tertiary} />
+          </TouchableOpacity>
+          
+          {errors.date ? (
+            <Text style={[styles.errorText, { color: palette.error }]}>
+              {errors.date}
+            </Text>
+          ) : null}
+          
+          {showDatePicker && (
+            <DateTimePicker
+              value={formData.date}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+              maximumDate={new Date()} // Can't log future workouts
+            />
+          )}
         </View>
         
-        {/* Duration card with gauge */}
+        {/* Duration card with picker */}
         <View style={[
           styles.card,
           {
@@ -358,37 +230,25 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
           <View style={styles.cardHeader}>
             <Ionicons name="hourglass-outline" size={20} color={workoutLogPalette.highlight} />
             <Text style={[styles.cardTitle, { color: workoutLogPalette.text }]}>
-              {t('duration')} 
-              <Text style={[styles.durationIndicator, { color: palette.text_secondary }]}>
-                • {formData.duration_minutes} {t('min')}
-              </Text>
+              {t('duration')}
             </Text>
           </View>
           
-          {/* Duration gauge with touch interaction */}
-          <View 
-            style={[styles.durationGauge, { backgroundColor: palette.input_background }]}
-            {...panResponder.panHandlers}
+          <TouchableOpacity 
+            style={[
+              styles.dateTimeButton,
+              { 
+                backgroundColor: palette.input_background,
+                borderColor: palette.border 
+              }
+            ]}
+            onPress={toggleDurationPicker}
           >
-            <Animated.View 
-              style={[
-                styles.durationFill,
-                { 
-                  width: durationWidth,
-                  backgroundColor: workoutLogPalette.highlight 
-                }
-              ]} 
-            />
-            <View style={styles.durationTicks}>
-              {[0, 30, 60, 90, 120].map(tick => (
-                <View key={tick} style={styles.durationTick}>
-                  <Text style={[styles.durationTickText, { color: palette.text_secondary }]}>
-                    {tick}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
+            <Text style={[styles.dateTimeText, { color: workoutLogPalette.text }]}>
+              {formatDuration(formData.duration_minutes || 45)}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={palette.text_tertiary} />
+          </TouchableOpacity>
         </View>
         
         {/* Location card */}
@@ -406,287 +266,124 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
             </Text>
           </View>
           
-          <View style={styles.locationOptions}>
-            <TouchableOpacity
-              style={[
-                styles.locationOption,
-                { 
-                  backgroundColor: palette.input_background,
-                  borderColor: formData.gym_id ? workoutLogPalette.highlight : palette.border 
-                },
-                formData.gym_id && { backgroundColor: palette.input_background }
-              ]}
-              onPress={() => handleGymSelection()}
-            >
-              <Ionicons 
-                name="fitness-outline" 
-                size={24} 
-                color={formData.gym_id ? workoutLogPalette.highlight : palette.text_tertiary} 
-              />
-              <Text style={[
-                styles.locationOptionText,
-                { color: formData.gym_id ? workoutLogPalette.text : palette.text_secondary }
-              ]}>
-                {t('gym')}
-              </Text>
-              
-              {formData.gym_id && formData.gym_name && (
-                <View style={styles.selectedGymInfo}>
-                  <Text style={[styles.selectedGymName, { color: workoutLogPalette.text }]}>
-                    {formData.gym_name}
-                  </Text>
-                  <Text style={[styles.selectedGymLocation, { color: palette.text_secondary }]}>
-                    {formData.location}
-                  </Text>
-                </View>
-              )}
-              
-              {!formData.gym_id && preferredGym && (
-                <View style={styles.selectedGymInfo}>
-                  <Text style={[styles.preferredGymText, { color: palette.text_secondary }]}>
-                    {preferredGym.name}
-                  </Text>
-                  <Text style={[styles.preferredGymLocation, { color: palette.text_tertiary }]}>
-                    {preferredGym.location}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.locationOption,
-                { 
-                  backgroundColor: palette.input_background,
-                  borderColor: formData.location === 'Home' ? workoutLogPalette.highlight : palette.border 
-                },
-                formData.location === 'Home' && { backgroundColor: palette.input_background }
-              ]}
-              onPress={handleHomeSelection}
-            >
-              <Ionicons 
-                name="home-outline" 
-                size={24} 
-                color={formData.location === 'Home' ? workoutLogPalette.highlight : palette.text_tertiary} 
-              />
-              <Text style={[
-                styles.locationOptionText,
-                { color: formData.location === 'Home' ? workoutLogPalette.text : palette.text_secondary }
-              ]}>
-                {t('at_home')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        {/* Enhanced Gym selector modal */}
-        <Modal
-          visible={gymSelectorVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setGymSelectorVisible(false)}
-        >
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
+          <TouchableOpacity
+            style={[
+              styles.locationButton,
+              { 
+                backgroundColor: palette.input_background,
+                borderColor: (formData.gym_id || formData.location === 'Home') ? workoutLogPalette.highlight : palette.border 
+              }
+            ]}
+            onPress={() => setGymSelectorVisible(true)}
           >
-            <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: palette.page_background }]}>
-                <View style={[
-                  styles.modalHeader, 
-                  { borderBottomColor: palette.border }
-                ]}>
-                  <TouchableOpacity
-                    style={styles.modalBackButton}
-                    onPress={() => selectedGymChain ? clearGymChainSelection() : setGymSelectorVisible(false)}
-                  >
-                    <Ionicons 
-                      name={selectedGymChain ? "arrow-back" : "close"} 
-                      size={24} 
-                      color={workoutLogPalette.text} 
-                    />
-                  </TouchableOpacity>
-                  
-                  <Text style={[styles.modalTitle, { color: workoutLogPalette.text }]}>
-                    {selectedGymChain ? selectedGymChain : t('select_gym')}
-                  </Text>
-                  
-                  <TouchableOpacity
-                    style={styles.modalClose}
-                    onPress={() => setGymSelectorVisible(false)}
-                  >
-                    <Ionicons name="close" size={24} color={workoutLogPalette.text} />
-                  </TouchableOpacity>
-                </View>
-                
-                {/* Search Bar */}
-                <View style={[
-                  styles.searchContainer,
-                  { 
-                    backgroundColor: palette.input_background,
-                    borderColor: palette.border 
-                  }
-                ]}>
-                  <Ionicons name="search" size={20} color={palette.text_tertiary} style={styles.searchIcon} />
-                  <TextInput
-                    style={[styles.searchInput, { color: workoutLogPalette.text }]}
-                    placeholder={t('search_gyms')}
-                    placeholderTextColor={palette.text_tertiary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                  {searchQuery !== '' && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                      <Ionicons name="close-circle" size={20} color={palette.text_tertiary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {gymsLoading ? (
-                  <View style={styles.loaderContainer}>
-                    <Text style={[styles.loadingText, { color: palette.text_tertiary }]}>
-                      {t('loading_gyms')}
+            <View style={styles.locationButtonContent}>
+              <Ionicons 
+                name={formData.location === 'Home' ? "home-outline" : "fitness-outline"} 
+                size={24} 
+                color={(formData.gym_id || formData.location === 'Home') ? workoutLogPalette.highlight : palette.text_tertiary} 
+              />
+              
+              <View style={styles.locationTextContainer}>
+                {formData.gym_id && formData.gym_name ? (
+                  <>
+                    <Text style={[styles.locationMainText, { color: workoutLogPalette.text }]}>
+                      {formData.gym_name}
                     </Text>
-                  </View>
+                    <Text style={[styles.locationSubText, { color: palette.text_secondary }]}>
+                      {formData.location}
+                    </Text>
+                  </>
+                ) : formData.location === 'Home' ? (
+                  <>
+                    <Text style={[styles.locationMainText, { color: workoutLogPalette.text }]}>
+                      {t('at_home')}
+                    </Text>
+                    <Text style={[styles.locationSubText, { color: palette.text_secondary }]}>
+                      {t('workout_at_home_or_anywhere')}
+                    </Text>
+                  </>
                 ) : (
                   <>
-                    {/* Show gym chains or locations based on selection state */}
-                    {!selectedGymChain ? (
-                      // Show list of gym chains (names)
-                      <>
-                        {filteredGyms.length === 0 ? (
-                          <View style={styles.noResultsContainer}>
-                            <Text style={[styles.noResultsText, { color: palette.text_tertiary }]}>
-                              {t('no_gyms_found')}
-                            </Text>
-                          </View>
-                        ) : (
-                          <>
-                            {searchQuery === '' ? (
-                              // Show categorized gym chains if no search
-                              <FlatList
-                                data={gymChains}
-                                keyExtractor={(item) => item}
-                                renderItem={({ item }) => (
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.gymChainItem,
-                                      { 
-                                        backgroundColor: palette.card_background,
-                                        borderColor: palette.border 
-                                      }
-                                    ]}
-                                    onPress={() => setSelectedGymChain(item)}
-                                  >
-                                    <View style={styles.gymChainInfo}>
-                                      <Text style={[styles.gymChainName, { color: workoutLogPalette.text }]}>
-                                        {item}
-                                      </Text>
-                                      <Text style={[styles.gymChainCount, { color: palette.text_secondary }]}>
-                                        {gyms.filter(gym => gym.name === item).length} {t('locations')}
-                                      </Text>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={20} color={palette.text_tertiary} />
-                                  </TouchableOpacity>
-                                )}
-                                contentContainerStyle={styles.gymList}
-                              />
-                            ) : (
-                              // Show search results
-                              <FlatList
-                                data={filteredGyms}
-                                keyExtractor={(item) => item.id.toString()}
-                                renderItem={({ item }) => (
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.gymItem,
-                                      { 
-                                        backgroundColor: palette.card_background,
-                                        borderColor: palette.border 
-                                      }
-                                    ]}
-                                    onPress={() => handleGymSelection(item)}
-                                  >
-                                    <View style={styles.gymInfo}>
-                                      <Text style={[styles.gymName, { color: workoutLogPalette.text }]}>
-                                        {item.name}
-                                      </Text>
-                                      <Text style={[styles.gymAddress, { color: palette.text_secondary }]}>
-                                        {item.location}
-                                      </Text>
-                                    </View>
-                                    {formData.gym_id === item.id && (
-                                      <Ionicons name="checkmark-circle" size={24} color={workoutLogPalette.highlight} />
-                                    )}
-                                  </TouchableOpacity>
-                                )}
-                                contentContainerStyle={styles.gymList}
-                              />
-                            )}
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      // Show locations for selected gym chain
-                      <>
-                        {filteredGyms.length === 0 ? (
-                          <View style={styles.noResultsContainer}>
-                            <Text style={[styles.noResultsText, { color: palette.text_tertiary }]}>
-                              {t('no_locations_found')}
-                            </Text>
-                          </View>
-                        ) : (
-                          <FlatList
-                            data={filteredGyms}
-                            keyExtractor={(item) => item.id.toString()}
-                            renderItem={({ item }) => (
-                              <TouchableOpacity
-                                style={[
-                                  styles.gymItem,
-                                  { 
-                                    backgroundColor: palette.card_background,
-                                    borderColor: palette.border 
-                                  }
-                                ]}
-                                onPress={() => handleGymSelection(item)}
-                              >
-                                <View style={styles.gymInfo}>
-                                  <Text style={[styles.gymAddress, { color: palette.text_secondary }]}>
-                                    {item.location}
-                                  </Text>
-                                </View>
-                                {formData.gym_id === item.id && (
-                                  <Ionicons name="checkmark-circle" size={24} color={workoutLogPalette.highlight} />
-                                )}
-                              </TouchableOpacity>
-                            )}
-                            contentContainerStyle={styles.gymList}
-                          />
-                        )}
-                      </>
+                    <Text style={[styles.locationMainText, { color: palette.text_secondary }]}>
+                      {t('select_location')}
+                    </Text>
+                    {preferredGym && (
+                      <Text style={[styles.locationSubText, { color: palette.text_tertiary }]}>
+                        {t('preferred')}: {preferredGym.name}
+                      </Text>
                     )}
                   </>
                 )}
-                
-                {/* Bottom button for home option */}
-                <TouchableOpacity
-                  style={[
-                    styles.customLocationOption,
-                    { backgroundColor: workoutLogPalette.highlight }
-                  ]}
-                  onPress={() => {
-                    handleHomeSelection();
-                    setGymSelectorVisible(false);
-                  }}
-                >
-                  <Ionicons name="home-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.customLocationOptionText}>
-                    {t('workout_at_home')}
-                  </Text>
-                </TouchableOpacity>
               </View>
+              
+              <Ionicons name="chevron-forward" size={20} color={palette.text_tertiary} />
             </View>
-          </KeyboardAvoidingView>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Gym Selection Modal */}
+        <GymSelectionModal
+          visible={gymSelectorVisible}
+          onClose={() => setGymSelectorVisible(false)}
+          onSelectGym={handleGymSelection}
+          selectedGym={selectedGym}
+        />
+        
+        {/* Duration Selection Modal */}
+        <Modal
+          visible={showDurationPicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDurationPicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.durationModalContent, { backgroundColor: palette.page_background }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: palette.border }]}>
+                <TouchableOpacity
+                  style={styles.modalClose}
+                  onPress={() => setShowDurationPicker(false)}
+                >
+                  <Ionicons name="close" size={24} color={workoutLogPalette.text} />
+                </TouchableOpacity>
+                
+                <Text style={[styles.modalTitle, { color: workoutLogPalette.text }]}>
+                  {t('select_duration')}
+                </Text>
+                
+                <View style={styles.modalClose} />
+              </View>
+              
+              <FlatList
+                data={durationOptions}
+                keyExtractor={(item) => item.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.durationOption,
+                      { 
+                        backgroundColor: palette.card_background,
+                        borderBottomColor: palette.border 
+                      },
+                      formData.duration_minutes === item && { backgroundColor: `${workoutLogPalette.highlight}15` }
+                    ]}
+                    onPress={() => handleDurationChange(item)}
+                  >
+                    <Text style={[
+                      styles.durationOptionText,
+                      { color: formData.duration_minutes === item ? workoutLogPalette.highlight : workoutLogPalette.text }
+                    ]}>
+                      {formatDuration(item)}
+                    </Text>
+                    {formData.duration_minutes === item && (
+                      <Ionicons name="checkmark" size={20} color={workoutLogPalette.highlight} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.durationList}
+              />
+            </View>
+          </View>
         </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -698,19 +395,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingVertical: 16,
   },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
   card: {
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-  },
-  halfCard: {
-    width: '48%',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -721,10 +410,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
-  },
-  durationIndicator: {
-    fontSize: 14,
-    fontWeight: '400',
   },
   dateTimeButton: {
     flexDirection: 'row',
@@ -742,74 +427,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  // Duration Gauge Styles
-  durationGauge: {
-    height: 16,
-    borderRadius: 8,
-    overflow: 'visible',
-    marginVertical: 20,
-    position: 'relative',
-  },
-  durationFill: {
-    height: '100%',
-    borderRadius: 8,
-  },
-  durationTicks: {
-    position: 'absolute',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 0,
-    bottom: -20,
-  },
-  durationTick: {
-    alignItems: 'center',
-  },
-  durationTickText: {
-    fontSize: 12,
-  },
   // Location Styles
-  locationOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  locationOption: {
-    width: '48%',
+  locationButton: {
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
     borderWidth: 1,
-    minHeight: 120,
-    justifyContent: 'center',
   },
-  locationOptionText: {
+  locationButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  locationMainText: {
     fontSize: 16,
     fontWeight: '600',
-    marginTop: 8,
   },
-  selectedGymInfo: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  selectedGymName: {
+  locationSubText: {
     fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  selectedGymLocation: {
-    fontSize: 12,
     marginTop: 4,
-    textAlign: 'center',
-  },
-  preferredGymText: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  preferredGymLocation: {
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
   },
   // Modal Styles
   modalOverlay: {
@@ -817,21 +455,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: '80%',
-  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-  },
-  modalBackButton: {
-    padding: 8,
-    borderRadius: 16,
   },
   modalTitle: {
     fontSize: 18,
@@ -842,102 +471,26 @@ const styles = StyleSheet.create({
   modalClose: {
     padding: 8,
   },
-  // Search Styles
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    margin: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
+  // Duration Modal Styles
+  durationModalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '60%',
   },
-  searchIcon: {
-    marginRight: 8,
+  durationList: {
+    paddingBottom: 20,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    padding: 0,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    fontSize: 16,
-  },
-  noResultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  noResultsText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  // Gym List Styles
-  gymList: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  gymChainItem: {
+  durationOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
   },
-  gymChainInfo: {
-    flex: 1,
-  },
-  gymChainName: {
+  durationOptionText: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  gymChainCount: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  gymItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-  },
-  gymInfo: {
-    flex: 1,
-  },
-  gymName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  gymAddress: {
-    fontSize: 14,
-  },
-  customLocationOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    margin: 16,
-    marginTop: 'auto',
-  },
-  customLocationOptionText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
-    marginLeft: 8,
+    fontWeight: '500',
   },
 });
 

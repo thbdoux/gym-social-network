@@ -32,8 +32,8 @@ export default function AppLayout() {
           contentStyle: {
             backgroundColor: palette.page_background,
           },
-          animation: 'slide_from_right',
-          animationDuration: 200,
+          animation: 'fade',
+          animationDuration: 100,
         }}
       />
       

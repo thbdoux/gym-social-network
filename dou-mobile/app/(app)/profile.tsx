@@ -42,6 +42,7 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function ProfileScreen() {
   const { user } = useAuth();
+  console.log(user)
   const { t } = useLanguage();
   const router = useRouter();
   const logout = useLogout();
@@ -49,7 +50,6 @@ export default function ProfileScreen() {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  console.log(user)
   // Use the theme context
   const { palette, personality } = useTheme();
   const styles = themedStyles(palette);
@@ -60,7 +60,6 @@ export default function ProfileScreen() {
     refetch: refetchProfile,
     error: profileError
   } = useCurrentUser();
-  
   // Get logs for workout data
   const { data: logs, isLoading: logsLoading } = useUserLogs(user?.username);
 

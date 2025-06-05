@@ -1,4 +1,4 @@
-// components/wizard/steps/Step2FitnessType.tsx
+// components/wizard/steps/Step2FitnessType.tsx - Simplified clean version
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,7 +12,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../../context/LanguageContext';
 
-// Define a type for the score
 type ScoreType = {
   optimizer: number;
   diplomate: number;
@@ -20,8 +19,7 @@ type ScoreType = {
   versatile: number;
 };
 
-// Define a type for the activity card
-type ActivityCardType = {
+type ActivityType = {
   id: string;
   icon: string;
   name: string;
@@ -30,30 +28,32 @@ type ActivityCardType = {
 };
 
 interface Step2FitnessTypeProps {
-  onComplete: (data: ScoreType) => void;
+  onComplete: (data: ScoreType & { responses: any }) => void;
   initialScores?: ScoreType;
 }
 
 const Step2FitnessType: React.FC<Step2FitnessTypeProps> = ({ onComplete, initialScores }) => {
   const { t } = useLanguage();
   const [animation] = useState(new Animated.Value(0));
+  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState<'all' | 'sports' | 'lifestyle'>('all');
   
-  // Available activity cards
-  const [availableCards, setAvailableCards] = useState<ActivityCardType[]>([
-    // Sports activities
+  // Clean activity list - rebalanced scores without spoilers
+  const activities: ActivityType[] = [
+    // Sports
     { 
       id: 'gym_rat', 
       icon: 'barbell',
       name: 'fitness_type_gym_rat',
       category: 'sports',
-      score: { optimizer: 3, diplomate: 1, mentor: 1, versatile: 1 }
+      score: { optimizer: 2, diplomate: 1, mentor: 1, versatile: 1 }
     },
     { 
       id: 'mountain_climber', 
       icon: 'trail-sign',
       name: 'fitness_type_mountain_climber',
       category: 'sports',
-      score: { optimizer: 1, diplomate: 1, mentor: 0, versatile: 3 }
+      score: { optimizer: 1, diplomate: 1, mentor: 1, versatile: 3 }
     },
     { 
       id: 'footballer', 
@@ -67,69 +67,87 @@ const Step2FitnessType: React.FC<Step2FitnessTypeProps> = ({ onComplete, initial
       icon: 'bicycle',
       name: 'fitness_type_cyclist',
       category: 'sports',
-      score: { optimizer: 3, diplomate: 0, mentor: 1, versatile: 1 }
+      score: { optimizer: 2, diplomate: 1, mentor: 1, versatile: 2 }
     },
     { 
       id: 'swimmer', 
       icon: 'water',
       name: 'fitness_type_swimmer',
       category: 'sports',
-      score: { optimizer: 2, diplomate: 0, mentor: 1, versatile: 2 }
+      score: { optimizer: 2, diplomate: 1, mentor: 1, versatile: 2 }
     },
     { 
       id: 'yoga_enthusiast', 
       icon: 'body',
       name: 'fitness_type_yoga',
       category: 'sports',
-      score: { optimizer: 1, diplomate: 2, mentor: 3, versatile: 1 }
+      score: { optimizer: 1, diplomate: 2, mentor: 3, versatile: 2 }
     },
     { 
       id: 'runner', 
       icon: 'walk',
       name: 'fitness_type_runner',
       category: 'sports',
-      score: { optimizer: 3, diplomate: 0, mentor: 1, versatile: 1 }
+      score: { optimizer: 2, diplomate: 1, mentor: 1, versatile: 2 }
     },
     { 
       id: 'dancer', 
       icon: 'musical-notes',
       name: 'fitness_type_dancer',
       category: 'sports',
-      score: { optimizer: 2, diplomate: 2, mentor: 1, versatile: 2 }
+      score: { optimizer: 1, diplomate: 2, mentor: 2, versatile: 3 }
     },
-    // Non-sportive activities
+    { 
+      id: 'team_coach', 
+      icon: 'people',
+      name: 'fitness_type_team_coach',
+      category: 'sports',
+      score: { optimizer: 1, diplomate: 2, mentor: 3, versatile: 1 }
+    },
+    { 
+      id: 'adventure_sports', 
+      icon: 'airplane',
+      name: 'fitness_type_adventure_sports',
+      category: 'sports',
+      score: { optimizer: 1, diplomate: 1, mentor: 1, versatile: 3 }
+    },
+    // Lifestyle
     { 
       id: 'couch_potato', 
       icon: 'tv',
       name: 'fitness_type_couch_potato',
       category: 'lifestyle',
-      score: { optimizer: 0, diplomate: 2, mentor: 0, versatile: 1 }
+      score: { optimizer: 0, diplomate: 2, mentor: 1, versatile: 1 }
     },
     { 
       id: 'gamer', 
       icon: 'game-controller',
       name: 'fitness_type_gamer',
       category: 'lifestyle',
-      score: { optimizer: 1, diplomate: 1, mentor: 0, versatile: 1 }
+      score: { optimizer: 1, diplomate: 1, mentor: 1, versatile: 1 }
     },
     { 
       id: 'cook', 
       icon: 'restaurant',
       name: 'fitness_type_cook',
       category: 'lifestyle',
-      score: { optimizer: 1, diplomate: 2, mentor: 2, versatile: 1 }
+      score: { optimizer: 1, diplomate: 2, mentor: 2, versatile: 2 }
     },
     { 
       id: 'reader', 
       icon: 'book',
       name: 'fitness_type_reader',
       category: 'lifestyle',
-      score: { optimizer: 0, diplomate: 1, mentor: 3, versatile: 0 }
+      score: { optimizer: 1, diplomate: 1, mentor: 3, versatile: 1 }
     },
-  ]);
-  
-  const [selectedCards, setSelectedCards] = useState<ActivityCardType[]>([]);
-  const [activeCategory, setActiveCategory] = useState<'all' | 'sports' | 'lifestyle'>('all');
+    { 
+      id: 'outdoor_explorer', 
+      icon: 'compass',
+      name: 'fitness_type_outdoor_explorer',
+      category: 'lifestyle',
+      score: { optimizer: 1, diplomate: 1, mentor: 1, versatile: 3 }
+    },
+  ];
   
   // Animation when component mounts
   useEffect(() => {
@@ -141,57 +159,22 @@ const Step2FitnessType: React.FC<Step2FitnessTypeProps> = ({ onComplete, initial
     }).start();
   }, []);
   
-  // Select a card and add it to selected cards
-  const handleSelectCard = (card: ActivityCardType) => {
-    // Don't add if we already have 4 cards
-    if (selectedCards.length >= 4) return;
-    
-    // Add the card to selected cards
-    setSelectedCards(prev => [...prev, card]);
-    
-    // Remove the card from available cards
-    setAvailableCards(prev => prev.filter(c => c.id !== card.id));
-  };
-  
-  // Remove a card from selection and add it back to available cards
-  const handleRemoveCard = (cardId: string) => {
-    // Find the card
-    const card = selectedCards.find(c => c.id === cardId);
-    
-    if (card) {
-      // Add it back to available cards
-      setAvailableCards(prev => [...prev, card]);
-      
-      // Remove it from selected cards
-      setSelectedCards(prev => prev.filter(c => c.id !== cardId));
-    }
-  };
-  
-  // Move a card up in the ranking
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    
-    setSelectedCards(prev => {
-      const newCards = [...prev];
-      [newCards[index], newCards[index - 1]] = [newCards[index - 1], newCards[index]];
-      return newCards;
-    });
-  };
-  
-  // Move a card down in the ranking
-  const handleMoveDown = (index: number) => {
-    if (index === selectedCards.length - 1) return;
-    
-    setSelectedCards(prev => {
-      const newCards = [...prev];
-      [newCards[index], newCards[index + 1]] = [newCards[index + 1], newCards[index]];
-      return newCards;
+  const toggleActivity = (activityId: string) => {
+    setSelectedActivities(prev => {
+      if (prev.includes(activityId)) {
+        return prev.filter(id => id !== activityId);
+      } else {
+        // Allow maximum 4 selections
+        if (prev.length >= 4) {
+          return prev;
+        }
+        return [...prev, activityId];
+      }
     });
   };
   
   const handleContinue = () => {
-    // Calculate scores based on ranking
-    // First place (index 0) gets highest weight, last place gets lowest
+    // Calculate scores based on selected activities
     const calculatedScores: ScoreType = {
       optimizer: 0,
       diplomate: 0,
@@ -199,205 +182,140 @@ const Step2FitnessType: React.FC<Step2FitnessTypeProps> = ({ onComplete, initial
       versatile: 0
     };
     
-    // Weight by position (first choice worth more than last)
-    const weights = [5, 3, 2, 1]; // Emphasize top choices more
+    // Store user responses (simplified)
+    const responses = {
+      selected_activities: selectedActivities,
+      total_selections: selectedActivities.length,
+    };
     
-    selectedCards.forEach((card, index) => {
-      const weight = weights[index] || 1; // Fallback to weight 1 if we have more than 4 cards somehow
-      Object.keys(card.score).forEach(key => {
-        calculatedScores[key as keyof ScoreType] += card.score[key as keyof ScoreType] * weight;
-      });
+    selectedActivities.forEach(activityId => {
+      const activity = activities.find(a => a.id === activityId);
+      if (activity) {
+        Object.keys(calculatedScores).forEach(key => {
+          calculatedScores[key as keyof ScoreType] += activity.score[key as keyof ScoreType];
+        });
+      }
     });
     
-    // If "versatile" is overpowered, reduce its score by 15-25%
-    const averageScore = (calculatedScores.optimizer + calculatedScores.diplomate + calculatedScores.mentor) / 3;
-    if (calculatedScores.versatile > (averageScore * 1.2)) {
-      calculatedScores.versatile *= 0.8; // Reduce by 20%
-    }
-    
-    onComplete(calculatedScores);
+    onComplete({ ...calculatedScores, responses });
   };
   
-  // Filter available cards by category
-  const filteredAvailableCards = activeCategory === 'all' 
-    ? availableCards
-    : availableCards.filter(card => card.category === activeCategory);
-  
-  // Calculated animated values
-  const fadeIn = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1]
-  });
-  
-  const translateY = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0]
-  });
+  // Filter activities by category
+  const filteredActivities = activeCategory === 'all' 
+    ? activities
+    : activities.filter(activity => activity.category === activeCategory);
   
   return (
     <Animated.View 
       style={[
         styles.container,
         {
-          opacity: fadeIn,
-          transform: [{ translateY }]
+          opacity: animation,
+          transform: [
+            {
+              translateY: animation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [30, 0]
+              })
+            }
+          ]
         }
       ]}
     >
       <Text style={styles.title}>{t('fitness_type_title')}</Text>
-      <Text style={styles.subtitle}>{t('fitness_type_subtitle_new')}</Text>
+      <Text style={styles.subtitle}>
+        {t('fitness_type_subtitle_simple') || 'Choose your top 4 favorite activities'}
+      </Text>
       
-      {/* Category filter buttons */}
+      {/* Simple category filter */}
       <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            activeCategory === 'all' && styles.activeFilterButton
-          ]}
-          onPress={() => setActiveCategory('all')}
-        >
-          <Text style={[
-            styles.filterButtonText,
-            activeCategory === 'all' && styles.activeFilterText
-          ]}>
-            {t('all_activities')}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            activeCategory === 'sports' && styles.activeFilterButtonSports
-          ]}
-          onPress={() => setActiveCategory('sports')}
-        >
-          <Text style={[
-            styles.filterButtonText,
-            activeCategory === 'sports' && styles.activeFilterText
-          ]}>
-            {t('sports_activities')}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            activeCategory === 'lifestyle' && styles.activeFilterButtonLifestyle
-          ]}
-          onPress={() => setActiveCategory('lifestyle')}
-        >
-          <Text style={[
-            styles.filterButtonText,
-            activeCategory === 'lifestyle' && styles.activeFilterText
-          ]}>
-            {t('lifestyle_activities')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
-      {/* Selected cards section - only show if we have selections */}
-      {selectedCards.length > 0 && (
-        <View style={styles.selectedCardsContainer}>
-          <Text style={styles.sectionTitle}>
-            {t('your_selections')} ({selectedCards.length}/4):
-          </Text>
-          
-          {selectedCards.map((card, index) => (
-            <View key={card.id} style={styles.selectedCard}>
-              <View style={styles.selectedCardRank}>
-                <Text style={styles.rankText}>{index + 1}</Text>
-              </View>
-              
-              <View style={styles.selectedCardIcon}>
-                <Ionicons name={card.icon as any} size={16} color="#FFFFFF" />
-              </View>
-              
-              <Text style={styles.selectedCardText}>{t(card.name)}</Text>
-              
-              <View style={styles.actionButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    index === 0 && styles.disabledButton
-                  ]}
-                  onPress={() => handleMoveUp(index)}
-                  disabled={index === 0}
-                >
-                  <Ionicons 
-                    name="chevron-up" 
-                    size={16} 
-                    color={index === 0 ? "#4B5563" : "#9CA3AF"} 
-                  />
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    index === selectedCards.length - 1 && styles.disabledButton
-                  ]}
-                  onPress={() => handleMoveDown(index)}
-                  disabled={index === selectedCards.length - 1}
-                >
-                  <Ionicons 
-                    name="chevron-down" 
-                    size={16} 
-                    color={index === selectedCards.length - 1 ? "#4B5563" : "#9CA3AF"} 
-                  />
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.removeButton]}
-                  onPress={() => handleRemoveCard(card.id)}
-                >
-                  <Ionicons name="close" size={16} color="#F87171" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <ScrollView 
-        style={styles.availableCardsScrollView}
-        contentContainerStyle={styles.availableCardsContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredAvailableCards.map((card) => (
+        {[
+          { key: 'all', label: t('all_activities') || 'All' },
+          { key: 'sports', label: t('sports_activities') || 'Sports' },
+          { key: 'lifestyle', label: t('lifestyle_activities') || 'Lifestyle' }
+        ].map(filter => (
           <TouchableOpacity
-            key={card.id}
+            key={filter.key}
             style={[
-              styles.availableCard,
-              selectedCards.length >= 4 && styles.disabledCard
+              styles.filterButton,
+              activeCategory === filter.key && styles.activeFilterButton
             ]}
-            onPress={() => handleSelectCard(card)}
-            disabled={selectedCards.length >= 4}
+            onPress={() => setActiveCategory(filter.key as any)}
           >
-            <View style={styles.availableCardIcon}>
-              <Ionicons name={card.icon as any} size={18} color="#FFFFFF" />
-            </View>
-            <Text style={styles.availableCardText}>{t(card.name)}</Text>
+            <Text style={[
+              styles.filterText,
+              activeCategory === filter.key && styles.activeFilterText
+            ]}>
+              {filter.label}
+            </Text>
           </TouchableOpacity>
         ))}
+      </View>
+      
+      {/* Activity selection */}
+      <ScrollView 
+        style={styles.activitiesScrollView}
+        contentContainerStyle={styles.activitiesContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {filteredActivities.map((activity, index) => {
+          const isSelected = selectedActivities.includes(activity.id);
+          const isDisabled = !isSelected && selectedActivities.length >= 4;
+          
+          return (
+            <TouchableOpacity
+              key={activity.id}
+              style={[
+                styles.activityCard,
+                isSelected && styles.selectedCard,
+                isDisabled && styles.disabledCard
+              ]}
+              onPress={() => toggleActivity(activity.id)}
+              disabled={isDisabled}
+              activeOpacity={0.8}
+            >
+              <View style={[
+                styles.activityIcon,
+                isSelected && styles.selectedIcon
+              ]}>
+                <Ionicons 
+                  name={activity.icon as any} 
+                  size={20} 
+                  color={isSelected ? "#FFFFFF" : "#9CA3AF"} 
+                />
+              </View>
+              
+              <Text style={[
+                styles.activityText,
+                isSelected && styles.selectedText
+              ]}>
+                {t(activity.name)}
+              </Text>
+              
+              {isSelected && (
+                <View style={styles.checkmark}>
+                  <Ionicons name="checkmark" size={16} color="#10B981" />
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
       
-      {/* Info message */}
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>
-          {selectedCards.length === 0 
-            ? t('please_select_activities')
-            : selectedCards.length < 4
-              ? t('can_select_more', { remaining: 4 - selectedCards.length })
-              : t('max_selections_reached')}
+      {/* Selection counter */}
+      <View style={styles.selectionCounter}>
+        <Text style={styles.counterText}>
+          {selectedActivities.length}/4 {t('selected') || 'selected'}
         </Text>
       </View>
       
       <TouchableOpacity
         style={[
           styles.continueButton,
-          selectedCards.length === 0 && styles.disabledContinueButton
+          selectedActivities.length === 0 && styles.disabledButton
         ]}
         onPress={handleContinue}
-        disabled={selectedCards.length === 0}
+        disabled={selectedActivities.length === 0}
         activeOpacity={0.8}
       >
         <Text style={styles.continueButtonText}>{t('continue')}</Text>
@@ -410,7 +328,7 @@ const Step2FitnessType: React.FC<Step2FitnessTypeProps> = ({ onComplete, initial
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 10,
+    paddingTop: 20,
   },
   title: {
     fontSize: 20,
@@ -423,144 +341,101 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    gap: 8,
   },
   filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(31, 41, 55, 0.7)',
-    marginHorizontal: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(31, 41, 55, 0.6)',
   },
   activeFilterButton: {
     backgroundColor: '#3B82F6',
   },
-  activeFilterButtonSports: {
-    backgroundColor: '#10B981',
-  },
-  activeFilterButtonLifestyle: {
-    backgroundColor: '#8B5CF6',
-  },
-  filterButtonText: {
+  filterText: {
     color: '#9CA3AF',
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
   activeFilterText: {
     color: '#FFFFFF',
-    fontWeight: '500',
   },
-  selectedCardsContainer: {
+  activitiesScrollView: {
+    flex: 1,
     marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'white',
-    marginBottom: 8,
-  },
-  selectedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
-  selectedCardRank: {
-    width: 24,
-    alignItems: 'center',
-  },
-  rankText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  selectedCardIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  selectedCardText: {
-    flex: 1,
-    color: 'white',
-    fontSize: 14,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 2,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  removeButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  availableCardsScrollView: {
-    maxHeight: 320,
-  },
-  availableCardsContainer: {
+  activitiesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingBottom: 8,
+    paddingBottom: 20,
   },
-  availableCard: {
+  activityCard: {
+    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(31, 41, 55, 0.4)',
     borderWidth: 1,
     borderColor: 'rgba(75, 85, 99, 0.3)',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-    width: '48%',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    position: 'relative',
+  },
+  selectedCard: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: 'rgba(59, 130, 246, 0.4)',
+    transform: [{ scale: 1.02 }],
   },
   disabledCard: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
-  availableCardIcon: {
+  activityIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: 'rgba(75, 85, 99, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 10,
   },
-  availableCardText: {
+  selectedIcon: {
+    backgroundColor: 'rgba(59, 130, 246, 0.6)',
+  },
+  activityText: {
     flex: 1,
-    color: 'white',
-    fontSize: 12,
+    color: '#D1D5DB',
+    fontSize: 13,
+    fontWeight: '500',
   },
-  infoContainer: {
-    backgroundColor: 'rgba(31, 41, 55, 0.6)',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+  selectedText: {
+    color: '#FFFFFF',
+  },
+  checkmark: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginVertical: 12,
+    justifyContent: 'center',
   },
-  infoText: {
+  selectionCounter: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  counterText: {
     color: '#9CA3AF',
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: '500',
   },
   continueButton: {
     flexDirection: 'row',
@@ -571,7 +446,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     marginTop: 'auto',
   },
-  disabledContinueButton: {
+  disabledButton: {
     backgroundColor: 'rgba(75, 85, 99, 0.5)',
   },
   continueButtonText: {

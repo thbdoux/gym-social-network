@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import { 
   EXERCISE_CATEGORIES, 
   EQUIPMENT_TYPES,
@@ -35,7 +36,7 @@ import {
 type ExerciseSelectorProps = {
   visible: boolean;
   onClose: () => void;
-  onSelectExercise: (exerciseName: string) => void;
+  onSelectExercise: (exercise: any) => void; // Updated to pass full exercise object
   recentExercises?: string[]; // Array of recently used exercise IDs
 };
 
@@ -46,6 +47,7 @@ const ExerciseSelector = ({
   recentExercises = []
 }: ExerciseSelectorProps) => {
   const { t, language } = useLanguage();
+  const { workoutPalette, palette } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -57,11 +59,25 @@ const ExerciseSelector = ({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<('beginner' | 'intermediate' | 'advanced')[]>([]);
+  const [selectedEffortTypes, setSelectedEffortTypes] = useState<('reps' | 'time' | 'distance')[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   
-  // Handle exercise selection
+  // Handle exercise selection - now passes full exercise object
   const handleSelectExercise = useCallback((exercise: any) => {
-    onSelectExercise(exercise.name || exercise);
+    // Create a complete exercise object with all necessary properties
+    const completeExercise = {
+      id: exercise.id,
+      name: exercise.name || exercise,
+      effort_type: exercise.effort_type || 'reps',
+      equipment: exercise.equipment || '',
+      notes: exercise.notes || '',
+      muscle_group: exercise.muscle_group || '',
+      secondary_muscles: exercise.secondary_muscles || [],
+      difficulty: exercise.difficulty,
+      favorite: exercise.favorite || false
+    };
+    
+    onSelectExercise(completeExercise);
     onClose();
   }, [onSelectExercise, onClose]);
   
@@ -77,6 +93,7 @@ const ExerciseSelector = ({
     setSelectedCategories([]);
     setSelectedEquipment([]);
     setSelectedDifficulty([]);
+    setSelectedEffortTypes([]);
     setShowFavoritesOnly(false);
     setSearchTerm('');
     setSelectedCategory(null);
@@ -89,7 +106,20 @@ const ExerciseSelector = ({
       return;
     }
     
-    onSelectExercise(searchTerm.trim());
+    // Create a custom exercise object
+    const customExercise = {
+      id: `custom_${Date.now()}`,
+      name: searchTerm.trim(),
+      effort_type: 'reps', // Default to reps for custom exercises
+      equipment: '',
+      notes: '',
+      muscle_group: '',
+      secondary_muscles: [],
+      difficulty: undefined,
+      favorite: false
+    };
+    
+    onSelectExercise(customExercise);
     onClose();
   }, [searchTerm, t, onSelectExercise, onClose]);
   
@@ -133,6 +163,15 @@ const ExerciseSelector = ({
         : [...prev, difficulty]
     );
   }, []);
+
+  // Toggle effort type selection
+  const toggleEffortType = useCallback((effortType: 'reps' | 'time' | 'distance') => {
+    setSelectedEffortTypes(prev => 
+      prev.includes(effortType)
+        ? prev.filter(t => t !== effortType)
+        : [...prev, effortType]
+    );
+  }, []);
   
   // Filtered exercises based on all criteria
   const filteredExercises = useMemo(() => {
@@ -150,7 +189,7 @@ const ExerciseSelector = ({
     else {
       // Apply additional filters if they exist
       if (selectedCategories.length > 0 || selectedEquipment.length > 0 || 
-          selectedDifficulty.length > 0 || showFavoritesOnly) {
+          selectedDifficulty.length > 0 || selectedEffortTypes.length > 0 || showFavoritesOnly) {
             
         const criteria: FilterCriteria = {
           categoryIds: selectedCategories.length > 0 ? selectedCategories : undefined,
@@ -165,6 +204,13 @@ const ExerciseSelector = ({
         // If no filters, show all exercises
         results = getAllExercises();
       }
+    }
+
+    // Apply effort type filter
+    if (selectedEffortTypes.length > 0) {
+      results = results.filter(exercise => 
+        exercise.effort_type ? selectedEffortTypes.includes(exercise.effort_type) : false
+      );
     }
     
     // Map the results to include display names and additional info
@@ -185,10 +231,12 @@ const ExerciseSelector = ({
         secondary_muscles: getSecondaryMuscleNames(exercise, language),
         secondaryMuscleKeys: exercise.secondaryMuscleKeys,
         difficulty: exercise.difficulty,
+        effort_type: exercise.effort_type || 'reps',
         favorite: exercise.favorite || false,
         category: category?.id || '',
         categoryName: category ? t(category.displayNameKey) : '',
         iconName: category?.iconName || 'fitness-outline',
+        notes: exercise.notes || ''
       };
     });
     
@@ -219,6 +267,7 @@ const ExerciseSelector = ({
     selectedCategories, 
     selectedEquipment, 
     selectedDifficulty, 
+    selectedEffortTypes,
     showFavoritesOnly,
     language,
     t,
@@ -239,9 +288,23 @@ const ExerciseSelector = ({
     selectedCategories, 
     selectedEquipment, 
     selectedDifficulty, 
+    selectedEffortTypes,
     showFavoritesOnly,
     language
   ]);
+
+  // Get effort type display info
+  const getEffortTypeInfo = (effortType: 'reps' | 'time' | 'distance') => {
+    switch (effortType) {
+      case 'time':
+        return { icon: 'time-outline', color: '#10B981', label: t('time') };
+      case 'distance':
+        return { icon: 'location-outline', color: '#3B82F6', label: t('distance') };
+      case 'reps':
+      default:
+        return { icon: 'repeat-outline', color: '#F59E0B', label: t('reps') };
+    }
+  };
   
   // Display difficulty badge with color
   const renderDifficultyBadge = (difficulty?: 'beginner' | 'intermediate' | 'advanced') => {
@@ -262,13 +325,30 @@ const ExerciseSelector = ({
     );
   };
 
+  // Render effort type badge
+  const renderEffortTypeBadge = (effortType: 'reps' | 'time' | 'distance') => {
+    const effortInfo = getEffortTypeInfo(effortType);
+    
+    return (
+      <View style={[
+        styles.exerciseTag, 
+        { backgroundColor: `${effortInfo.color}30` }
+      ]}>
+        <Ionicons name={effortInfo.icon as any} size={12} color={effortInfo.color} />
+        <Text style={[styles.exerciseTagText, { color: effortInfo.color, marginLeft: 4 }]}>
+          {effortInfo.label}
+        </Text>
+      </View>
+    );
+  };
+
   // Render secondary muscles tags
   const renderSecondaryMuscles = (secondaryMuscles: string[]) => {
     if (!secondaryMuscles || secondaryMuscles.length === 0) return null;
     
     return (
       <View style={styles.secondaryMusclesContainer}>
-        <Text style={styles.secondaryMusclesLabel}>{t('secondary')}:</Text>
+        <Text style={[styles.secondaryMusclesLabel, { color: palette.text_tertiary }]}>{t('secondary')}:</Text>
         <View style={styles.secondaryMusclesList}>
           {secondaryMuscles.slice(0, 3).map((muscle, index) => (
             <View key={index} style={styles.secondaryMuscleTag}>
@@ -287,20 +367,23 @@ const ExerciseSelector = ({
   
   // List empty component
   const renderEmptyList = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="barbell-outline" size={48} color="#6B7280" />
-      <Text style={styles.emptyStateText}>
+    <View style={[styles.emptyState, { backgroundColor: palette.input_background }]}>
+      <Ionicons name="barbell-outline" size={48} color={palette.text_tertiary} />
+      <Text style={[styles.emptyStateText, { color: palette.text }]}>
         {searchTerm.length > 0 
           ? t('no_matching_exercises') 
           : t('no_exercises_in_category')}
       </Text>
       {searchTerm.length > 0 && (
         <TouchableOpacity
-          style={styles.customExerciseButton}
+          style={[
+            styles.customExerciseButton,
+            { backgroundColor: `${workoutPalette.highlight}10` }
+          ]}
           onPress={handleCreateCustomExercise}
         >
-          <Ionicons name="add" size={16} color="#0ea5e9" />
-          <Text style={styles.customExerciseText}>
+          <Ionicons name="add" size={16} color={workoutPalette.highlight} />
+          <Text style={[styles.customExerciseText, { color: workoutPalette.highlight }]}>
             {t('add_custom_exercise_with_name', { name: searchTerm })}
           </Text>
         </TouchableOpacity>
@@ -313,20 +396,21 @@ const ExerciseSelector = ({
     const totalFilters = selectedCategories.length + 
                          selectedEquipment.length + 
                          selectedDifficulty.length + 
+                         selectedEffortTypes.length +
                          (showFavoritesOnly ? 1 : 0);
                          
     if (totalFilters === 0) return null;
     
     return (
       <View style={styles.activeFiltersContainer}>
-        <Text style={styles.activeFiltersText}>
+        <Text style={[styles.activeFiltersText, { color: palette.text_tertiary }]}>
           {t('active_filters', { count: totalFilters })}
         </Text>
         <TouchableOpacity
           style={styles.clearFiltersButton}
           onPress={resetFilters}
         >
-          <Text style={styles.clearFiltersText}>{t('clear_all')}</Text>
+          <Text style={[styles.clearFiltersText, { color: workoutPalette.highlight }]}>{t('clear_all')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -340,21 +424,27 @@ const ExerciseSelector = ({
       transparent={true}
       onRequestClose={() => setFilterModalVisible(false)}
     >
-      <View style={styles.filterModalContainer}>
-        <View style={styles.filterModalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('filters')}</Text>
+      <View style={[styles.filterModalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.filterModalContent, { backgroundColor: palette.page_background }]}>
+          <View style={[
+            styles.modalHeader,
+            { borderBottomColor: palette.border }
+          ]}>
+            <Text style={[styles.modalTitle, { color: workoutPalette.text }]}>{t('filters')}</Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setFilterModalVisible(false)}
             >
-              <Ionicons name="close" size={20} color="#FFFFFF" />
+              <Ionicons name="close" size={20} color={workoutPalette.text} />
             </TouchableOpacity>
           </View>
           
           <ScrollView style={styles.filterScroll}>
             {/* Categories section */}
-            <Text style={styles.filterSectionTitle}>
+            <Text style={[
+              styles.filterSectionTitle,
+              { color: workoutPalette.text }
+            ]}>
               {t('categories')}
             </Text>
             <View style={styles.filterChipContainer}>
@@ -363,23 +453,28 @@ const ExerciseSelector = ({
                   key={`filter-category-${category.id}`}
                   style={[
                     styles.filterChip,
-                    selectedCategories.includes(category.id)
-                      ? { backgroundColor: '#0ea5e9' }
-                      : { backgroundColor: '#1F2937', borderColor: 'rgba(255, 255, 255, 0.1)' }
+                    { 
+                      backgroundColor: selectedCategories.includes(category.id)
+                        ? workoutPalette.highlight
+                        : palette.input_background,
+                      borderColor: palette.border
+                    }
                   ]}
                   onPress={() => toggleFilterCategory(category.id)}
                 >
                   <Ionicons 
                     name={category.iconName || 'fitness-outline'} 
                     size={16} 
-                    color={selectedCategories.includes(category.id) ? '#FFFFFF' : '#9CA3AF'} 
+                    color={selectedCategories.includes(category.id) ? '#FFFFFF' : palette.text_tertiary} 
                   />
                   <Text
                     style={[
                       styles.filterChipText,
-                      selectedCategories.includes(category.id)
-                        ? { color: '#FFFFFF' }
-                        : { color: '#9CA3AF' }
+                      { 
+                        color: selectedCategories.includes(category.id) 
+                          ? '#FFFFFF' 
+                          : palette.text_tertiary 
+                      }
                     ]}
                   >
                     {t(category.displayNameKey)}
@@ -389,7 +484,10 @@ const ExerciseSelector = ({
             </View>
             
             {/* Equipment section */}
-            <Text style={styles.filterSectionTitle}>
+            <Text style={[
+              styles.filterSectionTitle,
+              { color: workoutPalette.text }
+            ]}>
               {t('equipment')}
             </Text>
             <View style={styles.filterChipContainer}>
@@ -398,23 +496,28 @@ const ExerciseSelector = ({
                   key={`filter-equipment-${equipment.id}`}
                   style={[
                     styles.filterChip,
-                    selectedEquipment.includes(equipment.id)
-                      ? { backgroundColor: '#8B5CF6' }
-                      : { backgroundColor: '#1F2937', borderColor: 'rgba(255, 255, 255, 0.1)' }
+                    { 
+                      backgroundColor: selectedEquipment.includes(equipment.id)
+                        ? '#8B5CF6'
+                        : palette.input_background,
+                      borderColor: palette.border
+                    }
                   ]}
                   onPress={() => toggleEquipment(equipment.id)}
                 >
                   <Ionicons 
                     name={equipment.iconName || 'fitness-outline'} 
                     size={16} 
-                    color={selectedEquipment.includes(equipment.id) ? '#FFFFFF' : '#9CA3AF'} 
+                    color={selectedEquipment.includes(equipment.id) ? '#FFFFFF' : palette.text_tertiary} 
                   />
                   <Text
                     style={[
                       styles.filterChipText,
-                      selectedEquipment.includes(equipment.id)
-                        ? { color: '#FFFFFF' }
-                        : { color: '#9CA3AF' }
+                      { 
+                        color: selectedEquipment.includes(equipment.id) 
+                          ? '#FFFFFF' 
+                          : palette.text_tertiary 
+                      }
                     ]}
                   >
                     {t(equipment.nameKey)}
@@ -423,8 +526,58 @@ const ExerciseSelector = ({
               ))}
             </View>
             
+            {/* Effort Types section */}
+            <Text style={[
+              styles.filterSectionTitle,
+              { color: workoutPalette.text }
+            ]}>
+              {t('effort_types')}
+            </Text>
+            <View style={styles.filterChipContainer}>
+              {[
+                { id: 'reps', nameKey: 'effort_type_reps', icon: 'repeat-outline', color: '#F59E0B' },
+                { id: 'time', nameKey: 'effort_type_time', icon: 'time-outline', color: '#10B981' },
+                { id: 'distance', nameKey: 'effort_type_distance', icon: 'location-outline', color: '#3B82F6' }
+              ].map(effortType => (
+                <TouchableOpacity
+                  key={`filter-effort-${effortType.id}`}
+                  style={[
+                    styles.filterChip,
+                    { 
+                      backgroundColor: selectedEffortTypes.includes(effortType.id as any)
+                        ? effortType.color
+                        : palette.input_background,
+                      borderColor: palette.border
+                    }
+                  ]}
+                  onPress={() => toggleEffortType(effortType.id as any)}
+                >
+                  <Ionicons 
+                    name={effortType.icon as any} 
+                    size={16} 
+                    color={selectedEffortTypes.includes(effortType.id as any) ? '#FFFFFF' : palette.text_tertiary} 
+                  />
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      { 
+                        color: selectedEffortTypes.includes(effortType.id as any)
+                          ? '#FFFFFF' 
+                          : palette.text_tertiary 
+                      }
+                    ]}
+                  >
+                    {t(effortType.nameKey)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
             {/* Difficulty section */}
-            <Text style={styles.filterSectionTitle}>
+            <Text style={[
+              styles.filterSectionTitle,
+              { color: workoutPalette.text }
+            ]}>
               {t('difficulty')}
             </Text>
             <View style={styles.filterChipContainer}>
@@ -433,18 +586,23 @@ const ExerciseSelector = ({
                   key={`filter-difficulty-${difficulty.id}`}
                   style={[
                     styles.filterChip,
-                    selectedDifficulty.includes(difficulty.id as any)
-                      ? { backgroundColor: difficulty.color }
-                      : { backgroundColor: '#1F2937', borderColor: 'rgba(255, 255, 255, 0.1)' }
+                    { 
+                      backgroundColor: selectedDifficulty.includes(difficulty.id as any)
+                        ? difficulty.color
+                        : palette.input_background,
+                      borderColor: palette.border
+                    }
                   ]}
                   onPress={() => toggleDifficulty(difficulty.id as any)}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
-                      selectedDifficulty.includes(difficulty.id as any)
-                        ? { color: '#FFFFFF' }
-                        : { color: '#9CA3AF' }
+                      { 
+                        color: selectedDifficulty.includes(difficulty.id as any)
+                          ? '#FFFFFF' 
+                          : palette.text_tertiary 
+                      }
                     ]}
                   >
                     {t(difficulty.nameKey)}
@@ -457,23 +615,28 @@ const ExerciseSelector = ({
             <TouchableOpacity
               style={[
                 styles.favoritesToggle,
-                showFavoritesOnly
-                  ? { backgroundColor: '#FFD700' }
-                  : { backgroundColor: '#1F2937', borderColor: 'rgba(255, 255, 255, 0.1)' }
+                { 
+                  backgroundColor: showFavoritesOnly
+                    ? '#FFD700'
+                    : palette.input_background,
+                  borderColor: palette.border
+                }
               ]}
               onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
             >
               <Ionicons 
                 name={showFavoritesOnly ? 'star' : 'star-outline'} 
                 size={18} 
-                color={showFavoritesOnly ? '#FFFFFF' : '#9CA3AF'} 
+                color={showFavoritesOnly ? '#FFFFFF' : palette.text_tertiary} 
               />
               <Text
                 style={[
                   styles.favoritesToggleText,
-                  showFavoritesOnly
-                    ? { color: '#FFFFFF' }
-                    : { color: '#9CA3AF' }
+                  { 
+                    color: showFavoritesOnly
+                      ? '#FFFFFF' 
+                      : palette.text_tertiary 
+                  }
                 ]}
               >
                 {t('show_favorites_only')}
@@ -482,17 +645,23 @@ const ExerciseSelector = ({
           </ScrollView>
           
           {/* Filter actions */}
-          <View style={styles.filterActions}>
+          <View style={[
+            styles.filterActions,
+            { borderTopColor: palette.border }
+          ]}>
             <TouchableOpacity
-              style={styles.resetFiltersButton}
+              style={[
+                styles.resetFiltersButton,
+                { backgroundColor: `${palette.error}15` }
+              ]}
               onPress={resetFilters}
             >
-              <Ionicons name="refresh" size={18} color="#EF4444" />
-              <Text style={styles.resetFiltersText}>{t('reset_filters')}</Text>
+              <Ionicons name="refresh" size={18} color={palette.error} />
+              <Text style={[styles.resetFiltersText, { color: palette.error }]}>{t('reset_filters')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.applyFiltersButton}
+              style={[styles.applyFiltersButton, { backgroundColor: workoutPalette.highlight }]}
               onPress={() => setFilterModalVisible(false)}
             >
               <Ionicons name="checkmark" size={18} color="#FFFFFF" />
@@ -511,10 +680,13 @@ const ExerciseSelector = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('select_exercise')}</Text>
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.modalContent, { backgroundColor: palette.page_background }]}>
+          <View style={[
+            styles.modalHeader,
+            { borderBottomColor: palette.border }
+          ]}>
+            <Text style={[styles.modalTitle, { color: workoutPalette.text }]}>{t('select_exercise')}</Text>
             <View style={styles.headerActions}>
               <TouchableOpacity
                 style={styles.headerActionButton}
@@ -523,7 +695,7 @@ const ExerciseSelector = ({
                 <Ionicons 
                   name="options-outline" 
                   size={20} 
-                  color="#FFFFFF" 
+                  color={workoutPalette.text} 
                 />
               </TouchableOpacity>
               
@@ -531,28 +703,31 @@ const ExerciseSelector = ({
                 style={styles.modalCloseButton}
                 onPress={onClose}
               >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color={workoutPalette.text} />
               </TouchableOpacity>
             </View>
           </View>
           
           {/* Search bar */}
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={16} color="#9CA3AF" style={styles.searchIcon} />
+          <View style={[
+            styles.searchContainer,
+            { backgroundColor: palette.input_background }
+          ]}>
+            <Ionicons name="search" size={16} color={palette.text_tertiary} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: workoutPalette.text }]}
               value={searchTerm}
               onChangeText={setSearchTerm}
               placeholder={t('search_exercises')}
-              placeholderTextColor="#9CA3AF"
-              selectionColor="#0ea5e9"
+              placeholderTextColor={palette.text_tertiary}
+              selectionColor={workoutPalette.highlight}
             />
             {searchTerm.length > 0 && (
               <TouchableOpacity
                 style={styles.clearSearchButton}
                 onPress={() => setSearchTerm('')}
               >
-                <Ionicons name="close" size={14} color="#9CA3AF" />
+                <Ionicons name="close" size={14} color={palette.text_tertiary} />
               </TouchableOpacity>
             )}
           </View>
@@ -567,13 +742,15 @@ const ExerciseSelector = ({
             <TouchableOpacity
               style={[
                 styles.categoryTab,
-                selectedCategory === null && styles.categoryTabSelected
+                { backgroundColor: palette.input_background },
+                selectedCategory === null && { backgroundColor: workoutPalette.highlight }
               ]}
               onPress={() => setSelectedCategory(null)}
             >
               <Text style={[
                 styles.categoryTabText,
-                selectedCategory === null && styles.categoryTabTextSelected
+                { color: palette.text },
+                selectedCategory === null && { color: '#FFFFFF' }
               ]}>
                 {t('all')}
               </Text>
@@ -584,13 +761,15 @@ const ExerciseSelector = ({
                 key={category.id}
                 style={[
                   styles.categoryTab,
-                  selectedCategory === category.id && styles.categoryTabSelected
+                  { backgroundColor: palette.input_background },
+                  selectedCategory === category.id && { backgroundColor: workoutPalette.highlight }
                 ]}
                 onPress={() => toggleCategory(category.id)}
               >
                 <Text style={[
                   styles.categoryTabText,
-                  selectedCategory === category.id && styles.categoryTabTextSelected
+                  { color: palette.text },
+                  selectedCategory === category.id && { color: '#FFFFFF' }
                 ]}>
                   {t(category.displayNameKey)}
                 </Text>
@@ -604,7 +783,7 @@ const ExerciseSelector = ({
           {/* Exercise list */}
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#0ea5e9" />
+              <ActivityIndicator size="large" color={workoutPalette.highlight} />
             </View>
           ) : (
             <FlatList
@@ -614,12 +793,15 @@ const ExerciseSelector = ({
               ListEmptyComponent={renderEmptyList}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.exerciseItemCard}
+                  style={[
+                    styles.exerciseItemCard,
+                    { backgroundColor: palette.card_background }
+                  ]}
                   onPress={() => handleSelectExercise(item)}
                 >
                   <View style={styles.exerciseHeader}>
                     <View style={styles.exerciseNameContainer}>
-                      <Text style={styles.exerciseName}>{item.name}</Text>
+                      <Text style={[styles.exerciseName, { color: workoutPalette.text }]}>{item.name}</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.favoriteButton}
@@ -628,7 +810,7 @@ const ExerciseSelector = ({
                       <Ionicons 
                         name={item.favorite ? 'star' : 'star-outline'} 
                         size={20} 
-                        color={item.favorite ? '#FFD700' : '#9CA3AF'} 
+                        color={item.favorite ? '#FFD700' : palette.text_tertiary} 
                       />
                     </TouchableOpacity>
                   </View>
@@ -637,7 +819,7 @@ const ExerciseSelector = ({
                     <View style={styles.exerciseTags}>
                       {item.muscle_group && (
                         <View style={styles.muscleGroupContainer}>
-                          <Text style={styles.muscleGroupLabel}>{t('primary')}:</Text>
+                          <Text style={[styles.muscleGroupLabel, { color: palette.text_tertiary }]}>{t('primary')}:</Text>
                           <Text style={styles.muscleGroupValue}>{item.muscle_group}</Text>
                         </View>
                       )}
@@ -647,12 +829,13 @@ const ExerciseSelector = ({
                       
                       {item.equipment && (
                         <View style={styles.equipmentContainer}>
-                          <Text style={styles.equipmentLabel}>{t('equipment')}:</Text>
-                          <Text style={styles.equipmentValue}>{item.equipment}</Text>
+                          <Text style={[styles.equipmentLabel, { color: palette.text_tertiary }]}>{t('equipment')}:</Text>
+                          <Text style={[styles.equipmentValue, { color: palette.text }]}>{item.equipment}</Text>
                         </View>
                       )}
                       
                       <View style={styles.tagsRow}>
+                        {renderEffortTypeBadge(item.effort_type)}
                         {renderDifficultyBadge(item.difficulty)}
                         
                         {recentExercises.includes(item.id) && (
@@ -671,7 +854,7 @@ const ExerciseSelector = ({
           {/* Custom exercise button */}
           {searchTerm.length > 0 && filteredExercises.length === 0 && (
             <TouchableOpacity
-              style={styles.addButton}
+              style={[styles.addButton, { backgroundColor: workoutPalette.highlight }]}
               onPress={handleCreateCustomExercise}
             >
               <Ionicons name="add" size={20} color="#FFFFFF" />
@@ -691,11 +874,9 @@ const ExerciseSelector = ({
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#111827',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     height: '90%',
@@ -706,7 +887,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
@@ -721,7 +901,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   modalCloseButton: {
     padding: 4,
@@ -731,7 +910,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1F2937',
     borderRadius: 8,
     margin: 16,
     paddingHorizontal: 12,
@@ -742,7 +920,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-    color: '#FFFFFF',
     fontSize: 14,
   },
   clearSearchButton: {
@@ -762,23 +939,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#1F2937',
     marginRight: 8,
     height: 36,
     justifyContent: 'center',
   },
-  categoryTabSelected: {
-    backgroundColor: '#0284c7',
-    height: 36,
-  },
   categoryTabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#E5E7EB',
     textAlign: 'center',
-  },
-  categoryTabTextSelected: {
-    color: '#FFFFFF',
   },
   
   // Active filters
@@ -791,7 +959,6 @@ const styles = StyleSheet.create({
   },
   activeFiltersText: {
     fontSize: 12,
-    color: '#9CA3AF',
   },
   clearFiltersButton: {
     padding: 4,
@@ -799,7 +966,6 @@ const styles = StyleSheet.create({
   clearFiltersText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#0ea5e9',
   },
   
   // Exercise list
@@ -813,7 +979,6 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   exerciseItemCard: {
-    backgroundColor: '#1F2937',
     borderRadius: 12,
     marginBottom: 12,
     padding: 12,
@@ -830,7 +995,6 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   favoriteButton: {
     padding: 4,
@@ -848,7 +1012,6 @@ const styles = StyleSheet.create({
   },
   muscleGroupLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginRight: 4,
     fontWeight: '600',
   },
@@ -866,7 +1029,6 @@ const styles = StyleSheet.create({
   },
   secondaryMusclesLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginRight: 4,
     fontWeight: '600',
   },
@@ -895,13 +1057,11 @@ const styles = StyleSheet.create({
   },
   equipmentLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginRight: 4,
   },
   equipmentValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#E5E7EB',
   },
   tagsRow: {
     flexDirection: 'row',
@@ -909,6 +1069,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   exerciseTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -935,7 +1097,6 @@ const styles = StyleSheet.create({
   
   // Empty state
   emptyState: {
-    backgroundColor: '#1F2937',
     borderRadius: 12,
     padding: 24,
     alignItems: 'center',
@@ -944,7 +1105,6 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#E5E7EB',
     marginTop: 12,
     marginBottom: 16,
     textAlign: 'center',
@@ -952,7 +1112,6 @@ const styles = StyleSheet.create({
   customExerciseButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -960,7 +1119,6 @@ const styles = StyleSheet.create({
   customExerciseText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#0ea5e9',
     marginLeft: 8,
   },
   
@@ -970,7 +1128,6 @@ const styles = StyleSheet.create({
     bottom: Platform.OS === 'ios' ? 30 : 20,
     left: 16,
     right: 16,
-    backgroundColor: '#0284c7',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -984,14 +1141,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   
-  // Filter modal (unchanged from original)
+  // Filter modal
   filterModalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   filterModalContent: {
-    backgroundColor: '#111827',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingBottom: 20,
@@ -1004,7 +1159,6 @@ const styles = StyleSheet.create({
   filterSectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 12,
     marginTop: 8,
   },
@@ -1045,7 +1199,6 @@ const styles = StyleSheet.create({
   filterActions: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#1F2937',
     paddingTop: 16,
     paddingHorizontal: 16,
   },
@@ -1054,7 +1207,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     paddingVertical: 12,
     borderRadius: 8,
     marginRight: 8,
@@ -1062,7 +1214,6 @@ const styles = StyleSheet.create({
   resetFiltersText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#EF4444',
     marginLeft: 8,
   },
   applyFiltersButton: {
@@ -1070,7 +1221,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0284c7',
     paddingVertical: 12,
     borderRadius: 8,
   },

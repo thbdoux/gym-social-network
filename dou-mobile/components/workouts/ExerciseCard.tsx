@@ -1,4 +1,4 @@
-// components/workouts/ExerciseCard.tsx - Modified component
+// components/workouts/ExerciseCard.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -10,7 +10,33 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-import { Exercise, ExerciseSet } from './ExerciseConfigurator';
+import { useTheme } from '../../context/ThemeContext';
+
+// Updated types to match the new format
+export type ExerciseSet = {
+  id?: number;
+  reps?: number | null;
+  weight?: number | null;
+  weight_unit?: 'kg' | 'lbs';
+  duration?: number | null; // For time-based exercises (in seconds)
+  distance?: number | null; // For distance-based exercises (in meters)
+  rest_time: number;
+  order?: number;
+};
+
+export type Exercise = {
+  id?: number;
+  name: string;
+  sets: ExerciseSet[];
+  notes?: string;
+  order?: number;
+  equipment?: string;
+  effort_type?: 'reps' | 'time' | 'distance';
+  superset_with?: number | null;
+  is_superset?: boolean;
+  superset_rest_time?: number;
+  superset_paired_exercise?: { name: string; id: number } | null;
+};
 
 type ExerciseCardProps = {
   exercise: Exercise;
@@ -23,7 +49,7 @@ type ExerciseCardProps = {
   onMoveDown?: () => void;
   onAddSet?: () => void;
   onRemoveSet?: (setIndex: number) => void;
-  onUpdateSet?: (setIndex: number, field: keyof ExerciseSet, value: number) => void;
+  onUpdateSet?: (setIndex: number, field: keyof ExerciseSet, value: number | string | null) => void;
   onUpdateNotes?: (notes: string) => void;
   onUpdateSupersetRestTime?: (time: number) => void;
   showAllSets?: boolean; // Full detailed view
@@ -58,26 +84,412 @@ const ExerciseCard = ({
   exerciseIndex
 }: ExerciseCardProps) => {
   const { t } = useLanguage();
+  const { workoutPalette, palette } = useTheme();
   const [expanded, setExpanded] = useState(showAllSets);
+  const [editingValues, setEditingValues] = useState<{[key: string]: string}>({});
   
-  // Format rest time for display
-  const formatRestTime = (seconds: number): string => {
+  // Format time display for display only
+  const formatTimeDisplay = (seconds: number): string => {
     if (seconds === 0) return '-';
     if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   };
+
+  // Format distance display
+  const formatDistanceDisplay = (meters: number): string => {
+    if (meters === 0) return '-';
+    if (meters >= 1000) {
+      const km = meters / 1000;
+      return `${km}km`;
+    }
+    return `${meters}m`;
+  };
+
+  // Format weight display
+  const formatWeightDisplay = (weight: number, unit: 'kg' | 'lbs' = 'kg'): string => {
+    if (weight === 0) return '-';
+    return `${weight}${unit}`;
+  };
+
+  // Get effort type information
+  const getEffortTypeInfo = (effortType: 'reps' | 'time' | 'distance' = 'reps') => {
+    switch (effortType) {
+      case 'time':
+        return { icon: 'time-outline', color: '#10B981', label: t('time') };
+      case 'distance':
+        return { icon: 'location-outline', color: '#3B82F6', label: t('distance') };
+      case 'reps':
+      default:
+        return { icon: 'repeat-outline', color: '#F59E0B', label: t('reps') };
+    }
+  };
+
+  // Format rest time for display
+  const formatRestTime = (seconds: number): string => {
+    return formatTimeDisplay(seconds);
+  };
+
+  // Get set summary based on effort type
+  const getSetSummary = (set: ExerciseSet) => {
+    const effortType = exercise.effort_type || 'reps';
+    
+    switch (effortType) {
+      case 'time':
+        const duration = set.duration ? formatTimeDisplay(set.duration) : '-';
+        const weight = set.weight && set.weight > 0 ? formatWeightDisplay(set.weight, set.weight_unit) : null;
+        return weight ? `${duration} @ ${weight}` : duration;
+        
+      case 'distance':
+        const distance = set.distance ? formatDistanceDisplay(set.distance) : '-';
+        const time = set.duration ? formatTimeDisplay(set.duration) : null;
+        return time ? `${distance} in ${time}` : distance;
+        
+      case 'reps':
+      default:
+        const reps = set.reps || '-';
+        const setWeight = set.weight && set.weight > 0 ? formatWeightDisplay(set.weight, set.weight_unit) : null;
+        return setWeight ? `${reps} × ${setWeight}` : `${reps} reps`;
+    }
+  };
+  const getInputValue = (setIndex: number, field: 'weight' | 'distance', currentValue: number | null) => {
+    const editKey = `${setIndex}-${field}`;
+    
+    // If currently editing this field, return the editing value
+    if (editingValues[editKey] !== undefined) {
+      return editingValues[editKey];
+    }
+    
+    // Otherwise, return the formatted stored value
+    if (currentValue && currentValue > 0) {
+      return currentValue.toString().replace('.', ',');
+    }
+    
+    return '';
+  };
+
+  // FIXED: Get duration input value for editing
+  const getDurationInputValue = (setIndex: number, currentValue: number | null) => {
+    const editKey = `${setIndex}-duration`;
+    
+    // If currently editing this field, return the editing value
+    if (editingValues[editKey] !== undefined) {
+      return editingValues[editKey];
+    }
+    
+    // Otherwise, return the raw seconds value for editing
+    if (currentValue && currentValue > 0) {
+      return currentValue.toString();
+    }
+    
+    return '';
+  };
+  
+  const handleInputChange = (setIndex: number, field: 'weight' | 'distance', text: string) => {
+    const editKey = `${setIndex}-${field}`;
+    
+    // Store the display text locally
+    setEditingValues(prev => ({
+      ...prev,
+      [editKey]: text
+    }));
+  };
+
+  // FIXED: Handle duration input change
+  const handleDurationInputChange = (setIndex: number, text: string) => {
+    const editKey = `${setIndex}-duration`;
+    
+    // Store the display text locally
+    setEditingValues(prev => ({
+      ...prev,
+      [editKey]: text
+    }));
+  };
+  
+  const handleInputBlur = (setIndex: number, field: 'weight' | 'distance') => {
+    const editKey = `${setIndex}-${field}`;
+    const currentText = editingValues[editKey];
+    
+    if (currentText !== undefined && onUpdateSet) {
+      // Process the value and update the actual state
+      let numericValue: number | null = null;
+      if (currentText.trim()) {
+        // Replace comma with dot for parsing
+        const cleanValue = currentText.replace(',', '.').replace(/[^\d.-]/g, '');
+        const parsed = parseFloat(cleanValue);
+        numericValue = isNaN(parsed) ? null : parsed;
+      }
+      
+      onUpdateSet(setIndex, field, numericValue);
+      
+      // Clear the editing state
+      setEditingValues(prev => {
+        const newState = { ...prev };
+        delete newState[editKey];
+        return newState;
+      });
+    }
+  };
+
+  // FIXED: Handle duration input blur with simple seconds parsing
+  const handleDurationInputBlur = (setIndex: number) => {
+    const editKey = `${setIndex}-duration`;
+    const currentText = editingValues[editKey];
+    
+    if (currentText !== undefined && onUpdateSet) {
+      // Simple parsing: treat input as seconds, optionally support 'm' for minutes
+      let numericValue: number | null = null;
+      if (currentText.trim()) {
+        const cleanValue = currentText.trim();
+        if (cleanValue.toLowerCase().endsWith('m')) {
+          const minutes = parseFloat(cleanValue.replace(/[^\d.-]/g, ''));
+          numericValue = isNaN(minutes) ? null : minutes * 60;
+        } else {
+          // Treat as seconds
+          const seconds = parseFloat(cleanValue.replace(/[^\d.-]/g, ''));
+          numericValue = isNaN(seconds) ? null : seconds;
+        }
+      }
+      
+      onUpdateSet(setIndex, 'duration', numericValue);
+      
+      // Clear the editing state
+      setEditingValues(prev => {
+        const newState = { ...prev };
+        delete newState[editKey];
+        return newState;
+      });
+    }
+  };
+
+  // Render set input fields based on effort type in edit mode
+  const renderSetInputs = (set: ExerciseSet, setIndex: number) => {
+    const effortType = exercise.effort_type || 'reps';
+  
+    switch (effortType) {
+      case 'time':
+        return (
+          <>
+            <TextInput
+              style={[
+                styles.setInputValue,
+                { 
+                  backgroundColor: `${palette.input_background}80`,
+                  color: workoutPalette.text
+                }
+              ]}
+              value={getDurationInputValue(setIndex, set.duration)}
+              onChangeText={(text) => handleDurationInputChange(setIndex, text)}
+              onBlur={() => handleDurationInputBlur(setIndex)}
+              onSubmitEditing={() => handleDurationInputBlur(setIndex)}
+              keyboardType="number-pad"
+              placeholder="30"
+              placeholderTextColor={palette.text_tertiary}
+            />
+            <TextInput
+              style={[
+                styles.setInputValue,
+                { 
+                  backgroundColor: `${palette.input_background}80`,
+                  color: workoutPalette.text
+                }
+              ]}
+              value={getInputValue(setIndex, 'weight', set.weight)}
+              onChangeText={(text) => handleInputChange(setIndex, 'weight', text)}
+              onBlur={() => handleInputBlur(setIndex, 'weight')}
+              onSubmitEditing={() => handleInputBlur(setIndex, 'weight')}
+              keyboardType="decimal-pad"
+              placeholder={`0${set.weight_unit || 'kg'}`}
+              placeholderTextColor={palette.text_tertiary}
+            />
+          </>
+        );
+        
+      case 'distance':
+        return (
+          <>
+            <TextInput
+              style={[
+                styles.setInputValue,
+                { 
+                  backgroundColor: `${palette.input_background}80`,
+                  color: workoutPalette.text
+                }
+              ]}
+              value={getInputValue(setIndex, 'distance', set.distance)}
+              onChangeText={(text) => handleInputChange(setIndex, 'distance', text)}
+              onBlur={() => handleInputBlur(setIndex, 'distance')}
+              onSubmitEditing={() => handleInputBlur(setIndex, 'distance')}
+              keyboardType="decimal-pad"
+              placeholder="100"
+              placeholderTextColor={palette.text_tertiary}
+            />
+            <TextInput
+              style={[
+                styles.setInputValue,
+                { 
+                  backgroundColor: `${palette.input_background}80`,
+                  color: workoutPalette.text
+                }
+              ]}
+              value={getDurationInputValue(setIndex, set.duration)}
+              onChangeText={(text) => handleDurationInputChange(setIndex, text)}
+              onBlur={() => handleDurationInputBlur(setIndex)}
+              onSubmitEditing={() => handleDurationInputBlur(setIndex)}
+              keyboardType="number-pad"
+              placeholder="120"
+              placeholderTextColor={palette.text_tertiary}
+            />
+          </>
+        );
+        
+      case 'reps':
+      default:
+        return (
+          <>
+            <TextInput
+              style={[
+                styles.setInputValue,
+                { 
+                  backgroundColor: `${palette.input_background}80`,
+                  color: workoutPalette.text
+                }
+              ]}
+              value={set.reps?.toString() || ''}
+              onChangeText={(text) => onUpdateSet && onUpdateSet(setIndex, 'reps', parseInt(text) || null)}
+              keyboardType="number-pad"
+              placeholder="10"
+              placeholderTextColor={palette.text_tertiary}
+            />
+            <TextInput
+              style={[
+                styles.setInputValue,
+                { 
+                  backgroundColor: `${palette.input_background}80`,
+                  color: workoutPalette.text
+                }
+              ]}
+              value={getInputValue(setIndex, 'weight', set.weight)}
+              onChangeText={(text) => handleInputChange(setIndex, 'weight', text)}
+              onBlur={() => handleInputBlur(setIndex, 'weight')}
+              onSubmitEditing={() => handleInputBlur(setIndex, 'weight')}
+              keyboardType="decimal-pad"
+              placeholder={`0${set.weight_unit || 'kg'}`}
+              placeholderTextColor={palette.text_tertiary}
+            />
+          </>
+        );
+    }
+  };
+
+  // Render set values in display mode
+  const renderSetValues = (set: ExerciseSet) => {
+    const effortType = exercise.effort_type || 'reps';
+
+    switch (effortType) {
+      case 'time':
+        return (
+          <>
+            <Text style={[styles.setValue, { color: workoutPalette.text }]}>
+              {set.duration ? formatTimeDisplay(set.duration) : '-'}
+            </Text>
+            <Text style={[styles.setValue, { color: workoutPalette.text }]}>
+              {set.weight && set.weight > 0 ? formatWeightDisplay(set.weight, set.weight_unit) : '-'}
+            </Text>
+          </>
+        );
+        
+      case 'distance':
+        return (
+          <>
+            <Text style={[styles.setValue, { color: workoutPalette.text }]}>
+              {set.distance ? formatDistanceDisplay(set.distance) : '-'}
+            </Text>
+            <Text style={[styles.setValue, { color: workoutPalette.text }]}>
+              {set.duration ? formatTimeDisplay(set.duration) : '-'}
+            </Text>
+          </>
+        );
+        
+      case 'reps':
+      default:
+        return (
+          <>
+            <Text style={[styles.setValue, { color: workoutPalette.text }]}>{set.reps || '-'}</Text>
+            <Text style={[styles.setValue, { color: workoutPalette.text }]}>
+              {set.weight && set.weight > 0 ? formatWeightDisplay(set.weight, set.weight_unit) : '-'}
+            </Text>
+          </>
+        );
+    }
+  };
+
+  // Get headers for sets table based on effort type
+  const getSetsHeaders = () => {
+    const effortType = exercise.effort_type || 'reps';
+    const restHeader = <Text key="rest" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('rest')} (s)</Text>;
+    const actionHeader = editMode ? <Text key="action" style={[styles.setsHeaderText, { flex: 0.5, color: palette.text_tertiary }]}></Text> : null;
+
+    switch (effortType) {
+      case 'time':
+        return [
+          <Text key="set" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('set')}</Text>,
+          <Text key="duration" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('duration')} (s)</Text>,
+          <Text key="weight" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('weight')}</Text>,
+          restHeader,
+          actionHeader
+        ].filter(Boolean);
+        
+      case 'distance':
+        return [
+          <Text key="set" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('set')}</Text>,
+          <Text key="distance" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('distance')}</Text>,
+          <Text key="time" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('time')} (s)</Text>,
+          restHeader,
+          actionHeader
+        ].filter(Boolean);
+        
+      case 'reps':
+      default:
+        return [
+          <Text key="set" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('set')}</Text>,
+          <Text key="reps" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('reps')}</Text>,
+          <Text key="weight" style={[styles.setsHeaderText, { color: palette.text_tertiary }]}>{t('weight')}</Text>,
+          restHeader,
+          actionHeader
+        ].filter(Boolean);
+    }
+  };
+
+  // Render effort type badge
+  const renderEffortTypeBadge = () => {
+    const effortType = exercise.effort_type || 'reps';
+    const effortInfo = getEffortTypeInfo(effortType);
+    
+    return (
+      <View style={[styles.effortTypeBadge, { backgroundColor: `${effortInfo.color}30` }]}>
+        <Ionicons name={effortInfo.icon as any} size={12} color={effortInfo.color} />
+        <Text style={[styles.effortTypeBadgeText, { color: effortInfo.color }]}>
+          {effortInfo.label}
+        </Text>
+      </View>
+    );
+  };
   
   return (
     <View style={[
       styles.container,
-      exercise.is_superset && styles.supersetContainer
+      { backgroundColor: palette.card_background },
+      exercise.is_superset && { borderLeftColor: workoutPalette.highlight }
     ]}>
       {/* Superset indicator with label */}
       {exercise.is_superset && (
         <>
-          <View style={styles.supersetLabelContainer}>
+          <View style={[
+            styles.supersetLabelContainer,
+            { backgroundColor: workoutPalette.highlight }
+          ]}>
             <Text style={styles.supersetLabel}>{t('superset')}</Text>
           </View>
         </>
@@ -85,27 +497,33 @@ const ExerciseCard = ({
       
       {/* Exercise Header with new layout */}
       <TouchableOpacity 
-        style={styles.header}
+        style={[
+          styles.header,
+          { borderBottomColor: 'rgba(255, 255, 255, 0.1)' }
+        ]}
         onPress={() => !showAllSets && setExpanded(!expanded)}
         activeOpacity={0.7}
       >
         <View style={styles.headerLeft}>
           {/* Exercise number/index if provided */}
           {exerciseIndex !== undefined && (
-            <View style={styles.exerciseNumber}>
-              <Text style={styles.exerciseNumberText}>{exerciseIndex + 1}</Text>
+            <View style={[
+              styles.exerciseNumber,
+              { backgroundColor: `${workoutPalette.highlight}20` }
+            ]}>
+              <Text style={[styles.exerciseNumberText, { color: workoutPalette.highlight }]}>{exerciseIndex + 1}</Text>
             </View>
           )}
           
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{exercise.name}</Text>
+            <Text style={[styles.title, { color: workoutPalette.text }]}>{exercise.name}</Text>
             
             {/* Paired exercise info */}
             {exercise.is_superset && pairedExerciseName && (
               <View style={styles.pairedInfo}>
-                <Ionicons name="git-branch-outline" size={14} color="#0ea5e9" />
-                <Text style={styles.pairedText}>
-                  <Text style={styles.pairedWithText}>{t('paired_with')}: </Text>
+                <Ionicons name="link" size={14} color={workoutPalette.highlight} />
+                <Text style={[styles.pairedText, { color: workoutPalette.highlight }]}>
+                  <Text style={[styles.pairedWithText, { color: palette.text_tertiary }]}>{t('paired_with')}: </Text>
                   {pairedExerciseName}
                 </Text>
               </View>
@@ -114,16 +532,25 @@ const ExerciseCard = ({
         </View>
         
         <View style={styles.headerRight}>
-          {/* Superset badge moved here */}
+          {/* Effort type badge */}
+          {renderEffortTypeBadge()}
+          
+          {/* Superset badge */}
           {exercise.is_superset && (
-            <View style={styles.supersetBadge}>
-              <Ionicons name="git-branch-outline" size={14} color="#FFFFFF" />
+            <View style={[styles.supersetBadge, { backgroundColor: workoutPalette.highlight }]}>
+              <Ionicons name="link" size={14} color="#FFFFFF" />
             </View>
           )}
           
           {!showAllSets && (
-            <View style={styles.setCountBadge}>
-              <Text style={styles.setCountText}>
+            <View style={[
+              styles.setCountBadge,
+              { backgroundColor: `${workoutPalette.highlight}20` }
+            ]}>
+              <Text style={[
+                styles.setCountText,
+                { color: 'rgba(255, 255, 255, 0.7)' }
+              ]}>
                 {exercise.sets.length} {exercise.sets.length === 1 ? t('set') : t('sets')}
               </Text>
             </View>
@@ -143,23 +570,21 @@ const ExerciseCard = ({
       
       {/* Summary of first set - only shown in compact mode when not expanded */}
       {!showAllSets && !expanded && exercise.sets.length > 0 && (
-        <View style={styles.setSummary}>
-          <View style={styles.setSummaryItem}>
-            <Text style={styles.setSummaryLabel}>{t('reps')}:</Text>
-            <Text style={styles.setSummaryValue}>{exercise.sets[0].reps}</Text>
-          </View>
-          <View style={styles.setSummaryItem}>
-            <Text style={styles.setSummaryLabel}>{t('weight')}:</Text>
-            <Text style={styles.setSummaryValue}>
-              {exercise.sets[0].weight > 0 ? `${exercise.sets[0].weight}kg` : '-'}
-            </Text>
-          </View>
-          <View style={styles.setSummaryItem}>
-            <Text style={styles.setSummaryLabel}>{t('rest')}:</Text>
-            <Text style={styles.setSummaryValue}>
-              {formatRestTime(exercise.sets[0].rest_time)}
-            </Text>
-          </View>
+        <View style={[
+          styles.setSummary,
+          { borderBottomColor: 'rgba(255, 255, 255, 0.1)' }
+        ]}>
+          <Text style={[styles.setSummaryValue, { color: palette.text }]}>
+            {getSetSummary(exercise.sets[0])}
+          </Text>
+          {exercise.sets[0].rest_time > 0 && (
+            <View style={styles.setSummaryItem}>
+              <Text style={[styles.setSummaryLabel, { color: palette.text_tertiary }]}>{t('rest')}:</Text>
+              <Text style={[styles.setSummaryValue, { color: palette.text }]}>
+                {formatRestTime(exercise.sets[0].rest_time)}
+              </Text>
+            </View>
+          )}
         </View>
       )}
       
@@ -168,19 +593,34 @@ const ExerciseCard = ({
         <View style={styles.details}>
           {/* Superset rest time */}
           {exercise.is_superset && exercise.superset_rest_time && exercise.superset_rest_time > 0 && (
-            <View style={styles.supersetRestTimeInfo}>
-              <Text style={styles.supersetRestTimeLabel}>
+            <View style={[
+              styles.supersetRestTimeInfo,
+              { backgroundColor: `${workoutPalette.highlight}10` }
+            ]}>
+              <Text style={[
+                styles.supersetRestTimeLabel,
+                { color: 'rgba(255, 255, 255, 0.7)' }
+              ]}>
                 {t('superset_rest')}:
               </Text>
               {editMode && onUpdateSupersetRestTime ? (
                 <TextInput
-                  style={styles.supersetRestTimeInput}
+                  style={[
+                    styles.supersetRestTimeInput,
+                    { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: workoutPalette.text
+                    }
+                  ]}
                   value={exercise.superset_rest_time.toString()}
                   onChangeText={(text) => onUpdateSupersetRestTime(parseInt(text) || 0)}
                   keyboardType="number-pad"
                 />
               ) : (
-                <Text style={styles.supersetRestTimeValue}>
+                <Text style={[
+                  styles.supersetRestTimeValue,
+                  { color: workoutPalette.highlight }
+                ]}>
                   {formatRestTime(exercise.superset_rest_time)}
                 </Text>
               )}
@@ -188,51 +628,51 @@ const ExerciseCard = ({
           )}
           
           {/* Sets header */}
-          <View style={styles.setsHeader}>
-            <Text style={styles.setsHeaderText}>{t('set')}</Text>
-            <Text style={styles.setsHeaderText}>{t('reps')}</Text>
-            <Text style={styles.setsHeaderText}>{t('weight')} (kg)</Text>
-            <Text style={styles.setsHeaderText}>{t('rest')} (s)</Text>
-            {editMode && <Text style={[styles.setsHeaderText, { flex: 0.5 }]}></Text>}
+          <View style={[
+            styles.setsHeader,
+            { borderBottomColor: 'rgba(255, 255, 255, 0.1)' }
+          ]}>
+            {getSetsHeaders().map((header, index) => (
+              <React.Fragment key={index}>{header}</React.Fragment>
+            ))}
           </View>
           
           {/* Sets */}
           {exercise.sets.map((set, setIndex) => (
-            <View key={setIndex} style={styles.setRow}>
-              <Text style={styles.setNumber}>{setIndex + 1}</Text>
+            <View key={setIndex} style={[
+              styles.setRow,
+              { borderBottomColor: 'rgba(255, 255, 255, 0.05)' }
+            ]}>
+              <Text style={[styles.setNumber, { color: workoutPalette.highlight }]}>{setIndex + 1}</Text>
               
               {editMode && onUpdateSet ? (
                 <>
+                  {renderSetInputs(set, setIndex)}
                   <TextInput
-                    style={styles.setInputValue}
-                    value={set.reps?.toString() || ''}
-                    onChangeText={(text) => onUpdateSet(setIndex, 'reps', parseInt(text) || 0)}
-                    keyboardType="number-pad"
-                  />
-                  <TextInput
-                    style={styles.setInputValue}
-                    value={set.weight?.toString() || ''}
-                    onChangeText={(text) => onUpdateSet(setIndex, 'weight', parseFloat(text) || 0)}
-                    keyboardType="decimal-pad"
-                  />
-                  <TextInput
-                    style={styles.setInputValue}
+                    style={[
+                      styles.setInputValue,
+                      { 
+                        backgroundColor: `${palette.input_background}80`,
+                        color: workoutPalette.text
+                      }
+                    ]}
                     value={set.rest_time?.toString() || ''}
                     onChangeText={(text) => onUpdateSet(setIndex, 'rest_time', parseInt(text) || 0)}
                     keyboardType="number-pad"
+                    placeholder="60"
+                    placeholderTextColor={palette.text_tertiary}
                   />
                   <TouchableOpacity 
                     style={[styles.removeSetButton, { flex: 0.5 }]} 
                     onPress={() => onRemoveSet && onRemoveSet(setIndex)}
                   >
-                    <Ionicons name="remove-circle-outline" size={18} color="#ef4444" />
+                    <Ionicons name="remove-circle-outline" size={18} color={palette.error} />
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <Text style={styles.setValue}>{set.reps || '-'}</Text>
-                  <Text style={styles.setValue}>{set.weight || '-'}</Text>
-                  <Text style={styles.setValue}>{set.rest_time || '-'}</Text>
+                  {renderSetValues(set)}
+                  <Text style={[styles.setValue, { color: workoutPalette.text }]}>{set.rest_time || '-'}</Text>
                 </>
               )}
             </View>
@@ -241,21 +681,36 @@ const ExerciseCard = ({
           {/* Add set button (only in edit mode) */}
           {editMode && onAddSet && (
             <TouchableOpacity 
-              style={styles.addSetButton}
+              style={[
+                styles.addSetButton,
+                { backgroundColor: 'rgba(16, 185, 129, 0.1)' }
+              ]}
               onPress={onAddSet}
             >
               <Ionicons name="add-circle-outline" size={18} color="#10b981" />
-              <Text style={styles.addSetButtonText}>{t('add_set')}</Text>
+              <Text style={[styles.addSetButtonText, { color: '#10b981' }]}>{t('add_set')}</Text>
             </TouchableOpacity>
           )}
           
           {/* Exercise notes if present */}
           {(exercise.notes || editMode) && (
-            <View style={styles.notesContainer}>
-              <Text style={styles.notesLabel}>{t('notes')}:</Text>
+            <View style={[
+              styles.notesContainer,
+              { backgroundColor: 'rgba(0, 0, 0, 0.2)' }
+            ]}>
+              <Text style={[
+                styles.notesLabel,
+                { color: 'rgba(255, 255, 255, 0.7)' }
+              ]}>{t('notes')}:</Text>
               {editMode && onUpdateNotes ? (
                 <TextInput
-                  style={styles.notesInput}
+                  style={[
+                    styles.notesInput,
+                    { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: workoutPalette.text
+                    }
+                  ]}
                   value={exercise.notes || ''}
                   onChangeText={onUpdateNotes}
                   multiline
@@ -264,7 +719,10 @@ const ExerciseCard = ({
                   placeholderTextColor="rgba(255, 255, 255, 0.3)"
                 />
               ) : (
-                exercise.notes && <Text style={styles.notesText}>{exercise.notes}</Text>
+                exercise.notes && <Text style={[
+                  styles.notesText,
+                  { color: 'rgba(255, 255, 255, 0.7)' }
+                ]}>{exercise.notes}</Text>
               )}
             </View>
           )}
@@ -273,13 +731,16 @@ const ExerciseCard = ({
       
       {/* Action buttons */}
       {editMode && !pairingMode && (
-        <View style={styles.actionButtons}>
+        <View style={[
+          styles.actionButtons,
+          { borderTopColor: 'rgba(255, 255, 255, 0.1)' }
+        ]}>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={onEdit}
           >
-            <Ionicons name="create-outline" size={16} color="#0ea5e9" />
-            <Text style={styles.actionButtonText}>{t('edit')}</Text>
+            <Ionicons name="create-outline" size={16} color={workoutPalette.highlight} />
+            <Text style={[styles.actionButtonText, { color: workoutPalette.highlight }]}>{t('edit')}</Text>
           </TouchableOpacity>
           
           {exercise.is_superset ? (
@@ -287,16 +748,16 @@ const ExerciseCard = ({
               style={styles.actionButton}
               onPress={onRemoveSuperset}
             >
-              <Ionicons name="link-off" size={16} color="#ef4444" />
-              <Text style={[styles.actionButtonText, styles.removeText]}>{t('remove_superset')}</Text>
+              <Ionicons name="close-circle" size={16} color={palette.error} />
+              <Text style={[styles.actionButtonText, styles.removeText, { color: palette.error }]}>{t('superset')}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={onMakeSuperset}
             >
-              <Ionicons name="link" size={16} color="#0ea5e9" />
-              <Text style={styles.actionButtonText}>{t('make_superset')}</Text>
+              <Ionicons name="link" size={16} color={workoutPalette.highlight} />
+              <Text style={[styles.actionButtonText, { color: workoutPalette.highlight }]}>{t('superset')}</Text>
             </TouchableOpacity>
           )}
           
@@ -304,8 +765,8 @@ const ExerciseCard = ({
             style={styles.actionButton}
             onPress={onDelete}
           >
-            <Ionicons name="trash-outline" size={16} color="#ef4444" />
-            <Text style={[styles.actionButtonText, styles.removeText]}>{t('remove')}</Text>
+            <Ionicons name="trash-outline" size={16} color={palette.error} />
+            <Text style={[styles.actionButtonText, styles.removeText, { color: palette.error }]}>{t('remove')}</Text>
           </TouchableOpacity>
           
           <View style={styles.reorderButtons}>
@@ -317,7 +778,7 @@ const ExerciseCard = ({
               <Ionicons 
                 name="chevron-up" 
                 size={16} 
-                color={isFirst ? "#6B7280" : "#0ea5e9"} 
+                color={isFirst ? palette.text_tertiary : workoutPalette.highlight} 
               />
             </TouchableOpacity>
             <TouchableOpacity
@@ -328,7 +789,7 @@ const ExerciseCard = ({
               <Ionicons 
                 name="chevron-down" 
                 size={16} 
-                color={isLast ? "#6B7280" : "#0ea5e9"} 
+                color={isLast ? palette.text_tertiary : workoutPalette.highlight} 
               />
             </TouchableOpacity>
           </View>
@@ -338,11 +799,17 @@ const ExerciseCard = ({
       {/* Pairing mode specific controls */}
       {pairingMode && onSelect && (
         <TouchableOpacity 
-          style={styles.pairButton}
+          style={[
+            styles.pairButton,
+            { 
+              backgroundColor: `${workoutPalette.highlight}10`,
+              borderLeftColor: workoutPalette.highlight
+            }
+          ]}
           onPress={onSelect}
         >
-          <Ionicons name="link" size={16} color="#0ea5e9" />
-          <Text style={styles.pairButtonText}>{t('pair_as_superset')}</Text>
+          <Ionicons name="link" size={16} color={workoutPalette.highlight} />
+          <Text style={[styles.pairButtonText, { color: workoutPalette.highlight }]}>{t('pair_as_superset')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -351,31 +818,15 @@ const ExerciseCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1F2937',
     borderRadius: 12,
     marginBottom: 12,
     overflow: 'hidden',
     position: 'relative',
   },
-  supersetContainer: {
-    backgroundColor: '#1F2937', // Lighter background for supersets
-    borderLeftWidth: 4,
-    borderLeftColor: '#0ea5e9',
-  },
-  // New superset indicator with visible bracket
-  supersetIndicator: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    height: '100%',
-    width: 20,
-    zIndex: 1,
-  },
   supersetLabelContainer: {
     position: 'absolute',
     left: 4, 
     top: 0,
-    backgroundColor: '#0ea5e9',
     borderBottomRightRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -387,17 +838,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textTransform: 'uppercase',
   },
-  supersetLine: {
-    width: 4,
-    backgroundColor: '#0ea5e9',
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-  },
-  // Modified badge to be smaller and just show the icon
   supersetBadge: {
-    backgroundColor: '#0ea5e9',
     padding: 4,
     borderRadius: 12,
     marginRight: 8,
@@ -408,7 +849,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -419,7 +859,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
@@ -427,7 +866,6 @@ const styles = StyleSheet.create({
   exerciseNumberText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#0ea5e9',
   },
   titleContainer: {
     flex: 1,
@@ -435,7 +873,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   pairedInfo: {
     flexDirection: 'row',
@@ -444,20 +881,30 @@ const styles = StyleSheet.create({
   },
   pairedText: {
     fontSize: 12,
-    color: '#0ea5e9',
     marginLeft: 4,
   },
   pairedWithText: {
     fontSize: 12,
-    color: '#9CA3AF',
     fontStyle: 'italic',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  effortTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  effortTypeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   setCountBadge: {
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -466,61 +913,52 @@ const styles = StyleSheet.create({
   setCountText: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
   },
   expandIcon: {
-    padding: 4, // Make the tap target larger
+    padding: 2,
   },
   setSummary: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   setSummaryItem: {
     flexDirection: 'row',
-    marginRight: 12,
     alignItems: 'center',
   },
   setSummaryLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginRight: 4,
   },
   setSummaryValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#E5E7EB',
   },
-  // Keep all other styles the same
   details: {
     padding: 12,
   },
   supersetRestTimeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
     padding: 8,
     marginBottom: 12,
     borderRadius: 8,
   },
   supersetRestTimeLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginRight: 4,
   },
   supersetRestTimeValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0ea5e9',
   },
   supersetRestTimeInput: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
     padding: 4,
     fontSize: 14,
-    color: '#FFFFFF',
     textAlign: 'center',
   },
   setsHeader: {
@@ -528,11 +966,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   setsHeaderText: {
     fontSize: 12,
-    color: '#9CA3AF',
     fontWeight: '500',
     textAlign: 'center',
     flex: 1,
@@ -541,7 +977,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
   },
   setNumber: {
@@ -549,20 +984,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '600',
-    color: '#0ea5e9',
   },
   setValue: {
     flex: 1,
     textAlign: 'center',
     fontSize: 14,
-    color: '#FFFFFF',
   },
   setInputValue: {
     flex: 1,
     textAlign: 'center',
     fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
     padding: 4,
     marginHorizontal: 2,
@@ -577,35 +1008,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     borderRadius: 6,
   },
   addSetButtonText: {
     fontSize: 14,
-    color: '#10b981',
     marginLeft: 6,
   },
   notesContainer: {
     marginTop: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 8,
     padding: 10,
   },
   notesLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 4,
   },
   notesText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
     fontStyle: 'italic',
   },
   notesInput: {
     fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
     padding: 6,
     textAlignVertical: 'top',
@@ -613,7 +1037,6 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     paddingTop: 8,
     paddingHorizontal: 12,
     paddingBottom: 12,
@@ -624,16 +1047,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 0,
   },
   actionButtonText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#0ea5e9',
     marginLeft: 4,
   },
   removeText: {
-    color: '#ef4444',
+    // color is set via theme
   },
   reorderButtons: {
     flexDirection: 'row',
@@ -644,7 +1066,7 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: 0,
   },
   disabledButton: {
     opacity: 0.5,
@@ -653,29 +1075,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
     paddingVertical: 10,
     margin: 12,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#0ea5e9',
-  },
-  pairButtonIconContainer: {
-    position: 'relative',
-    marginRight: 8,
-  },
-  pairButtonLine: {
-    position: 'absolute',
-    left: 8,
-    top: -15,
-    width: 2,
-    height: 15,
-    backgroundColor: '#0ea5e9',
   },
   pairButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#0ea5e9',
+    marginLeft: 8,
   },
 });
 

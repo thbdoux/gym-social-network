@@ -18,8 +18,7 @@ from .serializers import (
     WorkoutTemplateSerializer, ExerciseTemplateSerializer, SetTemplateSerializer,
     ProgramSerializer, WorkoutInstanceSerializer, ExerciseInstanceSerializer,
     SetInstanceSerializer, ProgramShareSerializer,
-    WorkoutLogSerializer, WorkoutLogCreateSerializer, WorkoutLogUpdateSerializer,
-    ExerciseLogSerializer, SetLogSerializer
+    WorkoutLogSerializer, ExerciseLogSerializer, SetLogSerializer
 )
 
 class WorkoutInstanceViewSet(viewsets.ModelViewSet):
@@ -80,20 +79,19 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
         workout = self.get_object()
         
         try:
-            if exercise_id != 'new':  # Handle existing exercise
+            if exercise_id != 'new':
                 exercise = workout.exercises.get(id=exercise_id)
                 
                 if request.method == 'DELETE':
                     exercise.delete()
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 
-                # Update existing exercise
                 serializer = ExerciseTemplateSerializer(
                     exercise,
                     data=request.data,
                     partial=True
                 )
-            else:  # Handle new exercise
+            else:
                 serializer = ExerciseTemplateSerializer(data=request.data)
             
             if serializer.is_valid():
@@ -102,12 +100,9 @@ class WorkoutTemplateViewSet(viewsets.ModelViewSet):
                 else:
                     exercise = serializer.save()
                 
-                # Handle sets if provided
                 if 'sets' in request.data:
-                    # Remove existing sets
                     exercise.sets.all().delete()
                     
-                    # Create new sets
                     for set_data in request.data['sets']:
                         set_serializer = SetTemplateSerializer(data=set_data)
                         if set_serializer.is_valid():
@@ -156,24 +151,19 @@ class ProgramViewSet(viewsets.ModelViewSet):
             forks_count=Count('forks', distinct=True)
         )
         
-        # Filter based on the requested filter type
         if filter_type == 'created':
-            # Programs created by the specified user or current user
             if user_id:
                 queryset = queryset.filter(creator_id=user_id)
             else:
                 queryset = queryset.filter(creator=self.request.user)
                 
         elif filter_type == 'shared':
-            # Programs shared with the current user
             queryset = queryset.filter(shares__shared_with=self.request.user)
             
         elif filter_type == 'public':
-            # Public programs
             queryset = queryset.filter(is_public=True)
             
         elif filter_type == 'all':
-            # Default: Programs created by user + shared with user + public
             queryset = queryset.filter(
                 Q(creator=self.request.user) | 
                 Q(shares__shared_with=self.request.user) |
@@ -186,7 +176,6 @@ class ProgramViewSet(viewsets.ModelViewSet):
         """Custom retrieve to ensure program active status is accurate"""
         instance = self.get_object()
         
-        # If the user is not the creator, ensure is_active is false in the response
         if instance.creator != request.user and instance.is_active:
             serializer = self.get_serializer(instance)
             data = serializer.data
@@ -293,7 +282,6 @@ class ProgramViewSet(viewsets.ModelViewSet):
                         split_method=template.split_method,
                         preferred_weekday=request.data.get('preferred_weekday', 0),
                         order=program.workout_instances.count(),
-                        # Add new fields
                         difficulty_level=template.difficulty_level,
                         estimated_duration=template.estimated_duration,
                         equipment_required=template.equipment_required,
@@ -307,7 +295,8 @@ class ProgramViewSet(viewsets.ModelViewSet):
                             name=ex_template.name,
                             equipment=ex_template.equipment,
                             notes=ex_template.notes,
-                            order=ex_template.order
+                            order=ex_template.order,
+                            effort_type=ex_template.effort_type
                         )
                         
                         for set_template in ex_template.sets.all():
@@ -316,6 +305,9 @@ class ProgramViewSet(viewsets.ModelViewSet):
                                 based_on_template=set_template,
                                 reps=set_template.reps,
                                 weight=set_template.weight,
+                                weight_unit=set_template.weight_unit, 
+                                duration=set_template.duration,  
+                                distance=set_template.distance,
                                 rest_time=set_template.rest_time,
                                 order=set_template.order
                             )
@@ -327,7 +319,6 @@ class ProgramViewSet(viewsets.ModelViewSet):
                         split_method=request.data.get('split_method', 'custom'),
                         preferred_weekday=request.data.get('preferred_weekday', 0),
                         order=program.workout_instances.count(),
-                        # Add new fields with default values
                         difficulty_level=request.data.get('difficulty_level', 'intermediate'),
                         estimated_duration=request.data.get('estimated_duration', 60),
                         equipment_required=request.data.get('equipment_required', []),
@@ -352,7 +343,6 @@ class ProgramViewSet(viewsets.ModelViewSet):
     def toggle_active(self, request, pk=None):
         program = self.get_object()
         
-        # Only allow the creator to toggle active state
         if program.creator != request.user:
             return Response(
                 {"detail": "You don't have permission to modify this program."},
@@ -363,17 +353,14 @@ class ProgramViewSet(viewsets.ModelViewSet):
         
         with transaction.atomic():
             if new_status:
-                # Deactivate all other programs
                 Program.objects.filter(
                     creator=request.user,
                     is_active=True
                 ).update(is_active=False)
                 
-                # Set this program as the user's current program
                 request.user.current_program = program
                 request.user.save()
             else:
-                # If deactivating, remove it as current program
                 if request.user.current_program == program:
                     request.user.current_program = None
                     request.user.save()
@@ -422,7 +409,8 @@ class ProgramViewSet(viewsets.ModelViewSet):
                         name=orig_exercise.name,
                         equipment=orig_exercise.equipment,
                         notes=orig_exercise.notes,
-                        order=orig_exercise.order
+                        order=orig_exercise.order,
+                        effort_type=orig_exercise.effort_type
                     )
                     
                     for orig_set in orig_exercise.sets.all():
@@ -431,6 +419,9 @@ class ProgramViewSet(viewsets.ModelViewSet):
                             based_on_template=orig_set.based_on_template,
                             reps=orig_set.reps,
                             weight=orig_set.weight,
+                            weight_unit=orig_set.weight_unit, 
+                            duration=orig_set.duration,  
+                            distance=orig_set.distance,
                             rest_time=orig_set.rest_time,
                             order=orig_set.order
                         )
@@ -479,17 +470,12 @@ class ProgramViewSet(viewsets.ModelViewSet):
 
 
 class WorkoutLogViewSet(viewsets.ModelViewSet):
+    """Simplified WorkoutLog ViewSet using unified serializer"""
+    serializer_class = WorkoutLogSerializer  # Single serializer for all operations
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['date', 'created_at']
     ordering = ['-date', '-created_at']
-
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return WorkoutLogCreateSerializer
-        elif self.action in ['update', 'partial_update']:
-            return WorkoutLogUpdateSerializer
-        return WorkoutLogSerializer
 
     def get_queryset(self):
         return WorkoutLog.objects.filter(
@@ -500,7 +486,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             'gym'
         ).prefetch_related(
             'exercises',
-            'exercises__sets'
+            'exercises__sets',
+            'workout_partners'
         )
 
     def perform_create(self, serializer):
@@ -509,6 +496,7 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def log_from_instance(self, request):
         instance_id = request.data.get('instance_id')
+        workout_partners = request.data.get('workout_partners', [])
         
         try:
             instance = WorkoutInstance.objects.select_related(
@@ -533,6 +521,19 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                     completed=request.data.get('completed', False)
                 )
                 
+                if workout_partners:
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    
+                    valid_partners = User.objects.filter(id__in=workout_partners)
+                    if valid_partners.count() != len(workout_partners):
+                        return Response(
+                            {"detail": "Some workout partner user IDs are invalid"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    workout_log.workout_partners.set(workout_partners)
+                
                 for instance_exercise in instance.exercises.all():
                     exercise_log = ExerciseLog.objects.create(
                         workout=workout_log,
@@ -540,7 +541,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                         name=instance_exercise.name,
                         equipment=instance_exercise.equipment,
                         notes=instance_exercise.notes,
-                        order=instance_exercise.order
+                        order=instance_exercise.order,
+                        effort_type=instance_exercise.effort_type  
                     )
                     
                     for instance_set in instance_exercise.sets.all():
@@ -549,6 +551,9 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                             based_on_instance=instance_set,
                             reps=instance_set.reps,
                             weight=instance_set.weight,
+                            weight_unit=instance_set.weight_unit,
+                            duration=instance_set.duration,
+                            distance=instance_set.distance,
                             rest_time=instance_set.rest_time,
                             order=instance_set.order
                         )
@@ -587,22 +592,21 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                 if serializer.is_valid():
                     exercise = serializer.save()
                     
-                    # Handle sets if provided
                     if 'sets' in request.data:
-                        # Remove existing sets
                         exercise.sets.all().delete()
                         
-                        # Create new sets
                         for set_data in request.data['sets']:
                             SetLog.objects.create(
                                 exercise=exercise,
-                                reps=set_data['reps'],
-                                weight=set_data['weight'],
-                                rest_time=set_data['rest_time'],
-                                order=set_data['order']
+                                reps=set_data.get('reps'),
+                                weight=set_data.get('weight'),
+                                weight_unit=set_data.get('weight_unit', 'kg'),  
+                                duration=set_data.get('duration'),  
+                                distance=set_data.get('distance'),
+                                rest_time=set_data.get('rest_time', 60),
+                                order=set_data.get('order', 0)
                             )
                     
-                    # Return updated exercise with sets
                     updated = ExerciseLog.objects.prefetch_related('sets').get(id=exercise.id)
                     return Response(ExerciseLogSerializer(updated).data)
                     
@@ -621,11 +625,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             log = WorkoutLog.objects.select_related(
                 'program', 'based_on_instance', 'gym'
             ).prefetch_related(
-                'exercises', 'exercises__sets'
+                'exercises', 'exercises__sets', 'workout_partners'
             ).get(id=pk)
-            
-            # You could add additional permission checks here if needed
-            # For example, only allow access if the log is referenced in a public post
             
             serializer = WorkoutLogSerializer(log)
             return Response(serializer.data)
@@ -656,27 +657,21 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             'completion_rate': completed_workouts/total_workouts if total_workouts > 0 else 0
         })
 
-    
-    def create(self, request, *args, **kwargs):
-        """Override create to add detailed error logging"""
-        import json
-        logger.info(f"Creating workout log with data: {json.dumps(request.data, indent=2, default=str)}")
+    @action(detail=False, methods=['get'])
+    def with_partners(self, request):
+        """Get workout logs where current user was a workout partner"""
+        logs = WorkoutLog.objects.filter(
+            workout_partners=request.user
+        ).select_related(
+            'program', 'based_on_instance', 'gym', 'user'
+        ).prefetch_related(
+            'exercises', 'exercises__sets', 'workout_partners'
+        )
         
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            logger.error(f"Serializer validation errors: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-        except Exception as e:
-            logger.exception(f"Error creating workout log: {str(e)}")
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = WorkoutLogSerializer(logs, many=True)
+        return Response(serializer.data)
 
-
-# Add these imports if not present
+# Function-based views
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -717,21 +712,17 @@ def get_user_logs_by_username(request, username):
         logs = WorkoutLog.objects.filter(user=user).select_related(
             'program', 'based_on_instance', 'gym'
         ).prefetch_related(
-            'exercises', 'exercises__sets'
+            'exercises', 'exercises__sets', 'workout_partners'
         )
         
-        # Create a list to hold serialized logs
         serialized_logs = []
         
-        # Try to serialize each log individually
         for log in logs:
             try:
                 serializer = WorkoutLogSerializer(log)
                 serialized_logs.append(serializer.data)
             except Exception as e:
-                # Log the error but continue with other logs
                 logger.error(f"Error serializing log {log.id}: {str(e)}")
-                # Add a minimal version of the log with error info
                 serialized_logs.append({
                     "id": log.id,
                     "name": log.name,

@@ -260,16 +260,6 @@ export const createWorkoutRendering = ({
         </View>
       </LinearGradient>
       
-      {/* Rest timer - inline component instead of modal */}
-      {restTimerActive && (
-        <RestTimer
-          seconds={restTimeSeconds}
-          onComplete={handlers.stopRestTimer}
-          onCancel={handlers.stopRestTimer}
-          themePalette={palette}
-        />
-      )}
-      
       {/* Progress bar */}
       <View style={styles.progressBarContainer}>
         <View 
@@ -394,18 +384,31 @@ export const createWorkoutRendering = ({
           showsVerticalScrollIndicator={false}
         >
           {exercises.length > 0 && currentExerciseIndex < exercises.length ? (
-            <RealtimeExerciseCard
-              exercise={exercises[currentExerciseIndex]}
-              exerciseIndex={currentExerciseIndex}
-              onCompleteSet={handlers.handleCompleteSet}
-              onUncompleteSet={handlers.handleUncompleteSet}
-              onUpdateSet={handlers.handleUpdateSet}
-              onAddSet={handlers.handleAddSet}
-              onRemoveSet={handlers.handleRemoveSet}
-              onStartRestTimer={handlers.startRestTimer}
-              editingPrevious={false}
-              themePalette={palette}
-            />
+            <>
+              <RealtimeExerciseCard
+                exercise={exercises[currentExerciseIndex]}
+                exerciseIndex={currentExerciseIndex}
+                onCompleteSet={handlers.handleCompleteSet}
+                onUncompleteSet={handlers.handleUncompleteSet}
+                onUpdateSet={handlers.handleUpdateSet}
+                onUpdateExercise={handlers.handleUpdateExercise}
+                onAddSet={handlers.handleAddSet}
+                onRemoveSet={handlers.handleRemoveSet}
+                onStartRestTimer={handlers.startRestTimer}
+                editingPrevious={false}
+                themePalette={palette}
+              />
+              
+              {/* Rest timer - moved below the exercise card */}
+              {restTimerActive && (
+                <RestTimer
+                  initialSeconds={restTimeSeconds}
+                  onComplete={handlers.stopRestTimer}
+                  onCancel={handlers.stopRestTimer}
+                  themePalette={palette}
+                />
+              )}
+            </>
           ) : (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyStateText, { color: palette.text_secondary }]}>

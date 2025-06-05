@@ -10,10 +10,21 @@ from .group_workouts import (
 
 class BaseExercise(models.Model):
     """Base abstract model for exercises"""
+    EFFORT_TYPE_CHOICES = [
+        ('reps', 'Repetition-based'),
+        ('time', 'Time-based'),
+        ('distance', 'Distance-based'),
+    ]
     name = models.CharField(max_length=100)
     equipment = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     order = models.PositiveIntegerField()
+    effort_type = models.CharField(
+        max_length=10, 
+        choices=EFFORT_TYPE_CHOICES, 
+        default='reps',
+        help_text="Type of effort measurement for this exercise"
+    )
     superset_with = models.PositiveIntegerField(null=True, blank=True, 
                                                help_text="ID of paired exercise in superset")
 
@@ -25,14 +36,70 @@ class BaseExercise(models.Model):
 
 class BaseSet(models.Model):
     """Base abstract model for sets"""
-    reps = models.PositiveIntegerField()
-    weight = models.DecimalField(max_digits=6, decimal_places=2)
+    WEIGHT_UNIT_CHOICES = [
+        ('kg', 'Kilograms'),
+        ('lbs', 'Pounds'),
+    ]
+    
+    reps = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text="Number of repetitions (for rep-based exercises) or intervals (for time-based)"
+    )
+    weight = models.DecimalField(
+        max_digits=6, 
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Weight used"
+    )
+    weight_unit = models.CharField(
+        max_length=3,
+        choices=WEIGHT_UNIT_CHOICES,
+        default='kg',
+        help_text="Unit of weight measurement"
+    )
+    duration = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Duration in seconds (for time-based exercises)"
+    )
+    distance = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Distance in meters (for distance-based exercises)"
+    )
     rest_time = models.PositiveIntegerField(help_text="Rest time in seconds")
     order = models.PositiveIntegerField()
 
     class Meta:
         abstract = True
         ordering = ['order']
+    
+    def get_weight_in_kg(self):
+        """Convert weight to kilograms for standardized calculations"""
+        if not self.weight:
+            return None
+        if self.weight_unit == 'lbs':
+            return float(self.weight) * 0.453592  # Convert lbs to kg
+        return float(self.weight)
+    
+    def get_weight_in_lbs(self):
+        """Convert weight to pounds for standardized calculations"""
+        if not self.weight:
+            return None
+        if self.weight_unit == 'kg':
+            return float(self.weight) * 2.20462  # Convert kg to lbs
+        return float(self.weight)
+    
+    def get_weight_display(self):
+        """Get formatted weight with unit"""
+        if not self.weight:
+            return None
+        return f"{self.weight}{self.weight_unit}"
+
 
 # Template Models
 class WorkoutTemplate(models.Model):
@@ -168,6 +235,14 @@ class WorkoutLog(models.Model):
     perceived_difficulty = models.PositiveSmallIntegerField(null=True)
     performance_notes = models.TextField(blank=True)
     media = models.JSONField(default=list)
+    
+    # New field for workout partners
+    workout_partners = models.ManyToManyField(
+        'users.User',
+        blank=True,
+        related_name='partnered_workouts',
+        help_text="Users who did this workout together"
+    )
 
     class Meta:
         ordering = ['-date', '-created_at']

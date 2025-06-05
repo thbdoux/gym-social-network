@@ -22,6 +22,8 @@ interface Exercise {
   equipment?: string;
   notes?: string;
   order: number;
+  effort_type?: 'reps' | 'time' | 'distance';
+  effort_type_display?: string;
   superset_with?: number | null;
   is_superset?: boolean;
   superset_rest_time?: number;
@@ -30,8 +32,13 @@ interface Exercise {
 
 interface Set {
   id?: number;
-  reps: number;
-  weight: number;
+  reps?: number | null;
+  weight?: number | null;
+  weight_unit?: 'kg' | 'lbs';
+  weight_unit_display?: string;
+  weight_display?: string;
+  duration?: number | null;
+  distance?: number | null;
   rest_time: number;
   order: number;
 }
@@ -73,9 +80,15 @@ const workoutService = {
           equipment: exercise.equipment || '',
           notes: exercise.notes || '',
           order: exercise.order,
+          effort_type: exercise.effort_type || 'reps',
+          superset_with: exercise.superset_with || null,
+          is_superset: exercise.is_superset || false,
           sets: exercise.sets.map((set, idx) => ({
-            reps: parseInt(String(set.reps)) || 0,
-            weight: parseFloat(String(set.weight)) || 0,
+            reps: set.reps ? parseInt(String(set.reps)) : null,
+            weight: set.weight ? parseFloat(String(set.weight)) : null,
+            weight_unit: set.weight_unit || 'kg',
+            duration: set.duration ? parseInt(String(set.duration)) : null,
+            distance: set.distance ? parseFloat(String(set.distance)) : null,
             rest_time: parseInt(String(set.rest_time)) || 60,
             order: idx
           }))
@@ -113,9 +126,15 @@ const workoutService = {
             equipment: exercise.equipment || '',
             notes: exercise.notes || '',
             order: exercise.order,
+            effort_type: exercise.effort_type || 'reps',
+            superset_with: exercise.superset_with || null,
+            is_superset: exercise.is_superset || false,
             sets: exercise.sets.map((set, setIndex) => ({
-              reps: parseInt(String(set.reps)) || 0,
-              weight: parseFloat(String(set.weight)) || 0,
+              reps: set.reps ? parseInt(String(set.reps)) : null,
+              weight: set.weight ? parseFloat(String(set.weight)) : null,
+              weight_unit: set.weight_unit || 'kg',
+              duration: set.duration ? parseInt(String(set.duration)) : null,
+              distance: set.distance ? parseFloat(String(set.distance)) : null,
               rest_time: parseInt(String(set.rest_time)) || 60,
               order: setIndex
             }))
@@ -127,9 +146,15 @@ const workoutService = {
             equipment: exercise.equipment || '',
             notes: exercise.notes || '',
             order: exercise.order,
+            effort_type: exercise.effort_type || 'reps',
+            superset_with: exercise.superset_with || null,
+            is_superset: exercise.is_superset || false,
             sets: exercise.sets.map((set, setIndex) => ({
-              reps: parseInt(String(set.reps)) || 0,
-              weight: parseFloat(String(set.weight)) || 0,
+              reps: set.reps ? parseInt(String(set.reps)) : null,
+              weight: set.weight ? parseFloat(String(set.weight)) : null,
+              weight_unit: set.weight_unit || 'kg',
+              duration: set.duration ? parseInt(String(set.duration)) : null,
+              distance: set.distance ? parseFloat(String(set.distance)) : null,
               rest_time: parseInt(String(set.rest_time)) || 60,
               order: setIndex
             }))
@@ -163,11 +188,15 @@ const workoutService = {
       equipment: exercise.equipment || '',
       notes: exercise.notes || '',
       order: exercise.order,
+      effort_type: exercise.effort_type || 'reps',
       superset_with: exercise.superset_with || null,
       is_superset: !!exercise.is_superset,
       sets: exercise.sets.map((set, idx) => ({
-        reps: parseInt(String(set.reps)) || 0,
-        weight: parseFloat(String(set.weight)) || 0,
+        reps: set.reps ? parseInt(String(set.reps)) : null,
+        weight: set.weight ? parseFloat(String(set.weight)) : null,
+        weight_unit: set.weight_unit || 'kg',
+        duration: set.duration ? parseInt(String(set.duration)) : null,
+        distance: set.distance ? parseFloat(String(set.distance)) : null,
         rest_time: parseInt(String(set.rest_time)) || 60,
         order: idx
       }))
@@ -181,11 +210,15 @@ const workoutService = {
       equipment: exercise.equipment || '',
       notes: exercise.notes || '',
       order: exercise.order,
+      effort_type: exercise.effort_type || 'reps',
       superset_with: exercise.superset_with || null,
       is_superset: !!exercise.is_superset,
       sets: exercise.sets.map((set, idx) => ({
-        reps: parseInt(String(set.reps)) || 0,
-        weight: parseFloat(String(set.weight)) || 0,
+        reps: set.reps ? parseInt(String(set.reps)) : null,
+        weight: set.weight ? parseFloat(String(set.weight)) : null,
+        weight_unit: set.weight_unit || 'kg',
+        duration: set.duration ? parseInt(String(set.duration)) : null,
+        distance: set.distance ? parseFloat(String(set.distance)) : null,
         rest_time: parseInt(String(set.rest_time)) || 60,
         order: idx
       }))

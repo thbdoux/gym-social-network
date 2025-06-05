@@ -1,4 +1,4 @@
-// app/(app)/realtime-workout/index.tsx - Updated with template selection
+// app/(app)/realtime-workout/index.tsx - Updated with new exercise formats
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -33,6 +33,60 @@ interface Gym {
   description?: string;
   is_default?: boolean;
 }
+
+// Helper function to create default set based on effort type
+const createDefaultSet = (effortType: string = 'reps', order: number = 0, templateSet?: any, weightUnit: string = 'kg') => {
+  const baseSet = {
+    id: `set-${Date.now()}-${order}`,
+    rest_time: templateSet?.rest_time || 60,
+    order,
+    completed: false,
+    rest_time_completed: false,
+    weight_unit: templateSet?.weight_unit || weightUnit
+  };
+
+  switch (effortType) {
+    case 'time':
+      return {
+        ...baseSet,
+        duration: templateSet?.duration || 30, // 30 seconds default
+        actual_duration: templateSet?.duration || 30,
+        weight: templateSet?.weight || null, // Optional for time exercises
+        actual_weight: templateSet?.weight || null,
+        reps: null,
+        actual_reps: null,
+        distance: null,
+        actual_distance: null
+      };
+    
+    case 'distance':
+      return {
+        ...baseSet,
+        distance: templateSet?.distance || 100, // 100 meters default
+        actual_distance: templateSet?.distance || 100,
+        duration: templateSet?.duration || null, // Optional timing
+        actual_duration: templateSet?.duration || null,
+        weight: null,
+        actual_weight: null,
+        reps: null,
+        actual_reps: null
+      };
+    
+    case 'reps':
+    default:
+      return {
+        ...baseSet,
+        reps: templateSet?.reps || 10,
+        weight: templateSet?.weight || 0,
+        actual_reps: templateSet?.reps || 10,
+        actual_weight: templateSet?.weight || 0,
+        duration: null,
+        actual_duration: null,
+        distance: null,
+        actual_distance: null
+      };
+  }
+};
 
 export default function RealtimeWorkoutLogger() {
   const { t } = useLanguage();
@@ -85,10 +139,10 @@ export default function RealtimeWorkoutLogger() {
   const exerciseFlatListRef = useRef<FlatList>(null);
   const exerciseScrollViewRef = useRef<ScrollView>(null);
   
+  
   // Initialize workout name from context or template/program
   useEffect(() => {
     if (isResuming && activeWorkout) {
-      console.log('Resuming workout from context');
       setWorkoutName(activeWorkout.name);
       // Also restore selected gym if it was saved in the workout
       if (activeWorkout.gym_id && gyms) {
@@ -120,12 +174,31 @@ export default function RealtimeWorkoutLogger() {
   const prepareExercisesFromTemplate = (template: any) => {
     return template.exercises.map((exercise: any) => ({
       ...exercise,
-      sets: exercise.sets.map((set: any) => ({
+      effort_type: exercise.effort_type || 'reps', // Ensure effort_type is set
+      weight_unit: exercise.weight_unit || 'kg', // Ensure weight_unit is set
+      sets: exercise.sets.map((set: any, index: number) => ({
         ...set,
+        id: `set-${Date.now()}-${index}`,
         completed: false,
-        actual_reps: set.reps,
-        actual_weight: set.weight,
-        rest_time_completed: false
+        rest_time_completed: false,
+        weight_unit: set.weight_unit || exercise.weight_unit || 'kg',
+        // Set actual values based on effort type
+        ...(exercise.effort_type === 'time' ? {
+          actual_duration: set.duration,
+          actual_weight: set.weight || null,
+          actual_reps: null,
+          actual_distance: null
+        } : exercise.effort_type === 'distance' ? {
+          actual_distance: set.distance,
+          actual_duration: set.duration || null,
+          actual_weight: null,
+          actual_reps: null
+        } : {
+          actual_reps: set.reps,
+          actual_weight: set.weight,
+          actual_duration: null,
+          actual_distance: null
+        })
       }))
     }));
   };
@@ -133,12 +206,31 @@ export default function RealtimeWorkoutLogger() {
   const prepareExercisesFromProgramWorkout = (workout: any) => {
     return workout.exercises.map((exercise: any) => ({
       ...exercise,
-      sets: exercise.sets.map((set: any) => ({
+      effort_type: exercise.effort_type || 'reps', // Ensure effort_type is set
+      weight_unit: exercise.weight_unit || 'kg', // Ensure weight_unit is set
+      sets: exercise.sets.map((set: any, index: number) => ({
         ...set,
+        id: `set-${Date.now()}-${index}`,
         completed: false,
-        actual_reps: set.reps,
-        actual_weight: set.weight,
-        rest_time_completed: false
+        rest_time_completed: false,
+        weight_unit: set.weight_unit || exercise.weight_unit || 'kg',
+        // Set actual values based on effort type
+        ...(exercise.effort_type === 'time' ? {
+          actual_duration: set.duration,
+          actual_weight: set.weight || null,
+          actual_reps: null,
+          actual_distance: null
+        } : exercise.effort_type === 'distance' ? {
+          actual_distance: set.distance,
+          actual_duration: set.duration || null,
+          actual_weight: null,
+          actual_reps: null
+        } : {
+          actual_reps: set.reps,
+          actual_weight: set.weight,
+          actual_duration: null,
+          actual_distance: null
+        })
       }))
     }));
   };
@@ -243,9 +335,8 @@ export default function RealtimeWorkoutLogger() {
     }
   };
   
-  // MERGED HANDLERS - Index.tsx versions with WorkoutHandlers enhancements
+  // HANDLERS
   
-  // Keep index.tsx version (working with context)
   const handleBackPress = () => {
     if (activeWorkout?.started) {
       Alert.alert(
@@ -338,26 +429,19 @@ export default function RealtimeWorkoutLogger() {
     setGymModalVisible(false);
   };
   
-  // Keep index.tsx version (working with context)
+  // Updated handleAddExercise function to support effort types
   const handleAddExercise = async (exercise: any) => {
     if (!activeWorkout) return;
+    
+    const effortType = exercise.effort_type || 'reps';
+    const weightUnit = exercise.weight_unit || 'kg';
     
     const newExercise = {
       ...exercise,
       id: exercise.id || `temp-${Date.now()}`,
-      sets: exercise.sets || [
-        {
-          id: `set-${Date.now()}`,
-          reps: 10,
-          weight: 0,
-          rest_time: 60,
-          order: 0,
-          completed: false,
-          actual_reps: 10,
-          actual_weight: 0,
-          rest_time_completed: false
-        }
-      ]
+      effort_type: effortType,
+      weight_unit: weightUnit,
+      sets: exercise.sets || [createDefaultSet(effortType, 0, null, weightUnit)]
     };
     
     const updatedExercises = [...activeWorkout.exercises, newExercise];
@@ -368,7 +452,6 @@ export default function RealtimeWorkoutLogger() {
     setSelectingExercise(false);
   };
   
-  // Keep index.tsx versions (working with context)
   const handleCompleteSet = async (exerciseIndex: number, setIndex: number, setData: any) => {
     if (!activeWorkout) return;
     
@@ -415,22 +498,118 @@ export default function RealtimeWorkoutLogger() {
     await updateWorkout({ exercises: updatedExercises });
   };
 
+  // NEW: Handle exercise updates (name, effort_type, weight_unit)
+  const handleUpdateExercise = async (exerciseIndex: number, exerciseData: any) => {
+    if (!activeWorkout) return;
+    
+    const updatedExercises = [...activeWorkout.exercises];
+    const currentExercise = updatedExercises[exerciseIndex];
+    
+    // If effort type changed, we might need to update sets structure
+    if (exerciseData.effort_type && exerciseData.effort_type !== currentExercise.effort_type) {
+      // Convert existing sets to new effort type format
+      const convertedSets = currentExercise.sets.map((set: any) => {
+        const baseSet = {
+          ...set,
+          weight_unit: exerciseData.weight_unit || currentExercise.weight_unit || 'kg'
+        };
+
+        // Reset actual values when changing effort type
+        switch (exerciseData.effort_type) {
+          case 'time':
+            return {
+              ...baseSet,
+              duration: set.duration || 30,
+              actual_duration: set.actual_duration || set.duration || 30,
+              weight: set.weight || null,
+              actual_weight: set.actual_weight || set.weight || null,
+              reps: null,
+              actual_reps: null,
+              distance: null,
+              actual_distance: null
+            };
+          case 'distance':
+            return {
+              ...baseSet,
+              distance: set.distance || 100,
+              actual_distance: set.actual_distance || set.distance || 100,
+              duration: set.duration || null,
+              actual_duration: set.actual_duration || set.duration || null,
+              weight: null,
+              actual_weight: null,
+              reps: null,
+              actual_reps: null
+            };
+          case 'reps':
+          default:
+            return {
+              ...baseSet,
+              reps: set.reps || 10,
+              actual_reps: set.actual_reps || set.reps || 10,
+              weight: set.weight || 0,
+              actual_weight: set.actual_weight || set.weight || 0,
+              duration: null,
+              actual_duration: null,
+              distance: null,
+              actual_distance: null
+            };
+        }
+      });
+
+      updatedExercises[exerciseIndex] = {
+        ...currentExercise,
+        ...exerciseData,
+        sets: convertedSets
+      };
+    } else {
+      // Simple update without effort type change
+      updatedExercises[exerciseIndex] = {
+        ...currentExercise,
+        ...exerciseData
+      };
+    }
+    
+    await updateWorkout({ exercises: updatedExercises });
+  };
+
+  // Updated handleAddSet to support effort types
   const handleAddSet = async (exerciseIndex: number) => {
     if (!activeWorkout) return;
     const exercise = activeWorkout.exercises[exerciseIndex];
     const lastSet = exercise.sets[exercise.sets.length - 1];
+    console.log(lastSet)
+    const effortType = exercise.effort_type || 'reps';
+    const weightUnit = lastSet.weight_unit || 'kg';
     
-    const newSet = {
-      id: `set-${Date.now()}`,
-      reps: lastSet.actual_reps || lastSet.reps,
-      weight: lastSet.actual_weight || lastSet.weight,
-      rest_time: lastSet.rest_time,
-      order: exercise.sets.length,
-      completed: false,
-      actual_reps: lastSet.actual_reps || lastSet.reps,
-      actual_weight: lastSet.actual_weight || lastSet.weight,
-      rest_time_completed: false
-    };
+    const newSet = createDefaultSet(effortType, exercise.sets.length, lastSet, weightUnit);
+    console.log(newSet)
+    // Copy actual values from last set for better UX
+    switch (effortType) {
+      case 'time':
+        newSet.actual_duration = lastSet.actual_duration || lastSet.duration;
+        if (lastSet.weight !== null || lastSet.actual_weight !== null) {
+          newSet.actual_weight = lastSet.actual_weight || lastSet.weight;
+          newSet.weight = lastSet.actual_weight || lastSet.weight;
+        }
+        break;
+      case 'distance':
+        newSet.actual_distance = lastSet.actual_distance || lastSet.distance;
+        if (lastSet.duration !== null || lastSet.actual_duration !== null) {
+          newSet.actual_duration = lastSet.actual_duration || lastSet.duration;
+          newSet.duration = lastSet.actual_duration || lastSet.duration;
+        }
+        break;
+      case 'reps':
+      default:
+        newSet.actual_reps = lastSet.actual_reps || lastSet.reps;
+        newSet.actual_weight = lastSet.actual_weight || lastSet.weight;
+        newSet.reps = lastSet.actual_reps || lastSet.reps;
+        newSet.weight = lastSet.actual_weight || lastSet.weight;
+        break;
+    }
+    
+    // Copy rest time
+    newSet.rest_time = lastSet.rest_time;
     
     const updatedExercises = [...activeWorkout.exercises];
     updatedExercises[exerciseIndex] = {
@@ -461,7 +640,6 @@ export default function RealtimeWorkoutLogger() {
     await updateWorkout({ exercises: updatedExercises });
   };
 
-  // Add missing handler from WorkoutHandlers with enhancements
   const handleDeleteExercise = (exerciseIndex: number) => {
     if (!activeWorkout) return;
     
@@ -516,10 +694,9 @@ export default function RealtimeWorkoutLogger() {
     await updateWorkout({ currentExerciseIndex: index });
   };
   
-  // Keep index.tsx version (simple modal show)
   const handleCompleteWorkout = () => setCompleteModalVisible(true);
   
-  // ENHANCED - Merge index.tsx version with WorkoutHandlers post creation and gym info
+  // ENHANCED - Updated handleSubmitWorkout to handle new fields
   const handleSubmitWorkout = async (additionalData: any = {}) => {
     if (!activeWorkout) return;
     
@@ -529,14 +706,45 @@ export default function RealtimeWorkoutLogger() {
         equipment: exercise.equipment || '',
         notes: exercise.notes || '',
         order: index,
+        effort_type: exercise.effort_type || 'reps',
         superset_with: exercise.superset_with || null,
         is_superset: !!exercise.is_superset,
-        sets: exercise.sets.map((set: any, idx: number) => ({
-          reps: set.actual_reps || set.reps,
-          weight: set.actual_weight || set.weight,
-          rest_time: set.rest_time,
-          order: idx
-        }))
+        sets: exercise.sets.map((set: any, idx: number) => {
+          const baseSet = {
+            rest_time: set.rest_time,
+            order: idx,
+            weight_unit: set.weight_unit || 'kg'
+          };
+
+          // Add fields based on effort type
+          switch (exercise.effort_type) {
+            case 'time':
+              return {
+                ...baseSet,
+                duration: set.actual_duration || set.duration,
+                weight: (set.actual_weight !== null && set.actual_weight !== undefined) ? set.actual_weight : set.weight,
+                reps: null,
+                distance: null
+              };
+            case 'distance':
+              return {
+                ...baseSet,
+                distance: set.actual_distance || set.distance,
+                duration: (set.actual_duration !== null && set.actual_duration !== undefined) ? set.actual_duration : set.duration,
+                weight: null,
+                reps: null
+              };
+            case 'reps':
+            default:
+              return {
+                ...baseSet,
+                reps: set.actual_reps || set.reps,
+                weight: (set.actual_weight !== null && set.actual_weight !== undefined) ? set.actual_weight : set.weight,
+                duration: null,
+                distance: null
+              };
+          }
+        })
       }));
       
       const workoutData = {
@@ -559,12 +767,13 @@ export default function RealtimeWorkoutLogger() {
       
       console.log('Submitting workout with exercises:', formattedExercises.length);
       console.log('Gym information:', selectedGym);
+      console.log('Sample exercise:', formattedExercises[0]);
       
       // First, create the workout log
       const result = await createLog(workoutData);
       console.log('Workout log created successfully:', result);
       
-      // Then create the post if sharing is enabled (from WorkoutHandlers)
+      // Then create the post if sharing is enabled
       await createWorkoutPost(result.id, additionalData);
       
       // End workout (clears context)
@@ -586,7 +795,6 @@ export default function RealtimeWorkoutLogger() {
     }
   };
   
-  // SIMPLE handlers (keep index.tsx versions)
   const handleCancelCompleteWorkout = () => setCompleteModalVisible(false);
   const startRestTimer = (seconds: number) => {
     setRestTimeSeconds(seconds);
@@ -610,7 +818,7 @@ export default function RealtimeWorkoutLogger() {
     ex.sets.some((set: any) => !set.completed)
   );
   
-  // Complete handlers object with merged functionality
+  // Complete handlers object
   const handlers = {
     handleBackPress,
     handleStartWorkout,
@@ -618,12 +826,13 @@ export default function RealtimeWorkoutLogger() {
     handleCompleteSet,
     handleUncompleteSet,
     handleUpdateSet,
+    handleUpdateExercise, // NEW HANDLER
     handleAddSet,
     handleRemoveSet,
-    handleDeleteExercise, // Added from WorkoutHandlers
+    handleDeleteExercise,
     handleNavigateToExercise,
     handleCompleteWorkout,
-    handleSubmitWorkout, // Enhanced with post creation
+    handleSubmitWorkout,
     handleCancelCompleteWorkout,
     toggleWorkoutTimer: toggleTimer,
     startRestTimer,

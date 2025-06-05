@@ -1,4 +1,4 @@
-// api/services/userService.ts
+// api/services/userService.ts - Updated interface for personality assessment responses
 import apiClient from '../index';
 import { extractData } from '../utils/responseParser';
 import { compressImage } from '../../utils/imageUtils';
@@ -12,6 +12,8 @@ interface User {
   email: string;
   email_verified?: boolean;
   avatar?: string;
+  personality_type?: string;
+  personality_assessment_responses?: any; // NEW: For storing assessment data
   [key: string]: any;
 }
 
@@ -26,6 +28,7 @@ interface SocialLoginResponse {
   user: User;
 }
 
+// Enhanced interface to support personality assessment responses
 interface RegisterUserData {
   username: string;
   password: string;
@@ -35,6 +38,7 @@ interface RegisterUserData {
   language_preference?: string;
   fitness_goals?: string;
   bio?: string;
+  personality_assessment_responses?: any; // NEW: For storing wizard responses
 }
 
 // Used to store the most recently uploaded avatar path
@@ -257,8 +261,15 @@ const userService = {
     return response.data;
   },
 
-  // Updated register method that uses new endpoint
+  // Enhanced register method that supports personality assessment responses
   register: async (userData: RegisterUserData): Promise<any> => {
+    console.log('🚀 Registering user with enhanced data:', {
+      username: userData.username,
+      email: userData.email,
+      personality_type: userData.personality_type,
+      has_assessment_responses: !!userData.personality_assessment_responses
+    });
+    
     const response = await apiClient.post('/users/register/', userData);
     return response.data;
   },
@@ -291,7 +302,7 @@ const userService = {
     }
   },
 
-  // NEW METHODS FOR SOCIAL AUTH AND EMAIL VERIFICATION
+  // SOCIAL AUTH AND EMAIL VERIFICATION METHODS
 
   /**
    * Social login with external providers like Google or Instagram

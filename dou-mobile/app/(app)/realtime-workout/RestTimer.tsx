@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../../context/LanguageContext';
 
 interface RestTimerProps {
-  seconds: number;
+  initialSeconds: number;
   onComplete: () => void;
   onCancel: () => void;
   onPause?: () => void;
@@ -22,7 +22,7 @@ interface RestTimerProps {
 }
 
 const RestTimer: React.FC<RestTimerProps> = ({
-  seconds,
+  initialSeconds,
   onComplete,
   onCancel,
   onPause,
@@ -31,15 +31,36 @@ const RestTimer: React.FC<RestTimerProps> = ({
 }) => {
   const { t } = useLanguage();
   const [timerActive, setTimerActive] = useState(true);
+  const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds);
   
-  // Use the passed seconds directly instead of managing countdown
-  const remainingSeconds = seconds;
-  const totalSeconds = useRef(seconds).current;
+  const totalSeconds = useRef(initialSeconds).current;
   
   // Animation values
   const slideAnim = React.useRef(new Animated.Value(-100)).current;
   const progressAnim = React.useRef(new Animated.Value(1)).current;
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  
+  // Timer countdown effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (timerActive && remainingSeconds > 0) {
+      interval = setInterval(() => {
+        setRemainingSeconds(prev => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [timerActive, remainingSeconds]);
   
   // Start animations when component mounts
   useEffect(() => {
@@ -51,10 +72,6 @@ const RestTimer: React.FC<RestTimerProps> = ({
       friction: 8,
     }).start();
     
-    // Progress animation - use remaining vs total
-    const progressValue = remainingSeconds / totalSeconds;
-    progressAnim.setValue(progressValue);
-
     // Pulse animation for active state
     const createPulse = () => {
       Animated.sequence([
@@ -78,7 +95,17 @@ const RestTimer: React.FC<RestTimerProps> = ({
     if (timerActive) {
       createPulse();
     }
-  }, [timerActive, remainingSeconds]);
+  }, [timerActive]);
+  
+  // Update progress animation when remaining seconds change
+  useEffect(() => {
+    const progressValue = remainingSeconds / totalSeconds;
+    Animated.timing(progressAnim, {
+      toValue: progressValue,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [remainingSeconds, totalSeconds]);
   
   // Handle completion when seconds reach 0
   useEffect(() => {
@@ -161,7 +188,10 @@ const RestTimer: React.FC<RestTimerProps> = ({
         style={[
           styles.progressBackground,
           {
-            width: `${Math.max(0, (remainingSeconds / totalSeconds) * 100)}%`,
+            width: progressAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            }),
             backgroundColor: 'rgba(255, 255, 255, 0.3)',
           },
         ]}

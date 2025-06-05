@@ -43,6 +43,9 @@ class User(AbstractUser):
     # Social authentication fields
     google_id = models.CharField(max_length=100, blank=True, null=True)
     instagram_id = models.CharField(max_length=100, blank=True, null=True)
+    
+    # NEW: Personality assessment responses storage
+    personality_assessment_responses = models.JSONField(null=True, blank=True, help_text="Stores user responses from personality wizard")
 
     def generate_verification_token(self):
         """Generate a unique token for email verification"""

@@ -247,7 +247,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
   
   const startWorkout = async (workoutData: Partial<WorkoutState>) => {
-    console.log('Starting new workout:', workoutData.name);
     
     const newWorkout: WorkoutState = {
       id: `workout_${Date.now()}`,
@@ -272,8 +271,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const updateWorkout = async (updates: Partial<WorkoutState>) => {
     if (!activeWorkout) return;
-    
-    console.log('Updating workout:', Object.keys(updates));
     const updatedWorkout = { ...activeWorkout, ...updates };
     setActiveWorkout(updatedWorkout);
     await saveActiveWorkout(updatedWorkout);
@@ -283,7 +280,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!activeWorkout) return;
     
     const newTimerState = !activeWorkout.isTimerActive;
-    console.log('Toggle timer:', newTimerState ? 'START' : 'PAUSE');
     
     const updatedWorkout = { 
       ...activeWorkout, 
@@ -297,9 +293,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const startRestTimer = async (seconds: number) => {
     if (!activeWorkout) return;
-    
-    console.log('Starting rest timer:', seconds, 'seconds');
-    
     const restTimer: RestTimerState = {
       isActive: true,
       totalSeconds: seconds,
@@ -319,8 +312,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const stopRestTimer = async () => {
     if (!activeWorkout) return;
     
-    console.log('Stopping rest timer');
-    
     const updatedWorkout = {
       ...activeWorkout,
       restTimer: undefined
@@ -332,8 +323,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const pauseRestTimer = async () => {
     if (!activeWorkout?.restTimer?.isActive) return;
-    
-    console.log('Pausing rest timer');
     
     const updatedWorkout = {
       ...activeWorkout,
@@ -349,8 +338,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const resumeRestTimer = async () => {
     if (!activeWorkout?.restTimer || activeWorkout.restTimer.isActive) return;
-    
-    console.log('Resuming rest timer');
     
     const updatedWorkout = {
       ...activeWorkout,
@@ -371,7 +358,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     const handleEndWorkout = async () => {
       try {
-        console.log('Ending workout:', activeWorkout.name);
         
         await persistenceManager.clearActiveWorkout();
         setActiveWorkout(null);
@@ -405,8 +391,6 @@ export const WorkoutProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const navigateToWorkout = () => {
     if (!activeWorkout) return;
     if (isOnWorkoutPage) return; // Already on workout page
-    
-    console.log('Navigating to workout:', activeWorkout.name);
     
     // Simple navigation with resume flag
     const params = new URLSearchParams({
