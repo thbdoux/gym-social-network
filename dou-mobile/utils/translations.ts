@@ -72,9 +72,11 @@ const common = {
     has_liked: 'has sent a dou',
     have_liked: 'have sent doux',
     'or_continue_with': "or continue with",
+    no_workout_partners_yet:'No partners yet...',
   },
   fr: {
     no_programs_created : 'Aucun programme',
+    no_workout_partners_yet:'Pas encore de partenaires...',
     no_workout_logged: 'Aucun entraînement enregistré',
     no_group_workouts: 'Aucun entraînement de groupe',
     reaction:'réaction',
@@ -1964,6 +1966,8 @@ const realtime_logger = {
     'select_template_optional': 'Select a workout template',
     'd_ago' : ' days ago',
     'just_now' : 'just now',
+    'new_workout': 'New Workout',
+    'configure_your_session': "What are you working out today?",
   },
   fr: {
     // General
@@ -2000,6 +2004,8 @@ const realtime_logger = {
     "start_workout": "Commencer",
     "workout_name": "Nom de l'Entraînement",
     "enter_workout_name": "Entrez le nom de l'entraînement",
+    'new_workout': 'Nouvel entraînement',
+    'configure_your_session': "Quelle séance vas-tu faire aujourd'hui?",
     "notes": "Notes",
     "enter_notes": "Entrez des notes sur votre entraînement...",
     "start": "Commencer",

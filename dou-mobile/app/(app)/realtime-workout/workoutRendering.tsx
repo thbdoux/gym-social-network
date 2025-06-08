@@ -56,156 +56,224 @@ export const createWorkoutRendering = ({
 }: any) => {
 
   // Updated Start Screen with template selection
-  const renderStartScreen = () => (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView 
-        style={styles.startScreenContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  // Enhanced Start Screen with improved design and no auto-keyboard
+const renderStartScreen = () => (
+  <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <KeyboardAvoidingView 
+      style={styles.startScreenContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.startScreenContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView 
-          contentContainerStyle={styles.startScreenContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Template Selection */}
-          <View style={styles.templateSection}>
-            <Text style={[styles.inputLabel, { color: palette.text }]}>
-              {t('template')} ({t('optional')})
+        {/* Header Section */}
+        <View style={styles.headerSection}>
+  
+          <Text style={[styles.headerTitle, { color: palette.text }]}>
+            {t('new_workout')}
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: palette.text_secondary }]}>
+            {t('configure_your_session')}
+          </Text>
+        </View>
+
+        {/* Template Selection Card */}
+        <View style={[styles.card, { backgroundColor: palette.page_background }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: palette.text }]}>
+              {t('template')}
             </Text>
-            <TouchableOpacity
-              style={[styles.templateSelector, { 
-                backgroundColor: palette.input_background,
-                borderColor: selectedTemplate ? palette.success : palette.border
-              }]}
-              onPress={handlers.handleOpenTemplateModal}
-            >
-              <View style={styles.templateSelectorLeft}>
+            <View style={[styles.optionalBadge, { backgroundColor: palette.accent_light }]}>
+              <Text style={[styles.optionalText, { color: palette.accent }]}>
+                {t('optional')}
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity
+            style={[styles.templateSelector, { 
+              backgroundColor: selectedTemplate ? palette.success_light : palette.input_background,
+              borderColor: selectedTemplate ? palette.success : palette.border,
+              shadowColor: selectedTemplate ? palette.success : 'transparent'
+            }]}
+            onPress={handlers.handleOpenTemplateModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.templateSelectorLeft}>
+              <View style={[styles.iconContainer, { 
+                backgroundColor: selectedTemplate ? palette.success : palette.background_secondary 
+              }]}>
                 <Ionicons 
                   name={selectedTemplate ? "document-text" : "document-text-outline"} 
-                  size={24} 
-                  color={selectedTemplate ? palette.success : palette.text_secondary}
-                  style={styles.templateIcon}
+                  size={20} 
+                  color={selectedTemplate ? "#FFFFFF" : palette.text_secondary}
                 />
-                <View style={styles.templateSelectorText}>
-                  {selectedTemplate ? (
-                    <>
-                      <Text style={[styles.templateName, { color: palette.text }]}>
-                        {selectedTemplate.name}
-                      </Text>
-                      <Text style={[styles.templateInfo, { color: palette.text_secondary }]}>
-                        {selectedTemplate.exercises?.length || 0} {t('exercises')}
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
-                      {t('select_template_optional')}
-                    </Text>
-                  )}
-                </View>
               </View>
-              
+              <View style={styles.templateSelectorText}>
+                {selectedTemplate ? (
+                  <>
+                    <Text style={[styles.templateName, { color: palette.text }]}>
+                      {selectedTemplate.name}
+                    </Text>
+                    <Text style={[styles.templateInfo, { color: palette.text_secondary }]}>
+                      {selectedTemplate.exercises?.length || 0} {t('exercises')}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
+                    {t('select_template_optional')}
+                  </Text>
+                )}
+              </View>
+            </View>
+            
+            <View style={styles.templateSelectorRight}>
               {selectedTemplate && (
                 <TouchableOpacity
-                  style={styles.templateClearButton}
+                  style={[styles.templateClearButton, { backgroundColor: palette.background_secondary }]}
                   onPress={handlers.handleClearTemplate}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close-circle" size={20} color={palette.text_secondary} />
+                  <Ionicons name="close" size={16} color={palette.text_secondary} />
                 </TouchableOpacity>
               )}
-              
-              <Ionicons name="chevron-forward" size={20} color={palette.text_secondary} />
-            </TouchableOpacity>
-          </View>
+              <Ionicons name="chevron-forward" size={18} color={palette.text_secondary} />
+            </View>
+          </TouchableOpacity>
+        </View>
 
-          {/* Workout Name Input */}
-          <View style={styles.inputSection}>
-            <Text style={[styles.inputLabel, { color: palette.text }]}>
+        {/* Workout Name Card */}
+        <View style={[styles.card, { backgroundColor: palette.page_background }]}>
+            <Text style={[styles.cardTitle, { color: palette.text }]}>
               {t('workout_name')}
             </Text>
-            <TextInput
-              style={[styles.textInput, { 
-                color: palette.text,
-                backgroundColor: palette.input_background,
-                borderColor: palette.border
-              }]}
-              value={workoutName}
-              onChangeText={setWorkoutName}
-              placeholder={selectedTemplate ? selectedTemplate.name : t('enter_workout_name')}
-              placeholderTextColor={palette.text_tertiary}
-              returnKeyType="done"
-              blurOnSubmit={true}
-              autoFocus={!selectedTemplate} // Only auto-focus if no template is selected
-            />
+            <View style={[styles.inputContainer, { 
+              borderColor: workoutName.trim() ? palette.border : palette.border,
+              backgroundColor: palette.input_background,
+            }]}>
+              <Ionicons 
+                name="create-outline" 
+                size={20} 
+                color={workoutName.trim() ? palette.primary : palette.text_secondary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.textInput, { 
+                  color: palette.text,
+                  borderWidth: 0,
+                }]}
+                value={workoutName}
+                onChangeText={setWorkoutName}
+                placeholder={selectedTemplate ? selectedTemplate.name : t('enter_workout_name')}
+                placeholderTextColor={palette.text_tertiary}
+                returnKeyType="done"
+                blurOnSubmit={true}
+                autoFocus={false} // Removed automatic keyboard opening
+              />
+              {workoutName.trim() && (
+                <TouchableOpacity
+                  style={styles.clearInputButton}
+                  onPress={() => setWorkoutName('')}
+                  hitSlop={{ top: 0, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={18} color={palette.text_secondary} />
+                </TouchableOpacity>
+              )}
           </View>
+        </View>
 
-          {/* Gym Selection */}
-          <View style={styles.gymSection}>
-            <Text style={[styles.inputLabel, { color: palette.text }]}>
-              {t('gym_location')} ({t('optional')})
+        {/* Gym Selection Card */}
+        <View style={[styles.card, { backgroundColor: palette.page_background }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: palette.text }]}>
+              {t('gym_location')}
             </Text>
-            <TouchableOpacity
-              style={[styles.gymSelector, { 
-                backgroundColor: palette.input_background,
-                borderColor: palette.border
-              }]}
-              onPress={handlers.handleOpenGymModal}
-            >
-              <View style={styles.gymSelectorLeft}>
-                <Ionicons 
-                  name={selectedGym ? "fitness" : "home-outline"} 
-                  size={24} 
-                  color={selectedGym ? palette.accent : palette.text_secondary}
-                  style={styles.gymIcon}
-                />
-                <View style={styles.gymSelectorText}>
-                  {selectedGym ? (
-                    <>
-                      <Text style={[styles.gymName, { color: palette.text }]}>
-                        {selectedGym.name}
-                      </Text>
-                      <Text style={[styles.gymLocation, { color: palette.text_secondary }]}>
-                        {selectedGym.location}
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
-                      {t('select_gym_or_home')}
-                    </Text>
-                  )}
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={palette.text_secondary} />
-            </TouchableOpacity>
+            <View style={[styles.optionalBadge, { backgroundColor: palette.accent_light }]}>
+              <Text style={[styles.optionalText, { color: palette.accent }]}>
+                {t('optional')}
+              </Text>
+            </View>
           </View>
           
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.cancelButton, { borderColor: palette.border }]}
-              onPress={handlers.handleBackPress}
-            >
-              <Text style={[styles.cancelButtonText, { color: palette.text }]}>
-                {t('cancel')}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.startButton, { 
-                backgroundColor: workoutName.trim() ? palette.success : palette.text_tertiary,
-                opacity: workoutName.trim() ? 1 : 0.6
-              }]}
-              onPress={handlers.handleStartWorkout}
-              disabled={!workoutName.trim()}
-            >
-              <Ionicons name="play" size={20} color="#FFFFFF" style={styles.startButtonIcon} />
-              <Text style={styles.startButtonText}>{t('start_workout')}</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
-  );
+          <TouchableOpacity
+            style={[styles.gymSelector, { 
+              backgroundColor: selectedGym ? palette.accent_light : palette.input_background,
+              borderColor: selectedGym ? palette.accent : palette.border,
+              shadowColor: selectedGym ? palette.accent : 'transparent'
+            }]}
+            onPress={handlers.handleOpenGymModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.gymSelectorLeft}>
+              <View style={[styles.iconContainer, { 
+                backgroundColor: selectedGym ? palette.accent : palette.background_secondary 
+              }]}>
+                <Ionicons 
+                  name={selectedGym ? "fitness" : "home-outline"} 
+                  size={20} 
+                  color={selectedGym ? "#FFFFFF" : palette.text_secondary}
+                />
+              </View>
+              <View style={styles.gymSelectorText}>
+                {selectedGym ? (
+                  <>
+                    <Text style={[styles.gymName, { color: palette.text }]}>
+                      {selectedGym.name}
+                    </Text>
+                    <Text style={[styles.gymLocation, { color: palette.text_secondary }]}>
+                      {selectedGym.location}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
+                    {t('select_gym_or_home')}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={palette.text_secondary} />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Action Buttons */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.cancelButton, { 
+              borderColor: palette.border,
+              backgroundColor: palette.background_secondary
+            }]}
+            onPress={handlers.handleBackPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={18} color={palette.text} style={styles.buttonIcon} />
+            <Text style={[styles.cancelButtonText, { color: palette.text }]}>
+              {t('cancel')}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.startButton, { 
+              backgroundColor: workoutName.trim() ? palette.success : palette.text_tertiary,
+              opacity: workoutName.trim() ? 1 : 0.6,
+              shadowColor: workoutName.trim() ? palette.success : 'transparent'
+            }]}
+            onPress={handlers.handleStartWorkout}
+            disabled={!workoutName.trim()}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="play" size={18} color="#FFFFFF" style={styles.buttonIcon} />
+            <Text style={styles.startButtonText}>{t('start_workout')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    </KeyboardAvoidingView>
+  </TouchableWithoutFeedback>
+);
 
   const renderWorkoutScreen = () => (
     <>

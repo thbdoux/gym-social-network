@@ -52,6 +52,14 @@ const EditableField: React.FC<EditableFieldProps> = ({
   theme,
   flex = 1
 }) => {
+  const formatValue = (val: string | number): string => {
+    if (typeof val === 'number') {
+      // Si c'est un nombre entier, on l'affiche sans décimales
+      // Si c'est un nombre avec décimales, on garde jusqu'à 2 décimales
+      return val % 1 === 0 ? val.toString() : val.toFixed(2).replace(/\.?0+$/, '');
+    }
+    return val.toString();
+  };
   return (
     <Pressable
       style={[styles.editableField, { 
@@ -71,7 +79,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
           textDecorationColor: theme.accent,
         }
       ]}>
-        {value}{suffix}
+        {formatValue(value)}{suffix}
       </Text>
     </Pressable>
   );
@@ -132,7 +140,6 @@ const EffortTypeModal = ({ visible, onClose, currentType, onSelect, theme }) => 
 // Weight Unit Selector Modal
 const WeightUnitModal = ({ visible, onClose, currentUnit, onSelect, theme }) => {
   const { t } = useLanguage();
-  
   const units = [
     { id: 'kg', name: t('kilograms'), abbr: 'kg' },
     { id: 'lbs', name: t('pounds'), abbr: 'lbs' }
@@ -500,7 +507,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
   const modalAnimation = useRef(new Animated.Value(0)).current;
 
   const effortType = exercise.effort_type || 'reps';
-  const weightUnit = exercise.weight_unit || 'kg';
+  const weightUnit = exercise.sets.length > 0 ? (exercise.sets[0].weight_unit || 'kg') : 'kg';
 
   // Handle set completion
   const handleCompleteSet = (setIndex: number) => {
@@ -596,7 +603,9 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
     if (!editingSet) return;
     
     const { index, field } = editingSet;
-    const numValue = parseFloat(tempValue);
+    
+    const normalizedValue = tempValue.replace(',', '.');
+    const numValue = parseFloat(normalizedValue);
     
     if (isNaN(numValue)) {
       hideEditModal();
@@ -651,8 +660,16 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
 
   // Handle weight unit change
   const handleWeightUnitChange = (newUnit: string) => {
-    // YOU THOUGH weight_unit was a field of exercise, but it is a field of set !!!
-    // use onUpdateSet to update weight_unit in the targeted set
+    const updatedSets = exercise.sets.map(set => ({
+      ...set,
+      weight_unit: newUnit
+    }));
+    
+    // Update the entire exercise with the new sets
+    onUpdateExercise(exerciseIndex, {
+      ...exercise,
+      sets: updatedSets
+    });
   };
 
   // Handle name change

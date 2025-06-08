@@ -921,6 +921,248 @@ export default function RealtimeWorkoutLogger() {
 
 // Styles remain the same with additions for template selection
 const themedStyles = createThemedStyles((palette) => ({
+  startScreenContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: palette.page_background,
+  },
+  startScreenContent: {
+    width: '80%',
+    // alignItems: 'center',
+  },
+
+  // Header Section
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingVertical: 16,
+  },
+
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+
+  // Card Styles
+  card: {
+    marginBottom: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    // marginBottom: 4,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    paddingBottom:4,
+  },
+  optionalBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  optionalText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Icon Container
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  // Template Selector
+  templateSelector: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    height:56,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  templateSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  templateSelectorText: {
+    flex: 1,
+  },
+  templateSelectorRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  templateName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  templateInfo: {
+    fontSize: 14,
+  },
+  templateClearButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  
+  templateIcon: {
+    marginRight: 12,
+  },
+
+  // Input Container
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    height:56,
+    paddingHorizontal: 30,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    fontSize: 16,
+    fontWeight: '500',
+    minHeight: 24,
+    width: '100%',
+    height: 56,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    // textAlign: 'center',
+  },
+  clearInputButton: {
+    marginLeft: 8,
+  },
+
+  // Gym Selector
+  gymSelector: {
+    width: '100%',
+    height: 56,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  gymSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  gymSelectorText: {
+    flex: 1,
+  },
+  gymName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  gymLocation: {
+    fontSize: 14,
+  },
+
+
+  placeholderText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  
+  buttonContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 16,
+  },
+
+  cancelButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  startButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  startButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Bottom Spacing
+  bottomSpacing: {
+    height: 40,
+  },
   safeArea: {
     flex: 1,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
@@ -932,16 +1174,7 @@ const themedStyles = createThemedStyles((palette) => ({
   },
   
   // Simplified Start Screen Styles
-  startScreenContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: palette.page_background,
-  },
-  startScreenContent: {
-    width: '80%',
-    alignItems: 'center',
-  },
+  
   inputSection: {
     width: '100%',
     marginBottom: 24,
@@ -952,132 +1185,27 @@ const themedStyles = createThemedStyles((palette) => ({
     marginBottom: 12,
     textAlign: 'center',
   },
-  textInput: {
-    width: '100%',
-    height: 56,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 2,
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
   
   // Template selection styles
   templateSection: {
     width: '100%',
     marginBottom: 24,
   },
-  templateSelector: {
-    width: '100%',
-    minHeight: 56,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  templateSelectorLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  templateIcon: {
-    marginRight: 12,
-  },
-  templateSelectorText: {
-    flex: 1,
-  },
-  templateName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  templateInfo: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  templateClearButton: {
-    padding: 4,
-    marginRight: 8,
-  },
-  
   // Gym selection styles
   gymSection: {
     width: '100%',
     marginBottom: 32,
   },
-  gymSelector: {
-    width: '100%',
-    height: 56,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  gymSelectorLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
+  
+  
   gymIcon: {
     marginRight: 12,
   },
-  gymSelectorText: {
-    flex: 1,
-  },
-  gymName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  gymLocation: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  placeholderText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  
-  buttonContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  startButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
   startButtonIcon: {
     marginRight: 8,
   },
-  startButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
 
-  // Rest of styles...
   modalContainer: {
     flex: 1,
     backgroundColor: palette.page_background,
