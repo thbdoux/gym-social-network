@@ -1,8 +1,14 @@
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ACTIVE_WORKOUT_KEY = 'active_workout_session';
 const WORKOUT_HISTORY_KEY = 'workout_history';
+
+interface RestTimerState {
+  isActive: boolean;
+  totalSeconds: number;
+  startTime: string;
+  remainingSeconds: number;
+}
 
 export interface ActiveWorkoutSession {
   id: string;
@@ -17,7 +23,10 @@ export interface ActiveWorkoutSession {
   templateId?: number;
   programId?: number;
   workoutId?: number;
+  gym_id?: number;
   lastUpdated: string;
+  // Rest timer state
+  restTimer?: RestTimerState;
 }
 
 export class WorkoutPersistenceManager {
@@ -37,6 +46,8 @@ export class WorkoutPersistenceManager {
         ...workout,
         lastUpdated: new Date().toISOString()
       };
+      
+      console.log('Saving workout persistence with rest timer:', workoutData.restTimer?.isActive);
       await AsyncStorage.setItem(ACTIVE_WORKOUT_KEY, JSON.stringify(workoutData));
     } catch (error) {
       console.error('Error saving active workout:', error);
@@ -62,6 +73,24 @@ export class WorkoutPersistenceManager {
         await this.archiveOldWorkout(workout);
         await this.clearActiveWorkout();
         return null;
+      }
+      
+      // Handle rest timer persistence
+      if (workout.restTimer?.isActive) {
+        const restStartTime = new Date(workout.restTimer.startTime).getTime();
+        const now = new Date().getTime();
+        const elapsedSeconds = Math.floor((now - restStartTime) / 1000);
+        const remainingSeconds = Math.max(0, workout.restTimer.totalSeconds - elapsedSeconds);
+        
+        console.log('Loading rest timer - elapsed:', elapsedSeconds, 'remaining:', remainingSeconds);
+        
+        if (remainingSeconds > 0) {
+          workout.restTimer.remainingSeconds = remainingSeconds;
+        } else {
+          // Timer has expired while app was closed
+          console.log('Rest timer expired while app was closed');
+          workout.restTimer = undefined;
+        }
       }
       
       return workout;
@@ -130,6 +159,21 @@ export class WorkoutPersistenceManager {
       }
     } catch (error) {
       console.error('Error updating workout timer:', error);
+    }
+  }
+
+  // Update rest timer data
+  async updateRestTimer(restTimer?: RestTimerState): Promise<void> {
+    try {
+      const workout = await this.getActiveWorkout();
+      if (workout) {
+        workout.restTimer = restTimer;
+        workout.lastUpdated = new Date().toISOString();
+        await this.saveActiveWorkout(workout);
+        console.log('Updated rest timer in persistence:', restTimer?.isActive);
+      }
+    } catch (error) {
+      console.error('Error updating rest timer:', error);
     }
   }
 }

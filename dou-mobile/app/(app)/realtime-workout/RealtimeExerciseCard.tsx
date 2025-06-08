@@ -200,6 +200,7 @@ const SetRow = ({
   theme
 }) => {
   const { t } = useLanguage();
+  console.log('completed?', isCompleted)
   
   // Animation values
   const rowScale = useRef(new Animated.Value(1)).current;
@@ -218,7 +219,6 @@ const SetRow = ({
         useNativeDriver: true,
       }),
     ]).start();
-    
     onComplete();
   };
   
@@ -470,13 +470,12 @@ const SetRow = ({
 interface RealtimeExerciseCardProps {
   exercise: any;
   exerciseIndex: number;
-  onCompleteSet: (exerciseIndex: number, setIndex: number, setData: any) => void;
+  onCompleteSet: (exerciseIndex: number, setIndex: number, setData: any) => Promise<void>;
   onUncompleteSet: (exerciseIndex: number, setIndex: number) => void;
   onUpdateSet: (exerciseIndex: number, setIndex: number, setData: any) => void;
   onUpdateExercise: (exerciseIndex: number, exerciseData: any) => void;
   onAddSet: (exerciseIndex: number) => void;
   onRemoveSet: (exerciseIndex: number, setIndex: number) => void;
-  onStartRestTimer: (seconds: number) => void;
   editingPrevious?: boolean;
   themePalette: any;
 }
@@ -490,7 +489,6 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
   onUpdateExercise,
   onAddSet,
   onRemoveSet,
-  onStartRestTimer,
   editingPrevious = false,
   themePalette,
 }) => {
@@ -510,7 +508,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
   const weightUnit = exercise.sets.length > 0 ? (exercise.sets[0].weight_unit || 'kg') : 'kg';
 
   // Handle set completion
-  const handleCompleteSet = (setIndex: number) => {
+  const handleCompleteSet = async (setIndex: number) => {
     const set = exercise.sets[setIndex];
     
     let completionData = {};
@@ -535,13 +533,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
         };
         break;
     }
-    
-    onCompleteSet(exerciseIndex, setIndex, completionData);
-    
-    // Always start rest timer when completing a set
-    if (set.rest_time > 0) {
-      onStartRestTimer(set.rest_time);
-    }
+    await onCompleteSet(exerciseIndex, setIndex, completionData);
   };
 
   // Handle set uncompletion

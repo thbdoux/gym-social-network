@@ -52,7 +52,8 @@ export const createWorkoutRendering = ({
   selectedTemplate,
   templateModalVisible,
   templates,
-  templatesLoading
+  templatesLoading,
+  stopRestTimer
 }: any) => {
 
   // Updated Start Screen with template selection
@@ -462,7 +463,6 @@ const renderStartScreen = () => (
                 onUpdateExercise={handlers.handleUpdateExercise}
                 onAddSet={handlers.handleAddSet}
                 onRemoveSet={handlers.handleRemoveSet}
-                onStartRestTimer={handlers.startRestTimer}
                 editingPrevious={false}
                 themePalette={palette}
               />
@@ -471,8 +471,8 @@ const renderStartScreen = () => (
               {restTimerActive && (
                 <RestTimer
                   initialSeconds={restTimeSeconds}
-                  onComplete={handlers.stopRestTimer}
-                  onCancel={handlers.stopRestTimer}
+                  onComplete={stopRestTimer}
+                  onCancel={stopRestTimer}
                   themePalette={palette}
                 />
               )}

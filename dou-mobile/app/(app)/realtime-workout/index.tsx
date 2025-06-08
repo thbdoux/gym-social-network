@@ -1,4 +1,4 @@
-// app/(app)/realtime-workout/index.tsx - Updated with new exercise formats
+// app/(app)/realtime-workout/index.tsx - Updated with persistent rest timer
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -108,7 +108,12 @@ export default function RealtimeWorkoutLogger() {
     startWorkout,
     updateWorkout,
     endWorkout,
-    toggleTimer
+    toggleTimer,
+    // Rest timer methods from context
+    startRestTimer,
+    stopRestTimer,
+    pauseRestTimer,
+    resumeRestTimer
   } = workoutContext;
   
   // Get search params
@@ -124,15 +129,13 @@ export default function RealtimeWorkoutLogger() {
   const { data: program } = useProgram(programId);
   const programWorkout = program?.workouts?.find(w => w.id === workoutId);
   
-  // Local UI state only (not workout data)
+  // Local UI state only (not workout data) - REMOVED restTimerActive and restTimeSeconds
   const [workoutName, setWorkoutName] = useState('');
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
   const [gymModalVisible, setGymModalVisible] = useState(false);
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [selectingExercise, setSelectingExercise] = useState(false);
-  const [restTimerActive, setRestTimerActive] = useState(false);
-  const [restTimeSeconds, setRestTimeSeconds] = useState(0);
   const [completeModalVisible, setCompleteModalVisible] = useState(false);
   
   // UI refs
@@ -452,12 +455,16 @@ export default function RealtimeWorkoutLogger() {
     setSelectingExercise(false);
   };
   
+  // In index.tsx, replace the handleCompleteSet function and add a new combined function:
+
   const handleCompleteSet = async (exerciseIndex: number, setIndex: number, setData: any) => {
     if (!activeWorkout) return;
     
     const updatedExercises = [...activeWorkout.exercises];
     const exercise = {...updatedExercises[exerciseIndex]};
     const sets = [...exercise.sets];
+    const currentSet = sets[setIndex];
+    
     sets[setIndex] = {
       ...sets[setIndex],
       ...setData,
@@ -466,7 +473,22 @@ export default function RealtimeWorkoutLogger() {
     exercise.sets = sets;
     updatedExercises[exerciseIndex] = exercise;
     
-    await updateWorkout({ exercises: updatedExercises });
+    // ✅ Combine both updates: set completion AND rest timer start
+    const updates: any = { exercises: updatedExercises };
+    
+    // If the set has rest time, also start the rest timer in the same update
+    if (currentSet.rest_time > 0) {
+      const restTimer = {
+        isActive: true,
+        totalSeconds: currentSet.rest_time,
+        startTime: new Date().toISOString(),
+        remainingSeconds: currentSet.rest_time
+      };
+      updates.restTimer = restTimer;
+    }
+    
+    console.log('completing set and starting rest timer');
+    await updateWorkout(updates);
   };
 
   const handleUncompleteSet = async (exerciseIndex: number, setIndex: number) => {
@@ -796,11 +818,6 @@ export default function RealtimeWorkoutLogger() {
   };
   
   const handleCancelCompleteWorkout = () => setCompleteModalVisible(false);
-  const startRestTimer = (seconds: number) => {
-    setRestTimeSeconds(seconds);
-    setRestTimerActive(true);
-  };
-  const stopRestTimer = () => setRestTimerActive(false);
   
   // Calculate stats from active workout
   const exercises = activeWorkout?.exercises || [];
@@ -808,6 +825,11 @@ export default function RealtimeWorkoutLogger() {
   const workoutDuration = activeWorkout?.duration || 0;
   const workoutStarted = activeWorkout?.started || false;
   const workoutTimerActive = activeWorkout?.isTimerActive || false;
+  
+  // Get rest timer state from context
+  const restTimerState = activeWorkout?.restTimer;
+  const restTimerActive = restTimerState?.isActive || false;
+  const restTimeSeconds = restTimerState?.remainingSeconds || 0;
   
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
   const completedSets = exercises.reduce((acc, ex) => {
@@ -835,8 +857,6 @@ export default function RealtimeWorkoutLogger() {
     handleSubmitWorkout,
     handleCancelCompleteWorkout,
     toggleWorkoutTimer: toggleTimer,
-    startRestTimer,
-    stopRestTimer,
     workoutTimerActive,
     // Gym handlers
     handleSelectGym,
@@ -887,7 +907,8 @@ export default function RealtimeWorkoutLogger() {
     selectedTemplate,
     templateModalVisible,
     templates,
-    templatesLoading
+    templatesLoading,
+    stopRestTimer
   });
   
   return (

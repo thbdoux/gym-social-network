@@ -31,8 +31,10 @@ const RestTimer: React.FC<RestTimerProps> = ({
 }) => {
   const { t } = useLanguage();
   const [timerActive, setTimerActive] = useState(true);
-  const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds);
+  const [hasCompletedOnce, setHasCompletedOnce] = useState(false);
   
+  // Use initialSeconds directly as the display value since context manages the countdown
+  const remainingSeconds = initialSeconds;
   const totalSeconds = useRef(initialSeconds).current;
   
   // Animation values
@@ -40,27 +42,26 @@ const RestTimer: React.FC<RestTimerProps> = ({
   const progressAnim = React.useRef(new Animated.Value(1)).current;
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
   
-  // Timer countdown effect
+  // Track when timer reaches 0 to trigger completion
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (timerActive && remainingSeconds > 0) {
-      interval = setInterval(() => {
-        setRemainingSeconds(prev => {
-          if (prev <= 1) {
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
+    if (remainingSeconds <= 0 && !hasCompletedOnce) {
+      setHasCompletedOnce(true);
+      
+      // Vibrate when timer ends
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
+        Vibration.vibrate(500);
       }
-    };
-  }, [timerActive, remainingSeconds]);
+      
+      handleComplete();
+    }
+  }, [remainingSeconds, hasCompletedOnce]);
+  
+  // Reset completion flag when timer is restarted
+  useEffect(() => {
+    if (remainingSeconds > 0) {
+      setHasCompletedOnce(false);
+    }
+  }, [remainingSeconds]);
   
   // Start animations when component mounts
   useEffect(() => {
@@ -99,24 +100,14 @@ const RestTimer: React.FC<RestTimerProps> = ({
   
   // Update progress animation when remaining seconds change
   useEffect(() => {
-    const progressValue = remainingSeconds / totalSeconds;
+    // Calculate progress based on the original total vs current remaining
+    const progressValue = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
     Animated.timing(progressAnim, {
-      toValue: progressValue,
+      toValue: Math.max(0, progressValue),
       duration: 200,
       useNativeDriver: false,
     }).start();
   }, [remainingSeconds, totalSeconds]);
-  
-  // Handle completion when seconds reach 0
-  useEffect(() => {
-    if (remainingSeconds <= 0) {
-      // Vibrate when timer ends
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Vibration.vibrate(500);
-      }
-      handleComplete();
-    }
-  }, [remainingSeconds]);
   
   // Handle complete animation and callback
   const handleComplete = () => {
@@ -154,7 +145,7 @@ const RestTimer: React.FC<RestTimerProps> = ({
   
   // Calculate progress color based on remaining time
   const getProgressColor = () => {
-    const percentage = remainingSeconds / totalSeconds;
+    const percentage = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
     if (percentage > 0.6) return themePalette.success;
     if (percentage > 0.3) return themePalette.warning;
     return themePalette.error;
