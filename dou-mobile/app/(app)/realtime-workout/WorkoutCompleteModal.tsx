@@ -63,7 +63,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
   const [tags, setTags] = useState('');
   
   // Social sharing states
-  const [shareToSocial, setShareToSocial] = useState(false);
+  const [shareToSocial, setShareToSocial] = useState(true);
   const [postContent, setPostContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -89,12 +89,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
       acc + ex.sets.filter((set: any) => set.completed).length, 0
     );
     
-    return `Just finished "${workoutName}"! 💪\n\n` +
-           `⏱️ ${duration} minutes\n` +
-           `✅ ${completedSets} sets completed\n` +
-           `🏋️ ${exercises.length} exercises\n` +
-           `📊 ${completionPercentage}% complete\n\n` +
-           `#fitness #workout #training`;
+    return `Just finished "${workoutName}"! 💪\n\n`;
   };
 
   const handleSubmit = () => {

@@ -90,9 +90,9 @@ const EffortTypeModal = ({ visible, onClose, currentType, onSelect, theme }) => 
   const { t } = useLanguage();
   
   const effortTypes = [
-    { id: 'reps', name: t('reps'), icon: 'repeat-outline', description: t('reps_description') },
-    { id: 'time', name: t('time'), icon: 'timer-outline', description: t('time_description') },
-    { id: 'distance', name: t('distance'), icon: 'speedometer-outline', description: t('distance_description') }
+    { id: 'reps', name: t('reps'), icon: 'repeat-outline'},
+    { id: 'time', name: t('time'), icon: 'timer-outline'},
+    { id: 'distance', name: t('distance'), icon: 'speedometer-outline'}
   ];
 
   return (
@@ -100,7 +100,7 @@ const EffortTypeModal = ({ visible, onClose, currentType, onSelect, theme }) => 
       <View style={styles.modalOverlay}>
         <Pressable style={styles.modalBackdrop} onPress={onClose} />
         <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
-          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('select_effort_type')}</Text>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('effort_type')}</Text>
           
           {effortTypes.map(type => (
             <TouchableOpacity
@@ -120,7 +120,6 @@ const EffortTypeModal = ({ visible, onClose, currentType, onSelect, theme }) => 
               <Ionicons name={type.icon} size={24} color={currentType === type.id ? theme.accent : theme.text_secondary} />
               <View style={styles.effortTypeInfo}>
                 <Text style={[styles.effortTypeName, { color: theme.text }]}>{type.name}</Text>
-                <Text style={[styles.effortTypeDescription, { color: theme.text_secondary }]}>{type.description}</Text>
               </View>
               {currentType === type.id && (
                 <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
@@ -150,7 +149,7 @@ const WeightUnitModal = ({ visible, onClose, currentUnit, onSelect, theme }) => 
       <View style={styles.modalOverlay}>
         <Pressable style={styles.modalBackdrop} onPress={onClose} />
         <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
-          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('select_weight_unit')}</Text>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('weight_unit')}</Text>
           
           {units.map(unit => (
             <TouchableOpacity
@@ -200,7 +199,6 @@ const SetRow = ({
   theme
 }) => {
   const { t } = useLanguage();
-  console.log('completed?', isCompleted)
   
   // Animation values
   const rowScale = useRef(new Animated.Value(1)).current;
@@ -259,7 +257,6 @@ const SetRow = ({
       case 'time':
         const duration = set.actual_duration !== undefined ? set.actual_duration : set.duration;
         const weight = set.actual_weight !== undefined ? set.actual_weight : set.weight;
-        
         return (
           <>
             <EditableField
@@ -267,8 +264,7 @@ const SetRow = ({
               onEdit={() => handleEditPress('duration')}
               editable={true}
               completed={isCompleted}
-              label={t('time').toUpperCase()}
-              suffix="s"
+              label={t('time_s').toUpperCase()}
               theme={theme}
               flex={1.2}
             />
@@ -279,8 +275,7 @@ const SetRow = ({
                 onEdit={() => handleEditPress('weight')}
                 editable={true}
                 completed={isCompleted}
-                label={t('weight').toUpperCase()}
-                suffix={` ${weightUnit}`}
+                label={t(`weight_${set.weight_unit || 'kg'}`).toUpperCase()}
                 theme={theme}
                 flex={1}
               />
@@ -291,8 +286,7 @@ const SetRow = ({
               onEdit={() => handleEditPress('rest')}
               editable={true}
               completed={isCompleted}
-              label={t('rest').toUpperCase()}
-              suffix="s"
+              label={t('rest_s').toUpperCase()}
               theme={theme}
               flex={0.8}
             />
@@ -322,8 +316,7 @@ const SetRow = ({
                 onEdit={() => handleEditPress('duration')}
                 editable={true}
                 completed={isCompleted}
-                label={t('time').toUpperCase()}
-                suffix="s"
+                label={t(`time_s`).toUpperCase()}
                 theme={theme}
                 flex={1}
               />
@@ -334,8 +327,7 @@ const SetRow = ({
               onEdit={() => handleEditPress('rest')}
               editable={true}
               completed={isCompleted}
-              label={t('rest').toUpperCase()}
-              suffix="s"
+              label={t('rest_s').toUpperCase()}
               theme={theme}
               flex={0.8}
             />
@@ -354,7 +346,7 @@ const SetRow = ({
               onEdit={() => handleEditPress('reps')}
               editable={true}
               completed={isCompleted}
-              label={t('reps').toUpperCase()}
+              label={('reps').toUpperCase()}
               theme={theme}
               flex={0.8}
             />
@@ -364,8 +356,7 @@ const SetRow = ({
               onEdit={() => handleEditPress('weight')}
               editable={true}
               completed={isCompleted}
-              label={t('weight').toUpperCase()}
-              suffix={` ${weightUnit}`}
+              label={t(`weight_${set.weight_unit || 'kg'}`).toUpperCase()}
               theme={theme}
               flex={1.2}
             />
@@ -375,8 +366,7 @@ const SetRow = ({
               onEdit={() => handleEditPress('rest')}
               editable={true}
               completed={isCompleted}
-              label={t('rest').toUpperCase()}
-              suffix="s"
+              label={t('rest_s').toUpperCase()}
               theme={theme}
               flex={0.8}
             />
@@ -449,6 +439,7 @@ const SetRow = ({
               onPress={handleComplete}
             >
               <Text style={[styles.completeSetText, { color: '#FFFFFF' }]}>{t('complete')}</Text>
+              {/* <Ionicons name="checkmark-sharp" size={16} color="#FFFFFF" /> */}
             </TouchableOpacity>
             
             {/* Remove set */}
@@ -869,7 +860,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
           
           <View style={[styles.modalContent, { backgroundColor: themePalette.card_background }]}>
             <Text style={[styles.modalTitle, { color: themePalette.text }]}>
-              {t('edit_exercise_name')}
+              {t('edit')}
             </Text>
             
             <TextInput
@@ -965,7 +956,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   exerciseName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginRight: 8,
   },
@@ -1026,14 +1017,14 @@ const styles = StyleSheet.create({
   },
   
   setNumberBadge: {
-    width: 20,
-    height: 20,
+    width: 15,
+    height: 15,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   setNumberText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
   },
   fieldLabel: {
@@ -1072,7 +1063,7 @@ const styles = StyleSheet.create({
   bottomActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 6,
     borderTopWidth: 1,
   },
   addSetButton: {
@@ -1152,15 +1143,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 6,
     borderBottomWidth: 1,
   },
   setNumberContainer: {
-    width: 24,
+    width: 12,
     alignItems: 'center',
   },
   setDetails: {
-    flex: 0.6,
+    flex: 0.8,
     marginLeft: 4,
   },
   setValues: {
@@ -1182,15 +1173,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 4,
-    minWidth: 70,
+    // minWidth: 50,
   },
   
   editableField: {
     padding: 4,
     borderRadius: 4,
     alignItems: 'center',
-    minWidth: 45,
-    maxWidth: 55,
+    minWidth: 55,
+    maxWidth: 75,
     marginHorizontal: 1,
   },
 

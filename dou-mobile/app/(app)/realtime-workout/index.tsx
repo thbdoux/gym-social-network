@@ -276,10 +276,8 @@ export default function RealtimeWorkoutLogger() {
   };
 
   const createWorkoutPost = async (workoutLogId: number, additionalData: any) => {
-    console.log(workoutLogId, additionalData);
     try {
       if (!additionalData.will_share_to_social) {
-        console.log('Not sharing to social media');
         return;
       }
 
@@ -327,7 +325,6 @@ export default function RealtimeWorkoutLogger() {
       formData.append('tags', JSON.stringify(allTags));
 
       await createPost(formData);
-      console.log('Workout post created successfully');
     } catch (error) {
       console.error('Error creating workout post:', error);
       Alert.alert(
@@ -486,8 +483,7 @@ export default function RealtimeWorkoutLogger() {
       };
       updates.restTimer = restTimer;
     }
-    
-    console.log('completing set and starting rest timer');
+
     await updateWorkout(updates);
   };
 
@@ -599,12 +595,10 @@ export default function RealtimeWorkoutLogger() {
     if (!activeWorkout) return;
     const exercise = activeWorkout.exercises[exerciseIndex];
     const lastSet = exercise.sets[exercise.sets.length - 1];
-    console.log(lastSet)
     const effortType = exercise.effort_type || 'reps';
     const weightUnit = lastSet.weight_unit || 'kg';
     
     const newSet = createDefaultSet(effortType, exercise.sets.length, lastSet, weightUnit);
-    console.log(newSet)
     // Copy actual values from last set for better UX
     switch (effortType) {
       case 'time':
@@ -678,7 +672,7 @@ export default function RealtimeWorkoutLogger() {
     }
     
     Alert.alert(
-      t('delete_exercise'),
+      t('delete'),
       t('delete_exercise_confirmation', { name: exercise.name }),
       [
         { text: t('cancel'), style: 'cancel' },
@@ -787,13 +781,8 @@ export default function RealtimeWorkoutLogger() {
         source_type: activeWorkout.sourceType === 'custom' ? 'none' : activeWorkout.sourceType
       };
       
-      console.log('Submitting workout with exercises:', formattedExercises.length);
-      console.log('Gym information:', selectedGym);
-      console.log('Sample exercise:', formattedExercises[0]);
-      
       // First, create the workout log
       const result = await createLog(workoutData);
-      console.log('Workout log created successfully:', result);
       
       // Then create the post if sharing is enabled
       await createWorkoutPost(result.id, additionalData);
@@ -1359,8 +1348,8 @@ const themedStyles = createThemedStyles((palette) => ({
     alignItems: 'center',
   },
   exerciseNumberBadge: {
-    width: 22,
-    height: 22,
+    width: 16,
+    height: 16,
     borderRadius: 11,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
