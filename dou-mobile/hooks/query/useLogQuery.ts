@@ -20,6 +20,8 @@ export const logKeys = {
   userStats: (username) => [...logKeys.stats(), 'user', username],
   analytics: () => [...logKeys.all, 'analytics'],
   volume: (filters) => [...logKeys.analytics(), 'volume', filters],
+  recentExercises: (days, limit) => [...logKeys.all, 'recent-exercises', { days, limit }], 
+  recentExerciseNames: (days, limit) => [...logKeys.all, 'recent-exercise-names', { days, limit }], 
 };
 
 // Get all workout logs
@@ -65,6 +67,30 @@ export const useLog = (logId) => {
   });
 };
 
+/**
+ * Get recently used exercises with detailed information
+ */
+ export const useRecentExercises = (days: number = 30, limit: number = 10) => {
+  return useQuery({
+    queryKey: logKeys.recentExercises(days, limit),
+    queryFn: () => logService.getRecentExercises(days, limit),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  });
+};
+
+/**
+ * Get recently used exercise names (for exercise selector)
+ */
+export const useRecentExerciseNames = (days: number = 30, limit: number = 15) => {
+  return useQuery({
+    queryKey: logKeys.recentExerciseNames(days, limit),
+    queryFn: () => logService.getRecentExerciseNames(days, limit),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  });
+};
+
 // Create log
 export const useCreateLog = () => {
   const queryClient = useQueryClient();
@@ -94,6 +120,8 @@ export const useCreateLog = () => {
       // Set individual log data
       queryClient.setQueryData(logKeys.detail(newLog.id), newLog);
       
+      queryClient.invalidateQueries({ queryKey: logKeys.recentExercises(30,15) });
+      queryClient.invalidateQueries({ queryKey: logKeys.recentExerciseNames(30,15) });
       // Invalidate stats and analytics since a new log affects them
       queryClient.invalidateQueries({ queryKey: logKeys.stats() });
       queryClient.invalidateQueries({ queryKey: logKeys.analytics() });
@@ -175,6 +203,8 @@ export const useUpdateLog = () => {
       
       // Update individual log cache
       queryClient.setQueryData(logKeys.detail(updatedLog.id), updatedLog);
+      queryClient.invalidateQueries({ queryKey: logKeys.recentExercises(30,15) });
+      queryClient.invalidateQueries({ queryKey: logKeys.recentExerciseNames(30,15) });
       
       // Invalidate stats and analytics since updated log might affect them
       queryClient.invalidateQueries({ queryKey: logKeys.stats() });
@@ -219,7 +249,8 @@ export const useDeleteLog = () => {
       
       // Remove individual log cache
       queryClient.removeQueries({ queryKey: logKeys.detail(logId) });
-      
+      queryClient.invalidateQueries({ queryKey: logKeys.recentExercises(30,15) });
+      queryClient.invalidateQueries({ queryKey: logKeys.recentExerciseNames(30,15) });
       // Invalidate stats and analytics since deleting a log affects them
       queryClient.invalidateQueries({ queryKey: logKeys.stats() });
       queryClient.invalidateQueries({ queryKey: logKeys.analytics() });

@@ -222,13 +222,13 @@ const ExerciseSelector = ({
       
       return {
         id: exercise.id,
-        name: getExerciseName(exercise, language),
+        name: getExerciseName(exercise, t),
         nameKey: exercise.nameKey,
-        equipment: getEquipmentName(exercise, language),
+        equipment: getEquipmentName(exercise, t),
         equipmentKey: exercise.equipmentKey,
-        muscle_group: getTargetMuscleName(exercise, language),
+        muscle_group: getTargetMuscleName(exercise, t),
         targetMuscleKey: exercise.targetMuscleKey,
-        secondary_muscles: getSecondaryMuscleNames(exercise, language),
+        secondary_muscles: getSecondaryMuscleNames(exercise, t),
         secondaryMuscleKeys: exercise.secondaryMuscleKeys,
         difficulty: exercise.difficulty,
         effort_type: exercise.effort_type || 'reps',

@@ -1602,8 +1602,53 @@ const exercises = {
     "exercise_slam_ball_throws": "Slam Ball Throws",
     "exercise_wall_balls": "Wall Balls",
     "exercise_prowler_push": "Prowler Push",
-    "exercise_bear_crawl": "Bear Crawl"
-  },
+    "exercise_bear_crawl": "Bear Crawl",
+    // New Equipment
+    'equipment_smith_machine': 'Smith Machine',
+    
+    // New Chest Exercises
+    'exercise_smith_machine_bench_press': 'Smith Machine Bench Press',
+    'exercise_smith_machine_incline_press': 'Smith Machine Incline Press',
+    'exercise_cable_flyes': 'Cable Flyes',
+    
+    // New Back Exercises
+    'exercise_smith_machine_bent_over_row': 'Smith Machine Bent Over Row',
+    'exercise_wide_grip_lat_pulldown': 'Wide Grip Lat Pulldown',
+    'exercise_cable_reverse_flyes': 'Cable Reverse Flyes',
+    
+    // New Shoulder Exercises
+    'exercise_smith_machine_shoulder_press': 'Smith Machine Shoulder Press',
+    'exercise_rear_delt_machine': 'Rear Delt Machine',
+    'exercise_cable_front_raise': 'Cable Front Raise',
+    
+    // New Arm Exercises
+    'exercise_cable_bicep_curls': 'Cable Bicep Curls',
+    'exercise_diamond_push_ups': 'Diamond Push-ups',
+    'exercise_wrist_curls': 'Wrist Curls',
+    
+    // New Leg Exercises
+    'exercise_smith_machine_squats': 'Smith Machine Squats',
+    'exercise_smith_machine_lunges': 'Smith Machine Lunges',
+    'exercise_smith_machine_calf_raises': 'Smith Machine Calf Raises',
+    'exercise_front_squats': 'Front Squats',
+    'exercise_bulgarian_split_squats': 'Bulgarian Split Squats',
+    'exercise_step_ups': 'Step-ups',
+    
+    // New Core Exercises
+    'exercise_side_plank': 'Side Plank',
+    'exercise_v_ups': 'V-ups',
+    'exercise_cable_crunches': 'Cable Crunches',
+    
+    // New Cardio Exercises
+    'exercise_high_knees': 'High Knees',
+    'exercise_stationary_bike': 'Stationary Bike',
+    'exercise_stair_running': 'Stair Running',
+    
+    // New Functional Exercises
+    'exercise_man_makers': 'Man Makers',
+    'exercise_thrusters': 'Thrusters',
+    'exercise_overhead_carry': 'Overhead Carry',
+    },
   "fr": {
     // General UI
     "select_exercise": "Sélectionner un Exercice",
@@ -1635,7 +1680,7 @@ const exercises = {
     "muscle_groups": "Groupes Musculaires",
     
     // Categories
-    "category_chest": "Poitrine",
+    "category_chest": "Pectoraux",
     "category_back": "Dos",
     "category_shoulders": "Épaules",
     "category_arms": "Bras",
@@ -1836,7 +1881,52 @@ const exercises = {
     "exercise_slam_ball_throws": "Lancers de Ballon à Frapper",
     "exercise_wall_balls": "Wall Balls",
     "exercise_prowler_push": "Poussée de Prowler",
-    "exercise_bear_crawl": "Marche de l'Ours"
+    "exercise_bear_crawl": "Marche de l'Ours",
+    // New Equipment
+    'equipment_smith_machine': 'Machine Smith',
+        
+    // New Chest Exercises
+    'exercise_smith_machine_bench_press': 'Développé couché à la machine Smith',
+    'exercise_smith_machine_incline_press': 'Développé incliné à la machine Smith',
+    'exercise_cable_flyes': 'Écarté poulie',
+    
+    // New Back Exercises
+    'exercise_smith_machine_bent_over_row': 'Rowing penché à la machine Smith',
+    'exercise_wide_grip_lat_pulldown': 'Tirage vertical prise large',
+    'exercise_cable_reverse_flyes': 'Écarté inversé poulie',
+    
+    // New Shoulder Exercises
+    'exercise_smith_machine_shoulder_press': 'Développé épaules à la machine Smith',
+    'exercise_rear_delt_machine': 'Machine deltoïdes postérieurs',
+    'exercise_cable_front_raise': 'Élévation frontale poulie',
+    
+    // New Arm Exercises
+    'exercise_cable_bicep_curls': 'Curl biceps poulie',
+    'exercise_diamond_push_ups': 'Pompes diamant',
+    'exercise_wrist_curls': 'Curl poignets',
+    
+    // New Leg Exercises
+    'exercise_smith_machine_squats': 'Squats à la machine Smith',
+    'exercise_smith_machine_lunges': 'Fentes à la machine Smith',
+    'exercise_smith_machine_calf_raises': 'Élévation mollets à la machine Smith',
+    'exercise_front_squats': 'Squats avant',
+    'exercise_bulgarian_split_squats': 'Squats bulgares',
+    'exercise_step_ups': 'Montées de marche',
+    
+    // New Core Exercises
+    'exercise_side_plank': 'Planche latérale',
+    'exercise_v_ups': 'Relevés en V',
+    'exercise_cable_crunches': 'Crunch poulie',
+    
+    // New Cardio Exercises
+    'exercise_high_knees': 'Montées de genoux',
+    'exercise_stationary_bike': 'Vélo stationnaire',
+    'exercise_stair_running': 'Course d\'escaliers',
+    
+    // New Functional Exercises
+    'exercise_man_makers': 'Man makers',
+    'exercise_thrusters': 'Thrusters',
+    'exercise_overhead_carry': 'Portage au-dessus de la tête',
   }
 };
 

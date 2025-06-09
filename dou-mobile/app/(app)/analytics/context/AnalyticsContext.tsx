@@ -12,6 +12,9 @@ import {
   WorkoutLog,
 } from '../utils/analyticsUtils';
 import { inspectWorkoutLogs } from '../utils/debugUtils';
+import { useExerciseHelpers } from '@/components/workouts/data/exerciseData';
+import { useLanguage} from '@/context/LanguageContext';
+
 
 interface AnalyticsContextType {
   isLoading: boolean;
@@ -34,6 +37,8 @@ const AnalyticsContext = createContext<AnalyticsContextType | undefined>(undefin
 
 export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const { calculateMuscleGroupContribution, getExerciseName } = useExerciseHelpers();
   const { data: logs, isLoading, error } = useUserLogs(user?.username);
   
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | undefined>(undefined);
@@ -66,7 +71,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!logs || logs.length === 0) return [];
     
     try {
-      return getMuscleGroups(logs);
+      return getMuscleGroups(logs, t);
     } catch (err) {
       console.error('Error getting muscle groups:', err);
       return [];
@@ -78,7 +83,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!logs || logs.length === 0) return [];
     
     try {
-      return getExercises(logs, selectedMuscleGroup);
+      return getExercises(logs, selectedMuscleGroup, t);
     } catch (err) {
       console.error('Error getting exercises:', err);
       return [];
@@ -92,6 +97,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       return calculateWeeklyMetrics(
         logs,
+        t,
         timeRange,
         selectedMuscleGroup,
         selectedExercise

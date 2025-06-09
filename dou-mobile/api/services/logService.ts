@@ -64,6 +64,18 @@ interface LogStats {
   streak: number;
 }
 
+interface RecentExercise {
+  name: string;
+  usage_count: number;
+  last_used: string;
+}
+
+interface RecentExercisesResponse {
+  exercises: RecentExercise[];
+  period_days: number;
+  total_found: number;
+}
+
 /**
  * Service for workout logs API operations
  */
@@ -82,6 +94,26 @@ const logService = {
     const response = await apiClient.get(`/workouts/logs/user/${username}/`);
     const logs = extractData(response);
     return transformLogs(logs);
+  },
+
+  /**
+   * Get recently used exercises with detailed information
+   */
+   getRecentExercises: async (days: number = 30, limit: number = 10): Promise<RecentExercisesResponse> => {
+    const response = await apiClient.get('/workouts/logs/recent-exercises/', {
+      params: { days, limit }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get recently used exercise names (simple list for exercise selector)
+   */
+  getRecentExerciseNames: async (days: number = 30, limit: number = 15): Promise<string[]> => {
+    const response = await apiClient.get('/workouts/logs/recent-exercise-names/', {
+      params: { days, limit }
+    });
+    return response.data;
   },
 
   getLogById: async (id: number): Promise<Log> => {

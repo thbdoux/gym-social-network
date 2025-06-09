@@ -6,7 +6,11 @@ import { useTheme } from '../../../../context/ThemeContext';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { useAnalytics } from '../context/AnalyticsContext';
 import { formatWeight } from '../utils/analyticsUtils';
-import { getPrimaryMuscleGroup } from '../utils/muscleMapping';
+import { 
+  getPrimaryMuscleGroup, 
+  getMuscleGroupColor, 
+  getExerciseByName 
+} from '../utils/muscleMapping';
 
 type MetricType = 'totalWeightLifted' | 'averageWeightPerRep' | 'totalSets';
 
@@ -19,6 +23,7 @@ interface ExerciseData {
   value: number;
   change: number;
   muscleGroup: string;
+  exerciseItem?: any; // Reference to exerciseData
 }
 
 export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metricType }) => {
@@ -35,7 +40,7 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
     return `rgba(148, 163, 184, ${opacity})`; // neutral gray
   };
 
-  // Extract real exercise data from logs
+  // Extract real exercise data from logs with enhanced muscle group detection
   const topExercisesData = useMemo(() => {
     if (!logs || logs.length === 0) return [];
     
@@ -63,7 +68,8 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
         reps: number, 
         sets: number 
       }, 
-      muscleGroup: string 
+      muscleGroup: string,
+      exerciseItem?: any
     }> = {};
     
     // Process logs to calculate metrics
@@ -74,13 +80,18 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
         log.exercises.forEach(exercise => {
           if (!exercise || !exercise.name || !exercise.sets || !Array.isArray(exercise.sets)) return;
           
-          const muscleGroup = exercise.muscle_group || getPrimaryMuscleGroup(exercise.name);
+          // Try to find the exercise in our database
+          const exerciseItem = getExerciseByName(exercise.name, t);
+          
+          // Get muscle group using the enhanced system
+          const muscleGroup = getPrimaryMuscleGroup(exercise.name, t);
           
           if (!exerciseMetrics[exercise.name]) {
             exerciseMetrics[exercise.name] = {
               recent: { value: 0, reps: 0, sets: 0 },
               previous: { value: 0, reps: 0, sets: 0 },
-              muscleGroup
+              muscleGroup,
+              exerciseItem
             };
           }
           
@@ -130,7 +141,8 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
         name,
         value: current,
         change,
-        muscleGroup: data.muscleGroup
+        muscleGroup: data.muscleGroup,
+        exerciseItem: data.exerciseItem
       };
     });
     
@@ -139,13 +151,13 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
       .filter(ex => ex.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [logs, metricType]);
+  }, [logs, metricType, t]);
 
   // Prepare data for bar chart
   const chartData = useMemo(() => {
     // For small data sets, ensure we have at least 2 items for chart display
     const chartItems = topExercisesData.length <= 1 
-      ? [...topExercisesData, { name: '', value: 0, change: 0, muscleGroup: '' }] 
+      ? [...topExercisesData, { name: '', value: 0, change: 0, muscleGroup: '', exerciseItem: null }] 
       : topExercisesData;
     
     return {
@@ -176,17 +188,47 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
     return value.toString();
   };
 
-  // Get muscle group color
-  const getMuscleGroupColor = (muscleGroup: string) => {
-    const muscleGroupColors = {
-      'chest': '#f87171', // red
-      'back': '#60a5fa', // blue
-      'legs': '#4ade80', // green
-      'shoulders': '#a78bfa', // purple
-      'arms': '#fbbf24', // yellow
-      'core': '#f97316', // orange
-    };
-    return muscleGroupColors[muscleGroup as keyof typeof muscleGroupColors] || '#94a3b8';
+  // Get exercise display name (check if we have translation available)
+  const getExerciseDisplayName = (exercise: ExerciseData) => {
+    if (exercise.exerciseItem && exercise.exerciseItem.nameKey) {
+      // Try to get translated name
+      const translatedName = t(exercise.exerciseItem.nameKey);
+      // If translation exists and is different from the key, use it
+      if (translatedName && translatedName !== exercise.exerciseItem.nameKey) {
+        return translatedName;
+      }
+    }
+    // Fallback to the logged name
+    return exercise.name;
+  };
+
+  // Get equipment name if available
+  const getEquipmentName = (exercise: ExerciseData) => {
+    if (exercise.exerciseItem && exercise.exerciseItem.equipmentKey) {
+      const translatedEquipment = t(exercise.exerciseItem.equipmentKey);
+      if (translatedEquipment && translatedEquipment !== exercise.exerciseItem.equipmentKey) {
+        return translatedEquipment;
+      }
+    }
+    return null;
+  };
+
+  // Get difficulty level if available
+  const getDifficultyLevel = (exercise: ExerciseData) => {
+    if (exercise.exerciseItem && exercise.exerciseItem.difficulty) {
+      return exercise.exerciseItem.difficulty;
+    }
+    return null;
+  };
+
+  // Get difficulty color
+  const getDifficultyColor = (difficulty: string | null) => {
+    switch (difficulty) {
+      case 'beginner': return '#4CAF50'; // green
+      case 'intermediate': return '#FFC107'; // yellow
+      case 'advanced': return '#F44336'; // red
+      default: return 'transparent';
+    }
   };
 
   // If no data available
@@ -202,6 +244,11 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
 
   return (
     <View style={styles.container}>
+      {/* Chart Title */}
+      <Text style={[styles.chartTitle, { color: palette.text }]}>
+        {t('top_exercises')} - {getMetricLabel()}
+      </Text>
+
       {/* Table for Exercise Details */}
       <View style={styles.tableContainer}>
         {/* Table Headers */}
@@ -219,43 +266,99 @@ export const TopExercisesChart: React.FC<TopExercisesChartProps> = memo(({ metri
 
         {/* Exercise Rows */}
         <ScrollView style={styles.tableScrollContainer}>
-          {topExercisesData.map((exercise, index) => (
-            <View 
-              key={exercise.name} 
-              style={[
-                styles.exerciseRow, 
-                index % 2 === 0 && { backgroundColor: palette.border + '10' }
-              ]}
-            >
-              {/* Exercise name and rank */}
-              <View style={styles.exerciseCell}>
-                <View style={[styles.rankBadge, { backgroundColor: getMuscleGroupColor(exercise.muscleGroup) }]}>
-                  <Text style={styles.rankText}>{index + 1}</Text>
+          {topExercisesData.map((exercise, index) => {
+            const displayName = getExerciseDisplayName(exercise);
+            const equipmentName = getEquipmentName(exercise);
+            const difficulty = getDifficultyLevel(exercise);
+            
+            return (
+              <View 
+                key={exercise.name} 
+                style={[
+                  styles.exerciseRow, 
+                  index % 2 === 0 && { backgroundColor: palette.border + '10' }
+                ]}
+              >
+                {/* Exercise name and rank */}
+                <View style={styles.exerciseCell}>
+                  <View style={[styles.rankBadge, { backgroundColor: getMuscleGroupColor(exercise.muscleGroup as any) }]}>
+                    <Text style={styles.rankText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.exerciseInfo}>
+                    <Text style={[styles.exerciseName, { color: palette.text }]} numberOfLines={1}>
+                      {displayName}
+                    </Text>
+                    <View style={styles.exerciseMetaRow}>
+                      <Text style={[styles.muscleGroup, { color: palette.text + '60' }]}>
+                        {exercise.muscleGroup.charAt(0).toUpperCase() + exercise.muscleGroup.slice(1)}
+                      </Text>
+                      {equipmentName && (
+                        <Text style={[styles.equipment, { color: palette.text + '40' }]}>
+                          • {equipmentName}
+                        </Text>
+                      )}
+                      {difficulty && (
+                        <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(difficulty) }]}>
+                          <Text style={styles.difficultyText}>
+                            {difficulty.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.exerciseInfo}>
-                  <Text style={[styles.exerciseName, { color: palette.text }]} numberOfLines={1}>
-                    {exercise.name}
-                  </Text>
-                  <Text style={[styles.muscleGroup, { color: palette.text + '60' }]}>
-                    {exercise.muscleGroup.charAt(0).toUpperCase() + exercise.muscleGroup.slice(1)}
-                  </Text>
-                </View>
-              </View>
 
-              {/* Value */}
-              <Text style={[styles.valueCell, { color: palette.text }]}>
-                {formatValue(exercise.value)}
-              </Text>
-
-              {/* Change indicator */}
-              <View style={styles.changeCell}>
-                <Text style={[styles.changeValue, { color: getChangeColor(exercise.change) }]}>
-                  {exercise.change > 0 ? '+' : ''}{Math.round(exercise.change)}%
+                {/* Value */}
+                <Text style={[styles.valueCell, { color: palette.text }]}>
+                  {formatValue(exercise.value)}
                 </Text>
+
+                {/* Change indicator */}
+                <View style={styles.changeCell}>
+                  <Text style={[styles.changeValue, { color: getChangeColor(exercise.change) }]}>
+                    {exercise.change > 0 ? '+' : ''}{Math.round(exercise.change)}%
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
+      </View>
+
+      {/* Summary Stats */}
+      <View style={styles.summaryContainer}>
+        <Text style={[styles.summaryTitle, { color: palette.text + '80' }]}>
+          {t('summary')}
+        </Text>
+        <View style={styles.summaryStats}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statLabel, { color: palette.text + '80' }]}>
+              {t('total_exercises')}
+            </Text>
+            <Text style={[styles.statValue, { color: palette.text }]}>
+              {topExercisesData.length}
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statLabel, { color: palette.text + '80' }]}>
+              {t('best_performer')}
+            </Text>
+            <Text style={[styles.statValue, { color: palette.text }]} numberOfLines={1}>
+              {getExerciseDisplayName(topExercisesData[0]) || t('none')}
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statLabel, { color: palette.text + '80' }]}>
+              {t('avg_improvement')}
+            </Text>
+            <Text style={[styles.statValue, { color: palette.text }]}>
+              {topExercisesData.length > 0 
+                ? `${Math.round(topExercisesData.reduce((sum, ex) => sum + ex.change, 0) / topExercisesData.length)}%`
+                : '0%'
+              }
+            </Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -265,11 +368,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  chartContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 10,
-    marginBottom: 10,
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 15,
   },
   tableContainer: {
     borderRadius: 8,
@@ -279,7 +382,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   tableScrollContainer: {
-    maxHeight: 250,
+    maxHeight: 300,
   },
   headerRow: {
     flexDirection: 'row',
@@ -308,16 +411,16 @@ const styles = StyleSheet.create({
   },
   exerciseRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 8,
   },
   rankBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 10,
   },
   rankText: {
     color: 'white',
@@ -330,9 +433,32 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontSize: 14,
     fontWeight: '500',
+    marginBottom: 2,
+  },
+  exerciseMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   muscleGroup: {
     fontSize: 12,
+  },
+  equipment: {
+    fontSize: 11,
+    marginLeft: 4,
+  },
+  difficultyBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  difficultyText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '700',
   },
   changeValue: {
     fontSize: 14,
@@ -345,6 +471,37 @@ const styles = StyleSheet.create({
   },
   noDataText: {
     fontSize: 14,
+  },
+  summaryContainer: {
+    marginTop: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: 8,
+    marginHorizontal: 10,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  summaryStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   }
 });
 

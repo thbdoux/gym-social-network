@@ -18,14 +18,10 @@ import {
   EXERCISE_CATEGORIES, 
   EQUIPMENT_TYPES,
   DIFFICULTY_LEVELS,
-  filterExercises, 
-  getExerciseName,
-  getEquipmentName,
-  getTargetMuscleName,
-  getSecondaryMuscleNames,
   toggleFavorite, 
   ExerciseItem,
-  FilterCriteria 
+  FilterCriteria, 
+  useExerciseHelpers
 } from '../../../components/workouts/data/exerciseData';
 
 interface RealtimeExerciseSelectorProps {
@@ -41,6 +37,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
   themePalette,
   recentExercises = [],
 }) => {
+  console.log('aya', recentExercises);
   const { t, language } = useLanguage();
   const { width: screenWidth } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,6 +53,12 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
   // UI state
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const filterPanelHeight = useState(new Animated.Value(0))[0];
+
+  const { filterExercises, 
+    getExerciseName,
+    getEquipmentName,
+    getTargetMuscleName,
+    getSecondaryMuscleNames } = useExerciseHelpers();
   
   // Load exercises
   useEffect(() => {
@@ -176,13 +179,13 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
       // Format for component use
       return {
         id: exercise.id,
-        name: getExerciseName(exercise, language),
+        name: getExerciseName(exercise, t),
         nameKey: exercise.nameKey,
-        equipment: getEquipmentName(exercise, language),
+        equipment: getEquipmentName(exercise, t),
         equipmentKey: exercise.equipmentKey,
-        muscle_group: getTargetMuscleName(exercise, language),
+        muscle_group: getTargetMuscleName(exercise, t),
         targetMuscleKey: exercise.targetMuscleKey,
-        secondary_muscles: getSecondaryMuscleNames(exercise, language),
+        secondary_muscles: getSecondaryMuscleNames(exercise, t),
         secondaryMuscleKeys: exercise.secondaryMuscleKeys || [],
         difficulty: exercise.difficulty,
         favorite: exercise.favorite || false,
@@ -202,13 +205,13 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
       if (!a.favorite && b.favorite) return 1;
       
       // Recently used second
-      const aIsRecent = recentExercises.includes(a.id);
-      const bIsRecent = recentExercises.includes(b.id);
+      const aIsRecent = recentExercises.includes(a.name);
+      const bIsRecent = recentExercises.includes(b.name);
       if (aIsRecent && !bIsRecent) return -1;
       if (!aIsRecent && bIsRecent) return 1;
       if (aIsRecent && bIsRecent) {
         // Sort by recency order
-        return recentExercises.indexOf(a.id) - recentExercises.indexOf(b.id);
+        return recentExercises.indexOf(a.name) - recentExercises.indexOf(b.name);
       }
       
       // Alphabetically by name
@@ -290,11 +293,11 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
       onPress={() => onSelectExercise(item)}
     >
       <View style={styles.exerciseIconContainer}>
-        <Ionicons 
+        {/* <Ionicons 
           name={item.iconName || 'fitness-outline'} 
           size={24} 
           color={themePalette.highlight} 
-        />
+        /> */}
       </View>
       <View style={styles.exerciseInfo}>
         <View style={styles.exerciseNameRow}>
@@ -361,7 +364,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
             </View>
           )}
           {renderDifficultyBadge(item.difficulty)}
-          {recentExercises.includes(item.id) && (
+          {recentExercises.includes(item.name) && (
             <View style={[
               styles.exerciseTag, 
               { backgroundColor: `${themePalette.info}30` }
@@ -406,11 +409,11 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
               ]}
               onPress={() => toggleCategory(category.id)}
             >
-              <Ionicons 
+              {/* <Ionicons 
                 name={category.iconName || 'fitness-outline'} 
                 size={16} 
                 color={selectedCategories.includes(category.id) ? '#FFFFFF' : themePalette.text_secondary} 
-              />
+              /> */}
               <Text
                 style={[
                   styles.filterChipText,
@@ -441,11 +444,11 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
               ]}
               onPress={() => toggleEquipment(equipment.id)}
             >
-              <Ionicons 
+              {/* <Ionicons 
                 name={equipment.iconName || 'fitness-outline'} 
                 size={16} 
                 color={selectedEquipment.includes(equipment.id) ? '#FFFFFF' : themePalette.text_secondary} 
-              />
+              /> */}
               <Text
                 style={[
                   styles.filterChipText,
@@ -674,12 +677,12 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
               }
             }}
           >
-            <Ionicons 
+            {/* <Ionicons 
               name={category.iconName || 'fitness-outline'} 
               size={16}
               color={selectedCategories.includes(category.id) ? '#FFFFFF' : themePalette.text_secondary}
               style={styles.categoryChipIcon}
-            />
+            /> */}
             <Text
               style={[
                 styles.categoryChipText,

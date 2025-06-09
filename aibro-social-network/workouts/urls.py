@@ -10,6 +10,8 @@ from .views import (
     get_workouts_count,
     get_user_workouts_count,
     get_user_logs_by_username,
+    get_recent_exercises,         
+    get_recent_exercise_names,
 )
 from .group_workout_views import GroupWorkoutViewSet
 
@@ -31,6 +33,8 @@ urlpatterns = [
     path('logs/user/<int:user_id>/count/', get_user_workouts_count, name='user-workouts-count'),
     # Add to workouts/urls.py
     path('logs/user/<str:username>/', get_user_logs_by_username, name='user-logs-by-username'),
+    path('logs/recent-exercises/', get_recent_exercises, name='recent-exercises'),               
+    path('logs/recent-exercise-names/', get_recent_exercise_names, name='recent-exercise-names'),
     path('', include(router.urls)),
     path('', include(program_router.urls)),
     path('programs/<int:program_id>/details/', get_program_details, name='program-details'),

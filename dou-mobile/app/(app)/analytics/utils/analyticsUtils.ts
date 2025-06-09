@@ -1,7 +1,13 @@
 // utils/analyticsUtils.ts
 import { format, endOfWeek, subWeeks, isValid, startOfWeek } from 'date-fns';
-import { getPrimaryMuscleGroup } from './muscleMapping';
-import { calculateMuscleGroupContribution, getAllExercises, getExerciseName } from '../../../../components/workouts/data/exerciseData';
+import { 
+  getPrimaryMuscleGroup, 
+  calculateMuscleGroupContribution,
+  getExerciseByName,
+  getAllMuscleGroupTypes,
+  MuscleGroup 
+} from './muscleMapping';
+import { getAllExercises, useExerciseHelpers } from '../../../../components/workouts/data/exerciseData';
 
 // Define interfaces that match the Django models and serializers
 export interface SetLog {
@@ -64,6 +70,7 @@ export interface ExerciseData {
   value: string;
   muscleGroup?: string;
   count?: number; // Optional count of occurrences
+  exerciseItem?: any; // Reference to the exerciseData item
 }
 
 export interface ExerciseSetsData {
@@ -161,7 +168,10 @@ export function parseDate(dateString: string): Date | null {
 }
 
 // Get all unique muscle groups from logs with weighted contribution system
-export const getMuscleGroups = (logs: WorkoutLog[]): MuscleGroupData[] => {
+export const getMuscleGroups = (
+  logs: WorkoutLog[], 
+  t?: (key: string) => string
+): MuscleGroupData[] => {
   const muscleGroupMap = new Map<string, number>();
   
   try {
@@ -173,8 +183,8 @@ export const getMuscleGroups = (logs: WorkoutLog[]): MuscleGroupData[] => {
         
         const setCount = exercise.sets.length;
         
-        // Use the new weighted contribution system
-        const muscleContribution = calculateMuscleGroupContribution(exercise.name, setCount);
+        // Use the weighted contribution system from the updated muscleMapping
+        const muscleContribution = calculateMuscleGroupContribution(exercise.name, setCount, t);
         
         // Add the contributions to our muscle group map
         for (const [muscleGroup, contribution] of Object.entries(muscleContribution)) {
@@ -198,8 +208,16 @@ export const getMuscleGroups = (logs: WorkoutLog[]): MuscleGroupData[] => {
 };
 
 // Get all unique exercises from logs with enhanced muscle group detection
-export const getExercises = (logs: WorkoutLog[], muscleGroup?: string): ExerciseData[] => {
-  const exerciseMap = new Map<string, { muscleGroup?: string; count: number }>();
+export const getExercises = (
+  logs: WorkoutLog[], 
+  muscleGroup?: string,
+  t?: (key: string) => string,
+): ExerciseData[] => {
+  const exerciseMap = new Map<string, { 
+    muscleGroup?: string; 
+    count: number; 
+    exerciseItem?: any 
+  }>();
   
   try {
     for (const log of logs) {
@@ -208,40 +226,31 @@ export const getExercises = (logs: WorkoutLog[], muscleGroup?: string): Exercise
       for (const exercise of log.exercises) {
         if (!exercise || !exercise.name) continue;
         
+        // Find the exercise in our database
+        const exerciseItem = getExerciseByName(exercise.name, t);
+        
         // Get muscle group for this exercise using the enhanced system
         let exerciseMuscleGroup: string;
         
-        // First try to find the exercise in our database
-        const exerciseData = getAllExercises().find(ex => 
-          getExerciseName(ex, 'en').toLowerCase() === exercise.name.toLowerCase()
-        );
-        
-        if (exerciseData && exerciseData.targetMuscleKey) {
-          exerciseMuscleGroup = exerciseData.targetMuscleKey.replace('muscle_', '');
+        if (exerciseItem && exerciseItem.targetMuscleKey) {
+          // Use the primary muscle group from exerciseData
+          exerciseMuscleGroup = getPrimaryMuscleGroup(exercise.name, t);
         } else {
-          // Fallback to the old muscle mapping system
-          exerciseMuscleGroup = exercise.muscle_group || getPrimaryMuscleGroup(exercise.name);
+          // Fallback to the muscle_group field or keyword detection
+          exerciseMuscleGroup = exercise.muscle_group || getPrimaryMuscleGroup(exercise.name, t);
         }
         
         // Apply filter if provided - check if the exercise targets the filtered muscle group
-        // (either as primary or secondary muscle)
         if (muscleGroup) {
           let exerciseMatchesFilter = false;
           
-          if (exerciseData) {
-            // Check primary muscle
-            const primaryMuscle = exerciseData.targetMuscleKey?.replace('muscle_', '');
-            if (primaryMuscle === muscleGroup) {
-              exerciseMatchesFilter = true;
-            }
+          if (exerciseItem) {
+            // Get all muscle groups this exercise targets (primary + secondary)
+            const muscleContribution = calculateMuscleGroupContribution(exercise.name, 1, t);
+            const targetedMuscleGroups = Object.keys(muscleContribution);
             
-            // Check secondary muscles
-            if (!exerciseMatchesFilter && exerciseData.secondaryMuscleKeys) {
-              const secondaryMuscles = exerciseData.secondaryMuscleKeys.map(key => key.replace('muscle_', ''));
-              if (secondaryMuscles.includes(muscleGroup)) {
-                exerciseMatchesFilter = true;
-              }
-            }
+            // Check if any of the targeted muscle groups match the filter
+            exerciseMatchesFilter = targetedMuscleGroups.includes(muscleGroup);
           } else {
             // Fallback to simple string comparison
             exerciseMatchesFilter = exerciseMuscleGroup === muscleGroup;
@@ -254,12 +263,14 @@ export const getExercises = (logs: WorkoutLog[], muscleGroup?: string): Exercise
         if (existing) {
           exerciseMap.set(exercise.name, { 
             muscleGroup: exerciseMuscleGroup,
-            count: existing.count + 1 
+            count: existing.count + 1,
+            exerciseItem: exerciseItem || existing.exerciseItem
           });
         } else {
           exerciseMap.set(exercise.name, { 
             muscleGroup: exerciseMuscleGroup,
-            count: 1 
+            count: 1,
+            exerciseItem: exerciseItem
           });
         }
       }
@@ -275,13 +286,15 @@ export const getExercises = (logs: WorkoutLog[], muscleGroup?: string): Exercise
       label: name,
       value: name,
       muscleGroup: data.muscleGroup,
-      count: data.count
+      count: data.count,
+      exerciseItem: data.exerciseItem
     }));
 };
 
 // Calculate weekly metrics from workout logs with weighted muscle group system
 export const calculateWeeklyMetrics = (
   logs: WorkoutLog[],
+  t?: (key: string) => string,
   numWeeks: number = 0, // 0 means no limit
   selectedMuscleGroup?: string,
   selectedExercise?: string
@@ -366,24 +379,11 @@ export const calculateWeeklyMetrics = (
       let totalReps = 0;
       let setCount = 0;
       const setsPerMuscleGroup: Record<string, number> = {};
-      const weightPerMuscleGroup: Record<string, number> = {};
       
       // Initialize sets per muscle group counter with all known muscle groups
-      const allMuscleGroups = [
-        'pectorals', 'upper_pectorals', 'lower_pectorals',
-        'latissimus_dorsi', 'upper_back', 'middle_back', 'lower_back', 'rhomboids',
-        'deltoids', 'anterior_deltoids', 'lateral_deltoids', 'posterior_deltoids', 'trapezius',
-        'biceps', 'triceps', 'brachialis_biceps', 'forearms',
-        'quadriceps', 'hamstrings', 'glutes', 'calves', 'quadriceps_glutes', 'hamstrings_glutes', 'hamstrings_lower_back',
-        'core', 'rectus_abdominis', 'obliques', 'lower_abs', 'deep_core_stabilizers', 'full_core', 'core_hip_flexors', 'rectus_abdominis_obliques',
-        'cardiovascular_system', 'cardiovascular_system_full_body', 'cardiovascular_system_legs', 'cardiovascular_system_upper_body',
-        'full_body', 'shoulders_core', 'grip_core_legs',
-        'other'
-      ];
-      
+      const allMuscleGroups = getAllMuscleGroupTypes();
       allMuscleGroups.forEach(group => {
         setsPerMuscleGroup[group] = 0;
-        weightPerMuscleGroup[group] = 0;
       });
       
       // Process week logs with weighted muscle group contribution
@@ -411,7 +411,7 @@ export const calculateWeeklyMetrics = (
           if (exerciseSets === 0) continue;
           
           // Calculate muscle group contributions for this exercise
-          const muscleContributions = calculateMuscleGroupContribution(exercise.name, exerciseSets);
+          const muscleContributions = calculateMuscleGroupContribution(exercise.name, exerciseSets, t);
           
           // Check if any of the muscle groups match the filter
           if (selectedMuscleGroup) {
@@ -454,11 +454,9 @@ export const calculateWeeklyMetrics = (
           for (const [muscleGroup, contribution] of Object.entries(muscleContributions)) {
             if (setsPerMuscleGroup[muscleGroup] !== undefined) {
               setsPerMuscleGroup[muscleGroup] += contribution;
-              weightPerMuscleGroup[muscleGroup] += exerciseWeight * (contribution / exerciseSets);
             } else {
               // Handle unmapped muscle groups
               setsPerMuscleGroup['other'] = (setsPerMuscleGroup['other'] || 0) + contribution;
-              weightPerMuscleGroup['other'] = (weightPerMuscleGroup['other'] || 0) + (exerciseWeight * (contribution / exerciseSets));
             }
           }
         }
@@ -510,7 +508,8 @@ export const calculateWeeklyMetrics = (
 export const calculateMuscleGroupMetrics = (
   weeklyMetrics: WeeklyMetrics[],
   selectedWeek?: string,
-  logs?: WorkoutLog[]
+  logs?: WorkoutLog[],
+  t?: (key: string) => string
 ): MuscleGroupMetrics[] => {
   try {
     // Filter weekly metrics if a specific week is selected
@@ -521,22 +520,11 @@ export const calculateMuscleGroupMetrics = (
     // Initialize results
     const muscleGroupMap: Record<string, MuscleGroupMetrics> = {};
     
-    // Initialize with all muscle groups (using more specific muscle names now)
-    const allMuscleGroups = [
-      'pectorals', 'upper_pectorals', 'lower_pectorals',
-      'latissimus_dorsi', 'upper_back', 'middle_back', 'lower_back', 'rhomboids',
-      'deltoids', 'anterior_deltoids', 'lateral_deltoids', 'posterior_deltoids', 'trapezius',
-      'biceps', 'triceps', 'brachialis_biceps', 'forearms',
-      'quadriceps', 'hamstrings', 'glutes', 'calves', 'quadriceps_glutes', 'hamstrings_glutes',
-      'core', 'rectus_abdominis', 'obliques', 'lower_abs', 'deep_core_stabilizers', 'full_core',
-      'cardiovascular_system', 'cardiovascular_system_full_body', 'cardiovascular_system_legs',
-      'full_body', 'shoulders_core', 'grip_core_legs',
-      'other'
-    ];
-    
+    // Initialize with all muscle groups
+    const allMuscleGroups = getAllMuscleGroupTypes();
     allMuscleGroups.forEach(group => {
       muscleGroupMap[group] = {
-        muscleGroup: group.charAt(0).toUpperCase() + group.slice(1).replace(/_/g, ' '), // Capitalize and format
+        muscleGroup: group.charAt(0).toUpperCase() + group.slice(1), // Capitalize and format
         totalSets: 0,
         exercises: []
       };
@@ -613,7 +601,7 @@ export const calculateMuscleGroupMetrics = (
           if (!exercise || !exercise.name || !exercise.sets) continue;
           
           const setCount = exercise.sets.length;
-          const muscleContributions = calculateMuscleGroupContribution(exercise.name, setCount);
+          const muscleContributions = calculateMuscleGroupContribution(exercise.name, setCount, t);
           
           // Process each muscle group contribution
           for (const [muscleGroup, contribution] of Object.entries(muscleContributions)) {
@@ -688,7 +676,7 @@ export const calculateMuscleGroupMetrics = (
   }
 };
 
-// Calculate max values for chart scaling with better defaults (unchanged)
+// Calculate max values for chart scaling with better defaults
 export const getMaxMetrics = (weeklyMetrics: WeeklyMetrics[]) => {
   try {
     if (!weeklyMetrics || weeklyMetrics.length === 0) {
@@ -719,7 +707,7 @@ export const getMaxMetrics = (weeklyMetrics: WeeklyMetrics[]) => {
   }
 };
 
-// Get max sets per muscle group with better defaults (unchanged)
+// Get max sets per muscle group with better defaults
 export const getMaxSetsPerMuscleGroup = (weeklyMetrics: WeeklyMetrics[], weekLabel?: string) => {
   try {
     // Filter for specific week if provided
@@ -746,7 +734,7 @@ export const getMaxSetsPerMuscleGroup = (weeklyMetrics: WeeklyMetrics[], weekLab
   }
 };
 
-// Get trend data for a specific metric (unchanged)
+// Get trend data for a specific metric
 export const calculateMetricTrend = (
   weeklyMetrics: WeeklyMetrics[],
   metricKey: keyof WeeklyMetrics,
@@ -810,7 +798,7 @@ export const calculateMetricTrend = (
   }
 };
 
-// Format large numbers for display (unchanged)
+// Format large numbers for display
 export const formatWeight = (weight: number): string => {
   if (!isFinite(weight) || isNaN(weight)) return '0';
   
@@ -824,7 +812,7 @@ export const formatWeight = (weight: number): string => {
   return Math.round(weight).toString();
 };
 
-// Format percentage changes (unchanged)
+// Format percentage changes
 export const formatPercentChange = (percent: number): string => {
   if (!isFinite(percent) || isNaN(percent)) return '0%';
   

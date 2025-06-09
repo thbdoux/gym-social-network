@@ -14,7 +14,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { router } from 'expo-router';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useWorkout } from '../../../context/WorkoutContext';
-import { useCreateLog } from '../../../hooks/query/useLogQuery';
+import { useCreateLog, useRecentExerciseNames } from '../../../hooks/query/useLogQuery';
 import { useCreatePost } from '../../../hooks/query/usePostQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
 import { useWorkoutTemplate, useWorkoutTemplates } from '../../../hooks/query/useWorkoutQuery';
@@ -25,6 +25,7 @@ import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { createWorkoutRendering } from './workoutRendering';
 import GymSelectionModal from '../../../components/workouts/GymSelectionModal';
 import TemplateSelectionModal from '../../../components/workouts/TemplateSelectionModal';
+
 
 interface Gym {
   id: number;
@@ -814,7 +815,7 @@ export default function RealtimeWorkoutLogger() {
   const workoutDuration = activeWorkout?.duration || 0;
   const workoutStarted = activeWorkout?.started || false;
   const workoutTimerActive = activeWorkout?.isTimerActive || false;
-  
+  const { data: recentExerciseNames = [], isLoading: isLoadingRecent } = useRecentExerciseNames(30, 15);
   // Get rest timer state from context
   const restTimerState = activeWorkout?.restTimer;
   const restTimerActive = restTimerState?.isActive || false;
@@ -897,7 +898,8 @@ export default function RealtimeWorkoutLogger() {
     templateModalVisible,
     templates,
     templatesLoading,
-    stopRestTimer
+    stopRestTimer,
+    recentExerciseNames
   });
   
   return (

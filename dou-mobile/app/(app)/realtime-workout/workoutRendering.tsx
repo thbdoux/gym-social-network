@@ -53,7 +53,8 @@ export const createWorkoutRendering = ({
   templateModalVisible,
   templates,
   templatesLoading,
-  stopRestTimer
+  stopRestTimer,
+  recentExerciseNames
 }: any) => {
 
   // Updated Start Screen with template selection
@@ -512,6 +513,7 @@ const renderStartScreen = () => (
             onSelectExercise={handlers.handleAddExercise}
             onCancel={() => setSelectingExercise(false)}
             themePalette={palette}
+            recentExercises={recentExerciseNames}
           />
         </SafeAreaView>
       </Modal>

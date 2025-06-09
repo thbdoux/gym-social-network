@@ -3,9 +3,15 @@ from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
-from django.db.models import Q, Count, F
+from django.db.models import Q, Count, F, Max
 from django.core.exceptions import ValidationError
 import logging
+
+from django.utils import timezone
+from datetime import timedelta
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 logger = logging.getLogger(__name__)
 
@@ -742,3 +748,71 @@ def get_user_logs_by_username(request, username):
             {"detail": f"An error occurred: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_recent_exercises(request):
+    """Get recently used exercises based on workout logs"""
+    
+    # Get query parameters
+    days = int(request.query_params.get('days', 30))  # Default: last 30 days
+    limit = int(request.query_params.get('limit', 10))  # Default: top 10 exercises
+    
+    # Calculate the date threshold
+    date_threshold = timezone.now() - timedelta(days=days)
+    
+    # Query to get most frequent exercises from recent workout logs
+    recent_exercises = ExerciseLog.objects.filter(
+        workout__user=request.user,
+        workout__date__gte=date_threshold,
+        workout__completed=True  # Only count completed workouts
+    ).values(
+        'name'  # Group by exercise name
+    ).annotate(
+        usage_count=Count('id'),  # Count how many times each exercise was used
+        last_used=Max('workout__date')  # Track when it was last used
+    ).order_by(
+        '-usage_count',  # Sort by most used first
+        '-last_used'     # Then by most recently used
+    )[:limit]
+    
+    # Format the response
+    exercises = []
+    for exercise in recent_exercises:
+        exercises.append({
+            'name': exercise['name'],
+            'usage_count': exercise['usage_count'],
+            'last_used': exercise['last_used']
+        })
+    
+    return Response({
+        'exercises': exercises,
+        'period_days': days,
+        'total_found': len(exercises)
+    })
+
+
+# Alternative version that returns exercise IDs instead of names
+# (if your exercise selector works with IDs from a predefined exercise database)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_recent_exercise_names(request):
+    """Get recently used exercise names for the exercise selector"""
+    
+    days = int(request.query_params.get('days', 30))
+    limit = int(request.query_params.get('limit', 15))
+    
+    date_threshold = timezone.now() - timedelta(days=days)
+    
+    # Get exercise names ordered by frequency and recency
+    exercise_names = ExerciseLog.objects.filter(
+        workout__user=request.user,
+        workout__date__gte=date_threshold,
+        workout__completed=True
+    ).values('name').annotate(
+        usage_count=Count('id'),
+        last_used=Max('workout__date')
+    ).order_by('-usage_count', '-last_used').values_list('name', flat=True)[:limit]
+    
+    return Response(list(exercise_names))
