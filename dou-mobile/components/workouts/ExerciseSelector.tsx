@@ -22,15 +22,10 @@ import {
   EXERCISE_CATEGORIES, 
   EQUIPMENT_TYPES,
   DIFFICULTY_LEVELS,
-  filterExercises,
-  getExerciseName,
-  getEquipmentName,
-  getTargetMuscleName,
-  getSecondaryMuscleNames,
   toggleFavorite,
   FilterCriteria,
   getAllExercises,
-  searchExercises
+  useExerciseHelpers,
 } from './data/exerciseData';
 
 type ExerciseSelectorProps = {
@@ -47,6 +42,14 @@ const ExerciseSelector = ({
   recentExercises = []
 }: ExerciseSelectorProps) => {
   const { t, language } = useLanguage();
+  console.log(recentExercises)
+  const {
+    filterExercises,
+    getExerciseName,
+    getEquipmentName,
+    getTargetMuscleName,
+    getSecondaryMuscleNames,
+    searchExercises } = useExerciseHelpers();
   const { workoutPalette, palette } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -66,14 +69,9 @@ const ExerciseSelector = ({
   const handleSelectExercise = useCallback((exercise: any) => {
     // Create a complete exercise object with all necessary properties
     const completeExercise = {
-      id: exercise.id,
-      name: exercise.name || exercise,
+      ...exercise, // Preserve all mapped properties
       effort_type: exercise.effort_type || 'reps',
-      equipment: exercise.equipment || '',
       notes: exercise.notes || '',
-      muscle_group: exercise.muscle_group || '',
-      secondary_muscles: exercise.secondary_muscles || [],
-      difficulty: exercise.difficulty,
       favorite: exercise.favorite || false
     };
     
@@ -111,9 +109,9 @@ const ExerciseSelector = ({
       id: `custom_${Date.now()}`,
       name: searchTerm.trim(),
       effort_type: 'reps', // Default to reps for custom exercises
-      equipment: '',
+      equipment: t('equipment_other') || 'Other',
+      muscle_group: t('muscle_other') || 'Other',
       notes: '',
-      muscle_group: '',
       secondary_muscles: [],
       difficulty: undefined,
       favorite: false
@@ -179,7 +177,7 @@ const ExerciseSelector = ({
     
     // If we're searching
     if (searchTerm.length > 0) {
-      results = searchExercises(searchTerm, language);
+      results = searchExercises(searchTerm, t);
     } 
     // If we have a selected category from the tabs
     else if (selectedCategory) {
@@ -191,15 +189,11 @@ const ExerciseSelector = ({
       if (selectedCategories.length > 0 || selectedEquipment.length > 0 || 
           selectedDifficulty.length > 0 || selectedEffortTypes.length > 0 || showFavoritesOnly) {
             
-        const criteria: FilterCriteria = {
-          categoryIds: selectedCategories.length > 0 ? selectedCategories : undefined,
-          equipmentIds: selectedEquipment.length > 0 ? selectedEquipment : undefined,
-          difficultyLevels: selectedDifficulty.length > 0 ? selectedDifficulty : undefined,
-          favorites: showFavoritesOnly,
-          language
-        };
         
-        results = filterExercises(criteria);
+        results = filterExercises(selectedCategories.length > 0 ? selectedCategories : undefined,
+          selectedEquipment.length > 0 ? selectedEquipment : undefined,
+          selectedDifficulty.length > 0 ? selectedDifficulty : undefined,
+          showFavoritesOnly, t);
       } else {
         // If no filters, show all exercises
         results = getAllExercises();
@@ -247,13 +241,13 @@ const ExerciseSelector = ({
       if (!a.favorite && b.favorite) return 1;
       
       // Recently used second
-      const aIsRecent = recentExercises.includes(a.id);
-      const bIsRecent = recentExercises.includes(b.id);
+      const aIsRecent = recentExercises.includes(a.name);
+      const bIsRecent = recentExercises.includes(b.name);
       if (aIsRecent && !bIsRecent) return -1;
       if (!aIsRecent && bIsRecent) return 1;
       if (aIsRecent && bIsRecent) {
         // Sort by recency order
-        return recentExercises.indexOf(a.id) - recentExercises.indexOf(b.id);
+        return recentExercises.indexOf(a.name) - recentExercises.indexOf(b.name);
       }
       
       // Alphabetically by name

@@ -76,7 +76,6 @@ const initializeFormData = (template: WorkoutTemplateFormData | null | undefined
       focus: 'strength',
       is_active: true,
       exercises: [],
-      equipment_required: [],
       split_method : 'custom',
       tags: []
     };

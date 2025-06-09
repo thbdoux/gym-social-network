@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ExerciseSelector from '../ExerciseSelector';
 import ExerciseConfigurator from '../ExerciseConfigurator';
 import ExerciseCard, { Exercise as CardExercise, ExerciseSet as CardExerciseSet } from '../ExerciseCard';
+import { useRecentExercises, useRecentExerciseNames } from './../../../hooks/query/useLogQuery';
 
 // Type mappings to ensure compatibility
 type Exercise = CardExercise;
@@ -47,8 +48,9 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
   const [pairingSourceIndex, setPairingSourceIndex] = useState<number | null>(null);
   
   // Recently used exercises for the selector component
-  const [recentExercises, setRecentExercises] = useState<string[]>([]);
-  
+  // const [recentExercises, setRecentExercises] = useState<string[]>([]);
+  // const { data: recentExercises = [] } = useRecentExercises(30, 15);
+  const { data: recentExercises = [], isLoading: isLoadingRecent } = useRecentExerciseNames(30, 15);
   // Add keyboard event listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -503,6 +505,8 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
         initialEffortType={selectedExercise?.effort_type || 'reps'}
         initialSets={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.sets : undefined}
         initialNotes={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.notes : ''}
+        initialEquipment={selectedExercise?.equipment || ''}
+        // initialEquipmentKey={selectedExercise?.equipmentKey || ''}
         isSuperset={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.is_superset : false}
         supersetWith={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.superset_with : null}
         supersetRestTime={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.superset_rest_time || 90 : 90}

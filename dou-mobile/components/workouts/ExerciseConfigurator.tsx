@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
+import { EQUIPMENT_TYPES } from './data/exerciseData';
 
 // Types
 export type ExerciseSet = {
@@ -37,6 +38,7 @@ export type Exercise = {
   notes?: string;
   order?: number;
   equipment?: string;
+  equipmentKey?: string; // For translation
   effort_type?: 'reps' | 'time' | 'distance';
   superset_with?: number | null;
   is_superset?: boolean;
@@ -52,6 +54,8 @@ type ExerciseConfiguratorProps = {
   initialEffortType?: 'reps' | 'time' | 'distance';
   initialSets?: ExerciseSet[];
   initialNotes?: string;
+  initialEquipment?: string;
+  initialEquipmentKey?: string;
   isSuperset?: boolean;
   supersetWith?: number | null;
   supersetRestTime?: number;
@@ -94,6 +98,8 @@ const ExerciseConfigurator = ({
   initialEffortType = 'reps',
   initialSets,
   initialNotes = '',
+  initialEquipment = '',
+  initialEquipmentKey = '',
   isSuperset = false,
   supersetWith = null,
   supersetRestTime = 90,
@@ -114,16 +120,45 @@ const ExerciseConfigurator = ({
   const [currentSupersetRestTime, setCurrentSupersetRestTime] = useState(supersetRestTime);
   const [preferredWeightUnit, setPreferredWeightUnit] = useState<'kg' | 'lbs'>('kg');
   
+  // Equipment selection state
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>('');
+  const [equipmentDropdownVisible, setEquipmentDropdownVisible] = useState(false);
+  
   // Keyboard handling
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [editingValues, setEditingValues] = useState<{[key: string]: string}>({});
   
+  // Find equipment by name to get ID
+  const findEquipmentByName = (equipmentName: string): string => {
+    if (!equipmentName) return '';
+    const equipment = EQUIPMENT_TYPES.find(eq => 
+      t(eq.nameKey).toLowerCase() === equipmentName.toLowerCase()
+    );
+    return equipment?.id || '';
+  };
+  
+  // Get equipment display name by ID
+  const getEquipmentDisplayName = (equipmentId: string): string => {
+    if (!equipmentId) return t('equipment_none');
+    const equipment = EQUIPMENT_TYPES.find(eq => eq.id === equipmentId);
+    return equipment ? t(equipment.nameKey) : t('equipment_other');
+  };
+  
   // Reset states when props change
   useEffect(() => {
     setCurrentExerciseName(exerciseName);
     setCurrentEffortType(initialEffortType);
+    
+    // Set equipment from either ID or name
+    if (initialEquipmentKey) {
+      setSelectedEquipmentId(initialEquipmentKey);
+    } else if (initialEquipment) {
+      setSelectedEquipmentId(findEquipmentByName(initialEquipment));
+    } else {
+      setSelectedEquipmentId('');
+    }
     
     if (initialSets && initialSets.length > 0) {
       setCurrentExerciseSets(initialSets);
@@ -143,7 +178,7 @@ const ExerciseConfigurator = ({
     
     setCurrentExerciseNotes(initialNotes);
     setCurrentSupersetRestTime(supersetRestTime);
-  }, [exerciseName, initialEffortType, initialSets, initialNotes, supersetRestTime, visible]);
+  }, [exerciseName, initialEffortType, initialSets, initialNotes, initialEquipment, initialEquipmentKey, supersetRestTime, visible]);
   
   // Add keyboard event listeners
   useEffect(() => {
@@ -168,11 +203,17 @@ const ExerciseConfigurator = ({
     };
   }, []);
   
-  // Handle effort type change - SIMPLIFIED (no alert)
+  // Handle effort type change
   const handleEffortTypeChange = (newEffortType: 'reps' | 'time' | 'distance') => {
     setCurrentEffortType(newEffortType);
     // Reset sets to default for new effort type
     setCurrentExerciseSets([getDefaultSet(newEffortType)]);
+  };
+  
+  // Handle equipment selection
+  const handleEquipmentSelect = (equipmentId: string) => {
+    setSelectedEquipmentId(equipmentId);
+    setEquipmentDropdownVisible(false);
   };
   
   // Handle adding a set
@@ -197,17 +238,17 @@ const ExerciseConfigurator = ({
     setCurrentExerciseSets(updatedSets);
   };
   
-  // Handle updating a set - IMPROVED decimal handling for French keyboards
+  // Handle updating a set
   const handleUpdateSet = (index: number, field: keyof ExerciseSet, value: number | string | null) => {
     const updatedSets = [...currentExerciseSets];
-    console.log(value);
+    
     if (field === 'weight_unit') {
       updatedSets[index] = {
         ...updatedSets[index],
         [field]: value as 'kg' | 'lbs'
       };
     } else if (field === 'weight' || field === 'distance') {
-      // IMPROVED: Handle decimal inputs properly with better comma/dot handling
+      // Handle decimal inputs properly with better comma/dot handling
       let numericValue: number | null = null;
       if (typeof value === 'string') {
         // Replace comma with dot for European decimal format and clean the string
@@ -223,7 +264,7 @@ const ExerciseConfigurator = ({
         [field]: numericValue
       };
     } else if (field === 'duration') {
-      // FIXED: Handle duration input more simply
+      // Handle duration input
       let numericValue: number | null = null;
       if (typeof value === 'string') {
         // Simple parsing: if it ends with 'm', treat as minutes, otherwise treat as seconds
@@ -293,14 +334,6 @@ const ExerciseConfigurator = ({
     setCurrentExerciseSets(updatedSets);
   };
   
-  // Format time display for non-editing display only
-  const formatTimeDisplay = (seconds: number): string => {
-    if (seconds < 60) return `${seconds}s`;
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  };
-  
   // Handle saving the exercise
   const handleSaveExercise = () => {
     // Validation
@@ -334,8 +367,13 @@ const ExerciseConfigurator = ({
       weight_unit: set.weight_unit || preferredWeightUnit
     }));
     
+    // Get equipment details
+    const selectedEquipment = EQUIPMENT_TYPES.find(eq => eq.id === selectedEquipmentId);
+    
     const newExercise: Exercise = {
       name: currentExerciseName,
+      equipment: selectedEquipment ? t(selectedEquipment.nameKey) : '',
+      equipmentKey: selectedEquipmentId,
       effort_type: currentEffortType,
       sets: setsWithOrder,
       notes: currentExerciseNotes.trim() || undefined,
@@ -347,7 +385,102 @@ const ExerciseConfigurator = ({
     onSave(newExercise);
   };
   
-  // Render a single set row - UPDATED with better duration input handling
+  // Render equipment dropdown
+  const renderEquipmentDropdown = () => {
+    if (!equipmentDropdownVisible) return null;
+    
+    return (
+      <Modal
+        visible={equipmentDropdownVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setEquipmentDropdownVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.dropdownOverlay}
+          activeOpacity={1}
+          onPress={() => setEquipmentDropdownVisible(false)}
+        >
+          <View style={[styles.dropdownModal, { backgroundColor: palette.card_background }]}>
+            <View style={[styles.dropdownHeader, { borderBottomColor: palette.border }]}>
+              <Text style={[styles.dropdownTitle, { color: workoutPalette.text }]}>
+                {t('select_equipment')}
+              </Text>
+              <TouchableOpacity
+                style={styles.dropdownCloseButton}
+                onPress={() => setEquipmentDropdownVisible(false)}
+              >
+                <Ionicons name="close" size={20} color={workoutPalette.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.dropdownScroll}>
+              {/* None/No equipment option */}
+              <TouchableOpacity
+                style={[
+                  styles.equipmentOption,
+                  { backgroundColor: palette.page_background },
+                  selectedEquipmentId === '' && { backgroundColor: `${workoutPalette.highlight}20` }
+                ]}
+                onPress={() => handleEquipmentSelect('')}
+              >
+                <View style={styles.equipmentOptionContent}>
+                  <View style={[styles.equipmentIcon, { backgroundColor: palette.text_tertiary }]}>
+                    <Ionicons name="ban-outline" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={[
+                    styles.equipmentOptionText, 
+                    { color: palette.text },
+                    selectedEquipmentId === '' && { color: workoutPalette.highlight }
+                  ]}>
+                    {t('equipment_none')}
+                  </Text>
+                </View>
+                {selectedEquipmentId === '' && (
+                  <Ionicons name="checkmark" size={20} color={workoutPalette.highlight} />
+                )}
+              </TouchableOpacity>
+              
+              {/* Equipment options */}
+              {EQUIPMENT_TYPES.map((equipment) => (
+                <TouchableOpacity
+                  key={equipment.id}
+                  style={[
+                    styles.equipmentOption,
+                    { backgroundColor: palette.page_background },
+                    selectedEquipmentId === equipment.id && { backgroundColor: `${workoutPalette.highlight}20` }
+                  ]}
+                  onPress={() => handleEquipmentSelect(equipment.id)}
+                >
+                  <View style={styles.equipmentOptionContent}>
+                    <View style={[styles.equipmentIcon, { backgroundColor: workoutPalette.highlight }]}>
+                      <Ionicons 
+                        name={equipment.iconName || 'fitness-outline'} 
+                        size={20} 
+                        color="#FFFFFF" 
+                      />
+                    </View>
+                    <Text style={[
+                      styles.equipmentOptionText, 
+                      { color: palette.text },
+                      selectedEquipmentId === equipment.id && { color: workoutPalette.highlight }
+                    ]}>
+                      {t(equipment.nameKey)}
+                    </Text>
+                  </View>
+                  {selectedEquipmentId === equipment.id && (
+                    <Ionicons name="checkmark" size={20} color={workoutPalette.highlight} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+  
+  // Render a single set row
   const renderSetRow = (set: ExerciseSet, index: number) => {
     const getInputValue = (field: 'weight' | 'distance') => {
       const editKey = `${index}-${field}`;
@@ -366,7 +499,7 @@ const ExerciseConfigurator = ({
       return '';
     };
 
-    // FIXED: Get duration input value - simpler approach
+    // Get duration input value
     const getDurationInputValue = () => {
       const editKey = `${index}-duration`;
       
@@ -393,7 +526,7 @@ const ExerciseConfigurator = ({
       }));
     };
 
-    // FIXED: Handle duration input change
+    // Handle duration input change
     const handleDurationInputChange = (text: string) => {
       const editKey = `${index}-duration`;
       
@@ -421,7 +554,7 @@ const ExerciseConfigurator = ({
       }
     };
 
-    // FIXED: Handle duration input blur
+    // Handle duration input blur
     const handleDurationInputBlur = () => {
       const editKey = `${index}-duration`;
       const currentText = editingValues[editKey];
@@ -676,6 +809,50 @@ const ExerciseConfigurator = ({
                 />
               </View>
               
+              {/* Equipment Selection */}
+              <View style={styles.equipmentContainer}>
+                <Text style={[styles.exerciseEditLabel, { color: workoutPalette.text }]}>{t('equipment')}</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.equipmentSelector,
+                    { 
+                      backgroundColor: palette.input_background,
+                      borderColor: palette.border
+                    }
+                  ]}
+                  onPress={() => setEquipmentDropdownVisible(true)}
+                >
+                  <View style={styles.equipmentSelectorContent}>
+                    <View style={styles.equipmentSelectorLeft}>
+                      {selectedEquipmentId ? (
+                        <>
+                          <View style={[styles.equipmentSelectorIcon, { backgroundColor: workoutPalette.highlight }]}>
+                            <Ionicons 
+                              name={EQUIPMENT_TYPES.find(eq => eq.id === selectedEquipmentId)?.iconName || 'fitness-outline'} 
+                              size={16} 
+                              color="#FFFFFF" 
+                            />
+                          </View>
+                          <Text style={[styles.equipmentSelectorText, { color: workoutPalette.text }]}>
+                            {getEquipmentDisplayName(selectedEquipmentId)}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <View style={[styles.equipmentSelectorIcon, { backgroundColor: palette.text_tertiary }]}>
+                            <Ionicons name="ban-outline" size={16} color="#FFFFFF" />
+                          </View>
+                          <Text style={[styles.equipmentSelectorText, { color: palette.text_tertiary }]}>
+                            {t('equipment_none')}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-down" size={16} color={palette.text_tertiary} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+              
               {/* Effort Type Selection */}
               <View style={styles.effortTypeContainer}>
                 <Text style={[styles.exerciseEditLabel, { color: workoutPalette.text }]}>{t('effort_type')}</Text>
@@ -858,6 +1035,9 @@ const ExerciseConfigurator = ({
             </View>
           </View>
         </KeyboardAvoidingView>
+        
+        {/* Equipment Dropdown Modal */}
+        {renderEquipmentDropdown()}
       </SafeAreaView>
     </Modal>
   );
@@ -912,6 +1092,99 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
   },
+  
+  // Equipment selection styles
+  equipmentContainer: {
+    marginBottom: 20,
+  },
+  equipmentSelector: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+  },
+  equipmentSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  equipmentSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  equipmentSelectorIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  equipmentSelectorText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  
+  // Equipment dropdown styles
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownModal: {
+    width: '85%',
+    maxHeight: '70%',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  dropdownTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  dropdownCloseButton: {
+    padding: 4,
+  },
+  dropdownScroll: {
+    maxHeight: 400,
+  },
+  equipmentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  equipmentOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  equipmentIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  equipmentOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  
   effortTypeContainer: {
     marginBottom: 20,
   },
@@ -996,7 +1269,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   
-  // NEW COMPACT SET ROW STYLES
+  // Set row styles
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1051,7 +1324,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   
-  // SMALLER REST TIME TOGGLE
+  // Rest time toggle
   restTimeToggleContainer: {
     marginBottom: 16,
     borderRadius: 6,
@@ -1078,7 +1351,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
   },
   
-  // FIXED SAVE BUTTON CONTAINER
+  // Save button container
   saveButtonContainer: {
     borderTopWidth: 1,
     paddingHorizontal: 16,

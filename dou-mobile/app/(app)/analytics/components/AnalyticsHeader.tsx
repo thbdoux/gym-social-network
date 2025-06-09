@@ -38,12 +38,14 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
   const defaultTranslateY = useRef(new Animated.Value(0)).current;
   const defaultOpacity = useRef(new Animated.Value(1)).current;
   
-  // Animation values for tab transitions
+  // Animation values for tab transitions - now includes all 6 views
   const tabAnimations = useRef({
     comparison: new Animated.Value(analyticsView === 'comparison' ? 1 : 0),
     'total-weight': new Animated.Value(analyticsView === 'total-weight' ? 1 : 0),
     'average-weight': new Animated.Value(analyticsView === 'average-weight' ? 1 : 0),
     'sets-analysis': new Animated.Value(analyticsView === 'sets-analysis' ? 1 : 0),
+    'bodyweight-analysis': new Animated.Value(analyticsView === 'bodyweight-analysis' ? 1 : 0),
+    'endurance-analysis': new Animated.Value(analyticsView === 'endurance-analysis' ? 1 : 0),
   }).current;
   
   // Animation value for the sliding indicator
@@ -70,12 +72,14 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
     router.back();
   };
   
-  // View options for tabs with appropriate Ionicons icons
+  // View options for tabs - now includes all 6 analytics views
   const viewOptions = [
     { id: 'comparison', label: t('comparison_view'), icon: 'bar-chart-outline', activeIcon: 'bar-chart' },
-    { id: 'total-weight', label: t('total_weight_analysis'), icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
-    { id: 'average-weight', label: t('average_weight_analysis'), icon: 'pulse-outline', activeIcon: 'pulse' },
-    { id: 'sets-analysis', label: t('sets_analysis'), icon: 'layers-outline', activeIcon: 'layers' },
+    { id: 'total-weight', label: t('strength_analysis'), icon: 'barbell-outline', activeIcon: 'barbell' },
+    { id: 'average-weight', label: t('intensity_analysis'), icon: 'pulse-outline', activeIcon: 'pulse' },
+    { id: 'sets-analysis', label: t('volume_analysis'), icon: 'layers-outline', activeIcon: 'layers' },
+    { id: 'bodyweight-analysis', label: t('bodyweight_analysis'), icon: 'body-outline', activeIcon: 'body' },
+    { id: 'endurance-analysis', label: t('endurance_analysis'), icon: 'timer-outline', activeIcon: 'timer' },
   ];
   
   // Trigger animations when view changes
@@ -198,7 +202,6 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
                     flex,
                     transform: [{ scale }],
                     backgroundColor,
-                    // Removed opacity from here to keep inactive tabs fully visible
                   }
                 ]}
               >
@@ -211,7 +214,7 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
                     {/* Always show the icon, active or inactive */}
                     <Ionicons 
                       name={isActive ? viewType.activeIcon : viewType.icon} 
-                      size={22} 
+                      size={20} 
                       color={isActive ? "#FFFFFF" : palette.accent} 
                       style={isActive ? styles.activeTabIcon : styles.inactiveTabIcon}
                     />
@@ -276,6 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginLeft: 8,
+    marginRight: 8,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -321,7 +325,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     borderRadius: 10,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     overflow: 'hidden',
     minWidth: 40, // Ensure inactive tabs have minimum width
   },
@@ -335,19 +339,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     width: '100%',
   },
   activeTabIcon: {
-    marginRight: 6,
+    marginRight: 4,
   },
   inactiveTabIcon: {
-    // No marginRight needed when no text is displayed
-    opacity: 0.9, // Slightly higher opacity for better visibility
+    opacity: 0.9,
   },
   tabText: {
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 12, // Smaller font to fit more content
+  },
+  moreButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 2,
+    position: 'relative',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   tabIndicator: {
     position: 'absolute',
