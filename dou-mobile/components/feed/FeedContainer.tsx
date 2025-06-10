@@ -9,11 +9,10 @@ import {
   RefreshControl,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  PanResponder,
-  Animated,
   Dimensions,
 } from 'react-native';
 import Post from './Post';
+import FriendRecommendationList from './FriendRecommendationList';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
 import { useFriends } from '../../hooks/query/useUserQuery';
 import { useUsers } from '../../hooks/query/useUserQuery';
@@ -36,6 +35,12 @@ interface Post {
   comments_count: number;
   is_liked: boolean;
   [key: string]: any;
+}
+
+interface FeedItem {
+  type: 'post' | 'friend_recommendation';
+  data: Post | { id: string };
+  id: string;
 }
 
 interface FeedContainerProps {
@@ -93,14 +98,12 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   const styles = themedStyles(palette);
   const { t } = useLanguage();
   
-  // Animation and swipe state
-  const [isSwipeInProgress, setIsSwipeInProgress] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   
-  // Swipe configuration
-  const SWIPE_THRESHOLD = 80; // Minimum distance to trigger swipe
-  const SWIPE_VELOCITY_THRESHOLD = 0.5; // Minimum velocity to trigger swipe
-  const HORIZONTAL_THRESHOLD = 15; // Minimum horizontal movement to start tracking
+  // Friend recommendation settings
+  const RECOMMENDATION_PROBABILITY = 0.5; // 8% chance per post (roughly 1 in 12-13 posts)
+  const MIN_POSTS_BEFORE_RECOMMENDATION = 3; // Minimum posts before first recommendation
+  const [recommendationShown, setRecommendationShown] = useState(false);
   
   // Use React Query hooks
   const { 
@@ -135,64 +138,6 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
       onViewChange(newView);
     }
   };
-
-  // Pan responder for swipe gestures
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Only respond to predominantly horizontal swipes
-        const { dx, dy } = gestureState;
-        const isHorizontalSwipe = Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > HORIZONTAL_THRESHOLD;
-        
-        // Don't interfere with vertical scrolling
-        if (Math.abs(dy) > Math.abs(dx)) return false;
-        
-        return isHorizontalSwipe && !isSwipeInProgress;
-      },
-      
-      onPanResponderGrant: () => {
-        setIsSwipeInProgress(true);
-      },
-      
-      onPanResponderMove: (evt, gestureState) => {
-        // We're not doing visual feedback during swipe anymore
-        // Just tracking the gesture
-      },
-      
-      onPanResponderRelease: (evt, gestureState) => {
-        const { dx, vx } = gestureState;
-        const currentIndex = getCurrentViewIndex();
-        
-        setIsSwipeInProgress(false);
-        
-        // Determine if swipe was strong enough
-        const shouldSwipe = Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(vx) > SWIPE_VELOCITY_THRESHOLD;
-        
-        if (!shouldSwipe) return;
-        
-        let targetView = filterMode; // Default to current view
-        
-        // Handle swipe right (go to previous view)
-        if (dx > 0 && currentIndex > 0) {
-          targetView = FEED_VIEW_ORDER[currentIndex - 1];
-        }
-        // Handle swipe left (go to next view)
-        else if (dx < 0 && currentIndex < FEED_VIEW_ORDER.length - 1) {
-          targetView = FEED_VIEW_ORDER[currentIndex + 1];
-        }
-        
-        // Change view immediately if needed
-        if (targetView !== filterMode) {
-          handleViewChange(targetView);
-        }
-      },
-      
-      onPanResponderTerminate: () => {
-        // Reset state if gesture is terminated
-        setIsSwipeInProgress(false);
-      },
-    })
-  ).current;
 
   // Create a memoized map of user data by username for better performance
   const usersData = useMemo(() => {
@@ -252,14 +197,124 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     setFilteredPosts(filtered.length > 0 ? filtered : []);
     
   }, [posts, friendUsernames, postsLoading, friendsLoading, filterMode]);
-  
+
+  // Function to randomly insert friend recommendations in friends view
+  const createFeedItemsWithRecommendations = useMemo(() => {
+    const feedItems: FeedItem[] = [];
+    
+    if (filterMode !== FEED_VIEW_TYPES.FRIENDS || filteredPosts.length === 0) {
+      // For discover view or no posts, just return posts as feed items
+      return filteredPosts.map(post => ({
+        type: 'post' as const,
+        data: post,
+        id: `post_${post.id}`,
+      }));
+    }
+
+    let recommendationInserted = false;
+    
+    filteredPosts.forEach((post, index) => {
+      // Add the post
+      feedItems.push({
+        type: 'post',
+        data: post,
+        id: `post_${post.id}`,
+      });
+
+      // Check if we should insert a recommendation after this post
+      const shouldInsertRecommendation = 
+        !recommendationInserted && // Haven't inserted one yet
+        index >= MIN_POSTS_BEFORE_RECOMMENDATION && // Minimum posts threshold
+        Math.random() < RECOMMENDATION_PROBABILITY; // Random chance
+
+      if (shouldInsertRecommendation) {
+        feedItems.push({
+          type: 'friend_recommendation',
+          data: { id: 'friend_rec_1' },
+          id: 'friend_recommendation_1',
+        });
+        recommendationInserted = true;
+      }
+    });
+
+    return feedItems;
+  }, [filteredPosts, filterMode]);
+
   // Handle manual refresh
   const handleRefresh = async () => {
+    setRecommendationShown(false); // Reset recommendation state on refresh
     if (onRefresh) {
       onRefresh();
     } else {
       await refetchPosts();
     }
+  };
+
+  // Handle when a user is added as friend from recommendations
+  const handleUserAdded = (userId: number) => {
+    // Optionally trigger a refresh of friends data or posts
+    // This will help update the recommendations list and potentially move posts between views
+    console.log('User added as friend:', userId);
+  };
+
+  // Create enhanced header component that includes friend recommendations for discover view only
+  const enhancedHeaderComponent = useMemo(() => {
+    return (
+      <View>
+        {/* Original header component */}
+        {ListHeaderComponent && (
+          typeof ListHeaderComponent === 'function' 
+            ? ListHeaderComponent() 
+            : ListHeaderComponent
+        )}
+        
+        {/* Friend recommendations - only show in discover view header */}
+        {filterMode === FEED_VIEW_TYPES.DISCOVER && (
+          <FriendRecommendationList 
+            onUserAdded={handleUserAdded}
+            maxRecommendations={8}
+          />
+        )}
+      </View>
+    );
+  }, [ListHeaderComponent, filterMode]);
+
+  // Render function for feed items
+  const renderFeedItem = ({ item }: { item: FeedItem }) => {
+    if (item.type === 'friend_recommendation') {
+      return (
+        <View style={styles.recommendationContainer}>
+          <FriendRecommendationList 
+            onUserAdded={handleUserAdded}
+            maxRecommendations={6} // Slightly fewer for inline display
+          />
+        </View>
+      );
+    }
+
+    // Render regular post
+    const post = item.data as Post;
+    return (
+      <Post
+        post={post}
+        currentUser={currentUser}
+        onLike={onLike}
+        onReact={onReact}
+        onUnreact={onUnreact}
+        onComment={onComment}
+        onShare={onShare}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        userData={usersData[post.user_username]}
+        onProgramClick={onProgramSelect}
+        onWorkoutLogClick={onWorkoutLogSelect}
+        onGroupWorkoutClick={onGroupWorkoutSelect}
+        onForkProgram={onForkProgram}
+        onProfileClick={onProfileClick}
+        onNavigateToProfile={onNavigateToProfile}
+        onPostClick={onPostClick}
+      />
+    );
   };
 
   // Determine if we're still loading
@@ -289,15 +344,11 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     );
   }
 
-  if (filteredPosts.length === 0) {
+  if (createFeedItemsWithRecommendations.length === 0) {
     return (
-      <View style={styles.container} {...panResponder.panHandlers}>
-        {/* Still render the ListHeaderComponent even when no posts are available */}
-        {ListHeaderComponent && (
-          typeof ListHeaderComponent === 'function' 
-            ? ListHeaderComponent() 
-            : ListHeaderComponent
-        )}
+      <View style={styles.container}>
+        {/* Still render the enhanced header component even when no posts are available */}
+        {enhancedHeaderComponent}
         <View style={[styles.emptyContainer, { backgroundColor: palette.page_background }]}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>{t("no_post_yet")}</Text>
           <Text style={[styles.emptyText, { color: palette.border }]}>
@@ -318,33 +369,13 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   };
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View style={styles.container}>
       <FlatList
         ref={flatListRef}
-        data={filteredPosts}
-        keyExtractor={(item) => item.id.toString()}
-        ListHeaderComponent={ListHeaderComponent}
-        renderItem={({ item }) => (
-          <Post
-            post={item}
-            currentUser={currentUser}
-            onLike={onLike}
-            onReact={onReact}
-            onUnreact={onUnreact}
-            onComment={onComment}
-            onShare={onShare}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            userData={usersData[item.user_username]}
-            onProgramClick={onProgramSelect}
-            onWorkoutLogClick={onWorkoutLogSelect}
-            onGroupWorkoutClick={onGroupWorkoutSelect}
-            onForkProgram={onForkProgram}
-            onProfileClick={onProfileClick}
-            onNavigateToProfile={onNavigateToProfile}
-            onPostClick={onPostClick}
-          />
-        )}
+        data={createFeedItemsWithRecommendations}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={enhancedHeaderComponent}
+        renderItem={renderFeedItem}
         contentContainerStyle={themedContentContainerStyle}
         refreshControl={
           <RefreshControl
@@ -356,7 +387,6 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
         }
         onScroll={onScroll}
         scrollEventThrottle={scrollEventThrottle}
-        scrollEnabled={!isSwipeInProgress} // Disable scroll during swipe
       />
     </View>
   );
@@ -370,6 +400,9 @@ const themedStyles = createThemedStyles((palette) => ({
     paddingHorizontal: 0,
     paddingTop: 0,
     paddingBottom: 160,
+  },
+  recommendationContainer: {
+    marginBottom: 8,
   },
   loadingContainer: {
     flex: 1,

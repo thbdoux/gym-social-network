@@ -42,7 +42,6 @@ const ExerciseSelector = ({
   recentExercises = []
 }: ExerciseSelectorProps) => {
   const { t, language } = useLanguage();
-  console.log(recentExercises)
   const {
     filterExercises,
     getExerciseName,

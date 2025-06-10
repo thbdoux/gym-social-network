@@ -15,6 +15,9 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    w_ago:' week ago',
+    h_ago: ' hour ago',
+    mo_ago: ' month ago',
     min_ago: 'min ago',
     language_settings : 'Language Settings',
     edit_language: "Edit Language",
@@ -75,6 +78,9 @@ const common = {
     no_workout_partners_yet:'No partners yet...',
   },
   fr: {
+    w_ago:' semaine plus tôt',
+    h_ago: ' heure plus tôt',
+    mo_ago: ' mois plus tôt',
     no_programs_created : 'Aucun programme',
     no_workout_partners_yet:'Pas encore de partenaires...',
     no_workout_logged: 'Aucun entraînement enregistré',
@@ -859,8 +865,10 @@ const social = {
     info: 'Information',
     view_profile: 'View Profile',
     post_options: 'Options',
+    people_you_may_know: 'Recommended users',
   },
   fr: {
+    people_you_may_know: 'Utilisateurs recommandés',
     no_post_yet: "Pas de posts pour le moment",
     no_post_yet_description : "Soyez le premier à poster sur le feed!",
     no_post_yet_description_2 :"Soyez le premier à poster sur le feed!",
@@ -870,7 +878,7 @@ const social = {
     request_sent: 'Demande envoyée',
     request_sent_success: "Tu n'as plus qu'à attendre que ça soit réciproque...",
     pending_request:"En attente",
-    add_friend: 'Ajouter en ami',
+    add_friend: 'Ajouter',
     remove_friend: 'Supprimer un ami',
     friend_requests: 'Demandes d\'ami',
     send_friend_request: 'Envoyer une demande d\'ami',
@@ -1540,7 +1548,7 @@ const more_analytics = {
     "top_muscle_groups": "Groupes Musculaires Principaux",
     "sets": "séries",
     "about_weighted_sets": "À Propos des Séries Pondérées",
-    "weighted_sets_explanation": "Les séries sont pondérées selon l'implication musculaire. Les muscles primaires obtiennent le crédit complet, les muscles secondaires obtiennent 50% du crédit.",
+    "weighted_sets_explanation": "Les séries sont pondérées selon l'implication musculaire dans l'exercice. Les muscles primaires obtiennent un crédit complet (1 série), les muscles secondaires obtiennent une demi-série.",
     
     "last_4_weeks_summary": "Résumé des 4 Dernières Semaines",
     "workouts": "Entraînements",

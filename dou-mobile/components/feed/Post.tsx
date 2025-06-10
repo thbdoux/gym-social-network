@@ -11,7 +11,8 @@ import {
   Animated,
   Dimensions,
   TextInput,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import { usePostLikers, usePostComments, usePostReactions } from '../../hooks/query/usePostQuery';
+import { useFriendshipStatus, useSendFriendRequest } from '../../hooks/query/useUserQuery';
 import CommentSection from './CommentSection';
 import PostContent from './PostContent';
 import PostReactionButton from './PostReactionButton';
@@ -145,6 +147,14 @@ const Post: React.FC<PostProps> = ({
   // Fetch reactions
   const { data: reactions = [] } = usePostReactions(post.id);
 
+  const { data: friendshipStatus } = useFriendshipStatus(
+    post.user_id, 
+    { 
+      enabled: !!post.user_id && post.user_username !== currentUser 
+    }
+  );
+  const { mutateAsync: sendFriendRequest, isPending: isSendingRequest } = useSendFriendRequest();
+
   // Create themed styles
   const styles = themedStyles(palette);
 
@@ -227,6 +237,49 @@ const Post: React.FC<PostProps> = ({
       return `${diffDays} ${t(diffDays === 1 ? 'day_ago' : 'days_ago')}`;
     } else {
       return date.toLocaleDateString();
+    }
+  };
+
+  const handleFollowUser = async () => {
+    if (!post.user_id || post.user_username === currentUser) return;
+    
+    try {
+      await sendFriendRequest(post.user_id);
+      
+      // Show success message
+      Alert.alert(
+        t('friend_request_sent') || 'Friend Request Sent',
+        t('friend_request_sent_message') || `Friend request sent to ${post.user_username}`
+      );
+      
+      // Navigate to user profile
+      if (onNavigateToProfile) {
+        onNavigateToProfile(post.user_id);
+      } else if (onProfileClick) {
+        onProfileClick(post.user_id);
+      }
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      Alert.alert(
+        t('error') || 'Error',
+        t('friend_request_error') || 'Failed to send friend request. Please try again.'
+      );
+    }
+  };
+  const shouldShowFollowButton = () => {
+    // Don't show for current user's own posts
+    if (post.user_username === currentUser) return false;
+    
+    // Don't show if no user ID
+    if (!post.user_id) return false;
+    
+    // Only show if not friends and no pending request
+    return friendshipStatus === 'not_friends';
+  };
+
+  const handleReactionsClick = () => {
+    if (localReactionsCount > 0) {
+      router.push(`/post/${post.id}/reactions`);
     }
   };
   
@@ -583,7 +636,7 @@ const Post: React.FC<PostProps> = ({
           style={styles.gradientLine}
         />
         
-        {/* Post Header */}
+        {/* UPDATED Post Header with Follow Button */}
         <View style={styles.header}>
           <View style={styles.authorContainer}>
             {/* User Avatar with Activity Ring */}
@@ -646,17 +699,48 @@ const Post: React.FC<PostProps> = ({
               </View>
               
               <Text style={[styles.postDate, { color: palette.border }]}>
-                {`@${post.user_username || ''} • ${formatDate(post.created_at)}`}
+                {formatDate(post.created_at)}
               </Text>
             </View>
           </View>
           
-          <TouchableOpacity 
-            style={styles.menuButton}
-            onPress={showPostOptions}
-          >
-            <Ionicons name="ellipsis-horizontal" size={20} color={withAlpha(palette.text, 0.6)} />
-          </TouchableOpacity>
+          {/* NEW: Header Actions Container */}
+          <View style={styles.headerActions}>
+            {/* Follow Button */}
+            {shouldShowFollowButton() && (
+              <TouchableOpacity 
+                style={[
+                  styles.followButton,
+                  { 
+                    backgroundColor: palette.accent,
+                    opacity: isSendingRequest ? 0.7 : 1
+                  }
+                ]}
+                onPress={handleFollowUser}
+                disabled={isSendingRequest}
+                activeOpacity={0.7}
+              >
+                {isSendingRequest ? (
+                  <ActivityIndicator size="small" color={palette.page_background} />
+                ) : (
+                  <>
+                    <Ionicons name="person-add" size={14} color={palette.page_background} />
+                    <Text style={[styles.followButtonText, { color: palette.page_background }]}>
+                      {t('add_friend') || 'Add friend'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+            
+            {/* Menu Button */}
+            <TouchableOpacity 
+              style={styles.menuButton}
+              onPress={showPostOptions}
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color={withAlpha(palette.text, 0.6)} />
+            </TouchableOpacity>
+          </View>
         </View>
         
         {/* Post Content */}
@@ -731,9 +815,22 @@ const Post: React.FC<PostProps> = ({
                   </View>
                 )}
                 
-                <Text style={[styles.likersText, { color: palette.text }]}>
-                  {`${localReactionsCount} ${localReactionsCount === 1 ? t('reaction') : t('reactions')}`}
-                </Text>
+                <TouchableOpacity 
+      onPress={handleReactionsClick}
+      activeOpacity={localReactionsCount > 0 ? 0.7 : 1}
+      disabled={localReactionsCount === 0}
+    >
+      <Text style={[
+        styles.likersText, 
+        { 
+          color: palette.text,
+          textDecorationLine: localReactionsCount > 0 ? 'underline' : 'none',
+          textDecorationColor: palette.text
+        }
+      ]}>
+        {`${localReactionsCount} ${localReactionsCount === 1 ? t('reaction') : t('reactions')}`}
+      </Text>
+    </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.placeholderContainer}>
@@ -877,6 +974,23 @@ const Post: React.FC<PostProps> = ({
 
 // Themed styles
 const themedStyles = createThemedStyles((palette) => ({
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  followButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  followButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   postWrapper: {
     marginBottom: 10,
     position: 'relative',
