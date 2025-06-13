@@ -8,9 +8,7 @@ import {
   SafeAreaView,
   Alert,
   Animated,
-  ImageBackground,
   TouchableOpacity,
-  Modal,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,11 +21,8 @@ import FeedContainer from '../../components/feed/FeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsModal from '../../components/profile/FriendsModal';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
-// Import our new PostTypeModal instead of FabMenu
 import PostTypeModal from '../../components/feed/PostTypeModal';
-import SidebarButton from '../../components/navigation/SidebarButton';
 import PostCreationModal from '../../components/feed/PostCreationModal';
-import FeedViewSelector, { FEED_VIEW_TYPES } from '../../components/feed/FeedViewSelector';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import {
   useLikePost,
@@ -95,8 +90,7 @@ export default function FeedScreen() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
-  const [currentFeedView, setCurrentFeedView] = useState(FEED_VIEW_TYPES.FRIENDS);
-  const [showPostTypeModal, setShowPostTypeModal] = useState(false); // New state for post type modal
+  const [showPostTypeModal, setShowPostTypeModal] = useState(false);
   const { isLoaded: imagesLoaded } = useImagePreloading(['personality']);
   const styles = themedStyles(palette);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -118,19 +112,6 @@ export default function FeedScreen() {
   const { mutateAsync: forkProgram } = useForkProgram();
   const { mutateAsync: reactToPost } = useReactToPost();
   const { mutateAsync: unreactToPost } = useUnreactToPost();
-
-  // Enhanced changeView function with animation reset
-  const changeView = (viewType: string) => {
-    if (viewType !== currentFeedView) {
-      setCurrentFeedView(viewType);
-      scrollY.setValue(0);
-    }
-  };
-
-  // New handler for view changes from FeedContainer swipes
-  const handleViewChangeFromSwipe = (newView: string) => {
-    changeView(newView);
-  };
 
   const welcomeContent = useMemo(() => {
     const personalityType = (user?.personality_type || 'versatile').toLowerCase();
@@ -189,14 +170,14 @@ export default function FeedScreen() {
   const handleProfileClick = (userId: number) => { setSelectedUserId(userId); setShowProfileModal(true); };
   const handleNavigateToProfile = (userId: number) => router.push(`/user/${userId}`);
   
-  // New handlers for our simplified UI
+  // Handlers for post creation
   const handleShowPostTypeModal = () => setShowPostTypeModal(true);
   const handlePostTypeSelect = (postType: string) => {
     setSelectedPostType(postType);
     setShowPostModal(true);
   };
   
-  // New handlers for post creation row
+  // Handlers for post creation row
   const handleAvatarPress = () => {
     if (user?.id) {
       router.push(`/user/${user.id}`);
@@ -212,7 +193,8 @@ export default function FeedScreen() {
   const handlePostCreated = () => refetchPosts();
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false });
 
-  const renderWelcomeHeader = useMemo(() => (
+  // Simplified header - just post creation row
+  const renderHeader = useMemo(() => (
     <View>
       {/* Post Creation Row - Facebook style */}
       <PostCreationRow
@@ -222,14 +204,8 @@ export default function FeedScreen() {
         styles={styles}
         t={t}
       />
-      
-      {/* Feed View Selector - Back in the header */}
-      <FeedViewSelector 
-        currentView={currentFeedView} 
-        changeView={changeView}
-      />
     </View>
-  ), [user, styles, t, currentFeedView, changeView]);
+  ), [user, styles, t]);
 
   const handleProgramSelect = (program: any) => {
     let programId: number | null = typeof program === 'number' ? program : (program?.id || program?.program_id || program?.programId || program?.program_details?.id);
@@ -265,7 +241,7 @@ export default function FeedScreen() {
                 )}
               </TouchableOpacity>
               
-              {/* Simple + Icon replacing FAB menu */}
+              {/* Create Post Button */}
               {/* <TouchableOpacity style={styles.createPostButton} onPress={handleShowPostTypeModal}>
                 <Ionicons name="add" size={26} color={palette.text} />
               </TouchableOpacity> */}
@@ -290,15 +266,25 @@ export default function FeedScreen() {
             </View>
           ) : (
             <FeedContainer
-              onLike={handleLike} onReact={handleReactToPost} onUnreact={handleUnreactToPost}
-              onComment={handleComment} onShare={handleShare} onDelete={handleDeletePost} onEdit={handleEditPost}
-              onProgramSelect={handleProgramSelect} onWorkoutLogSelect={handleWorkoutLogSelect}
-              onForkProgram={handleForkProgram} onProfileClick={handleProfileClick}
-              onNavigateToProfile={handleNavigateToProfile} onPostClick={handlePostClick}
-              refreshing={refreshing} onRefresh={handleRefresh} onScroll={handleScroll}
-              scrollEventThrottle={16} contentContainerStyle={styles.feedContentContainer}
-              ListHeaderComponent={renderWelcomeHeader} filterMode={currentFeedView}
-              onViewChange={handleViewChangeFromSwipe} // New prop for swipe handling
+              onLike={handleLike} 
+              onReact={handleReactToPost} 
+              onUnreact={handleUnreactToPost}
+              onComment={handleComment} 
+              onShare={handleShare} 
+              onDelete={handleDeletePost} 
+              onEdit={handleEditPost}
+              onProgramSelect={handleProgramSelect} 
+              onWorkoutLogSelect={handleWorkoutLogSelect}
+              onForkProgram={handleForkProgram} 
+              onProfileClick={handleProfileClick}
+              onNavigateToProfile={handleNavigateToProfile} 
+              onPostClick={handlePostClick}
+              refreshing={refreshing} 
+              onRefresh={handleRefresh} 
+              onScroll={handleScroll}
+              scrollEventThrottle={16} 
+              contentContainerStyle={styles.feedContentContainer}
+              ListHeaderComponent={renderHeader}
             />
           )}
         </View>
@@ -309,7 +295,7 @@ export default function FeedScreen() {
       {selectedUserId && <ProfilePreviewModal isVisible={showProfileModal} onClose={() => setShowProfileModal(false)} userId={selectedUserId} />}
       <PostCreationModal visible={showPostModal} onClose={handleModalClose} onPostCreated={handlePostCreated} initialPostType={selectedPostType} />
       
-      {/* New Post Type Modal */}
+      {/* Post Type Modal */}
       <PostTypeModal 
         visible={showPostTypeModal} 
         onClose={() => setShowPostTypeModal(false)}
@@ -329,7 +315,7 @@ const themedStyles = createThemedStyles((palette) => ({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Space between logo and right icons
+    justifyContent: 'space-between',
     paddingHorizontal: 0,
     paddingLeft: 16,
     height: '100%',
@@ -347,7 +333,7 @@ const themedStyles = createThemedStyles((palette) => ({
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#FF3B30', // Red color for the badge
+    backgroundColor: '#FF3B30',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -355,7 +341,7 @@ const themedStyles = createThemedStyles((palette) => ({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: palette.layout, // Border to make it stand out from the background
+    borderColor: palette.layout,
   },
   notificationBadgeText: {
     color: 'white',
@@ -367,10 +353,10 @@ const themedStyles = createThemedStyles((palette) => ({
     width: 40,
     height: 40,
     borderRadius: 20,
-    // backgroundColor: palette.highlight,
+    backgroundColor: palette.highlight,
     justifyContent: 'center',
     alignItems: 'center',
-    // Add shadow for better visibility
+    marginRight: 12,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -381,17 +367,12 @@ const themedStyles = createThemedStyles((palette) => ({
   feedContentContainer: { paddingBottom: 60 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, color: withAlpha(palette.text, 0.7) },
-  welcomeContainer: { overflow: 'hidden' },
-  welcomeBackground: { minHeight: 60, justifyContent: 'center', paddingVertical: 20 },
-  welcomeBackgroundImage: {}, // No specific style needed if default is fine
-  welcomeText: { fontSize: 18, fontWeight: '600', marginBottom: 4, paddingLeft: 16, color: palette.text, textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 10 },
-  welcomeUsername: { fontSize: 30, paddingLeft: 15, fontWeight: '700', color: palette.text, textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8 },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { marginTop: 10, marginBottom: 20, color: withAlpha(palette.text, 0.7), textAlign: 'center' },
   retryButton: { backgroundColor: palette.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   retryButtonText: { color: palette.page_background, fontWeight: '600' },
   
-  // Enhanced styles for post creation row with avatar image
+  // Post creation row styles
   postCreationRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,19 +4,18 @@
     "slug": "dou-social-network-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon.png",
+    "icon": "./assets/images/app-icon2.png",
     "scheme": "dou",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.doucompany.dou",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription":      "Allow %@ to pick images for your posts.",
-        "NSPhotoLibraryAddUsageDescription":   "Allow %@ to save the edited picture.",
-        "NSCameraUsageDescription":            "Allow %@ to take a new photo.",
-        "NSMicrophoneUsageDescription":        "Needed for video posts with sound." 
+        "NSPhotoLibraryUsageDescription": "Allow %@ to pick images for your posts.",
+        "NSPhotoLibraryAddUsageDescription": "Allow %@ to save the edited picture.",
+        "NSCameraUsageDescription": "Allow %@ to take a new photo.",
+        "NSMicrophoneUsageDescription": "Needed for video posts with sound."
       }
     },
     "android": {
@@ -25,11 +24,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.doucompany.dou"
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -44,10 +38,12 @@
       ],
       "expo-secure-store",
       [
-        "@react-native-google-signin/google-signin",
+        "expo-notifications",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.38465928219-ouf41lc4o75ruaspr62s7o0bqr99fi22",
-          "webClientId": "38465928219-lnt8gkdkhn1id2vh93a54j41h8516op9.apps.googleusercontent.com"
+          "icon": "./assets/images/app-icon.png",
+          "color": "#6366F1",
+          "defaultChannel": "default",
+          "sounds": ["./assets/sounds/notification.wav"]
         }
       ],
       [
@@ -56,7 +52,6 @@
           "photosPermission": "Let %@ access your photos."
         }
       ]
-
     ],
     "experiments": {
       "typedRoutes": true

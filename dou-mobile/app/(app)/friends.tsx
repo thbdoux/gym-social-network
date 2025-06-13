@@ -1,20 +1,21 @@
 // app/(app)/friends.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   TextInput,
-  Image,
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
 import {
   useFriends,
   useFriendRequests,
@@ -24,38 +25,26 @@ import {
   useRemoveFriend,
   useCurrentUser,
 } from '../../hooks/query/useUserQuery';
-import { getAvatarUrl } from '../../utils/imageUtils';
-// Import ThemeContext
-import { useTheme } from '../../context/ThemeContext';
 
-// Types
-interface User {
-  id: number;
-  username: string;
-  avatar?: string;
-  training_level?: string;
-  personality_type?: string;
-}
+// Import components
+import FriendsList from '../../components/friends/FriendsList';
+import RequestsList from '../../components/friends/RequestsList';
+import DiscoverList from '../../components/friends/DiscoverList';
 
-interface FriendData {
-  id: number;
-  friend: User;
-}
-
-interface FriendRequest {
-  id: number;
-  from_user: User;
-  to_user: User;
-  status: string;
-}
+const { width } = Dimensions.get('window');
+const HEADER_HEIGHT = 80;
+const SEARCH_HEIGHT = 60;
+const TABS_HEIGHT = 60;
 
 export default function FriendsPage() {
-  // Get translation function
   const { t } = useLanguage();
   const router = useRouter();
-  
-  // Use the theme context
   const { palette } = useTheme();
+  
+  // Animation refs
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
   
   // State
   const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'discover'>('friends');
@@ -102,26 +91,27 @@ export default function FriendsPage() {
     refetchRequests();
   }, [refetchFriends, refetchRequests]);
 
+  // Scroll animation setup
+  useEffect(() => {
+    const listener = scrollY.addListener(({ value }) => {
+      const threshold = 50;
+      const opacity = Math.max(0, 1 - value / threshold);
+      const translateY = Math.min(value * 0.5, threshold);
+      
+      headerOpacity.setValue(opacity);
+      headerTranslateY.setValue(-translateY);
+    });
+
+    return () => {
+      scrollY.removeListener(listener);
+    };
+  }, [scrollY, headerOpacity, headerTranslateY]);
+
   // Combined loading state
   const loading =
     friendsLoading ||
     requestsLoading ||
     (activeTab === 'discover' && usersLoading);
-
-  // Format text utility
-  const formatText = (text?: string): string => {
-    if (!text) return '';
-    return text
-      .split('_')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Get initials for avatar fallback
-  const getInitials = (name?: string): string => {
-    if (!name) return '?';
-    return name.charAt(0).toUpperCase();
-  };
 
   // Process users for the discover tab
   const getRecommendedUsers = () => {
@@ -130,15 +120,10 @@ export default function FriendsPage() {
     }
 
     const currentUserId = currentUser.id;
-
-    // Create sets for faster lookup
-    const friendIds = new Set(friends.map((f: FriendData) => f.friend?.id));
-
-    // Create a set of all user IDs that have pending requests in either direction
+    const friendIds = new Set(friends.map((f: any) => f.friend?.id));
     const pendingRequestUserIds = new Set();
 
-    // Add all users involved in requests with the current user
-    requests.forEach((req: FriendRequest) => {
+    requests.forEach((req: any) => {
       if (req.status === 'pending') {
         if (req.from_user.id === currentUserId) {
           pendingRequestUserIds.add(req.to_user.id);
@@ -148,9 +133,8 @@ export default function FriendsPage() {
       }
     });
 
-    // Filter users
     return allUsers.filter(
-      (user: User) =>
+      (user: any) =>
         user.id !== currentUserId &&
         !friendIds.has(user.id) &&
         !pendingRequestUserIds.has(user.id)
@@ -196,7 +180,6 @@ export default function FriendsPage() {
           return;
       }
 
-      // Switch to appropriate tab after action
       if (actionType === 'accept') {
         setActiveTab('friends');
       } else if (actionType === 'send') {
@@ -207,7 +190,7 @@ export default function FriendsPage() {
     }
   };
 
-  // Profile viewing - navigate to dedicated profile page
+  // Profile viewing
   const navigateToProfile = (userId: number) => {
     router.push(`/user/${userId}`);
   };
@@ -216,23 +199,23 @@ export default function FriendsPage() {
   const getFilteredData = () => {
     const query = searchQuery.toLowerCase();
 
-    const filteredFriends = friends.filter((f: FriendData) =>
+    const filteredFriends = friends.filter((f: any) =>
       f.friend?.username.toLowerCase().includes(query)
     );
 
-    const receivedRequests = requests.filter((req: FriendRequest) =>
+    const receivedRequests = requests.filter((req: any) =>
       req.to_user.id === currentUser?.id &&
       req.status === 'pending' &&
       req.from_user.username.toLowerCase().includes(query)
     );
 
-    const sentRequests = requests.filter((req: FriendRequest) =>
+    const sentRequests = requests.filter((req: any) =>
       req.from_user.id === currentUser?.id &&
       req.status === 'pending' &&
       req.to_user.username.toLowerCase().includes(query)
     );
 
-    const filteredRecommendations = recommendedUsers.filter((user: User) =>
+    const filteredRecommendations = recommendedUsers.filter((user: any) =>
       user.username.toLowerCase().includes(query)
     );
 
@@ -246,319 +229,25 @@ export default function FriendsPage() {
 
   const filteredData = getFilteredData();
 
-  // Components for rendering list items
-  const FriendItem = ({ friend, onViewProfile, onRemoveFriend }: { 
-    friend: User, 
-    onViewProfile: () => void, 
-    onRemoveFriend: () => void 
-  }) => {
-    const isLoading = 
-      removeFriendMutation.isLoading && 
-      removeFriendMutation.variables === friend.id;
-
-    return (
-      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
-        {friend.avatar ? (
-          <Image source={{ uri: getAvatarUrl(friend.avatar, 80) }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
-            <Text style={styles.avatarText}>{getInitials(friend.username)}</Text>
-          </View>
-        )}
-        
-        <View style={styles.userInfo}>
-          <Text style={[styles.username, { color: palette.text }]}>{friend.username}</Text>
-          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
-            {formatText(friend.training_level || '')}
-            {friend.training_level && friend.personality_type && " • "}
-            {formatText(friend.personality_type || '')}
-          </Text>
-        </View>
-        
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
-            onPress={onViewProfile}
-          >
-            <Ionicons name="eye" size={18} color={palette.text} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.removeButton}
-            onPress={onRemoveFriend}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={palette.text} />
-            ) : (
-              <Ionicons name="person-remove" size={18} color={palette.text} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+  // Tab change handler with animation
+  const handleTabChange = (tab: 'friends' | 'requests' | 'discover') => {
+    setActiveTab(tab);
+    // Reset scroll position when changing tabs
+    scrollY.setValue(0);
+    headerOpacity.setValue(1);
+    headerTranslateY.setValue(0);
   };
 
-  const RequestItem = ({ request, type }: { request: FriendRequest, type: 'received' | 'sent' }) => {
-    const user = type === 'received' ? request.from_user : request.to_user;
-    const isLoading = 
-      respondToFriendRequestMutation.isLoading && 
-      respondToFriendRequestMutation.variables?.userId === user.id;
-
-    return (
-      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
-        {user.avatar ? (
-          <Image source={{ uri: getAvatarUrl(user.avatar, 80) }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
-            <Text style={styles.avatarText}>{getInitials(user.username)}</Text>
-          </View>
-        )}
-        
-        <View style={styles.userInfo}>
-          <Text style={[styles.username, { color: palette.text }]}>{user.username}</Text>
-          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
-            {formatText(user.training_level || '')}
-            {user.training_level && user.personality_type && " • "}
-            {formatText(user.personality_type || '')}
-          </Text>
-        </View>
-        
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
-            onPress={() => navigateToProfile(user.id)}
-          >
-            <Ionicons name="eye" size={18} color={palette.text} />
-          </TouchableOpacity>
-          
-          {type === 'received' ? (
-            <View style={styles.requestButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.acceptButton, { backgroundColor: '#10B981' }]}
-                onPress={() => handleFriendAction('accept', user.id)}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={palette.text} />
-                ) : (
-                  <Ionicons name="checkmark" size={18} color={palette.text} />
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}
-                onPress={() => handleFriendAction('reject', user.id)}
-                disabled={isLoading}
-              >
-                <Ionicons name="close" size={18} color={palette.text} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.pendingContainer}>
-              <Text style={[styles.pendingText, { color: palette.highlight }]}>{t('pending')}</Text>
-              <TouchableOpacity
-                style={[styles.cancelButton, { backgroundColor: '#EF4444' }]}
-                onPress={() => handleFriendAction('cancel', user.id)}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={palette.text} />
-                ) : (
-                  <Ionicons name="close" size={18} color={palette.text} />
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  const DiscoverItem = ({ user }: { user: User }) => {
-    const isLoading = 
-      sendFriendRequestMutation.isLoading && 
-      sendFriendRequestMutation.variables === user.id;
-
-    return (
-      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
-        {user.avatar ? (
-          <Image source={{ uri: getAvatarUrl(user.avatar, 80) }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
-            <Text style={styles.avatarText}>{getInitials(user.username)}</Text>
-          </View>
-        )}
-        
-        <View style={styles.userInfo}>
-          <Text style={[styles.username, { color: palette.text }]}>{user.username}</Text>
-          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
-            {formatText(user.training_level || '')}
-            {user.training_level && user.personality_type && " • "}
-            {formatText(user.personality_type || '')}
-          </Text>
-        </View>
-        
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
-            onPress={() => navigateToProfile(user.id)}
-          >
-            <Ionicons name="eye" size={18} color={palette.text} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: '#10B981' }]}
-            onPress={() => handleFriendAction('send', user.id)}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={palette.text} />
-            ) : (
-              <>
-                <Ionicons name="person-add" size={16} color={palette.text} />
-                <Text style={[styles.addButtonText, { color: palette.text }]}>{t('add_friend')}</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  const EmptyState = ({ 
-    icon, 
-    message, 
-    action 
-  }: { 
-    icon: React.ReactNode, 
-    message: string, 
-    action?: { label: string; onPress: () => void } 
-  }) => (
-    <View style={styles.emptyContainer}>
-      {icon}
-      <Text style={[styles.emptyMessage, { color: `${palette.text}80` }]}>{message}</Text>
-      {action && (
-        <TouchableOpacity 
-          style={[styles.emptyActionButton, { backgroundColor: palette.highlight }]} 
-          onPress={action.onPress}
-        >
-          <Text style={[styles.emptyActionText, { color: palette.text }]}>{action.label}</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  // Render content based on active tab
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={palette.highlight} />
-          <Text style={[styles.loadingText, { color: `${palette.text}80` }]}>{t('loading')}</Text>
-        </View>
-      );
-    }
-
+  const getActiveTabTitle = () => {
     switch (activeTab) {
       case 'friends':
-        return (
-          <FlatList
-            data={filteredData.friends}
-            keyExtractor={(item) => `friend-${item.id}`}
-            renderItem={({ item }) => (
-              <FriendItem
-                friend={item.friend}
-                onViewProfile={() => navigateToProfile(item.friend.id)}
-                onRemoveFriend={() => handleFriendAction('remove', item.friend.id)}
-              />
-            )}
-            ListEmptyComponent={
-              <EmptyState
-                icon={<Ionicons name="people" size={48} color={`${palette.text}4D`} />}
-                message={searchQuery ? t('no_friends_match_search') : t('no_friends')}
-                action={
-                  !searchQuery
-                    ? {
-                        label: t('find_friends'),
-                        onPress: () => setActiveTab('discover'),
-                      }
-                    : undefined
-                }
-              />
-            }
-          />
-        );
-
+        return t('friends');
       case 'requests':
-        const hasRequests = filteredData.received.length > 0 || filteredData.sent.length > 0;
-        
-        return (
-          <>
-            {hasRequests ? (
-              <>
-                {filteredData.received.length > 0 && (
-                  <View style={styles.requestsSection}>
-                    <Text style={[styles.sectionTitle, { color: palette.text }]}>{t('received_requests')}</Text>
-                    <FlatList
-                      data={filteredData.received}
-                      keyExtractor={(item) => `received-${item.id}`}
-                      renderItem={({ item }) => (
-                        <RequestItem request={item} type="received" />
-                      )}
-                      scrollEnabled={false}
-                    />
-                  </View>
-                )}
-                
-                {filteredData.sent.length > 0 && (
-                  <View style={styles.requestsSection}>
-                    <Text style={[styles.sectionTitle, { color: palette.text }]}>{t('sent_requests')}</Text>
-                    <FlatList
-                      data={filteredData.sent}
-                      keyExtractor={(item) => `sent-${item.id}`}
-                      renderItem={({ item }) => (
-                        <RequestItem request={item} type="sent" />
-                      )}
-                      scrollEnabled={false}
-                    />
-                  </View>
-                )}
-              </>
-            ) : (
-              <EmptyState
-                icon={<Ionicons name="time" size={48} color={`${palette.text}4D`} />}
-                message={searchQuery ? t('no_requests_match_search') : t('no_friend_requests')}
-                action={
-                  !searchQuery
-                    ? {
-                        label: t('find_friends'),
-                        onPress: () => setActiveTab('discover'),
-                      }
-                    : undefined
-                }
-              />
-            )}
-          </>
-        );
-
+        return t('friend_requests');
       case 'discover':
-        return (
-          <FlatList
-            data={filteredData.recommended}
-            keyExtractor={(item) => `discover-${item.id}`}
-            renderItem={({ item }) => <DiscoverItem user={item} />}
-            ListEmptyComponent={
-              <EmptyState
-                icon={<Ionicons name="search" size={48} color={`${palette.text}4D`} />}
-                message={searchQuery ? t('no_users_match_search') : t('no_recommendations')}
-              />
-            }
-          />
-        );
-
+        return t('discover_friends');
       default:
-        return null;
+        return t('friends');
     }
   };
 
@@ -566,114 +255,160 @@ export default function FriendsPage() {
     <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View style={[styles.header, { borderColor: `${palette.border}66` }]}>
-        <TouchableOpacity 
-          style={[styles.backButton, { backgroundColor: `${palette.accent}B3` }]} 
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={palette.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>
-          {activeTab === 'friends'
-            ? t('friends')
-            : activeTab === 'requests'
-            ? t('friend_requests')
-            : t('discover_friends')}
-        </Text>
-      </View>
-
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
-        <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
-        <TextInput
-          style={[styles.searchInput, { color: palette.text }]}
-          placeholder={
-            activeTab === 'friends'
-              ? t('search_friends')
-              : activeTab === 'requests'
-              ? t('search_requests')
-              : t('search_people')
+      {/* Animated Header */}
+      <Animated.View 
+        style={[
+          styles.headerContainer,
+          { 
+            backgroundColor: palette.page_background,
+            borderColor: `${palette.border}66`,
+            opacity: headerOpacity,
+            transform: [{ translateY: headerTranslateY }]
           }
-          placeholderTextColor={`${palette.text}80`}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      {/* Tabs */}
-      <View style={[styles.tabs, { borderColor: `${palette.border}66` }]}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'friends' && [styles.activeTab, { borderColor: palette.highlight }]]}
-          onPress={() => setActiveTab('friends')}
-        >
-          <Ionicons
-            name="people"
-            size={18}
-            color={activeTab === 'friends' ? palette.highlight : `${palette.text}80`}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: `${palette.text}80` },
-              activeTab === 'friends' && [styles.activeTabText, { color: palette.highlight }],
-            ]}
+        ]}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={[styles.backButton, { backgroundColor: `${palette.accent}B3` }]} 
+            onPress={() => router.back()}
           >
-            {t('friends')}
+            <Ionicons name="arrow-back" size={24} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: palette.text }]}>
+            {getActiveTabTitle()}
           </Text>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'requests' && [styles.activeTab, { borderColor: palette.highlight }]]}
-          onPress={() => setActiveTab('requests')}
-        >
-          <Ionicons
-            name="time"
-            size={18}
-            color={activeTab === 'requests' ? palette.highlight : `${palette.text}80`}
+        {/* Search Bar */}
+        <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
+          <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: palette.text }]}
+            placeholder={
+              activeTab === 'friends'
+                ? t('search_friends')
+                : activeTab === 'requests'
+                ? t('search_requests')
+                : t('search_people')
+            }
+            placeholderTextColor={`${palette.text}80`}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-          <Text
-            style={[
-              styles.tabText,
-              { color: `${palette.text}80` },
-              activeTab === 'requests' && [styles.activeTabText, { color: palette.highlight }],
-            ]}
-          >
-            {t('friend_requests')}
-            {(filteredData.received.length + filteredData.sent.length) > 0 && (
-              <View style={[styles.badgeContainer, { backgroundColor: palette.highlight }]}>
-                <Text style={styles.badgeText}>
-                  {filteredData.received.length + filteredData.sent.length}
-                </Text>
-              </View>
-            )}
-          </Text>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'discover' && [styles.activeTab, { borderColor: palette.highlight }]]}
-          onPress={() => setActiveTab('discover')}
-        >
-          <Ionicons
-            name="person-add"
-            size={18}
-            color={activeTab === 'discover' ? palette.highlight : `${palette.text}80`}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: `${palette.text}80` },
-              activeTab === 'discover' && [styles.activeTabText, { color: palette.highlight }],
-            ]}
+        {/* Tabs */}
+        <View style={[styles.tabs, { borderColor: `${palette.border}66` }]}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'friends' && [styles.activeTab, { borderColor: palette.highlight }]]}
+            onPress={() => handleTabChange('friends')}
           >
-            {t('discover_friends')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Ionicons
+              name="people"
+              size={18}
+              color={activeTab === 'friends' ? palette.highlight : `${palette.text}80`}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                { color: `${palette.text}80` },
+                activeTab === 'friends' && [styles.activeTabText, { color: palette.highlight }],
+              ]}
+            >
+              {t('friends')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'requests' && [styles.activeTab, { borderColor: palette.highlight }]]}
+            onPress={() => handleTabChange('requests')}
+          >
+            <Ionicons
+              name="time"
+              size={18}
+              color={activeTab === 'requests' ? palette.highlight : `${palette.text}80`}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                { color: `${palette.text}80` },
+                activeTab === 'requests' && [styles.activeTabText, { color: palette.highlight }],
+              ]}
+            >
+              {t('friend_requests')}
+              {(filteredData.received.length + filteredData.sent.length) > 0 && (
+                <View style={[styles.badgeContainer, { backgroundColor: palette.highlight }]}>
+                  <Text style={styles.badgeText}>
+                    {filteredData.received.length + filteredData.sent.length}
+                  </Text>
+                </View>
+              )}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'discover' && [styles.activeTab, { borderColor: palette.highlight }]]}
+            onPress={() => handleTabChange('discover')}
+          >
+            <Ionicons
+              name="person-add"
+              size={18}
+              color={activeTab === 'discover' ? palette.highlight : `${palette.text}80`}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                { color: `${palette.text}80` },
+                activeTab === 'discover' && [styles.activeTabText, { color: palette.highlight }],
+              ]}
+            >
+              {t('discover_friends')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
 
       {/* Content */}
       <View style={styles.content}>
-        {renderContent()}
+        {activeTab === 'friends' && (
+          <FriendsList
+            friends={filteredData.friends}
+            loading={loading}
+            searchQuery={searchQuery}
+            onNavigateToProfile={navigateToProfile}
+            onFriendAction={handleFriendAction}
+            onDiscoverPress={() => handleTabChange('discover')}
+            removeFriendMutation={removeFriendMutation}
+            scrollY={scrollY}
+          />
+        )}
+        
+        {activeTab === 'requests' && (
+          <RequestsList
+            receivedRequests={filteredData.received}
+            sentRequests={filteredData.sent}
+            loading={loading}
+            searchQuery={searchQuery}
+            onNavigateToProfile={navigateToProfile}
+            onFriendAction={handleFriendAction}
+            onDiscoverPress={() => handleTabChange('discover')}
+            respondToFriendRequestMutation={respondToFriendRequestMutation}
+            scrollY={scrollY}
+          />
+        )}
+        
+        {activeTab === 'discover' && (
+          <DiscoverList
+            users={filteredData.recommended}
+            loading={loading}
+            searchQuery={searchQuery}
+            onNavigateToProfile={navigateToProfile}
+            onFriendAction={handleFriendAction}
+            sendFriendRequestMutation={sendFriendRequestMutation}
+            scrollY={scrollY}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -683,12 +418,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    borderBottomWidth: 1,
+    paddingTop: 44, // Status bar height
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    height: HEADER_HEIGHT,
   },
   backButton: {
     width: 40,
@@ -706,8 +450,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
     paddingHorizontal: 12,
+    height: SEARCH_HEIGHT,
   },
   searchIcon: {
     marginRight: 8,
@@ -721,6 +467,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     paddingHorizontal: 16,
+    height: TABS_HEIGHT,
   },
   tab: {
     flexDirection: 'row',
@@ -751,143 +498,27 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyMessage: {
-    fontSize: 16,
-    marginTop: 12,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  emptyActionButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  emptyActionText: {
-    fontWeight: '500',
-  },
-  itemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  userInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  username: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  userDetail: {
-    fontSize: 14,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  removeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  requestButtonsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  acceptButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  rejectButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pendingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pendingText: {
-    fontSize: 14,
-    marginRight: 8,
-  },
-  cancelButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButton: {
-    flexDirection: 'row',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  requestsSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 12,
+    marginTop: HEADER_HEIGHT + SEARCH_HEIGHT + TABS_HEIGHT + 44, // Header + search + tabs + status bar
   },
 });
+
+// Export types for use in components
+export interface User {
+  id: number;
+  username: string;
+  avatar?: string;
+  training_level?: string;
+  personality_type?: string;
+}
+
+export interface FriendData {
+  id: number;
+  friend: User;
+}
+
+export interface FriendRequest {
+  id: number;
+  from_user: User;
+  to_user: User;
+  status: string;
+}

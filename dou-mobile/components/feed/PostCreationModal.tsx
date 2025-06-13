@@ -23,7 +23,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 import { useCreatePost } from '../../hooks/query/usePostQuery';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, compressImage } from '../../utils/imageUtils'; // Added compressImage import
 import WorkoutLogSelector from './WorkoutLogSelector';
 import ProgramSelector from './ProgramSelector';
 import GroupWorkoutSelector from './GroupWorkoutSelector';
@@ -65,6 +65,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
   const [content, setContent] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [imageCompressing, setImageCompressing] = useState(false); // New state for image compression
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showWorkoutLogSelector, setShowWorkoutLogSelector] = useState(false);
   const [showProgramSelector, setShowProgramSelector] = useState(false);
@@ -206,16 +207,53 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
       return;
     }
 
-    // Launch image picker
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    try {
+      // Launch image picker with high quality (we'll compress it ourselves)
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1, // Use highest quality, we'll compress it
+      });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        const originalImageUri = result.assets[0].uri;
+        
+        // Show compression loading state
+        setImageCompressing(true);
+        
+        try {
+          console.log('Starting image compression...');
+          
+          // Compress the image before setting it
+          const compressedUri = await compressImage(originalImageUri, {
+            maxWidth: 1200,
+            maxHeight: 1200,
+            quality: 0.8,
+            format: 'jpeg',
+            maxSizeKB: 800 // 800KB limit
+          });
+          
+          console.log('Image compression completed successfully');
+          setImage(compressedUri);
+          
+        } catch (compressionError) {
+          console.warn('Image compression failed, using original:', compressionError);
+          // If compression fails, show warning but still use the original
+          Alert.alert(
+            t('compression_warning'), 
+            t('image_compression_failed_using_original'),
+            [{ text: t('ok') }]
+          );
+          setImage(originalImageUri);
+        } finally {
+          setImageCompressing(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert(t('error'), t('failed_to_select_image'));
+      setImageCompressing(false);
     }
   };
   
@@ -232,14 +270,14 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
       formData.append('content', content);
       formData.append('post_type', postType);
 
-      // Add image if selected
+      // Add image if selected (it's already compressed at this point)
       if (image) {
         const filename = image.split('/').pop() || 'photo.jpg';
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : 'image/jpeg';
 
         formData.append('image', {
-          uri: image,
+          uri: image, // This is already the compressed image URI
           name: filename,
           type,
         } as any);
@@ -283,6 +321,7 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
     setSelectedProgram(null);
     setSelectedWorkoutLog(null);
     setSelectedGroupWorkout(null);
+    setImageCompressing(false);
     setStep(1); // Always set to content entry
   };
 
@@ -422,8 +461,18 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
             </View>
           )}
           
+          {/* Image Compression Loading State */}
+          {imageCompressing && (
+            <View style={styles.imageCompressionContainer}>
+              <ActivityIndicator size="small" color={palette.accent} />
+              <Text style={styles.imageCompressionText}>
+                {t('compressing_image')}...
+              </Text>
+            </View>
+          )}
+          
           {/* Image Preview */}
-          {image && (
+          {image && !imageCompressing && (
             <View style={styles.imagePreviewContainer}>
               <Image 
                 source={{ uri: image }} 
@@ -435,6 +484,13 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
               >
                 <Ionicons name="close-circle" size={24} color={palette.text} />
               </TouchableOpacity>
+              {/* Show compressed indicator */}
+              <View style={styles.compressedIndicator}>
+                <Ionicons name="checkmark-circle" size={16} color={palette.success || '#28a745'} />
+                <Text style={styles.compressedIndicatorText}>
+                  {t('compressed')}
+                </Text>
+              </View>
             </View>
           )}
           
@@ -450,10 +506,19 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
           <View style={styles.actionBar}>
             <View style={styles.mediaButtons}>
               <TouchableOpacity 
-                style={[styles.mediaButton, { backgroundColor: withAlpha(palette.accent, 0.1) }]}
+                style={[
+                  styles.mediaButton, 
+                  { backgroundColor: withAlpha(palette.accent, 0.1) },
+                  imageCompressing && styles.mediaButtonDisabled
+                ]}
                 onPress={pickImage}
+                disabled={imageCompressing}
               >
-                <Ionicons name="image-outline" size={24} color={palette.accent} />
+                {imageCompressing ? (
+                  <ActivityIndicator size="small" color={palette.accent} />
+                ) : (
+                  <Ionicons name="image-outline" size={24} color={palette.accent} />
+                )}
               </TouchableOpacity>
               
               {postType === 'regular' && (
@@ -494,10 +559,10 @@ const PostCreationModal: React.FC<PostCreationModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.postButton,
-                (!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) && styles.postButtonDisabled
+                ((!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) || imageCompressing) && styles.postButtonDisabled
               ]}
               onPress={handleCreatePost}
-              disabled={(!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) || loading || isPosting}
+              disabled={(!content.trim() && !image && !selectedProgram && !selectedWorkoutLog) || loading || isPosting || imageCompressing}
             >
               {loading || isPosting ? (
                 <ActivityIndicator color={palette.page_background} size="small" />
@@ -710,6 +775,21 @@ const themedStyles = createThemedStyles((palette) => ({
   removeButton: {
     padding: 4,
   },
+  imageCompressionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: withAlpha(palette.accent, 0.1),
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  imageCompressionText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: palette.text_secondary,
+    fontStyle: 'italic',
+  },
   imagePreviewContainer: {
     marginBottom: 16,
     position: 'relative',
@@ -727,6 +807,23 @@ const themedStyles = createThemedStyles((palette) => ({
     backgroundColor: withAlpha(palette.page_background, 0.8),
     borderRadius: 16,
     padding: 4,
+  },
+  compressedIndicator: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: withAlpha(palette.page_background, 0.9),
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  compressedIndicatorText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: palette.success || '#28a745',
+    fontWeight: '500',
   },
   actionBar: {
     flexDirection: 'row',
@@ -749,6 +846,9 @@ const themedStyles = createThemedStyles((palette) => ({
     marginRight: 12,
     borderWidth: 1,
     borderColor: withAlpha(palette.border, 0.2),
+  },
+  mediaButtonDisabled: {
+    opacity: 0.5,
   },
   keyboardDismissButton: {
     backgroundColor: withAlpha(palette.text_secondary, 0.1),

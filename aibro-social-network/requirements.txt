@@ -14,3 +14,5 @@ cryptography
 google-auth
 channels
 channels-redis
+pyfcm
+exponent_server_sdk

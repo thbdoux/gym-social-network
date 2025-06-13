@@ -42,7 +42,6 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function ProfileScreen() {
   const { user } = useAuth();
-  console.log(user)
   const { t } = useLanguage();
   const router = useRouter();
   const logout = useLogout();

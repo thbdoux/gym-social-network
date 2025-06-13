@@ -1,11 +1,11 @@
-# notifications/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Notification, NotificationPreference
-from .serializers import NotificationSerializer, NotificationPreferenceSerializer
+from .models import Notification, NotificationPreference, DeviceToken
+from .serializers import NotificationSerializer, NotificationPreferenceSerializer, DeviceTokenSerializer
 from .services import NotificationService
+from .expo_push_notification_service import expo_push_service
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for user notifications"""
@@ -58,3 +58,93 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet):
             user=self.request.user
         )
         return obj
+
+class DeviceTokenViewSet(viewsets.GenericViewSet):
+    """API endpoint for managing Expo push tokens"""
+    serializer_class = DeviceTokenSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    @action(detail=False, methods=['post'])
+    def register(self, request):
+        """Register an Expo push token - handles duplicates gracefully"""
+        token = request.data.get('token')
+        platform = request.data.get('platform')
+        
+        # Validate required fields
+        if not token:
+            return Response(
+                {'error': 'Token is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not platform:
+            return Response(
+                {'error': 'Platform is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate token format
+        if not token.startswith(('ExponentPushToken[', 'ExpoPushToken[')) or not token.endswith(']'):
+            return Response(
+                {'error': 'Invalid Expo push token format'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Register token using the service (handles duplicates)
+        success = expo_push_service.register_device_token(
+            user=request.user,
+            token=token,
+            platform=platform
+        )
+        
+        if success:
+            return Response(
+                {'message': 'Expo push token registered successfully'}, 
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            return Response(
+                {'error': 'Failed to register Expo push token'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['post'])
+    def unregister(self, request):
+        """Unregister an Expo push token"""
+        token = request.data.get('token')
+        if not token:
+            return Response(
+                {'error': 'Token is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        success = expo_push_service.unregister_device_token(request.user, token)
+        if success:
+            return Response({'message': 'Expo push token unregistered successfully'})
+        else:
+            return Response(
+                {'error': 'Failed to unregister Expo push token'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['get'])
+    def list_tokens(self, request):
+        """List user's registered Expo push tokens"""
+        tokens = DeviceToken.objects.filter(
+            user=request.user, 
+            is_active=True
+        ).values('token', 'platform', 'created_at')
+        return Response(list(tokens))
+    
+    @action(detail=False, methods=['post'])
+    def test_notification(self, request):
+        """Send a test push notification using Expo"""
+        success = expo_push_service.send_test_notification(request.user)
+        
+        if success:
+            return Response({'message': 'Test Expo notification sent successfully'})
+        else:
+            return Response(
+                {'error': 'Failed to send test Expo notification'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )

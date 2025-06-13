@@ -25,7 +25,6 @@ class Notification(models.Model):
         ('workout_cancelled', 'Workout Cancelled'),
         ('workout_removed', 'Removed from Workout'),
         ('workout_completed', 'Workout Completed'),
-
     ]
     
     recipient = models.ForeignKey(
@@ -60,6 +59,35 @@ class Notification(models.Model):
             models.Index(fields=['content_type', 'object_id']),
         ]
 
+class DeviceToken(models.Model):
+    """Store device tokens for push notifications"""
+    PLATFORM_CHOICES = [
+        ('ios', 'iOS'),
+        ('android', 'Android'),
+        ('web', 'Web'),
+    ]
+    
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='device_tokens'
+    )
+    token = models.TextField(unique=True)
+    platform = models.CharField(max_length=10, choices=PLATFORM_CHOICES)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['user', 'token']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['token', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.platform} - {self.token[:20]}..."
+
 class NotificationPreference(models.Model):
     """User preferences for notifications"""
     user = models.OneToOneField(
@@ -88,3 +116,6 @@ class NotificationPreference(models.Model):
     push_goal_achieved = models.BooleanField(default=True)
     push_mentions = models.BooleanField(default=True)
     push_gym_announcements = models.BooleanField(default=True)
+    
+    # Global push notification toggle
+    push_notifications_enabled = models.BooleanField(default=True)

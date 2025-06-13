@@ -2,6 +2,7 @@
 import { API_BASE_URL, getFullUrl } from '../api/config';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
+import { Image } from 'react-native';
 
 export const getAvatarUrl = (avatarPath, size = 120) => {
   if (!avatarPath) {
@@ -23,6 +24,56 @@ export const getAvatarUrl = (avatarPath, size = 120) => {
   }
   
   return url;
+};
+
+/**
+ * Get image dimensions
+ */
+const getImageDimensions = (uri: string): Promise<{ width: number, height: number }> => {
+  return new Promise((resolve, reject) => {
+    Image.getSize(
+      uri,
+      (width, height) => resolve({ width, height }),
+      (error) => {
+        console.warn('Could not get image dimensions:', error);
+        reject(error);
+      }
+    );
+  });
+};
+
+/**
+ * Calculate new dimensions that maintain aspect ratio within max bounds
+ */
+const calculateAspectRatioResize = (
+  originalWidth: number,
+  originalHeight: number,
+  maxWidth: number,
+  maxHeight: number
+): { width: number, height: number } => {
+  // If image is already smaller than max dimensions, keep original size
+  if (originalWidth <= maxWidth && originalHeight <= maxHeight) {
+    return { width: originalWidth, height: originalHeight };
+  }
+  
+  // Calculate aspect ratio
+  const aspectRatio = originalWidth / originalHeight;
+  
+  // Calculate new dimensions based on aspect ratio
+  let newWidth = maxWidth;
+  let newHeight = maxWidth / aspectRatio;
+  
+  // If height exceeds max, recalculate based on height
+  if (newHeight > maxHeight) {
+    newHeight = maxHeight;
+    newWidth = maxHeight * aspectRatio;
+  }
+  
+  // Round to integers
+  return {
+    width: Math.round(newWidth),
+    height: Math.round(newHeight)
+  };
 };
 
 /**
@@ -59,27 +110,48 @@ export const compressImage = async (
     
     // Check if image is already under the size limit
     const fileSizeKB = fileInfo.size / 1024;
+    console.log(`Original image size: ${Math.round(fileSizeKB)}KB`);
     
-    if (fileSizeKB <= maxSizeKB) {
-      console.log(`Image is already small enough (${Math.round(fileSizeKB)}KB)`);
+    // Get original image dimensions
+    let originalDimensions;
+    try {
+      originalDimensions = await getImageDimensions(imageUri);
+      console.log(`Original dimensions: ${originalDimensions.width}x${originalDimensions.height}`);
+    } catch (error) {
+      console.warn('Could not get image dimensions, proceeding with resize anyway');
+      originalDimensions = { width: maxWidth, height: maxHeight };
+    }
+    
+    // Calculate proper resize dimensions maintaining aspect ratio
+    const newDimensions = calculateAspectRatioResize(
+      originalDimensions.width,
+      originalDimensions.height,
+      maxWidth,
+      maxHeight
+    );
+    
+    console.log(`New dimensions: ${newDimensions.width}x${newDimensions.height}`);
+    
+    // Check if we need to resize or compress
+    const needsResize = newDimensions.width !== originalDimensions.width || 
+                       newDimensions.height !== originalDimensions.height;
+    const needsCompression = fileSizeKB > maxSizeKB;
+    
+    // If image is already small enough and doesn't need resizing, return original
+    if (!needsResize && !needsCompression) {
+      console.log(`Image is already optimized (${Math.round(fileSizeKB)}KB)`);
       return imageUri;
     }
     
-    console.log(`Original image size: ${Math.round(fileSizeKB)}KB`);
-    
-    // Calculate resize actions - maintain aspect ratio
+    // Prepare resize actions if needed
     let resizeActions = [];
+    if (needsResize) {
+      resizeActions.push({
+        resize: newDimensions, // This maintains aspect ratio
+      });
+    }
     
-    // If we have the image dimensions, we can calculate a more precise resize
-    // This would require getting image dimensions first - skipping for simplicity
-    resizeActions.push({
-      resize: {
-        width: maxWidth,
-        height: maxHeight,
-      },
-    });
-    
-    // First compression attempt with standard options
+    // First compression attempt with calculated dimensions and quality
     let compressedUri = await ImageManipulator.manipulateAsync(
       imageUri,
       resizeActions,
@@ -95,14 +167,13 @@ export const compressImage = async (
     console.log(`First compression result: ${Math.round(compressedSizeKB)}KB`);
     
     // If still too large, try additional compression with lower quality
-    if (compressedSizeKB > maxSizeKB) {
-      // Calculate new quality - use a formula to estimate required quality
-      // Estimate that file size scales linearly with quality (approximate)
-      let newQuality = Math.min(quality * (maxSizeKB / compressedSizeKB), 0.7);
+    if (compressedSizeKB > maxSizeKB && quality > 0.3) {
+      // Calculate new quality - use a more conservative approach
+      let newQuality = Math.max(quality * (maxSizeKB / compressedSizeKB) * 0.9, 0.3);
       
       console.log(`Additional compression needed, new quality: ${newQuality.toFixed(2)}`);
       
-      // Try additional compression
+      // Try additional compression without further resizing
       compressedUri = await ImageManipulator.manipulateAsync(
         compressedUri.uri,
         [], // No further resize needed
@@ -115,6 +186,14 @@ export const compressImage = async (
       compressedInfo = await FileSystem.getInfoAsync(compressedUri.uri);
       compressedSizeKB = compressedInfo.size / 1024;
       console.log(`Final compression result: ${Math.round(compressedSizeKB)}KB`);
+    }
+    
+    // Verify the final image still has correct dimensions (for debugging)
+    try {
+      const finalDimensions = await getImageDimensions(compressedUri.uri);
+      console.log(`Final image dimensions: ${finalDimensions.width}x${finalDimensions.height}`);
+    } catch (error) {
+      console.warn('Could not verify final image dimensions');
     }
     
     return compressedUri.uri;

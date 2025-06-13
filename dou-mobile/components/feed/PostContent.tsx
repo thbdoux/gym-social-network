@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   },
   sharedPostImage: {
     width: '100%',
-    height: 200,
+    // height: 200,
     borderRadius: 8,
     marginTop: 8,
   },

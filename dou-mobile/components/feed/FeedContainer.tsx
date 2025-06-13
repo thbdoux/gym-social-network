@@ -19,7 +19,6 @@ import { useUsers } from '../../hooks/query/useUserQuery';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext'; 
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
-import { FEED_VIEW_TYPES, FEED_VIEW_ORDER } from './FeedViewSelector';
 import { useLanguage } from '@/context/LanguageContext';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -41,6 +40,7 @@ interface FeedItem {
   type: 'post' | 'friend_recommendation';
   data: Post | { id: string };
   id: string;
+  score?: number; // For sorting
 }
 
 interface FeedContainerProps {
@@ -64,8 +64,6 @@ interface FeedContainerProps {
   contentContainerStyle?: object;
   scrollEventThrottle?: number;
   ListHeaderComponent?: React.ReactElement | (() => React.ReactElement) | null;
-  filterMode?: string; // Prop for view filtering
-  onViewChange?: (newView: string) => void; // New prop for handling view changes
 }
 
 const FeedContainer: React.FC<FeedContainerProps> = ({
@@ -89,8 +87,6 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   contentContainerStyle,
   scrollEventThrottle = 16,
   ListHeaderComponent,
-  filterMode = FEED_VIEW_TYPES.FRIENDS, // Default to friends view
-  onViewChange, // New prop
 }) => {
   const { user } = useAuth();
   const currentUser = user?.username || '';
@@ -101,9 +97,8 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
   const flatListRef = useRef<FlatList>(null);
   
   // Friend recommendation settings
-  const RECOMMENDATION_PROBABILITY = 0.5; // 8% chance per post (roughly 1 in 12-13 posts)
-  const MIN_POSTS_BEFORE_RECOMMENDATION = 3; // Minimum posts before first recommendation
-  const [recommendationShown, setRecommendationShown] = useState(false);
+  const RECOMMENDATION_PROBABILITY = 0.3; // 30% chance per 10 posts
+  const MIN_POSTS_BEFORE_RECOMMENDATION = 8; // Minimum posts before first recommendation
   
   // Use React Query hooks
   const { 
@@ -125,19 +120,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     error: usersError
   } = useUsers();
   
-  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
-
-  // Get current view index for navigation
-  const getCurrentViewIndex = () => {
-    return FEED_VIEW_ORDER.findIndex(view => view === filterMode);
-  };
-
-  // Handle view change with animation
-  const handleViewChange = (newView: string) => {
-    if (newView !== filterMode && onViewChange) {
-      onViewChange(newView);
-    }
-  };
+  const [smartFeedPosts, setSmartFeedPosts] = useState<Post[]>([]);
 
   // Create a memoized map of user data by username for better performance
   const usersData = useMemo(() => {
@@ -173,59 +156,93 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     
     return usernameSet;
   }, [friends, currentUser]);
-  
-  // Filter posts based on selected view mode
-  useEffect(() => {
-    // Skip effect if data isn't loaded yet
-    if (postsLoading || friendsLoading) return;
+
+  // Smart Feed Algorithm
+  const calculatePostScore = (post: Post): number => {
+    const now = new Date();
+    const postDate = new Date(post.created_at);
+    const hoursAgo = (now.getTime() - postDate.getTime()) / (1000 * 60 * 60);
     
-    let filtered;
+    let score = 0;
     
-    if (filterMode === FEED_VIEW_TYPES.FRIENDS) {
-      // Friends view: only show posts from friends
-      filtered = posts.filter(post => 
-        post && post.user_username && friendUsernames.has(post.user_username)
-      );
-    } else {
-      // Discover view: show all posts
-      filtered = posts.filter(post => 
-        post && post.user_username && !friendUsernames.has(post.user_username)
-      );
+    // Friend bonus (highest priority)
+    const isFriend = friendUsernames.has(post.user_username);
+    if (isFriend) {
+      score += 100;
     }
     
-    // Only update state if the filtered posts have actually changed
-    setFilteredPosts(filtered.length > 0 ? filtered : []);
+    // Recency bonus (friends get better recency bonus)
+    if (hoursAgo < 24) {
+      score += isFriend ? 50 : 20; // Friends get higher recency bonus
+    } else if (hoursAgo < 48) {
+      score += isFriend ? 30 : 10;
+    } else if (hoursAgo < 168) { // 1 week
+      score += isFriend ? 15 : 5;
+    }
     
-  }, [posts, friendUsernames, postsLoading, friendsLoading, filterMode]);
+    // Engagement/Viral bonus (for non-friends to surface viral content)
+    const engagementScore = (post.likes_count || 0) + (post.comments_count || 0) * 2; // Comments worth more
+    
+    if (!isFriend) {
+      // Non-friends need higher engagement to compete
+      if (engagementScore >= 50) score += 40; // Highly viral
+      else if (engagementScore >= 20) score += 25; // Moderately viral
+      else if (engagementScore >= 10) score += 15; // Somewhat viral
+      else if (engagementScore >= 5) score += 8; // Mild engagement
+    } else {
+      // Friends get smaller engagement bonus
+      if (engagementScore >= 20) score += 15;
+      else if (engagementScore >= 10) score += 10;
+      else if (engagementScore >= 5) score += 5;
+    }
+    
+    // Add small random factor to avoid too predictable ordering
+    score += Math.random() * 5;
+    
+    return score;
+  };
+  
+  // Create smart feed with priority logic
+  useEffect(() => {
+    if (postsLoading || friendsLoading) return;
+    
+    const scoredPosts = posts
+      .filter(post => post && post.user_username) // Basic validation
+      .map(post => ({
+        ...post,
+        score: calculatePostScore(post)
+      }))
+      .sort((a, b) => b.score - a.score); // Sort by score descending
+    
+    setSmartFeedPosts(scoredPosts);
+    
+  }, [posts, friendUsernames, postsLoading, friendsLoading]);
 
-  // Function to randomly insert friend recommendations in friends view
-  const createFeedItemsWithRecommendations = useMemo(() => {
+  // Function to create feed items with occasional friend recommendations
+  const createSmartFeedItems = useMemo(() => {
     const feedItems: FeedItem[] = [];
     
-    if (filterMode !== FEED_VIEW_TYPES.FRIENDS || filteredPosts.length === 0) {
-      // For discover view or no posts, just return posts as feed items
-      return filteredPosts.map(post => ({
-        type: 'post' as const,
-        data: post,
-        id: `post_${post.id}`,
-      }));
+    if (smartFeedPosts.length === 0) {
+      return [];
     }
 
     let recommendationInserted = false;
     
-    filteredPosts.forEach((post, index) => {
+    smartFeedPosts.forEach((post, index) => {
       // Add the post
       feedItems.push({
         type: 'post',
         data: post,
         id: `post_${post.id}`,
+        score: post.score
       });
 
-      // Check if we should insert a recommendation after this post
+      // Insert friend recommendation occasionally
       const shouldInsertRecommendation = 
-        !recommendationInserted && // Haven't inserted one yet
-        index >= MIN_POSTS_BEFORE_RECOMMENDATION && // Minimum posts threshold
-        Math.random() < RECOMMENDATION_PROBABILITY; // Random chance
+        !recommendationInserted && 
+        index >= MIN_POSTS_BEFORE_RECOMMENDATION && 
+        index % 10 === 0 && // Every 10th post position
+        Math.random() < RECOMMENDATION_PROBABILITY;
 
       if (shouldInsertRecommendation) {
         feedItems.push({
@@ -238,11 +255,10 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     });
 
     return feedItems;
-  }, [filteredPosts, filterMode]);
+  }, [smartFeedPosts]);
 
   // Handle manual refresh
   const handleRefresh = async () => {
-    setRecommendationShown(false); // Reset recommendation state on refresh
     if (onRefresh) {
       onRefresh();
     } else {
@@ -252,12 +268,11 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
 
   // Handle when a user is added as friend from recommendations
   const handleUserAdded = (userId: number) => {
-    // Optionally trigger a refresh of friends data or posts
-    // This will help update the recommendations list and potentially move posts between views
     console.log('User added as friend:', userId);
+    // This will help update the friends list and recompute the smart feed
   };
 
-  // Create enhanced header component that includes friend recommendations for discover view only
+  // Create enhanced header component that includes friend recommendations at the top
   const enhancedHeaderComponent = useMemo(() => {
     return (
       <View>
@@ -268,16 +283,14 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
             : ListHeaderComponent
         )}
         
-        {/* Friend recommendations - only show in discover view header */}
-        {filterMode === FEED_VIEW_TYPES.DISCOVER && (
-          <FriendRecommendationList 
-            onUserAdded={handleUserAdded}
-            maxRecommendations={8}
-          />
-        )}
+        {/* Friend recommendations at the top of feed */}
+        <FriendRecommendationList 
+          onUserAdded={handleUserAdded}
+          maxRecommendations={8}
+        />
       </View>
     );
-  }, [ListHeaderComponent, filterMode]);
+  }, [ListHeaderComponent]);
 
   // Render function for feed items
   const renderFeedItem = ({ item }: { item: FeedItem }) => {
@@ -286,7 +299,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
         <View style={styles.recommendationContainer}>
           <FriendRecommendationList 
             onUserAdded={handleUserAdded}
-            maxRecommendations={6} // Slightly fewer for inline display
+            maxRecommendations={6}
           />
         </View>
       );
@@ -344,17 +357,14 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     );
   }
 
-  if (createFeedItemsWithRecommendations.length === 0) {
+  if (createSmartFeedItems.length === 0) {
     return (
       <View style={styles.container}>
-        {/* Still render the enhanced header component even when no posts are available */}
         {enhancedHeaderComponent}
         <View style={[styles.emptyContainer, { backgroundColor: palette.page_background }]}>
           <Text style={[styles.emptyTitle, { color: palette.text }]}>{t("no_post_yet")}</Text>
           <Text style={[styles.emptyText, { color: palette.border }]}>
-            {filterMode === FEED_VIEW_TYPES.FRIENDS 
-              ? t('no_post_yet_description')
-              : t('no_post_yet_description_2')}
+            {t('no_post_yet_description')}
           </Text>
         </View>
       </View>
@@ -372,7 +382,7 @@ const FeedContainer: React.FC<FeedContainerProps> = ({
     <View style={styles.container}>
       <FlatList
         ref={flatListRef}
-        data={createFeedItemsWithRecommendations}
+        data={createSmartFeedItems}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={enhancedHeaderComponent}
         renderItem={renderFeedItem}
