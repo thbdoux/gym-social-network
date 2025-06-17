@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Notification, NotificationPreference, DeviceToken
 from .serializers import NotificationSerializer, NotificationPreferenceSerializer, DeviceTokenSerializer
@@ -47,17 +48,40 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             'total': self.get_queryset().count()
         })
 
-class NotificationPreferenceViewSet(viewsets.ModelViewSet):
-    """API endpoint for notification preferences"""
-    serializer_class = NotificationPreferenceSerializer
+class NotificationPreferenceView(APIView):
+    """API endpoint for notification preferences - singleton per user"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
-        """Get or create notification preferences"""
+        """Get or create notification preferences for the current user"""
         obj, created = NotificationPreference.objects.get_or_create(
             user=self.request.user
         )
         return obj
+    
+    def get(self, request):
+        """GET /preferences/ - Retrieve user's notification preferences"""
+        instance = self.get_object()
+        serializer = NotificationPreferenceSerializer(instance)
+        return Response(serializer.data)
+    
+    def put(self, request):
+        """PUT /preferences/ - Update user's notification preferences"""
+        instance = self.get_object()
+        serializer = NotificationPreferenceSerializer(instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def patch(self, request):
+        """PATCH /preferences/ - Partially update user's notification preferences"""
+        instance = self.get_object()
+        serializer = NotificationPreferenceSerializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class DeviceTokenViewSet(viewsets.GenericViewSet):
     """API endpoint for managing Expo push tokens"""
@@ -69,6 +93,7 @@ class DeviceTokenViewSet(viewsets.GenericViewSet):
         """Register an Expo push token - handles duplicates gracefully"""
         token = request.data.get('token')
         platform = request.data.get('platform')
+        locale = request.data.get('locale', 'en')  # Add locale support
         
         # Validate required fields
         if not token:
@@ -91,22 +116,36 @@ class DeviceTokenViewSet(viewsets.GenericViewSet):
             )
         
         # Register token using the service (handles duplicates)
-        success = expo_push_service.register_device_token(
-            user=request.user,
-            token=token,
-            platform=platform
-        )
-        
-        if success:
-            return Response(
-                {'message': 'Expo push token registered successfully'}, 
-                status=status.HTTP_201_CREATED
+        try:
+            success = expo_push_service.register_device_token(
+                user=request.user,
+                token=token,
+                platform=platform,
+                locale=locale
             )
-        else:
-            return Response(
-                {'error': 'Failed to register Expo push token'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            
+            if success:
+                return Response(
+                    {'message': 'Expo push token registered successfully'}, 
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                return Response(
+                    {'error': 'Failed to register Expo push token'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            # Handle the case where token already exists
+            if 'already exists' in str(e).lower():
+                return Response(
+                    {'message': 'Expo push token already registered'}, 
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {'error': f'Failed to register Expo push token: {str(e)}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
     
     @action(detail=False, methods=['post'])
     def unregister(self, request):
@@ -133,7 +172,7 @@ class DeviceTokenViewSet(viewsets.GenericViewSet):
         tokens = DeviceToken.objects.filter(
             user=request.user, 
             is_active=True
-        ).values('token', 'platform', 'created_at')
+        ).values('token', 'platform', 'locale', 'created_at')
         return Response(list(tokens))
     
     @action(detail=False, methods=['post'])

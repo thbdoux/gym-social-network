@@ -43,7 +43,9 @@
           "icon": "./assets/images/app-icon.png",
           "color": "#6366F1",
           "defaultChannel": "default",
-          "sounds": ["./assets/sounds/notification.wav"]
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ]
         }
       ],
       [
@@ -51,7 +53,8 @@
         {
           "photosPermission": "Let %@ access your photos."
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

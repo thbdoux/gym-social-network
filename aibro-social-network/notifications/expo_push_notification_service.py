@@ -6,6 +6,7 @@ from django.db import IntegrityError
 import logging
 from typing import List, Dict, Optional
 from .models import DeviceToken, NotificationPreference
+from .translation_service import translation_service  # Import our translation service
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class ExpoPushNotificationService:
         # Initialize Expo push client
         self.push_client = PushClient()
 
-    def register_device_token(self, user, token: str, platform: str) -> bool:
+    def register_device_token(self, user, token: str, platform: str, locale: str = 'en') -> bool:
         """Register or update an Expo push token - handles duplicates gracefully"""
         try:
             # Validate Expo push token format
@@ -35,6 +36,7 @@ class ExpoPushNotificationService:
                 defaults={
                     'user': user,
                     'platform': platform,
+                    'locale': locale,
                     'is_active': True,
                     'updated_at': timezone.now()
                 }
@@ -45,6 +47,7 @@ class ExpoPushNotificationService:
                 if device_token.user != user:
                     device_token.user = user
                 device_token.platform = platform
+                device_token.locale = locale
                 device_token.is_active = True
                 device_token.updated_at = timezone.now()
                 device_token.save()
@@ -61,6 +64,7 @@ class ExpoPushNotificationService:
                 device_token = DeviceToken.objects.get(token=token)
                 device_token.user = user
                 device_token.platform = platform
+                device_token.locale = locale
                 device_token.is_active = True
                 device_token.updated_at = timezone.now()
                 device_token.save()
@@ -94,12 +98,16 @@ class ExpoPushNotificationService:
     def send_push_notification(
         self, 
         user, 
-        title: str, 
-        body: str, 
+        title: str = None,
+        body: str = None,
+        title_key: str = None,
+        body_key: str = None,
+        translation_params: Dict = None,
         data: Optional[Dict] = None,
-        notification_type: str = None
+        notification_type: str = None,
+        priority: str = 'normal'
     ) -> bool:
-        """Send push notification to user's devices using Expo"""
+        """Send push notification to user's devices using Expo - FIXED TO TRANSLATE TEXT"""
         try:
             # Check if user has push notifications enabled
             if not self._should_send_push_notification(user, notification_type):
@@ -114,12 +122,38 @@ class ExpoPushNotificationService:
 
             logger.info(f"Sending Expo push notification to {len(tokens)} devices for user {user.id}")
 
+            # FIXED: Translate the notification content based on user's language preference
+            if title_key or body_key:
+                translated_content = translation_service.translate_notification(
+                    user=user,
+                    title_key=title_key or f'notifications.{notification_type}.push_title',
+                    body_key=body_key or f'notifications.{notification_type}.push_body',
+                    params=translation_params or {}
+                )
+                notification_title = translated_content['title']
+                notification_body = translated_content['body']
+            else:
+                # Use provided title/body or fallback
+                notification_title = title or "New Notification"
+                notification_body = body or "You have a new notification"
+
             # Prepare notification data
             notification_data = data or {}
             notification_data.update({
                 'notification_type': notification_type or 'general',
                 'timestamp': str(timezone.now().isoformat()),
             })
+
+            # Add translation support for frontend
+            if title_key:
+                notification_data['title_key'] = title_key
+            if body_key:
+                notification_data['body_key'] = body_key
+            if translation_params:
+                notification_data['translation_params'] = translation_params
+
+            # Debug log the final notification content
+            logger.info(f"📱 Sending notification - Title: '{notification_title}', Body: '{notification_body}'")
 
             # Create push messages
             messages = []
@@ -131,12 +165,13 @@ class ExpoPushNotificationService:
 
                 message = PushMessage(
                     to=token,
-                    title=title,
-                    body=body,
+                    title=notification_title,  # Now contains actual translated text!
+                    body=notification_body,    # Now contains actual translated text!
                     data=notification_data,
                     sound='default',
                     badge=1,
-                    channel_id='default'  # For Android
+                    channel_id='default',  # For Android
+                    priority='high' if priority in ['high', 'urgent'] else 'normal'
                 )
                 messages.append(message)
 
@@ -182,8 +217,11 @@ class ExpoPushNotificationService:
     def send_bulk_notification(
         self, 
         users: List, 
-        title: str, 
-        body: str, 
+        title: str = None, 
+        body: str = None,
+        title_key: str = None,
+        body_key: str = None,
+        translation_params: Dict = None,
         data: Optional[Dict] = None,
         notification_type: str = None
     ) -> Dict[str, int]:
@@ -192,7 +230,16 @@ class ExpoPushNotificationService:
         failure_count = 0
         
         for user in users:
-            if self.send_push_notification(user, title, body, data, notification_type):
+            if self.send_push_notification(
+                user=user, 
+                title=title, 
+                body=body,
+                title_key=title_key,
+                body_key=body_key,
+                translation_params=translation_params,
+                data=data, 
+                notification_type=notification_type
+            ):
                 success_count += 1
             else:
                 failure_count += 1
@@ -236,11 +283,12 @@ class ExpoPushNotificationService:
             return True
 
     def send_test_notification(self, user) -> bool:
-        """Send a test notification"""
+        """Send a test notification - FIXED to use translation"""
         return self.send_push_notification(
             user=user,
-            title="Test Notification",
-            body="This is a test push notification from your app!",
+            title_key="notifications.test.push_title",
+            body_key="notifications.test.push_body",
+            translation_params={},
             data={'test': 'true'},
             notification_type='test'
         )

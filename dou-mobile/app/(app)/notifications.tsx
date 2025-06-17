@@ -17,12 +17,13 @@ import {
   useNotifications, 
   useMarkNotificationAsRead, 
   useMarkAllNotificationsAsRead,
-  useNotificationCount 
+  useNotificationCount,
+  useRefreshNotifications
 } from '../../hooks/query/useNotificationQuery';
+import { useRealTimeNotifications, useNotificationRefresh } from '../../hooks/useRealTimeNotifications'; // NEW: Import real-time hooks
 import { useUser } from '../../hooks/query/useUserQuery';
 import { usePost } from '../../hooks/query/usePostQuery';
 import { groupWorkoutService } from '../../api/services';
-// Add these imports at the top of the file
 import { useGroupWorkoutJoinRequests } from '../../hooks/query/useGroupWorkoutQuery';
 import { useNotificationSocket } from '../../hooks/useNotificationSocket';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,56 +34,92 @@ import { formatDistanceToNow, isToday, isYesterday, differenceInDays } from 'dat
 import { Image } from 'expo-image';
 import { useLanguage } from '../../context/LanguageContext';
 import { getAvatarUrl } from '../../utils/imageUtils';
-// Import userService for friend request handling
 import userService from '../../api/services/userService';
+import { 
+  getNotificationIcon, 
+  getNotificationColor, 
+  getPriorityColor,
+  translateNotification,
+  type Notification 
+} from '../../api/services/notificationService';
 
-// Component to display content preview based on notification type
+// Enhanced content preview component with better type handling
 const ContentPreview = ({ notification, postData }) => {
   const { palette, workoutPalette, programPalette, workoutLogPalette, programWorkoutPalette, groupWorkoutPalette } = useTheme();
   const styles = themedStyles(palette);
   const { t } = useLanguage();
   
-  // Get appropriate palette based on post type
+  // Get appropriate palette based on notification type or post type
   const getContentPalette = (type) => {
     switch (type) {
       case 'workout':
+      case 'workout_invitation':
+      case 'workout_reminder':
         return workoutPalette;
       case 'program':
+      case 'program_fork':
+      case 'program_shared':
+      case 'program_liked':
+      case 'program_used':
         return programPalette;
       case 'workout_log':
+      case 'workout_milestone':
+      case 'personal_record':
+      case 'streak_milestone':
         return workoutLogPalette;
       case 'program_workout':
         return programWorkoutPalette;
       case 'group_workout':
+      case 'workout_join':
+      case 'workout_join_request':
+      case 'workout_request_approved':
+      case 'workout_request_rejected':
         return groupWorkoutPalette;
       default:
         return null;
     }
   };
   
-  // Get icon based on post type
+  // Enhanced icon mapping
   const getContentIcon = (type) => {
-    switch (type) {
-      case 'workout':
-        return 'barbell';
-      case 'program':
-        return 'calendar';
-      case 'workout_log':
-        return 'clipboard';
-      case 'program_workout':
-        return 'fitness';
-      default:
-        return 'document-text';
-    }
+    const iconMap = {
+      'workout': 'barbell',
+      'program': 'calendar',
+      'workout_log': 'clipboard',
+      'program_workout': 'fitness',
+      'group_workout': 'people',
+      'workout_invitation': 'fitness',
+      'workout_join': 'log-in',
+      'workout_join_request': 'enter',
+      'workout_request_approved': 'checkmark-circle',
+      'workout_request_rejected': 'close-circle',
+      'workout_cancelled': 'calendar-outline',
+      'workout_completed': 'checkmark-done-circle',
+      'workout_milestone': 'trophy',
+      'goal_achieved': 'flag',
+      'streak_milestone': 'flame',
+      'personal_record': 'medal',
+      'friend_request': 'person-add',
+      'friend_accept': 'people',
+      'program_fork': 'git-branch',
+      'template_used': 'document',
+      'gym_announcement': 'business',
+      'system_update': 'settings',
+      'challenge_invitation': 'trophy',
+      'challenge_completed': 'ribbon',
+    };
+    
+    return iconMap[type] || 'document-text';
   };
   
+  // Handle different notification types with enhanced preview logic
   switch (notification.notification_type) {
     case 'like':
     case 'comment':
     case 'share':
-      // Post preview based on post type
+    case 'mention':
+      // Post preview with media support
       if (postData?.media && postData.media.length > 0) {
-        // If post has media from the query
         return (
           <View style={styles.contentPreview}>
             <Image 
@@ -91,23 +128,20 @@ const ContentPreview = ({ notification, postData }) => {
             />
           </View>
         );
-      } else if (notification.post_preview?.image) {
-        // If post has an image from notification data
+      } else if (notification.metadata?.post_preview?.image) {
         return (
           <View style={styles.contentPreview}>
             <Image 
-              source={{ uri: notification.post_preview.image }} 
+              source={{ uri: notification.metadata.post_preview.image }} 
               style={styles.previewImage} 
             />
           </View>
         );
-      } else if (postData?.post_type || notification.post_type) {
-        // Handle specialized content types (workout/program/etc.)
-        const contentType = postData?.post_type || notification.post_type;
+      } else if (postData?.post_type || notification.metadata?.post_type) {
+        const contentType = postData?.post_type || notification.metadata?.post_type;
         const contentPalette = getContentPalette(contentType);
         
         if (contentPalette) {
-          // Use specialized styling based on content type
           return (
             <View style={[
               styles.contentPreview,
@@ -133,84 +167,106 @@ const ContentPreview = ({ notification, postData }) => {
           </View>
         </View>
       );
-      
+
     case 'friend_request':
     case 'friend_accept':
-      // User profile preview
       return (
         <View style={styles.contentPreview}>
           <View style={styles.profileIconContainer}>
-            <Ionicons name="person" size={20} color={palette.text} />
+            <Ionicons name="person" size={20} color={getNotificationColor(notification.notification_type)} />
           </View>
         </View>
       );
-      
+
+    // Program-related notifications
     case 'program_fork':
-      // Program preview with program palette
+    case 'program_shared':
+    case 'program_liked':
+    case 'program_used':
       return (
         <View style={[
           styles.contentPreview,
           { backgroundColor: programPalette.background }
         ]}>
           <View style={styles.programIconContainer}>
-            <Ionicons name="git-branch" size={20} color={programPalette.highlight} />
-          </View>
-        </View>
-      );
-      
-    case 'workout_milestone':
-      // Workout milestone with workout log palette
-      return (
-        <View style={[
-          styles.contentPreview,
-          { backgroundColor: workoutLogPalette.background }
-        ]}>
-          <View style={styles.achievementIconContainer}>
-            <Ionicons name="trophy" size={20} color={workoutLogPalette.highlight} />
-          </View>
-        </View>
-      );
-      
-    case 'goal_achieved':
-      // Goal achieved with workout log palette
-      return (
-        <View style={[
-          styles.contentPreview,
-          { backgroundColor: workoutLogPalette.background }
-        ]}>
-          <View style={styles.achievementIconContainer}>
-            <Ionicons name="flag" size={20} color={workoutLogPalette.highlight} />
-          </View>
-        </View>
-      );
-      
-    case 'gym_announcement':
-      // Gym preview
-      return (
-        <View style={styles.contentPreview}>
-          <View style={styles.gymIconContainer}>
-            <Ionicons name="business" size={20} color={palette.text} />
+            <Ionicons 
+              name={getNotificationIcon(notification.notification_type)} 
+              size={20} 
+              color={programPalette.highlight} 
+            />
           </View>
         </View>
       );
 
-    case 'workout_invitation':
-      // Group workout invite preview with workout palette
+    // Template-related notifications
+    case 'template_used':
+    case 'template_forked':
       return (
         <View style={[
           styles.contentPreview,
-          { backgroundColor: workoutPalette.background }
+          { backgroundColor: programPalette.background }
         ]}>
-          <View style={styles.typeIconContainer}>
-            <Ionicons name="people" size={22} color={workoutPalette.highlight} />
+          <View style={styles.programIconContainer}>
+            <Ionicons name="document" size={20} color={programPalette.highlight} />
           </View>
         </View>
       );
-    
+
+    // Achievement notifications
+    case 'workout_milestone':
+    case 'goal_achieved':
+    case 'streak_milestone':
+    case 'personal_record':
+      return (
+        <View style={[
+          styles.contentPreview,
+          { backgroundColor: workoutLogPalette.background }
+        ]}>
+          <View style={styles.achievementIconContainer}>
+            <Ionicons 
+              name={getNotificationIcon(notification.notification_type)} 
+              size={20} 
+              color={workoutLogPalette.highlight} 
+            />
+          </View>
+        </View>
+      );
+
+    // Group workout notifications
+    case 'workout_invitation':
     case 'workout_join':
     case 'workout_join_request':
     case 'workout_request_approved':
     case 'workout_request_rejected':
+    case 'workout_cancelled':
+    case 'workout_removed':
+    case 'workout_completed':
+    case 'workout_reminder':
+    case 'workout_proposal_submitted':
+    case 'workout_proposal_voted':
+    case 'workout_proposal_selected':
+      const workoutPaletteToUse = notification.notification_type.includes('proposal') 
+        ? workoutPalette 
+        : groupWorkoutPalette;
+      
+      return (
+        <View style={[
+          styles.contentPreview,
+          { backgroundColor: workoutPaletteToUse.background }
+        ]}>
+          <View style={styles.typeIconContainer}>
+            <Ionicons 
+              name={getNotificationIcon(notification.notification_type)} 
+              size={22} 
+              color={workoutPaletteToUse.highlight} 
+            />
+          </View>
+        </View>
+      );
+
+    // Workout partnership notifications
+    case 'workout_partner_added':
+    case 'workout_partner_request':
       return (
         <View style={[
           styles.contentPreview,
@@ -221,167 +277,113 @@ const ContentPreview = ({ notification, postData }) => {
           </View>
         </View>
       );
-    case 'workout_cancelled':
-      case 'workout_removed':
-        // Cancelled workout preview
-        return (
-          <View style={[
-            styles.contentPreview,
-            { backgroundColor: workoutPalette.background }
-          ]}>
-            <View style={styles.typeIconContainer}>
-              <Ionicons name="calendar-outline" size={22} color={workoutPalette.highlight} />
-            </View>
-          </View>
-        );
-        
-      case 'workout_completed':
-        // Completed workout preview
-        return (
-          <View style={[
-            styles.contentPreview,
-            { backgroundColor: workoutLogPalette.background }
-          ]}>
-            <View style={styles.achievementIconContainer}>
-              <Ionicons name="checkmark-done-circle" size={20} color={workoutLogPalette.highlight} />
-            </View>
-          </View>
-        );
 
-      case 'workout_leave':
-        // Use the same preview style as other group workout notifications
-        return (
-          <View style={[
-            styles.contentPreview,
-            { backgroundColor: groupWorkoutPalette.background }
-          ]}>
-            <View style={styles.typeIconContainer}>
-              <Ionicons name="exit-outline" size={22} color={groupWorkoutPalette.highlight} />
-            </View>
+    // System notifications
+    case 'gym_announcement':
+    case 'system_update':
+      return (
+        <View style={styles.contentPreview}>
+          <View style={styles.gymIconContainer}>
+            <Ionicons 
+              name={getNotificationIcon(notification.notification_type)} 
+              size={20} 
+              color={getNotificationColor(notification.notification_type)} 
+            />
           </View>
-        );
+        </View>
+      );
+
+    // Challenge notifications
+    case 'challenge_invitation':
+    case 'challenge_completed':
+      return (
+        <View style={[
+          styles.contentPreview,
+          { backgroundColor: workoutLogPalette.background }
+        ]}>
+          <View style={styles.achievementIconContainer}>
+            <Ionicons 
+              name={getNotificationIcon(notification.notification_type)} 
+              size={20} 
+              color={workoutLogPalette.highlight} 
+            />
+          </View>
+        </View>
+      );
     
     default:
-      // Default empty preview
       return null;
   }
 };
 
-// Instagram style notification item
-const NotificationItem = ({ notification, onMarkAsRead }) => {
+// Enhanced notification item with translation key support
+const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notification, onMarkAsRead: (id: number) => void }) => {
   const { palette } = useTheme();
   const styles = themedStyles(palette);
   const { t } = useLanguage();
   
-  // Fetch full user data for the sender
-  const { data: userData } = useUser(notification.sender);
-  // If we have object_id, we can try to fetch specific post/content data
+  // Fetch additional data
+  const { data: userData } = useUser(notification.sender?.id);
   const { data: postData } = notification.object_id && 
-    (notification.notification_type === 'like' || 
-     notification.notification_type === 'comment' || 
-     notification.notification_type === 'share') 
+    ['like', 'comment', 'share', 'mention'].includes(notification.notification_type)
     ? usePost(notification.object_id) 
     : { data: null };
   
-  // Get icon based on notification type
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'like':
-        return 'heart';
-      case 'comment':
-        return 'chatbubble';
-      case 'share':
-        return 'share-social';
-      case 'friend_request':
-        return 'person-add';
-      case 'friend_accept':
-        return 'people';
-      case 'program_fork':
-        return 'git-branch';
-      case 'workout_milestone':
-        return 'trophy';
-      case 'goal_achieved':
-        return 'flag';
-      case 'mention':
-        return 'at';
-      case 'gym_announcement':
-        return 'megaphone';
-      case 'workout_invitation':
-        return 'fitness';
-      case 'workout_join':
-        return 'log-in';
-      case 'workout_join_request':
-        return 'enter';
-      case 'workout_request_approved':
-        return 'checkmark-circle';
-      case 'workout_request_rejected':
-        return 'close-circle';
-      case 'workout_cancelled':
-        return 'calendar-outline';
-      case 'workout_removed':
-        return 'exit';
-      case 'workout_completed':
-        return 'checkmark-done-circle';
-      case 'workout_leave':
-        return 'exit-outline';
-      default:
-        return 'notifications';
-    }
-  };
-  
-  // Get icon color based on notification type
-  const getIconColor = (type) => {
-    switch (type) {
-      case 'like':
-        return '#FF3B30'; // Basic red for likes
-      case 'comment':
-        return '#007AFF'; // Basic blue for comments
-      case 'share':
-        return '#AF52DE'; // Basic purple for shares
-      case 'friend_request':
-      case 'friend_accept':
-        return palette.primary;
-      case 'program_fork':
-        return palette.secondary;
-      case 'workout_milestone':
-      case 'goal_achieved':
-        return '#FFD700'; // Gold color for achievements
-      case 'mention':
-        return palette.info;
-      case 'gym_announcement':
-        return palette.warning;
-      case 'workout_invitation':
-      case 'workout_join':
-      case 'workout_join_request':
-        return palette.highlight;
-      case 'workout_request_approved':
-        return '#34C759'; // Green for approvals
-      case 'workout_request_rejected':
-      case 'workout_cancelled':
-      case 'workout_removed':
-        return '#FF3B30'; // Red for rejections/cancellations
-      case 'workout_completed':
-        return '#5AC8FA'; // Blue for completions
-      case 'workout_leave':
-        return palette.highlight;
-      default:
-        return palette.primary;
-    }
-  };
-  
+  // Check if notification has actions
   const hasActions = (notification.notification_type === 'friend_request' || 
-  notification.notification_type === 'workout_invitation' ||
-  notification.notification_type === 'workout_join_request') && 
-  !notification.is_read;
+    notification.notification_type === 'workout_invitation' ||
+    notification.notification_type === 'workout_join_request') && 
+    !notification.is_read;
   
-  // Handle navigation to related content
-  const handlePress = () => {
-    // If not read, mark as read
-    if (!notification.is_read) {
-      // Add visual delay to ensure UI updates before navigation
-      onMarkAsRead(notification.id);
+  const getNotificationContent = () => {
+    // Use translation keys if available
+    if (notification.title_key && notification.body_key) {
+      const translated = translateNotification(
+        notification.title_key,
+        notification.body_key,
+        notification.translation_params || {},
+        t
+      );
+      return translated.body; // Use body for the main text
+    }
+    
+    // Fallback to content
+    if (notification.content) {
+      return notification.content;
+    }
+    
+    console.log(notification)
+    // Generate content from translation params using flattened structure
+    const params = notification.translation_params || {};
+    const username = params.sender_display_name || params.sender_username || notification?.sender_username || t('anonymous');
+    
+    // Use flattened translation key structure
+    try {
+      const translationKey = `notifications.${notification.notification_type}.body`;
+      const translatedText = t(translationKey, {
+        username,
+        sender_display_name: username, // Ensure this param is always available
+        ...params
+      });
       
-      // Wait briefly for the API and UI to update before navigating
+      // With flattened structure, t() should return a string directly
+      if (typeof translatedText === 'string') {
+        return translatedText;
+      }
+      
+      // Fallback if translation key doesn't exist
+      return `${username} ${notification.notification_type.replace(/_/g, ' ')}`;
+    } catch (error) {
+      // Fallback to a simple message if translation fails
+      console.warn('Translation failed for notification:', notification.notification_type, error);
+      return `${username} ${notification.notification_type.replace(/_/g, ' ')}`;
+    }
+  };
+
+  // Handle navigation logic
+  const handlePress = () => {
+    if (!notification.is_read) {
+      onMarkAsRead(notification.id);
       setTimeout(() => {
         navigateToContent();
       }, 100);
@@ -390,161 +392,204 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
     }
   };
   
-  // Extract navigation logic to separate function
   const navigateToContent = () => {
-    // Only navigate if there are no actions (like accept/decline buttons)
-    if (!hasActions) {
-      // Navigate based on notification type
-      if (['like', 'comment', 'share', 'mention'].includes(notification.notification_type)) {
-        if (notification.object_id) {
-          router.push(`/post/${notification.object_id}`);
-        }
-      } else if (['friend_request', 'friend_accept'].includes(notification.notification_type)) {
-        router.push('/friends');
-      } else if (notification.notification_type === 'program_fork') {
-        if (notification.object_id) {
-          router.push(`/program/${notification.object_id}`);
-        }
-      } else if (['workout_milestone', 'goal_achieved', 'workout_completed'].includes(notification.notification_type)) {
-        router.push('/workouts');
-      } else if (notification.notification_type === 'gym_announcement') {
-        router.push('/gyms');
-      } else if (['workout_invitation', 'workout_join', 'workout_join_request', 
-              'workout_request_approved', 'workout_request_rejected', 
-              'workout_cancelled', 'workout_removed', 'workout_leave',
-              'workout_completed'].includes(notification.notification_type)) {
-        if (notification.object_id) {
-        router.push(`/group-workout/${notification.object_id}`);
-        }
+    if (hasActions) return; // Don't navigate if there are actions to handle
+    
+    // Enhanced navigation logic
+    const { notification_type, object_id, metadata } = notification;
+    const senderId = notification.sender?.id;
+    
+    try {
+      switch (notification_type) {
+        case 'like':
+        case 'comment':
+        case 'share':
+        case 'mention':
+          if (object_id) router.push(`/post/${object_id}`);
+          break;
+        
+        case 'friend_request':
+        case 'friend_accept':
+          if (senderId) {
+            router.push(`/user/${senderId}`);
+          } else {
+            router.push('/friends');
+          }
+          break;
+        
+        case 'program_fork':
+        case 'program_shared':
+        case 'program_liked':
+        case 'program_used':
+          if (object_id) router.push(`/program/${object_id}`);
+          break;
+        
+        case 'template_used':
+        case 'template_forked':
+          if (object_id) router.push(`/template/${object_id}`);
+          break;
+        
+        case 'workout_milestone':
+        case 'goal_achieved':
+        case 'streak_milestone':
+        case 'personal_record':
+          if (object_id) {
+            router.push(`/workout-log/${object_id}`);
+          } else {
+            router.push('/workouts');
+          }
+          break;
+        
+        case 'workout_invitation':
+        case 'workout_join':
+        case 'workout_join_request':
+        case 'workout_request_approved':
+        case 'workout_request_rejected':
+        case 'workout_cancelled':
+        case 'workout_removed':
+        case 'workout_completed':
+        case 'workout_reminder':
+        case 'workout_proposal_submitted':
+        case 'workout_proposal_voted':
+        case 'workout_proposal_selected':
+          if (object_id) router.push(`/group-workout/${object_id}`);
+          break;
+        
+        case 'workout_partner_added':
+        case 'workout_partner_request':
+          if (object_id) router.push(`/workout-log/${object_id}`);
+          break;
+        
+        case 'gym_announcement':
+          if (metadata?.gym_id) {
+            router.push(`/gym/${metadata.gym_id}`);
+          } else {
+            router.push('/gyms');
+          }
+          break;
+        
+        case 'system_update':
+          router.push('/settings');
+          break;
+        
+        case 'challenge_invitation':
+        case 'challenge_completed':
+          if (object_id) {
+            router.push(`/challenge/${object_id}`);
+          } else {
+            router.push('/challenges');
+          }
+          break;
+        
+        default:
+          router.push('/notifications');
+          break;
       }
+    } catch (error) {
+      console.error('Error navigating from notification:', error);
+      router.push('/notifications');
     }
   };
+  
+  // Enhanced action handlers
+  const handleAccept = async () => {
+    onMarkAsRead(notification.id);
+    
+    const { notification_type, object_id } = notification;
+    const senderId = notification.sender?.id;
+    
+    try {
+      switch (notification_type) {
+        case 'friend_request':
+          if (senderId) {
+            await userService.respondToFriendRequest(senderId, 'accept');
+            setTimeout(() => router.push(`/user/${senderId}`), 300);
+          }
+          break;
+        
+        case 'workout_invitation':
+          if (object_id) {
+            await groupWorkoutService.joinGroupWorkout(object_id);
+            setTimeout(() => router.push(`/group-workout/${object_id}`), 300);
+          }
+          break;
+        
+        case 'workout_join_request':
+          if (object_id && senderId) {
+            await groupWorkoutService.approveGroupWorkoutRequest(object_id, senderId);
+            setTimeout(() => router.push(`/group-workout/${object_id}`), 300);
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error accepting notification action:', error);
+    }
+  };
+  
+  const handleDecline = async () => {
+    onMarkAsRead(notification.id);
+    
+    const { notification_type, object_id } = notification;
+    const senderId = notification.sender?.id;
+    
+    try {
+      switch (notification_type) {
+        case 'friend_request':
+          if (senderId) {
+            await userService.respondToFriendRequest(senderId, 'reject');
+          }
+          break;
+        
+        case 'workout_invitation':
+          if (object_id) {
+            await groupWorkoutService.updateParticipantStatus(
+              object_id,
+              notification.recipient,
+              'declined'
+            );
+          }
+          break;
+        
+        case 'workout_join_request':
+          if (object_id && senderId) {
+            await groupWorkoutService.rejectGroupWorkoutRequest(object_id, senderId);
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error declining notification action:', error);
+    }
+  };
+  
+  // Get user information
+  const userInfo = userData || notification.sender;
+  const username = userInfo?.username || notification.translation_params?.sender_username || t('anonymous');
+  const avatarUrl = userInfo?.avatar ? getAvatarUrl(userInfo.avatar) : null;
   
   // Format timestamp
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: false });
-  
-  // Handle accept friend request or workout invitation/join request
-  const handleAccept = async () => {
-    // Mark notification as read first
-    onMarkAsRead(notification.id);
-    
-    // Check notification type and take appropriate action
-    if (notification.notification_type === 'friend_request') {
-      try {
-        // Accept the friend request using the userService
-        console.log(notification)
-        await userService.respondToFriendRequest(notification.sender, 'accept');
-        
-        // Navigate to the friend's profile after successful acceptance
-        setTimeout(() => {
-          router.push(`/user/${notification.sender}`);
-        }, 300);
-      } catch (error) {
-        console.error('Error accepting friend request:', error);
-        // You might want to show an error message to the user here
-      }
-    } else if (notification.notification_type === 'workout_invitation') {
-      // Call joinGroupWorkout API for the workout
-      if (notification.object_id) {
-        try {
-          // Join the group workout
-          groupWorkoutService.joinGroupWorkout(notification.object_id)
-            .then(() => {
-              // Navigate to the group workout page after successful join
-              setTimeout(() => {
-                router.push(`/group-workout/${notification.object_id}`);
-              }, 300);
-            })
-            .catch(error => {
-              console.error('Error joining group workout:', error);
-            });
-        } catch (error) {
-          console.error('Error accepting group workout invitation:', error);
-        }
-      }
-    } else if (notification.notification_type === 'workout_join_request') {
-      // Call approveGroupWorkoutRequest API
-      if (notification.object_id) {
-        try {
-          groupWorkoutService.approveGroupWorkoutRequest(notification.object_id, notification.sender.id)
-            .then(() => {
-              setTimeout(() => {
-                router.push(`/group-workout/${notification.object_id}`);
-              }, 300);
-            })
-            .catch(error => {
-              console.error('Error approving workout join request:', error);
-            });
-        } catch (error) {
-          console.error('Error approving workout join request:', error);
-        }
-      }
-    }
-  };
-  
-    // Update the handleDecline function
-  const handleDecline = async () => {
-    // Mark notification as read
-    onMarkAsRead(notification.id);
-    
-    // Check notification type and take appropriate action
-    if (notification.notification_type === 'friend_request') {
-      try {
-        // Decline the friend request using the userService
-        await userService.respondToFriendRequest(notification.sender.id, 'reject');
-      } catch (error) {
-        console.error('Error declining friend request:', error);
-        // You might want to show an error message to the user here
-      }
-    } else if (notification.notification_type === 'workout_invitation') {
-      // Call appropriate API to decline the workout invitation
-      if (notification.object_id) {
-        try {
-          // We can use updateParticipantStatus to set status to 'declined'
-          groupWorkoutService.updateParticipantStatus(
-            notification.object_id,
-            notification.recipient || notification.user_id, // recipient ID
-            'declined'
-          ).catch(error => {
-            console.error('Error declining group workout invitation:', error);
-          });
-        } catch (error) {
-          console.error('Error declining group workout invitation:', error);
-        }
-      }
-    } else if (notification.notification_type === 'workout_join_request') {
-      // Call rejectGroupWorkoutRequest API
-      if (notification.object_id) {
-        try {
-          groupWorkoutService.rejectGroupWorkoutRequest(notification.object_id, notification.sender.id)
-            .catch(error => {
-              console.error('Error rejecting workout join request:', error);
-            });
-        } catch (error) {
-          console.error('Error rejecting workout join request:', error);
-        }
-      }
-    }
-  };
-  
-  // Get user information from userData if available, otherwise fallback to notification data
-  const username = userData?.username || notification.sender?.username || t('anonymous');
-  const avatarUrl = userData?.avatar 
-    ? getAvatarUrl(userData.avatar) 
-    : notification.sender?.avatar 
-      ? notification.sender.avatar 
-      : null;
   
   return (
     <TouchableOpacity 
       style={[
         styles.notificationItem, 
-        notification.is_read ? styles.readNotification : styles.unreadNotification
+        notification.is_read ? styles.readNotification : styles.unreadNotification,
+        notification.priority === 'high' || notification.priority === 'urgent' 
+          ? styles.priorityNotification 
+          : null
       ]} 
       onPress={handlePress}
       disabled={hasActions}
     >
-      {/* Left: Avatar with notification type icon */}
+      {/* Priority indicator */}
+      {(notification.priority === 'high' || notification.priority === 'urgent') && (
+        <View style={[
+          styles.priorityIndicator,
+          { backgroundColor: getPriorityColor(notification.priority) }
+        ]} />
+      )}
+      
+      {/* Avatar with notification type icon */}
       <View style={styles.avatarWrapper}>
         <View style={styles.avatarContainer}>
           {avatarUrl ? (
@@ -557,11 +602,10 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
             </View>
           )}
           
-          {/* Notification type icon */}
           <View 
             style={[
               styles.notificationTypeIcon, 
-              { backgroundColor: getIconColor(notification.notification_type) }
+              { backgroundColor: getNotificationColor(notification.notification_type) }
             ]}
           >
             <Ionicons 
@@ -573,17 +617,14 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
         </View>
       </View>
       
-      {/* Middle: Content */}
+      {/* Content */}
       <View style={styles.contentContainer}>
         <Text style={styles.notificationText}>
-          {t(`notification.${notification.notification_type}`, {
-            username: username,
-            content: notification.content || ''
-          })}
+          {getNotificationContent()}
         </Text>
         <Text style={styles.timeAgo}>{timeAgo}</Text>
         
-        {/* Action buttons for friend requests */}
+        {/* Action buttons */}
         {hasActions && (
           <View style={styles.actionButtons}>
             <TouchableOpacity 
@@ -602,7 +643,7 @@ const NotificationItem = ({ notification, onMarkAsRead }) => {
         )}
       </View>
       
-      {/* Right: Content Preview */}
+      {/* Content Preview */}
       <ContentPreview 
         notification={notification}
         postData={postData}
@@ -629,42 +670,55 @@ export default function NotificationsScreen() {
   const styles = themedStyles(palette);
   const navigation = useNavigation();
   const { t } = useLanguage();
+
+  const {
+    isRealTimeActive,
+    socketConnected,
+    pushRegistered,
+    socketError,
+    manualRefresh: realtimeManualRefresh
+  } = useRealTimeNotifications({
+    enablePushUpdates: true,
+    enableWebSocketUpdates: true,
+    enableAppStateUpdates: true,
+    enablePeriodicUpdates: true,
+    periodicInterval: 60000, // 1 minute fallback
+  });
+
+  // **NEW: Manual refresh capabilities**
+  const { refresh: manualRefresh } = useNotificationRefresh();
   
-  // Get notifications and hooks
-  const { data: notifications, isLoading, refetch } = useNotifications();
-  const { data: countData } = useNotificationCount();
+  // Hooks
+  const { data: notifications, isLoading, refetch, isFetching } = useNotifications();
+  const { data: countData, refetch: refetchCount } = useNotificationCount();
   const markAsRead = useMarkNotificationAsRead();
   const markAllRead = useMarkAllNotificationsAsRead();
-  const { isConnected: socketConnected, markAsRead: socketMarkAsRead, markAllAsRead: socketMarkAllAsRead } = useNotificationSocket();
+  const { 
+    isConnected: socketStatus, 
+    markAsRead: socketMarkAsRead, 
+    markAllAsRead: socketMarkAllAsRead 
+  } = useNotificationSocket();
   
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   
-  // Animation value for menu dropdown
+  // Animation
   const menuAnimation = useSharedValue(0);
   
-  // Toggle menu
   const toggleMenu = () => {
     if (menuVisible) {
-      // Animate menu closing
       menuAnimation.value = withTiming(0, { duration: 200 }, () => {
         runOnJS(setMenuVisible)(false);
       });
     } else {
       setMenuVisible(true);
-      // Animate menu opening
       menuAnimation.value = withTiming(1, { duration: 200 });
     }
   };
   
-  // Create animated style for menu
   const menuAnimatedStyle = useAnimatedStyle(() => {
     const opacity = menuAnimation.value;
-    const translateY = interpolate(
-      menuAnimation.value,
-      [0, 1],
-      [-20, 0]
-    );
+    const translateY = interpolate(menuAnimation.value, [0, 1], [-20, 0]);
     
     return {
       opacity,
@@ -672,60 +726,59 @@ export default function NotificationsScreen() {
     };
   });
   
-  // Handle refresh
+  // Handlers
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
+    try {
+      // Try multiple refresh strategies
+      await Promise.all([
+        refetch(), // React Query refetch
+        refetchCount(), // Count refetch
+        manualRefresh(), // Manual cache refresh
+        realtimeManualRefresh(), // Real-time manual refresh
+      ]);
+    } catch (error) {
+      console.error('❌ Error refreshing notifications:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
   
-  // Handle mark as read
-  const handleMarkAsRead = (id) => {
-    // Use the React Query mutation
+  const handleMarkAsRead = (id: number) => {
     markAsRead.mutate(id);
-    
-    // Also update via socket for real-time updates
-    try {
-      if (socketConnected) {
-        // Use the socket's markAsRead function from useNotificationSocket
-        socketMarkAsRead(id);
-      }
-    } catch (error) {
-      console.error("Error marking notification as read via socket:", error);
+    if (socketConnected) {
+      socketMarkAsRead(id);
     }
   };
   
-  // Handle mark all as read
   const handleMarkAllAsRead = () => {
-    // Use the React Query mutation
     markAllRead.mutate();
-    
-    // Also update via socket for real-time updates
-    try {
-      if (socketConnected) {
-        // Use the socket's markAllAsRead function from useNotificationSocket
-        socketMarkAllAsRead();
-      }
-    } catch (error) {
-      console.error("Error marking all notifications as read via socket:", error);
+    if (socketConnected) {
+      socketMarkAllAsRead();
     }
-    
     setMenuVisible(false);
   };
-  
-  // Handle filter notifications
-  const handleFilterNotifications = (filter) => {
-    // Implement filter logic
-    setMenuVisible(false);
+
+  const getConnectionStatus = () => {
+    if (socketConnected && pushRegistered) {
+      return { status: 'excellent', text: t('notifications.status.excellent'), color: palette.accent };
+    } else if (socketConnected || pushRegistered) {
+      return { status: 'good', text: t('notifications.status.good'), color: '#FFA500' };
+    } else if (isRealTimeActive) {
+      return { status: 'limited', text: t('notifications.status.limited'), color: '#FF6B35' };
+    } else {
+      return { status: 'offline', text: t('notifications.status.offline'), color: '#FF3B30' };
+    }
   };
+
+  const connectionStatus = getConnectionStatus();
   
-  // Group notifications by date sections
+  // Group notifications by date
   const getSections = () => {
     if (!notifications || notifications.length === 0) {
       return [];
     }
     
-    // Sort notifications by date (newest first)
     const sortedNotifications = [...notifications].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
@@ -733,11 +786,10 @@ export default function NotificationsScreen() {
     const sections = [];
     const today = new Date();
     
-    // Group for new/today notifications
+    // Today
     const todayNotifications = sortedNotifications.filter(
       notification => isToday(new Date(notification.created_at))
     );
-    
     if (todayNotifications.length > 0) {
       sections.push({
         title: 'notification.section.today',
@@ -745,11 +797,10 @@ export default function NotificationsScreen() {
       });
     }
     
-    // Group for yesterday notifications
+    // Yesterday
     const yesterdayNotifications = sortedNotifications.filter(
       notification => isYesterday(new Date(notification.created_at))
     );
-    
     if (yesterdayNotifications.length > 0) {
       sections.push({
         title: 'notification.section.yesterday',
@@ -757,13 +808,12 @@ export default function NotificationsScreen() {
       });
     }
     
-    // Group for this week (except today and yesterday)
+    // This week
     const thisWeekNotifications = sortedNotifications.filter(notification => {
       const date = new Date(notification.created_at);
       const days = differenceInDays(today, date);
       return !isToday(date) && !isYesterday(date) && days <= 7;
     });
-    
     if (thisWeekNotifications.length > 0) {
       sections.push({
         title: 'notification.section.this_week',
@@ -771,12 +821,11 @@ export default function NotificationsScreen() {
       });
     }
     
-    // Group for older notifications
+    // Earlier
     const olderNotifications = sortedNotifications.filter(notification => {
       const date = new Date(notification.created_at);
       return differenceInDays(today, date) > 7;
     });
-    
     if (olderNotifications.length > 0) {
       sections.push({
         title: 'notification.section.earlier',
@@ -795,6 +844,11 @@ export default function NotificationsScreen() {
         <View style={styles.header}>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>{t('notifications')}</Text>
+            {countData?.unread > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{countData.unread}</Text>
+              </View>
+            )}
           </View>
           
           <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
@@ -802,50 +856,48 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         </View>
         
+        {/* **NEW: Enhanced Connection Status** */}
+        {/* <Animated.View 
+          entering={FadeIn.duration(300)} 
+          style={[styles.connectionStatus, { backgroundColor: connectionStatus.color }]}
+        >
+          <View style={styles.connectionStatusContent}>
+            <Ionicons 
+              name={connectionStatus.status === 'excellent' ? 'wifi' : 
+                   connectionStatus.status === 'good' ? 'wifi-outline' : 
+                   connectionStatus.status === 'limited' ? 'cellular' : 'wifi-off'} 
+              size={16} 
+              color="white" 
+            />
+            <Text style={styles.connectionText}>
+              {connectionStatus.text}
+              {isFetching && ' • ' + t('updating')}
+            </Text>
+            {(socketError || (!socketConnected && !pushRegistered)) && (
+              <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
+                <Ionicons name="refresh" size={14} color="white" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </Animated.View> */}
+        
         {/* Dropdown Menu */}
         {menuVisible && (
-          <Animated.View 
-            style={[
-              styles.dropdownMenu,
-              menuAnimatedStyle
-            ]}
-          >
-            <TouchableOpacity 
-              style={styles.menuItem} 
-              onPress={handleMarkAllAsRead}
-            >
+          <Animated.View style={[styles.dropdownMenu, menuAnimatedStyle]}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleMarkAllAsRead}>
               <Ionicons name="checkmark-done" size={18} color={palette.text} />
               <Text style={styles.menuItemText}>{t('mark_all_as_read')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.menuItem} 
-              onPress={() => handleFilterNotifications('all')}
-            >
-              <Ionicons name="filter" size={18} color={palette.text} />
-              <Text style={styles.menuItemText}>{t('show_all_notifications')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.menuItem} 
-              onPress={() => handleFilterNotifications('unread')}
-            >
-              <Ionicons name="eye" size={18} color={palette.text} />
-              <Text style={styles.menuItemText}>{t('show_unread_only')}</Text>
+            
+            {/* **NEW: Manual refresh option** */}
+            <TouchableOpacity style={styles.menuItem} onPress={onRefresh}>
+              <Ionicons name="refresh" size={18} color={palette.text} />
+              <Text style={styles.menuItemText}>{t('refresh_notifications')}</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
         
-        {/* Connection Status Indicator */}
-        {!socketConnected && (
-          <Animated.View 
-            entering={FadeIn.duration(300)} 
-            exiting={FadeOut.duration(300)} 
-            style={styles.connectionStatus}
-          >
-            <Text style={styles.connectionText}>{t('connecting_to_notifications')}</Text>
-          </Animated.View>
-        )}
-        
-        {/* Notification List */}
+        {/* Content */}
         {isLoading ? (
           <View style={styles.loaderContainer}>
             <ActivityIndicator size="large" color={palette.primary} />
@@ -854,6 +906,9 @@ export default function NotificationsScreen() {
           <View style={styles.emptyContainer}>
             <Ionicons name="notifications-off" size={64} color={palette.text} />
             <Text style={styles.emptyText}>{t('no_notifications_yet')}</Text>
+            <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
+              <Text style={styles.refreshButtonText}>{t('check_for_notifications')}</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <SectionList
@@ -902,7 +957,6 @@ const themedStyles = createThemedStyles((palette) => ({
     paddingHorizontal: 20,
     paddingBottom: 8,
     backgroundColor: palette.layout,
-    borderBottomWidth: 0,
   },
   headerTitleContainer: {
     flexDirection: 'row',
@@ -913,6 +967,19 @@ const themedStyles = createThemedStyles((palette) => ({
     fontWeight: 'bold',
     color: 'white',
     marginRight: 8,
+  },
+  unreadBadge: {
+    backgroundColor: palette.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  unreadBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   menuButton: {
     padding: 8,
@@ -942,22 +1009,17 @@ const themedStyles = createThemedStyles((palette) => ({
     color: palette.text,
     fontSize: 14,
   },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  connectionStatus: {
-    backgroundColor: palette.highlight,
-    padding: 8,
-    alignItems: 'center',
-  },
-  connectionText: {
-    color: palette.text,
-    fontSize: 14,
-  },
+  // connectionStatus: {
+  //   backgroundColor: palette.highlight,
+  //   padding: 8,
+  //   alignItems: 'center',
+  // },
+  // connectionText: {
+  //   color: palette.text,
+  //   fontSize: 14,
+  // },
   listContent: {
-    paddingHorizontal: 0, 
+    paddingHorizontal: 0,
   },
   notificationItem: {
     flexDirection: 'row',
@@ -965,14 +1027,28 @@ const themedStyles = createThemedStyles((palette) => ({
     marginVertical: 6,
     padding: 12,
     borderRadius: 12,
+    position: 'relative',
   },
   readNotification: {
     backgroundColor: 'transparent',
   },
   unreadNotification: {
-    backgroundColor: palette.highlight, // Changed to use highlight color for better visibility
+    backgroundColor: palette.highlight,
     borderLeftWidth: 4,
-    borderLeftColor: palette.primary, // Add a colored left border for unread notifications
+    borderLeftColor: palette.primary,
+  },
+  priorityNotification: {
+    borderWidth: 2,
+    borderColor: palette.warning,
+  },
+  priorityIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
   },
   avatarWrapper: {
     marginRight: 12,
@@ -993,7 +1069,6 @@ const themedStyles = createThemedStyles((palette) => ({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: palette.primary,
   },
   avatarInitial: {
     color: 'white',
@@ -1024,6 +1099,33 @@ const themedStyles = createThemedStyles((palette) => ({
   },
   timeAgo: {
     color: palette.text,
+    fontSize: 13,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  acceptButton: {
+    backgroundColor: palette.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  acceptButtonText: {
+    color: 'white',
+    fontWeight: '500',
+    fontSize: 13,
+  },
+  declineButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  declineButtonText: {
+    color: palette.text,
+    fontWeight: '500',
     fontSize: 13,
   },
   contentPreview: {
@@ -1089,6 +1191,11 @@ const themedStyles = createThemedStyles((palette) => ({
     fontSize: 14,
     textTransform: 'uppercase',
   },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1101,31 +1208,34 @@ const themedStyles = createThemedStyles((palette) => ({
     marginTop: 12,
     textAlign: 'center',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  acceptButton: {
-    backgroundColor: palette.accent,
+  connectionStatus: {
+    paddingVertical: 8,
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+    alignItems: 'center',
   },
-  acceptButtonText: {
+  connectionStatusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  connectionText: {
+    color: 'white',
+    fontSize: 14,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  retryButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  refreshButton: {
+    marginTop: 16,
+    backgroundColor: palette.layout,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  refreshButtonText: {
     color: 'white',
     fontWeight: '500',
-    fontSize: 13,
-  },
-  declineButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  declineButtonText: {
-    color: palette.text,
-    fontWeight: '500',
-    fontSize: 13,
   },
 }));
