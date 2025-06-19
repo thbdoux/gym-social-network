@@ -1,7 +1,8 @@
-// app/_layout.tsx - Updated with Expo Push Notifications
-import { useEffect } from 'react';
+// app/_layout.tsx - Optimized version
+import { useEffect, useRef } from 'react';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { AppState, AppStateStatus } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../context/AuthContext';
@@ -14,58 +15,100 @@ import { View } from 'react-native';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useAuth } from '../hooks/useAuth';
 
-// Keep the splash screen visible while we fetch resources
+// Keep the splash screen visible
 SplashScreen.preventAutoHideAsync();
 
-// Create a client
+// Create QueryClient with optimized settings for mobile
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 30000,
+      staleTime: 5 * 60 * 1000, // 5 minutes - reduce server calls
+      gcTime: 10 * 60 * 1000, // 10 minutes cache time
+      refetchOnWindowFocus: false, // Disable auto-refetch on focus
+      refetchOnReconnect: 'always', // Only refetch on network reconnect
+    },
+    mutations: {
+      retry: 1,
     },
   },
 });
 
-// Expo push notification wrapper
-function PushNotificationWrapper({ children }: { children: React.ReactNode }) {
+// Optimized notification wrapper that doesn't reinitialize on every render
+function OptimizedPushNotificationWrapper({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
-  const { expoPushToken, error, notification } = usePushNotifications();
-
-  // Handle push notification errors
+  const { expoPushToken, error } = usePushNotifications();
+  const lastAuthState = useRef(isAuthenticated);
+  
+  // Only log when auth state actually changes
   useEffect(() => {
-    if (error) {
-      console.error('Expo push notification error:', error);
+    if (lastAuthState.current !== isAuthenticated) {
+      lastAuthState.current = isAuthenticated;
       if (__DEV__) {
-        console.warn(`Push notification setup failed: ${error.message}`);
+        console.log('🔐 Auth state changed:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
       }
+    }
+  }, [isAuthenticated]);
+
+  // Only log errors once
+  useEffect(() => {
+    if (error && __DEV__) {
+      console.error('📱 Push notification error:', error.message);
     }
   }, [error]);
 
-  // Log Expo push token for testing (development only)
-  useEffect(() => {
-    if (expoPushToken && __DEV__ && isAuthenticated) {
-      console.log('🚀 Expo push token registered:', expoPushToken);
-      console.log('🧪 Test notifications via Django admin or API');
-      console.log('📱 You can test with Expo push tool: https://expo.dev/notifications');
-    }
-  }, [expoPushToken, isAuthenticated]);
+  return <>{children}</>;
+}
 
-  // Log received notifications in development
+// App state manager to handle background/foreground transitions
+function AppStateManager({ children }: { children: React.ReactNode }) {
+  const appState = useRef(AppState.currentState);
+  const backgroundTime = useRef<number>(0);
+
   useEffect(() => {
-    if (notification && __DEV__) {
-      console.log('📬 Notification received:', notification);
-    }
-  }, [notification]);
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      const previousState = appState.current;
+      
+      if (previousState.match(/inactive|background/) && nextAppState === 'active') {
+        const timeInBackground = Date.now() - backgroundTime.current;
+        console.log(`📱 App resumed after ${Math.round(timeInBackground / 1000)}s in background`);
+        
+        // Only invalidate queries if app was in background for more than 5 minutes
+        if (timeInBackground > 5 * 60 * 1000) {
+          console.log('🔄 Long background time detected, refreshing critical data');
+          queryClient.invalidateQueries({ 
+            queryKey: ['notifications', 'count'],
+            exact: false 
+          });
+        }
+      } else if (nextAppState.match(/inactive|background/)) {
+        backgroundTime.current = Date.now();
+        console.log('📱 App moved to background');
+      }
+      
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, []);
 
   return <>{children}</>;
 }
 
 export default function RootLayout() {
+  const hideSplashComplete = useRef(false);
+
   useEffect(() => {
     const hideSplash = async () => {
+      if (hideSplashComplete.current) return;
+      
       try {
+        // Add a small delay to ensure providers are ready
+        await new Promise(resolve => setTimeout(resolve, 100));
         await SplashScreen.hideAsync();
+        hideSplashComplete.current = true;
+        console.log('✅ Splash screen hidden');
       } catch (e) {
         console.warn("Error hiding splash screen:", e);
       }
@@ -79,18 +122,20 @@ export default function RootLayout() {
       <LanguageProvider>
         <AuthProvider>
           <ThemeProvider>
-            <NotificationProvider>
-              <WorkoutProvider>
-                <HeaderAnimationProvider>
-                  <PushNotificationWrapper>
-                    <StatusBar style="light" />
-                    <View style={{ flex: 1, backgroundColor: '#080f19' }}>
-                      <Slot />
-                    </View>
-                  </PushNotificationWrapper>
-                </HeaderAnimationProvider>
-              </WorkoutProvider>
-            </NotificationProvider>
+            <AppStateManager>
+              <NotificationProvider>
+                <WorkoutProvider>
+                  <HeaderAnimationProvider>
+                    <OptimizedPushNotificationWrapper>
+                      <StatusBar style="light" />
+                      <View style={{ flex: 1, backgroundColor: '#080f19' }}>
+                        <Slot />
+                      </View>
+                    </OptimizedPushNotificationWrapper>
+                  </HeaderAnimationProvider>
+                </WorkoutProvider>
+              </NotificationProvider>
+            </AppStateManager>
           </ThemeProvider>
         </AuthProvider>
       </LanguageProvider>

@@ -1,4 +1,4 @@
-// api/index.ts
+// api/index.ts - Improved version with token refresh
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
@@ -6,21 +6,34 @@ import { handleApiError } from './utils/errorHandler';
 import { authEvents } from './utils/authEvents';
 import { API_URL } from './config';
 
-// Prevent multiple logout operations
+// Prevent multiple operations
 let isLoggingOut = false;
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (error?: any) => void;
+}> = [];
 
-/**
- * Configure the base API client with common settings
- */
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 const apiClient = axios.create({
-  // Use the centralized API URL configuration
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // Add timeout to prevent hanging requests
 });
 
-// Request interceptor for API calls
+// Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
     try {
@@ -33,97 +46,109 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    console.error('Request error:', error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor for API calls
+// Enhanced response interceptor with token refresh
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Handle 401 errors (unauthorized) - but only once per session
-    if (error.response?.status === 401 && !originalRequest._retry && !isLoggingOut) {
-      console.log('🚨 401 Unauthorized detected - initiating logout');
-      originalRequest._retry = true;
-      
-      // Prevent multiple simultaneous logout operations
-      if (isLoggingOut) {
-        console.log('🔒 Logout already in progress, skipping');
-        return Promise.reject(error);
+    // Only handle 401 errors for token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If already refreshing, queue this request
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => {
+          return apiClient(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
       }
-      
-      isLoggingOut = true;
-      
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
       try {
-        // Clear token immediately
-        await SecureStore.deleteItemAsync('token');
-        console.log('🗑️ Token cleared from storage');
+        // Try to refresh token first
+        const refreshToken = await SecureStore.getItemAsync('refreshToken');
         
-        // Emit the token expired event to notify auth context
-        authEvents.emit('tokenExpired');
-        
-        // Add small delay to allow auth context to handle logout
-        setTimeout(() => {
-          // Force navigation to login - this ensures user is redirected
-          console.log('🔄 Redirecting to login page');
-          router.replace('/(auth)/login');
-          
-          // Reset the logout flag after navigation
-          setTimeout(() => {
-            isLoggingOut = false;
-            console.log('✅ Logout process completed');
-          }, 1000);
-        }, 100);
-        
-      } catch (logoutError) {
-        console.error('🚨 Error during logout:', logoutError);
-        isLoggingOut = false;
-      }
-      
-      return Promise.reject(error);
-    }
-
-    // Handle other 4xx errors that should also trigger logout
-    if (error.response?.status === 403 && !originalRequest._retry && !isLoggingOut) {
-      console.log('🚨 403 Forbidden detected - session may be invalid');
-      originalRequest._retry = true;
-      
-      if (!isLoggingOut) {
-        isLoggingOut = true;
-        
-        try {
-          await SecureStore.deleteItemAsync('token');
-          authEvents.emit('tokenExpired');
-          
-          setTimeout(() => {
-            router.replace('/(auth)/login');
-            setTimeout(() => {
-              isLoggingOut = false;
-            }, 1000);
-          }, 100);
-          
-        } catch (logoutError) {
-          console.error('🚨 Error during 403 logout:', logoutError);
-          isLoggingOut = false;
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
         }
+
+        // Attempt token refresh
+        const response = await axios.post(`${API_URL}/auth/refresh/`, {
+          refresh: refreshToken
+        });
+
+        const { access: newToken } = response.data;
+        
+        // Store new token
+        await SecureStore.setItemAsync('token', newToken);
+        
+        // Update original request with new token
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        
+        // Process queued requests
+        processQueue(null, newToken);
+        
+        console.log('✅ Token refreshed successfully');
+        
+        // Retry original request
+        return apiClient(originalRequest);
+        
+      } catch (refreshError) {
+        console.log('🚨 Token refresh failed, logging out');
+        
+        // Only logout if refresh fails
+        processQueue(refreshError);
+        
+        if (!isLoggingOut) {
+          isLoggingOut = true;
+          
+          try {
+            await SecureStore.deleteItemAsync('token');
+            await SecureStore.deleteItemAsync('refreshToken');
+            authEvents.emit('tokenExpired');
+            
+            setTimeout(() => {
+              router.replace('/(auth)/login');
+              setTimeout(() => {
+                isLoggingOut = false;
+              }, 1000);
+            }, 100);
+            
+          } catch (logoutError) {
+            console.error('Error during logout:', logoutError);
+            isLoggingOut = false;
+          }
+        }
+        
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
       }
-      
-      return Promise.reject(error);
     }
 
-    console.error('Response error:', error);
+    // Handle other 4xx errors more gracefully
+    if (error.response?.status === 403) {
+      // Don't immediately logout on 403, might be permission issue
+      console.log('⚠️ 403 Forbidden - permission denied');
+    }
+
     return Promise.reject(handleApiError(error));
   }
 );
 
-// Reset logout flag when app becomes active (handles edge cases)
+// Reset flags when app becomes active
 export const resetLogoutFlag = () => {
   isLoggingOut = false;
-  console.log('🔄 Logout flag reset');
+  isRefreshing = false;
+  failedQueue = [];
+  console.log('🔄 API client flags reset');
 };
 
 export default apiClient;
