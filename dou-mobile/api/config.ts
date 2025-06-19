@@ -2,8 +2,8 @@
 // Centralized API configuration
 
 // This is the base API URL without the /api endpoint
-// export const API_BASE_URL = 'https://dou-social.fr';
-export const API_BASE_URL = 'http://192.168.1.154:8000';
+export const API_BASE_URL = 'https://dou-social.fr';
+// export const API_BASE_URL = 'http://192.168.1.154:8000';
 
 // export const API_BASE_URL = 'http://172.20.10.7:8000';
 

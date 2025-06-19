@@ -522,7 +522,7 @@ export default function ProfileScreen() {
           </View>
         </View>
         
-        {/* Training Consistency Chart - Using the new component */}
+        {/* Training Consistency Chart - Using Victory-Native component */}
         <TrainingConsistencyChart sessionData={sessionData} palette={palette} />
         
         {/* Current Program */}

@@ -7,6 +7,7 @@
     "icon": "./assets/images/app-icon2.png",
     "scheme": "dou",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.doucompany.dou",
@@ -42,10 +43,7 @@
         {
           "icon": "./assets/images/app-icon.png",
           "color": "#6366F1",
-          "defaultChannel": "default",
-          "sounds": [
-            "./assets/sounds/notification.wav"
-          ]
+          "defaultChannel": "default"
         }
       ],
       [
