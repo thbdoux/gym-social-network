@@ -1254,10 +1254,6 @@ export const getAllMuscleGroupsForExercise = (exercise: ExerciseItem): string[] 
 // These should be used within components that have access to the LanguageContext
 
 export const useExerciseHelpers = () => {
-  // This would typically be used in a component like this:
-  // const { t } = useLanguage();
-  // const { searchExercises, filterExercises, ... } = useExerciseHelpers();
-  
   return {
     searchExercises: (query: string, t: (key: string) => string): ExerciseItem[] => {
       const normalizedQuery = query.toLowerCase().trim();

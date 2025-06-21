@@ -17,7 +17,7 @@ import { useHeaderAnimation } from '../../context/HeaderAnimationContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
-import FeedContainer from '../../components/feed/FeedContainer';
+import OptimizedFeedContainer from '../../components/feed/OptimizedFeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsModal from '../../components/profile/FriendsModal';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
@@ -265,7 +265,7 @@ export default function FeedScreen() {
               <Text style={styles.loadingText}>{!imagesLoaded ? t('loading_images') : t('loading_posts')}</Text>
             </View>
           ) : (
-            <FeedContainer
+            <OptimizedFeedContainer
               onLike={handleLike} 
               onReact={handleReactToPost} 
               onUnreact={handleUnreactToPost}

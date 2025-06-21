@@ -7,6 +7,7 @@ import { notificationKeys } from './query/useNotificationQuery';
 import { useAuth } from './useAuth';
 import { useLanguage } from '../context/LanguageContext';
 import { type Notification } from '../api/services/notificationService';
+import { cacheManager } from '../utils/cacheManager';
 
 interface SocketMessage {
   type: string;
@@ -187,10 +188,7 @@ export const useNotificationSocket = () => {
   
   // Handle new notification received via WebSocket
   const handleNewNotification = useCallback((notification: Notification) => {
-    // Invalidate queries to refresh notification data
-    queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
-    queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
-    queryClient.invalidateQueries({ queryKey: notificationKeys.count() });
+    
     
     // Optionally update cache directly for immediate UI updates
     queryClient.setQueryData(notificationKeys.lists(), (oldData: Notification[] = []) => {

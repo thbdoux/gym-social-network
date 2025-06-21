@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -30,7 +29,6 @@ interface DiscoverListProps {
   onNavigateToProfile: (userId: number) => void;
   onFriendAction: (action: string, userId: number) => void;
   sendFriendRequestMutation: any;
-  scrollY: Animated.Value;
 }
 
 export default function DiscoverList({
@@ -40,7 +38,6 @@ export default function DiscoverList({
   onNavigateToProfile,
   onFriendAction,
   sendFriendRequestMutation,
-  scrollY,
 }: DiscoverListProps) {
   const { palette } = useTheme();
   const { t } = useLanguage();
@@ -75,11 +72,6 @@ export default function DiscoverList({
     );
   };
 
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -91,14 +83,12 @@ export default function DiscoverList({
 
   return (
     <View style={styles.container}>
-      <Animated.FlatList
+      <FlatList
         data={users}
         keyExtractor={(item) => `discover-${item.id}`}
         renderItem={renderDiscoverItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         ListEmptyComponent={
           <EmptyState
             icon={<Ionicons name="search" size={48} color={`${palette.text}4D`} />}

@@ -28,7 +28,6 @@ export const ComparisonView: React.FC<ComparisonViewProps> = memo(({ onMetricPre
   const { palette } = useTheme();
   const { t } = useLanguage();
   const { weeklyMetrics, logs } = useAnalytics();
-  console.log(weeklyMetrics)
   const { maxWeight, maxAvgWeight, maxSets } = useMemo(() => 
     getMaxMetrics(weeklyMetrics), 
     [weeklyMetrics]

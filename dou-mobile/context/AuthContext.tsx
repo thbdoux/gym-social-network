@@ -1,5 +1,5 @@
 // context/AuthContext.tsx - Simplified version
-import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import userService from '../api/services/userService';
@@ -205,19 +205,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => subscription?.remove();
   }, [isAuthenticated, isLoading]);
 
+  const contextValue = useMemo(() => ({
+    user,
+    isAuthenticated,
+    isLoading,
+    login,
+    logout,
+    setUser,
+    registerUser,
+    error,
+  }), [user, isAuthenticated, isLoading, error]); // Only re-render when these change
+
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isAuthenticated, 
-        isLoading, 
-        login, 
-        logout,
-        setUser,
-        registerUser,
-        error,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

@@ -86,14 +86,6 @@ const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps)
     setSelectedExercise(exercise);
     setExerciseSelectorVisible(false);
     setExerciseConfiguratorVisible(true);
-    
-    // Add to recent exercises if it has an ID
-    if (exercise.id && !exercise.id.startsWith('custom_')) {
-      setRecentExercises(prev => {
-        const filtered = prev.filter(id => id !== exercise.id);
-        return [exercise.id, ...filtered].slice(0, 10);
-      });
-    }
   };
   
   // Handle saving exercise from configurator

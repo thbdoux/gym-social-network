@@ -149,6 +149,7 @@ const common = {
 
 const auth = {
     en: {
+      remember_me : 'remember me',
       login: 'Login',
       register: 'Register',
       username: 'Username',
@@ -171,6 +172,7 @@ const auth = {
       privacy: 'Privacy'
     },
     fr: {
+      remember_me : 'Mémoriser',
       login: 'Connexion',
       register: 'S\'inscrire',
       username: 'Nom d\'utilisateur',
@@ -880,12 +882,12 @@ const social = {
     pending_request:"En attente",
     add_friend: 'Ajouter',
     remove_friend: 'Supprimer un ami',
-    friend_requests: 'Demandes d\'ami',
+    friend_requests: 'Demandes',
     send_friend_request: 'Envoyer une demande d\'ami',
     accept_friend_request: 'Accepter',
     reject_friend_request: 'Refuser',
     pending: 'En attente',
-    discover_friends: 'Découvrir des amis',
+    discover_friends: 'Découvrir',
     no_friends: 'Pas encore d\'amis',
     find_friends: 'Trouver des amis',
     your_story: 'Votre story',

@@ -1,5 +1,5 @@
 // app/(app)/notifications.tsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { runOnJS } from 'react-native-reanimated';
 import { 
   View, 
@@ -316,26 +316,31 @@ const ContentPreview = ({ notification, postData }) => {
   }
 };
 
-// Enhanced notification item with translation key support
-const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notification, onMarkAsRead: (id: number) => void }) => {
+// Fixed NotificationItem component with memoization to prevent infinite loops
+
+// Enhanced notification item with translation key support - FIXED VERSION
+const NotificationItem = React.memo(({ notification, onMarkAsRead }: { notification: Notification, onMarkAsRead: (id: number) => void }) => {
   const { palette } = useTheme();
   const styles = themedStyles(palette);
   const { t } = useLanguage();
   
-  // Fetch additional data
+  // Fetch additional data with stable keys
   const { data: userData } = useUser(notification.sender?.id);
-  const { data: postData } = notification.object_id && 
-    ['like', 'comment', 'share', 'mention'].includes(notification.notification_type)
-    ? usePost(notification.object_id) 
-    : { data: null };
+  const shouldFetchPost = notification.object_id && 
+    ['like', 'comment', 'share', 'mention'].includes(notification.notification_type);
+  const { data: postData } = usePost(shouldFetchPost ? notification.object_id : null);
   
   // Check if notification has actions
-  const hasActions = (notification.notification_type === 'friend_request' || 
-    notification.notification_type === 'workout_invitation' ||
-    notification.notification_type === 'workout_join_request') && 
-    !notification.is_read;
+  const hasActions = useMemo(() => 
+    (notification.notification_type === 'friend_request' || 
+     notification.notification_type === 'workout_invitation' ||
+     notification.notification_type === 'workout_join_request') && 
+    !notification.is_read,
+    [notification.notification_type, notification.is_read]
+  );
   
-  const getNotificationContent = () => {
+  // Memoize the notification content to prevent infinite re-renders
+  const notificationContent = useMemo(() => {
     // Use translation keys if available
     if (notification.title_key && notification.body_key) {
       const translated = translateNotification(
@@ -352,7 +357,6 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
       return notification.content;
     }
     
-    console.log(notification)
     // Generate content from translation params using flattened structure
     const params = notification.translation_params || {};
     const username = params.sender_display_name || params.sender_username || notification?.sender_username || t('anonymous');
@@ -378,10 +382,10 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
       console.warn('Translation failed for notification:', notification.notification_type, error);
       return `${username} ${notification.notification_type.replace(/_/g, ' ')}`;
     }
-  };
+  }, [notification.title_key, notification.body_key, notification.translation_params, notification.content, notification.notification_type, notification.sender_username, t]);
 
-  // Handle navigation logic
-  const handlePress = () => {
+  // Handle navigation logic - memoized to prevent recreating on each render
+  const handlePress = useCallback(() => {
     if (!notification.is_read) {
       onMarkAsRead(notification.id);
       setTimeout(() => {
@@ -390,9 +394,9 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
     } else {
       navigateToContent();
     }
-  };
+  }, [notification.is_read, notification.id, onMarkAsRead]);
   
-  const navigateToContent = () => {
+  const navigateToContent = useCallback(() => {
     if (hasActions) return; // Don't navigate if there are actions to handle
     
     // Enhanced navigation logic
@@ -489,10 +493,10 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
       console.error('Error navigating from notification:', error);
       router.push('/notifications');
     }
-  };
+  }, [hasActions, notification]);
   
-  // Enhanced action handlers
-  const handleAccept = async () => {
+  // Enhanced action handlers - memoized
+  const handleAccept = useCallback(async () => {
     onMarkAsRead(notification.id);
     
     const { notification_type, object_id } = notification;
@@ -524,9 +528,9 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
     } catch (error) {
       console.error('Error accepting notification action:', error);
     }
-  };
+  }, [notification, onMarkAsRead]);
   
-  const handleDecline = async () => {
+  const handleDecline = useCallback(async () => {
     onMarkAsRead(notification.id);
     
     const { notification_type, object_id } = notification;
@@ -559,15 +563,29 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
     } catch (error) {
       console.error('Error declining notification action:', error);
     }
-  };
+  }, [notification, onMarkAsRead]);
   
-  // Get user information
-  const userInfo = userData || notification.sender;
-  const username = userInfo?.username || notification.translation_params?.sender_username || t('anonymous');
-  const avatarUrl = userInfo?.avatar ? getAvatarUrl(userInfo.avatar) : null;
+  // Get user information - memoized
+  const userInfo = useMemo(() => 
+    userData || notification.sender,
+    [userData, notification.sender]
+  );
   
-  // Format timestamp
-  const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: false });
+  const username = useMemo(() => 
+    userInfo?.username || notification.translation_params?.sender_username || t('anonymous'),
+    [userInfo?.username, notification.translation_params?.sender_username, t]
+  );
+  
+  const avatarUrl = useMemo(() => 
+    userInfo?.avatar ? getAvatarUrl(userInfo.avatar) : null,
+    [userInfo?.avatar]
+  );
+  
+  // Format timestamp - memoized
+  const timeAgo = useMemo(() => 
+    formatDistanceToNow(new Date(notification.created_at), { addSuffix: false }),
+    [notification.created_at]
+  );
   
   return (
     <TouchableOpacity 
@@ -620,7 +638,7 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
       {/* Content */}
       <View style={styles.contentContainer}>
         <Text style={styles.notificationText}>
-          {getNotificationContent()}
+          {notificationContent}
         </Text>
         <Text style={styles.timeAgo}>{timeAgo}</Text>
         
@@ -650,7 +668,10 @@ const NotificationItem = ({ notification, onMarkAsRead }: { notification: Notifi
       />
     </TouchableOpacity>
   );
-};
+});
+
+// Add display name for debugging
+NotificationItem.displayName = 'NotificationItem';
 
 // Section header component
 const SectionHeader = ({ title }) => {
@@ -665,11 +686,22 @@ const SectionHeader = ({ title }) => {
   );
 };
 
+// Key optimizations for NotificationsScreen to prevent infinite loops
+
 export default function NotificationsScreen() {
   const { palette } = useTheme();
   const styles = themedStyles(palette);
   const navigation = useNavigation();
   const { t } = useLanguage();
+
+  // FIXED: Stable configuration for real-time hook
+  const realTimeConfig = useMemo(() => ({
+    enablePushUpdates: true,
+    enableWebSocketUpdates: true,
+    enableAppStateUpdates: true,
+    enablePeriodicUpdates: true,
+    periodicInterval: 60000, // 1 minute fallback
+  }), []); // Empty dependency array - config should be stable
 
   const {
     isRealTimeActive,
@@ -677,20 +709,17 @@ export default function NotificationsScreen() {
     pushRegistered,
     socketError,
     manualRefresh: realtimeManualRefresh
-  } = useRealTimeNotifications({
-    enablePushUpdates: true,
-    enableWebSocketUpdates: true,
-    enableAppStateUpdates: true,
-    enablePeriodicUpdates: true,
-    periodicInterval: 60000, // 1 minute fallback
-  });
+  } = useRealTimeNotifications(realTimeConfig); // Use stable config
 
-  // **NEW: Manual refresh capabilities**
+  // **FIXED: Manual refresh capabilities with stable reference**
   const { refresh: manualRefresh } = useNotificationRefresh();
   
-  // Hooks
-  const { data: notifications, isLoading, refetch, isFetching } = useNotifications();
-  const { data: countData, refetch: refetchCount } = useNotificationCount();
+  // Hooks with stable options
+  const notificationQueryOptions = useMemo(() => ({}), []);
+  const countQueryOptions = useMemo(() => ({}), []);
+  
+  const { data: notifications, isLoading, refetch, isFetching } = useNotifications(notificationQueryOptions);
+  const { data: countData, refetch: refetchCount } = useNotificationCount(countQueryOptions);
   const markAsRead = useMarkNotificationAsRead();
   const markAllRead = useMarkAllNotificationsAsRead();
   const { 
@@ -702,10 +731,11 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   
-  // Animation
+  // Animation - stable reference
   const menuAnimation = useSharedValue(0);
   
-  const toggleMenu = () => {
+  // FIXED: Memoized handlers to prevent recreation on every render
+  const toggleMenu = useCallback(() => {
     if (menuVisible) {
       menuAnimation.value = withTiming(0, { duration: 200 }, () => {
         runOnJS(setMenuVisible)(false);
@@ -714,7 +744,7 @@ export default function NotificationsScreen() {
       setMenuVisible(true);
       menuAnimation.value = withTiming(1, { duration: 200 });
     }
-  };
+  }, [menuVisible, menuAnimation]);
   
   const menuAnimatedStyle = useAnimatedStyle(() => {
     const opacity = menuAnimation.value;
@@ -726,8 +756,8 @@ export default function NotificationsScreen() {
     };
   });
   
-  // Handlers
-  const onRefresh = async () => {
+  // FIXED: Stable refresh handler
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       // Try multiple refresh strategies
@@ -742,24 +772,27 @@ export default function NotificationsScreen() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [refetch, refetchCount, manualRefresh, realtimeManualRefresh]);
   
-  const handleMarkAsRead = (id: number) => {
+  // FIXED: Stable mark as read handler
+  const handleMarkAsRead = useCallback((id: number) => {
     markAsRead.mutate(id);
     if (socketConnected) {
       socketMarkAsRead(id);
     }
-  };
+  }, [markAsRead, socketConnected, socketMarkAsRead]);
   
-  const handleMarkAllAsRead = () => {
+  // FIXED: Stable mark all as read handler
+  const handleMarkAllAsRead = useCallback(() => {
     markAllRead.mutate();
     if (socketConnected) {
       socketMarkAllAsRead();
     }
     setMenuVisible(false);
-  };
+  }, [markAllRead, socketConnected, socketMarkAllAsRead]);
 
-  const getConnectionStatus = () => {
+  // FIXED: Memoized connection status to prevent recalculation
+  const connectionStatus = useMemo(() => {
     if (socketConnected && pushRegistered) {
       return { status: 'excellent', text: t('notifications.status.excellent'), color: palette.accent };
     } else if (socketConnected || pushRegistered) {
@@ -769,12 +802,10 @@ export default function NotificationsScreen() {
     } else {
       return { status: 'offline', text: t('notifications.status.offline'), color: '#FF3B30' };
     }
-  };
-
-  const connectionStatus = getConnectionStatus();
+  }, [socketConnected, pushRegistered, isRealTimeActive, t, palette.accent]);
   
-  // Group notifications by date
-  const getSections = () => {
+  // FIXED: Memoized sections to prevent expensive recalculation
+  const sections = useMemo(() => {
     if (!notifications || notifications.length === 0) {
       return [];
     }
@@ -834,8 +865,23 @@ export default function NotificationsScreen() {
     }
     
     return sections;
-  };
-  
+  }, [notifications]);
+
+  // FIXED: Memoized render functions
+  const renderItem = useCallback(({ item }) => (
+    <NotificationItem 
+      notification={item} 
+      onMarkAsRead={handleMarkAsRead} 
+    />
+  ), [handleMarkAsRead]);
+
+  const renderSectionHeader = useCallback(({ section: { title } }) => (
+    <SectionHeader title={title} />
+  ), []);
+
+  const keyExtractor = useCallback((item) => item.id.toString(), []);
+
+  // Rest of the component remains the same...
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.layout }]}>
       <StatusBar barStyle="light-content" backgroundColor={palette.accent} />
@@ -856,31 +902,6 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         </View>
         
-        {/* **NEW: Enhanced Connection Status** */}
-        {/* <Animated.View 
-          entering={FadeIn.duration(300)} 
-          style={[styles.connectionStatus, { backgroundColor: connectionStatus.color }]}
-        >
-          <View style={styles.connectionStatusContent}>
-            <Ionicons 
-              name={connectionStatus.status === 'excellent' ? 'wifi' : 
-                   connectionStatus.status === 'good' ? 'wifi-outline' : 
-                   connectionStatus.status === 'limited' ? 'cellular' : 'wifi-off'} 
-              size={16} 
-              color="white" 
-            />
-            <Text style={styles.connectionText}>
-              {connectionStatus.text}
-              {isFetching && ' • ' + t('updating')}
-            </Text>
-            {(socketError || (!socketConnected && !pushRegistered)) && (
-              <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
-                <Ionicons name="refresh" size={14} color="white" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </Animated.View> */}
-        
         {/* Dropdown Menu */}
         {menuVisible && (
           <Animated.View style={[styles.dropdownMenu, menuAnimatedStyle]}>
@@ -889,7 +910,6 @@ export default function NotificationsScreen() {
               <Text style={styles.menuItemText}>{t('mark_all_as_read')}</Text>
             </TouchableOpacity>
             
-            {/* **NEW: Manual refresh option** */}
             <TouchableOpacity style={styles.menuItem} onPress={onRefresh}>
               <Ionicons name="refresh" size={18} color={palette.text} />
               <Text style={styles.menuItemText}>{t('refresh_notifications')}</Text>
@@ -912,17 +932,10 @@ export default function NotificationsScreen() {
           </View>
         ) : (
           <SectionList
-            sections={getSections()}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <NotificationItem 
-                notification={item} 
-                onMarkAsRead={handleMarkAsRead} 
-              />
-            )}
-            renderSectionHeader={({ section: { title } }) => (
-              <SectionHeader title={title} />
-            )}
+            sections={sections}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl 
@@ -933,6 +946,9 @@ export default function NotificationsScreen() {
               />
             }
             stickySectionHeadersEnabled={true}
+            removeClippedSubviews={true} // Performance optimization
+            maxToRenderPerBatch={10} // Performance optimization
+            windowSize={10} // Performance optimization
           />
         )}
       </View>

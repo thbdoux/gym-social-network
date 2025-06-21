@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -36,7 +35,6 @@ interface FriendsListProps {
   onFriendAction: (action: string, userId: number) => void;
   onDiscoverPress: () => void;
   removeFriendMutation: any;
-  scrollY: Animated.Value;
 }
 
 export default function FriendsList({
@@ -47,7 +45,6 @@ export default function FriendsList({
   onFriendAction,
   onDiscoverPress,
   removeFriendMutation,
-  scrollY,
 }: FriendsListProps) {
   const { palette } = useTheme();
   const { t } = useLanguage();
@@ -79,11 +76,6 @@ export default function FriendsList({
     );
   };
 
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -95,14 +87,12 @@ export default function FriendsList({
 
   return (
     <View style={styles.container}>
-      <Animated.FlatList
+      <FlatList
         data={friends}
         keyExtractor={(item) => `friend-${item.id}`}
         renderItem={renderFriendItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         ListEmptyComponent={
           <EmptyState
             icon={<Ionicons name="people" size={48} color={`${palette.text}4D`} />}

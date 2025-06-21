@@ -2,12 +2,11 @@
   "expo": {
     "name": "Dou",
     "slug": "dou-social-network-mobile-app",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon2.png",
     "scheme": "dou",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.doucompany.dou",
@@ -16,22 +15,27 @@
         "NSPhotoLibraryUsageDescription": "Allow %@ to pick images for your posts.",
         "NSPhotoLibraryAddUsageDescription": "Allow %@ to save the edited picture.",
         "NSCameraUsageDescription": "Allow %@ to take a new photo.",
-        "NSMicrophoneUsageDescription": "Needed for video posts with sound."
+        "NSMicrophoneUsageDescription": "Needed for video posts with sound.",
+        "NSFaceIDUsageDescription": "Use Face ID to quickly and securely access your account."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/app-icon2.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.doucompany.dou"
+      "package": "com.doucompany.dou",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/app-icon2.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -39,9 +43,15 @@
       ],
       "expo-secure-store",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to quickly and securely access your account."
+        }
+      ],
+      [
         "expo-notifications",
         {
-          "icon": "./assets/images/app-icon.png",
+          "icon": "./assets/images/app-icon2.png",
           "color": "#6366F1",
           "defaultChannel": "default"
         }

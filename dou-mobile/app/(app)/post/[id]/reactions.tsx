@@ -15,11 +15,73 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePostReactions } from '../../../../hooks/query/usePostQuery';
+import { useUser } from '../../../../hooks/query/useUserQuery';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { useTheme } from '../../../../context/ThemeContext';
 import { createThemedStyles } from '../../../../utils/createThemedStyles';
 import { getAvatarUrl } from '../../../../utils/imageUtils';
-import ProfilePreviewModal from '../../../../components/profile/ProfilePreviewModal';
+
+// Separate component for each reaction item to properly use hooks
+const ReactionItem = ({ reaction, onNavigateToProfile, palette, t }) => {
+  const { data: user, isLoading: userLoading } = useUser(reaction.user_id);
+  const styles = themedStyles(palette);
+
+  const getReactionEmoji = (type: string) => {
+    switch(type) {
+      case 'like': return '👍';
+      case 'love': return '❤️';
+      case 'laugh': return '😂';
+      case 'wow': return '😮';
+      case 'sad': return '😢';
+      case 'angry': return '😡';
+      default: return '👍';
+    }
+  };
+
+  return (
+    <TouchableOpacity 
+      style={styles.reactionItem}
+      onPress={() => onNavigateToProfile(reaction.user_id)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.reactionItemContent}>
+        {/* User Avatar */}
+        <TouchableOpacity 
+          onPress={() => onNavigateToProfile(reaction.user_id)}
+          style={styles.avatarContainer}
+        >
+          {userLoading ? (
+            <View style={[styles.avatar, styles.avatarLoading]}>
+              <ActivityIndicator size="small" color={palette.accent} />
+            </View>
+          ) : (
+            <Image
+              source={{ uri: getAvatarUrl(user?.avatar) }}
+              style={styles.avatar}
+            />
+          )}
+        </TouchableOpacity>
+        
+        {/* User Info */}
+        <View style={styles.userInfo}>
+          <Text style={[styles.username, { color: palette.text }]}>
+            {user?.username || reaction.user_username || 'Loading...'}
+          </Text>
+          <Text style={[styles.reactionTime, { color: palette.text_secondary }]}>
+            {new Date(reaction.created_at).toLocaleDateString()}
+          </Text>
+        </View>
+        
+        {/* Reaction */}
+        <View style={styles.reactionContainer}>
+          <Text style={styles.reactionEmoji}>
+            {getReactionEmoji(reaction.reaction_type)}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export default function PostReactionsScreen() {
   const { id } = useLocalSearchParams();
@@ -29,8 +91,6 @@ export default function PostReactionsScreen() {
   const { palette } = useTheme();
   
   // State management
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedReactionType, setSelectedReactionType] = useState<string | null>(null);
 
   // Fetch reactions data
@@ -45,11 +105,6 @@ export default function PostReactionsScreen() {
 
   const handleGoBack = () => {
     router.back();
-  };
-
-  const handleProfileClick = (userId: number) => {
-    setSelectedUserId(userId);
-    setShowProfileModal(true);
   };
   
   const handleNavigateToProfile = (userId: number) => {
@@ -107,41 +162,13 @@ export default function PostReactionsScreen() {
   };
 
   const renderReactionItem = ({ item: reaction }) => (
-    <TouchableOpacity 
-      style={styles.reactionItem}
-      onPress={() => handleNavigateToProfile(reaction.user_id)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.reactionItemContent}>
-        {/* User Avatar */}
-        <TouchableOpacity 
-          onPress={() => handleProfileClick(reaction.user_id)}
-          style={styles.avatarContainer}
-        >
-          <Image
-            source={{ uri: getAvatarUrl(reaction.user_profile_picture) }}
-            style={styles.avatar}
-          />
-        </TouchableOpacity>
-        
-        {/* User Info */}
-        <View style={styles.userInfo}>
-          <Text style={[styles.username, { color: palette.text }]}>
-            {reaction.user_username}
-          </Text>
-          <Text style={[styles.reactionTime, { color: palette.text_secondary }]}>
-            {new Date(reaction.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-        
-        {/* Reaction */}
-        <View style={styles.reactionContainer}>
-          <Text style={styles.reactionEmoji}>
-            {getReactionEmoji(reaction.reaction_type)}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+    <ReactionItem
+      key={`${reaction.id}-${reaction.user_id}`}
+      reaction={reaction}
+      onNavigateToProfile={handleNavigateToProfile}
+      palette={palette}
+      t={t}
+    />
   );
 
   const renderReactionFilter = ({ item: { type, count } }) => (
@@ -324,15 +351,6 @@ export default function PostReactionsScreen() {
           />
         </View>
       )}
-      
-      {/* Profile Preview Modal */}
-      {selectedUserId && (
-        <ProfilePreviewModal
-          isVisible={showProfileModal}
-          onClose={() => setShowProfileModal(false)}
-          userId={selectedUserId}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -413,6 +431,11 @@ const themedStyles = createThemedStyles((palette) => ({
     width: 48,
     height: 48,
     borderRadius: 24,
+  },
+  avatarLoading: {
+    backgroundColor: palette.card_background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userInfo: {
     flex: 1,

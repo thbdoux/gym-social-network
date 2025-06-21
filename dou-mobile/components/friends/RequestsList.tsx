@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Animated,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -39,7 +39,6 @@ interface RequestsListProps {
   onFriendAction: (action: string, userId: number) => void;
   onDiscoverPress: () => void;
   respondToFriendRequestMutation: any;
-  scrollY: Animated.Value;
 }
 
 export default function RequestsList({
@@ -51,7 +50,6 @@ export default function RequestsList({
   onFriendAction,
   onDiscoverPress,
   respondToFriendRequestMutation,
-  scrollY,
 }: RequestsListProps) {
   const { palette } = useTheme();
   const { t } = useLanguage();
@@ -125,11 +123,6 @@ export default function RequestsList({
     );
   };
 
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -161,12 +154,10 @@ export default function RequestsList({
   }
 
   return (
-    <Animated.ScrollView
+    <ScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
-      onScroll={handleScroll}
-      scrollEventThrottle={16}
     >
       {receivedRequests.length > 0 && (
         <View style={styles.section}>
@@ -193,7 +184,7 @@ export default function RequestsList({
           />
         </View>
       )}
-    </Animated.ScrollView>
+    </ScrollView>
   );
 }
 

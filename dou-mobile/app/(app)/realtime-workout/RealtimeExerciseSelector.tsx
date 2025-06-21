@@ -37,7 +37,6 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
   themePalette,
   recentExercises = [],
 }) => {
-  console.log('aya', recentExercises);
   const { t, language } = useLanguage();
   const { width: screenWidth } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,7 +169,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
       language
     };
     
-    const filtered = filterExercises(criteria).map(exercise => {
+    const filtered = filterExercises(criteria, t).map(exercise => {
       // Find the category for this exercise
       const category = EXERCISE_CATEGORIES.find(cat => 
         cat.exercises.some(ex => ex.id === exercise.id)

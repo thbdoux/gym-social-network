@@ -1,15 +1,13 @@
 // app/(app)/friends.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   SafeAreaView,
   StatusBar,
-  Animated,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,7 +31,6 @@ import DiscoverList from '../../components/friends/DiscoverList';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 80;
-const SEARCH_HEIGHT = 60;
 const TABS_HEIGHT = 60;
 
 export default function FriendsPage() {
@@ -41,14 +38,10 @@ export default function FriendsPage() {
   const router = useRouter();
   const { palette } = useTheme();
   
-  // Animation refs
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerOpacity = useRef(new Animated.Value(1)).current;
-  const headerTranslateY = useRef(new Animated.Value(0)).current;
-  
   // State
   const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'discover'>('friends');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   // Get current user
   const { data: currentUser } = useCurrentUser();
@@ -90,22 +83,6 @@ export default function FriendsPage() {
     refetchFriends();
     refetchRequests();
   }, [refetchFriends, refetchRequests]);
-
-  // Scroll animation setup
-  useEffect(() => {
-    const listener = scrollY.addListener(({ value }) => {
-      const threshold = 50;
-      const opacity = Math.max(0, 1 - value / threshold);
-      const translateY = Math.min(value * 0.5, threshold);
-      
-      headerOpacity.setValue(opacity);
-      headerTranslateY.setValue(-translateY);
-    });
-
-    return () => {
-      scrollY.removeListener(listener);
-    };
-  }, [scrollY, headerOpacity, headerTranslateY]);
 
   // Combined loading state
   const loading =
@@ -229,13 +206,11 @@ export default function FriendsPage() {
 
   const filteredData = getFilteredData();
 
-  // Tab change handler with animation
+  // Tab change handler
   const handleTabChange = (tab: 'friends' | 'requests' | 'discover') => {
     setActiveTab(tab);
-    // Reset scroll position when changing tabs
-    scrollY.setValue(0);
-    headerOpacity.setValue(1);
-    headerTranslateY.setValue(0);
+    setSearchQuery(''); // Clear search when changing tabs
+    setShowSearch(false); // Hide search when changing tabs
   };
 
   const getActiveTabTitle = () => {
@@ -251,19 +226,24 @@ export default function FriendsPage() {
     }
   };
 
+  const toggleSearch = () => {
+    setShowSearch(!showSearch);
+    if (showSearch) {
+      setSearchQuery(''); // Clear search when hiding
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
-      {/* Animated Header */}
-      <Animated.View 
+      {/* Fixed Header */}
+      <View 
         style={[
           styles.headerContainer,
           { 
             backgroundColor: palette.page_background,
             borderColor: `${palette.border}66`,
-            opacity: headerOpacity,
-            transform: [{ translateY: headerTranslateY }]
           }
         ]}
       >
@@ -278,25 +258,37 @@ export default function FriendsPage() {
           <Text style={[styles.headerTitle, { color: palette.text }]}>
             {getActiveTabTitle()}
           </Text>
+          <TouchableOpacity 
+            style={[styles.searchButton, { backgroundColor: `${palette.accent}B3` }]} 
+            onPress={toggleSearch}
+          >
+            <Ionicons name="search" size={20} color={palette.text} />
+          </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
-          <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: palette.text }]}
-            placeholder={
-              activeTab === 'friends'
-                ? t('search_friends')
-                : activeTab === 'requests'
-                ? t('search_requests')
-                : t('search_people')
-            }
-            placeholderTextColor={`${palette.text}80`}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        {/* Conditional Search Bar */}
+        {showSearch && (
+          <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
+            <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: palette.text }]}
+              placeholder={
+                activeTab === 'friends'
+                  ? t('search_friends')
+                  : activeTab === 'requests'
+                  ? t('search_requests')
+                  : t('search_people')
+              }
+              placeholderTextColor={`${palette.text}80`}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+            />
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close" size={20} color={`${palette.text}80`} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Tabs */}
         <View style={[styles.tabs, { borderColor: `${palette.border}66` }]}>
@@ -367,10 +359,10 @@ export default function FriendsPage() {
             </Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
 
       {/* Content */}
-      <View style={styles.content}>
+      <View style={[styles.content, { marginTop: showSearch ? HEADER_HEIGHT + 60 + TABS_HEIGHT + 44 : HEADER_HEIGHT + TABS_HEIGHT + 44 }]}>
         {activeTab === 'friends' && (
           <FriendsList
             friends={filteredData.friends}
@@ -380,7 +372,6 @@ export default function FriendsPage() {
             onFriendAction={handleFriendAction}
             onDiscoverPress={() => handleTabChange('discover')}
             removeFriendMutation={removeFriendMutation}
-            scrollY={scrollY}
           />
         )}
         
@@ -394,7 +385,6 @@ export default function FriendsPage() {
             onFriendAction={handleFriendAction}
             onDiscoverPress={() => handleTabChange('discover')}
             respondToFriendRequestMutation={respondToFriendRequestMutation}
-            scrollY={scrollY}
           />
         )}
         
@@ -406,7 +396,6 @@ export default function FriendsPage() {
             onNavigateToProfile={navigateToProfile}
             onFriendAction={handleFriendAction}
             sendFriendRequestMutation={sendFriendRequestMutation}
-            scrollY={scrollY}
           />
         )}
       </View>
@@ -430,6 +419,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
     height: HEADER_HEIGHT,
@@ -440,11 +430,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 16,
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -453,7 +452,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
     paddingHorizontal: 12,
-    height: SEARCH_HEIGHT,
+    height: 60,
   },
   searchIcon: {
     marginRight: 8,
@@ -498,7 +497,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginTop: HEADER_HEIGHT + SEARCH_HEIGHT + TABS_HEIGHT + 44, // Header + search + tabs + status bar
   },
 });
 
