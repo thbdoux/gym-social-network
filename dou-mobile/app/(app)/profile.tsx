@@ -38,6 +38,8 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday
 // Import the TrainingConsistencyChart component
 import TrainingConsistencyChart from '../../components/profile/TrainingConsistencyChart';
 
+import CustomLoadingScreen from '../../components/shared/CustomLoadingScreen';
+
 const screenWidth = Dimensions.get('window').width;
 
 export default function ProfileScreen() {
@@ -252,10 +254,12 @@ export default function ProfileScreen() {
   
   if (isLoading && !refreshing) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
-        <ActivityIndicator size="large" color={palette.highlight} />
-        <Text style={[styles.loadingText, { color: palette.text }]}>{t('loading_profile')}</Text>
-      </View>
+      <CustomLoadingScreen 
+        text={t('loading_profile')}
+        animationType='pulse'
+        size="large"
+        preloadImages={true}
+      />
     );
   }
 

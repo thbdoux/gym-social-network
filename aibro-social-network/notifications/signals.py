@@ -1,15 +1,15 @@
-# notifications/signals.py
+# notifications/signals.py (ENHANCED)
 from django.db.models.signals import post_save, m2m_changed, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from datetime import timedelta
 
-from posts.models import Like, Comment, Post
+from posts.models import Like, Comment, Post, PostReaction, CommentReaction
 from users.models import FriendRequest, Friendship
 from workouts.models import Program, WorkoutLog, ProgramShare
 from workouts.group_workouts import (
     GroupWorkout, GroupWorkoutParticipant, GroupWorkoutJoinRequest,
-    GroupWorkoutProposal, GroupWorkoutVote
+    GroupWorkoutProposal, GroupWorkoutVote, GroupWorkoutMessage
 )
 from .services import NotificationService
 
@@ -31,20 +31,81 @@ def handle_post_like(sender, instance, created, **kwargs):
             }
         )
 
+@receiver(post_save, sender=PostReaction)
+def handle_post_reaction(sender, instance, created, **kwargs):
+    """Handle post reactions (beyond just likes)"""
+    if created and instance.post.user != instance.user:
+        NotificationService.create_post_reaction_notification(
+            post=instance.post,
+            user=instance.user,
+            reaction_type=instance.reaction_type
+        )
+
+@receiver(post_save, sender=CommentReaction)
+def handle_comment_reaction(sender, instance, created, **kwargs):
+    """Handle comment reactions"""
+    if created and instance.comment.user != instance.user:
+        NotificationService.create_comment_reaction_notification(
+            comment=instance.comment,
+            user=instance.user,
+            reaction_type=instance.reaction_type
+        )
+
 @receiver(post_save, sender=Comment)
 def handle_post_comment(sender, instance, created, **kwargs):
-    """Handle post comments"""
-    if created and instance.post.user != instance.user:
-        NotificationService.create_notification(
-            recipient=instance.post.user,
-            notification_type='comment',
-            sender=instance.user,
-            related_object=instance.post,
-            translation_params={
-                'post_id': instance.post.id,
-                'comment_content': instance.content[:100] + '...' if len(instance.content) > 100 else instance.content,
-            }
-        )
+    """Handle post comments and replies"""
+    if created:
+        # Check if this is a reply to another comment
+        if instance.parent:
+            # This is a reply - notify the parent comment author
+            if instance.parent.user != instance.user:
+                NotificationService.create_notification(
+                    recipient=instance.parent.user,
+                    notification_type='comment_reply',
+                    sender=instance.user,
+                    related_object=instance,
+                    translation_params={
+                        'comment_id': instance.parent.id,
+                        'reply_content': instance.content[:100] + '...' if len(instance.content) > 100 else instance.content,
+                    }
+                )
+        else:
+            # This is a top-level comment - notify the post author
+            if instance.post.user != instance.user:
+                NotificationService.create_notification(
+                    recipient=instance.post.user,
+                    notification_type='comment',
+                    sender=instance.user,
+                    related_object=instance,
+                    translation_params={
+                        'post_id': instance.post.id,
+                        'comment_content': instance.content[:100] + '...' if len(instance.content) > 100 else instance.content,
+                    }
+                )
+        
+        # Handle mentions in comments
+        content = instance.content
+        mentioned_usernames = [word[1:] for word in content.split() if word.startswith('@')]
+        
+        if mentioned_usernames:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            for username in mentioned_usernames:
+                try:
+                    mentioned_user = User.objects.get(username=username)
+                    if mentioned_user != instance.user:  # Don't notify yourself
+                        NotificationService.create_notification(
+                            recipient=mentioned_user,
+                            notification_type='mention',
+                            sender=instance.user,
+                            related_object=instance,
+                            translation_params={
+                                'comment_content': content[:100] + '...' if len(content) > 100 else content,
+                            }
+                        )
+                except User.DoesNotExist:
+                    continue
 
 @receiver(post_save, sender=Post)
 def handle_post_share(sender, instance, created, **kwargs):
@@ -249,6 +310,8 @@ def _check_workout_streak(user, workout_log):
 
 def _check_personal_records(user, workout_log):
     """Check for personal records in the workout"""
+    from django.db import models
+    
     # This is a simplified version - you'd want more sophisticated PR detection
     for exercise_log in workout_log.exercises.all():
         for set_log in exercise_log.sets.all():
@@ -292,7 +355,7 @@ def handle_group_workout_participation(sender, instance, created, **kwargs):
             related_object=instance.group_workout,
             translation_params={
                 'workout_title': instance.group_workout.title,
-                'scheduled_time': instance.group_workout.scheduled_time.isoformat(),
+                'scheduled_time': instance.group_workout.scheduled_time.strftime('%Y-%m-%d %H:%M'),
             }
         )
 
@@ -373,6 +436,21 @@ def handle_workout_vote(sender, instance, created, **kwargs):
             }
         )
 
+@receiver(post_save, sender=GroupWorkoutMessage)
+def handle_group_workout_message(sender, instance, created, **kwargs):
+    """Handle new messages in group workout chats"""
+    if created:
+        # Get all participants except the sender
+        participants = instance.group_workout.participants.filter(
+            status='joined'
+        ).exclude(user=instance.user)
+        
+        # Create notifications for all other participants
+        NotificationService.create_group_workout_message_notification(
+            message=instance,
+            participants=participants
+        )
+
 @receiver(post_save, sender=GroupWorkout)
 def handle_group_workout_updates(sender, instance, created, **kwargs):
     """Handle group workout status changes and reminders"""
@@ -445,8 +523,50 @@ def send_workout_reminders():
                 related_object=workout,
                 translation_params={
                     'workout_title': workout.title,
-                    'scheduled_time': workout.scheduled_time.isoformat(),
+                    'scheduled_time': workout.scheduled_time.strftime('%Y-%m-%d %H:%M'),
                     'gym_name': workout.gym.name if workout.gym else 'TBD',
                 },
                 priority='high'
             )
+
+# =============================================================================
+# ADDITIONAL NOTIFICATION HELPERS
+# =============================================================================
+
+def create_gym_announcement_notification(gym, title, content, recipients=None):
+    """Helper function to create gym announcement notifications"""
+    if recipients is None:
+        # Get all users who have this gym as preferred
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        recipients = User.objects.filter(preferred_gym=gym)
+    
+    for user in recipients:
+        NotificationService.create_notification(
+            recipient=user,
+            notification_type='gym_announcement',
+            related_object=gym,
+            translation_params={
+                'gym_name': gym.name,
+                'announcement_title': title,
+                'announcement_content': content,
+            }
+        )
+
+def create_system_update_notification(title, description, recipients=None):
+    """Helper function to create system update notifications"""
+    if recipients is None:
+        # Send to all active users
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        recipients = User.objects.filter(is_active=True)
+    
+    for user in recipients:
+        NotificationService.create_notification(
+            recipient=user,
+            notification_type='system_update',
+            translation_params={
+                'update_title': title,
+                'update_description': description,
+            }
+        )

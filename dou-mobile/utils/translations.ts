@@ -15,6 +15,12 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    loading_posts: 'loading posts',
+    reply: 'reply',
+    reply_to: 'type a reply',
+    hide_replies: 'hide replies',
+    view_replies: 'view replies',
+
     w_ago:' week ago',
     h_ago: ' hour ago',
     mo_ago: ' month ago',
@@ -78,6 +84,12 @@ const common = {
     no_workout_partners_yet:'No partners yet...',
   },
   fr: {
+    loading_posts: 'Chargement des posts',
+    reply: 'Répondre',
+    reply_to: 'Votre réponse',
+    hide_replies: 'Cacher les réponses',
+    view_replies: 'Voir les réponses',
+    
     w_ago:' semaine plus tôt',
     h_ago: ' heure plus tôt',
     mo_ago: ' mois plus tôt',
@@ -3822,10 +3834,13 @@ const notifications = {
     "notifications.challenge_completed.email_body": "Congratulations! You've successfully completed the fitness challenge. Well done!",
 
     // Section headers
-    "notification.section.today": "Today",
-    "notification.section.yesterday": "Yesterday", 
-    "notification.section.this_week": "This Week",
-    "notification.section.earlier": "Earlier",
+    "notifications.title" : "Notifications",
+    "notifications.sections.today": "Today",
+    "notifications.sections.yesterday": "Yesterday", 
+    "notifications.sections.this_week": "This Week",
+    "notifications.sections.earlier": "Earlier",
+    "notifications.recent" : "Recent",
+    'notifications.unread' : 'Not read',
 
     // Common actions
     "accept": "Accept",
@@ -3834,10 +3849,16 @@ const notifications = {
     "notifications": "Notifications",
     "no_notifications_yet": "No notifications yet",
     "connecting_to_notifications": "Connecting to notifications...",
-    "anonymous": "Anonymous"
+    "anonymous": "Anonymous",
+    'request_accepted' : "Request accepted",
+    "now_friends" : "You are friends now",
   },
   'fr': {
     // Notification translations - flattened structure (French)
+    "notifications.recent" : "Récent",
+    'notifications.unread' : 'Non lu',
+    'request_accepted' : "Demande acceptée",
+    "now_friends" : "Vous êtes à présent amis",
     "notifications.like.title": "Nouveau j'aime",
     "notifications.like.body": "{sender_display_name} a aimé votre publication",
     "notifications.like.push_title": "👍 J'aime",
@@ -4077,10 +4098,11 @@ const notifications = {
     "notifications.challenge_completed.email_body": "Félicitations ! Vous avez terminé avec succès le défi fitness. Bien joué !",
 
     // Section headers
-    "notification.section.today": "Aujourd'hui",
-    "notification.section.yesterday": "Hier", 
-    "notification.section.this_week": "Cette semaine",
-    "notification.section.earlier": "Plus tôt",
+    "notifications.title" : "Notifications",
+    "notifications.sections.today": "Aujourd'hui",
+    "notifications.sections.yesterday": "Hier", 
+    "notifications.sections.this_week": "Cette semaine",
+    "notifications.sections.earlier": "Plus tôt",
 
     // Common actions
     "accept": "Accepter",
@@ -4092,6 +4114,180 @@ const notifications = {
     "anonymous": "Anonyme"
   }
 };
+
+const notif_settings = {
+  'en':{
+  // Loading states
+  "loading_preferences": "Loading preferences...",
+  
+  // Common actions
+  "cancel": "Cancel",
+  "success": "Success",
+  "error": "Error",
+  
+  // Main sections
+  "push_notifications": "Push Notifications",
+  "social_notifications": "Social Notifications",
+  "workout_program_notifications": "Workout & Program Notifications",
+  "system_notifications": "System Notifications",
+  "email_notifications": "Email Notifications",
+  "notification_frequency": "Notification Frequency",
+  "notification_management": "Notification Management",
+  
+  // Master toggle
+  "enable_push_notifications": "Enable Push Notifications",
+  "receive_notifications_on_device": "Receive notifications on this device",
+  
+  // Social notification types
+  "likes": "Likes",
+  "when_someone_likes_your_post": "When someone likes your post",
+  "comments": "Comments",
+  "when_someone_comments_on_your_post": "When someone comments on your post",
+  "mentions": "Mentions",
+  "when_someone_mentions_you": "When someone mentions you in a post or comment",
+  "friend_requests": "Friend Requests",
+  "when_someone_sends_friend_request": "When someone sends you a friend request",
+  "shares": "Shares",
+  "when_someone_shares_your_content": "When someone shares your content",
+  
+  // Workout & program notifications
+  "workout_milestones": "Workout Milestones",
+  "workout_achievements_and_goals": "Workout achievements and goal completions",
+  "workout_invitations": "Workout Invitations",
+  "when_invited_to_group_workouts": "When you're invited to group workouts",
+  "workout_reminders": "Workout Reminders",
+  "scheduled_workout_reminders": "Reminders for your scheduled workouts",
+  "program_interactions": "Program Interactions",
+  "when_programs_are_used_or_forked": "When your programs are used or forked by others",
+  
+  // System notifications
+  "system_updates": "System Updates",
+  "app_updates_and_maintenance": "App updates and maintenance notifications",
+  "gym_announcements": "Gym Announcements",
+  "announcements_from_your_gym": "Announcements and news from your gym",
+  "challenges": "Challenges",
+  "challenge_invitations_and_results": "Challenge invitations and competition results",
+  
+  // Email notifications
+  "email_digest": "Email Digest",
+  "daily_summary_via_email": "Receive daily activity summary via email",
+  "email_weekly_summary": "Weekly Summary",
+  "weekly_activity_summary": "Weekly activity and progress summary",
+  
+  // Frequency settings
+  "instant_notifications": "Instant Notifications",
+  "receive_notifications_immediately": "Receive notifications immediately when they occur",
+  "quiet_hours": "Quiet Hours",
+  "no_notifications_during_sleep": "No notifications during your sleep hours (10 PM - 7 AM)",
+  
+  // Management actions
+  "clear_old_notifications": "Clear Old Notifications",
+  "remove_notifications_older_than_30_days": "Remove notifications older than 30 days",
+  "clear_all_notifications": "Clear All Notifications",
+  "remove_all_notifications_permanently": "Remove all notifications permanently",
+  
+  // Nested notification settings
+  "notifications": {
+    "settings": {
+      "clear_old_title": "Clear Old Notifications",
+      "clear_old_desc": "This will remove all notifications older than 30 days. This action cannot be undone.",
+      "clear_confirm": "Clear Old",
+      "clear_success": "Old notifications have been cleared successfully",
+      "clear_failed": "Failed to clear notifications. Please try again.",
+      "clear_all_title": "Clear All Notifications",
+      "clear_all_desc": "This will permanently remove ALL notifications. This action cannot be undone.",
+      "clear_all_confirm": "Clear All",
+      "clear_all_success": "All notifications have been cleared successfully"
+    }
+  }
+},
+fr:{
+  // États de chargement
+  "loading_preferences": "Chargement des préférences...",
+  
+  // Actions communes
+  "cancel": "Annuler",
+  "success": "Succès",
+  "error": "Erreur",
+  
+  // Sections principales
+  "push_notifications": "Notifications Push",
+  "social_notifications": "Notifications Sociales",
+  "workout_program_notifications": "Notifications d'Entraînement et de Programme",
+  "system_notifications": "Notifications Système",
+  "email_notifications": "Notifications Email",
+  "notification_frequency": "Fréquence des Notifications",
+  "notification_management": "Gestion des Notifications",
+  
+  // Commutateur principal
+  "enable_push_notifications": "Activer les Notifications Push",
+  "receive_notifications_on_device": "Recevoir les notifications sur cet appareil",
+  
+  // Types de notifications sociales
+  "likes": "J'aime",
+  "when_someone_likes_your_post": "Quand quelqu'un aime votre publication",
+  "comments": "Commentaires",
+  "when_someone_comments_on_your_post": "Quand quelqu'un commente votre publication",
+  "mentions": "Mentions",
+  "when_someone_mentions_you": "Quand quelqu'un vous mentionne dans une publication ou un commentaire",
+  "friend_requests": "Demandes d'Amitié",
+  "when_someone_sends_friend_request": "Quand quelqu'un vous envoie une demande d'amitié",
+  "shares": "Partages",
+  "when_someone_shares_your_content": "Quand quelqu'un partage votre contenu",
+  
+  // Notifications d'entraînement et de programme
+  "workout_milestones": "Étapes d'Entraînement",
+  "workout_achievements_and_goals": "Réalisations d'entraînement et accomplissement d'objectifs",
+  "workout_invitations": "Invitations d'Entraînement",
+  "when_invited_to_group_workouts": "Quand vous êtes invité à des entraînements de groupe",
+  "workout_reminders": "Rappels d'Entraînement",
+  "scheduled_workout_reminders": "Rappels pour vos entraînements programmés",
+  "program_interactions": "Interactions de Programme",
+  "when_programs_are_used_or_forked": "Quand vos programmes sont utilisés ou dupliqués par d'autres",
+  
+  // Notifications système
+  "system_updates": "Mises à Jour Système",
+  "app_updates_and_maintenance": "Mises à jour de l'application et notifications de maintenance",
+  "gym_announcements": "Annonces de Salle de Sport",
+  "announcements_from_your_gym": "Annonces et nouvelles de votre salle de sport",
+  "challenges": "Défis",
+  "challenge_invitations_and_results": "Invitations aux défis et résultats de compétitions",
+  
+  // Notifications email
+  "email_digest": "Résumé Email",
+  "daily_summary_via_email": "Recevoir un résumé quotidien d'activité par email",
+  "email_weekly_summary": "Résumé Hebdomadaire",
+  "weekly_activity_summary": "Résumé hebdomadaire d'activité et de progression",
+  
+  // Paramètres de fréquence
+  "instant_notifications": "Notifications Instantanées",
+  "receive_notifications_immediately": "Recevoir les notifications immédiatement quand elles se produisent",
+  "quiet_hours": "Heures Silencieuses",
+  "no_notifications_during_sleep": "Aucune notification pendant vos heures de sommeil (22h - 7h)",
+  
+  // Actions de gestion
+  "clear_old_notifications": "Effacer les Anciennes Notifications",
+  "remove_notifications_older_than_30_days": "Supprimer les notifications de plus de 30 jours",
+  "clear_all_notifications": "Effacer Toutes les Notifications",
+  "remove_all_notifications_permanently": "Supprimer définitivement toutes les notifications",
+  
+  // Paramètres de notifications imbriqués
+  "notifications": {
+    "settings": {
+      "clear_old_title": "Effacer les Anciennes Notifications",
+      "clear_old_desc": "Cela supprimera toutes les notifications de plus de 30 jours. Cette action ne peut pas être annulée.",
+      "clear_confirm": "Effacer Anciennes",
+      "clear_success": "Les anciennes notifications ont été effacées avec succès",
+      "clear_failed": "Échec de l'effacement des notifications. Veuillez réessayer.",
+      "clear_all_title": "Effacer Toutes les Notifications",
+      "clear_all_desc": "Cela supprimera définitivement TOUTES les notifications. Cette action ne peut pas être annulée.",
+      "clear_all_confirm": "Tout Effacer",
+      "clear_all_success": "Toutes les notifications ont été effacées avec succès"
+    }
+  }
+}
+}
+
 
 
 const translations: Translations = {
@@ -4118,6 +4314,7 @@ const translations: Translations = {
     ...group_workouts_page.en,
     ...more_analytics.en,
     ...notifications.en,
+    ...notif_settings.en,
   },
   fr: {
     ...common.fr,
@@ -4142,6 +4339,7 @@ const translations: Translations = {
     ...group_workouts_page.fr,
     ...more_analytics.fr,
     ...notifications.fr,
+    ...notif_settings.fr,
   }
 };
 

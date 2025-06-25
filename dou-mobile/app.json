@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dou",
     "slug": "dou-social-network-mobile-app",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon2.png",
     "scheme": "dou",
@@ -35,10 +35,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/app-icon2.png",
-          "imageWidth": 200,
+          "image": "./assets/images/dou-white.png",
+          "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#080f19"
         }
       ],
       "expo-secure-store",

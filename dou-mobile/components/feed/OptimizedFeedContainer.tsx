@@ -17,7 +17,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext'; 
 import { createThemedStyles } from '../../utils/createThemedStyles';
 import { useLanguage } from '@/context/LanguageContext';
-
+import CustomLoadingScreen from '../shared/CustomLoadingScreen';
 interface OptimizedFeedContainerProps {
   onLike: (postId: number, isLiked: boolean) => void;
   onReact: (postId: number, reactionType: string) => void;
@@ -251,10 +251,15 @@ const OptimizedFeedContainer: React.FC<OptimizedFeedContainerProps> = ({
 
   if (isLoading && !refreshing) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: palette.layout }]}>
-        <ActivityIndicator size="large" color={palette.accent} />
-        <Text style={[styles.loadingText, { color: palette.text }]}>Loading posts...</Text>
-      </View>
+      <CustomLoadingScreen 
+        animationType="pulse"
+        text={('loading')}
+        size='large'
+        preloadImages={true}
+        // style={{ backgroundColor: palette.layout }}
+        // textColor={palette.text}
+        // tintColor={palette.accent}
+      />
     );
   }
   

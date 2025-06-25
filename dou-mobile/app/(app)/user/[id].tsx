@@ -33,6 +33,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday
 import { ColorPalette, Personality, getColorPalette } from '../../../utils/colorConfig';
 // Import the TrainingConsistencyChart component
 import TrainingConsistencyChart from '../../../components/profile/TrainingConsistencyChart';
+import CustomLoadingScreen from '../../../components/shared/CustomLoadingScreen';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -463,12 +464,17 @@ export default function ProfilePreviewPage() {
           </View>
         </Modal>
       
-      {isLoading && !refreshing ? (
-        <View style={[styles.loadingContainer, { backgroundColor: userPalette.page_background }]}>
-          <ActivityIndicator size="large" color={userPalette.highlight} />
-          <Text style={[styles.loadingText, { color: `${userPalette.text}80` }]}>{t('loading_profile')}</Text>
-        </View>
-      ) : userError ? (
+        {isLoading && !refreshing ? (
+          <CustomLoadingScreen 
+            animationType="pulse"
+            text={t('loading_profile')}
+            size='large'
+            preloadImages={true}
+            // style={{ backgroundColor: userPalette.page_background }}
+            // textColor={userPalette.text}
+            // tintColor={userPalette.highlight}
+          />
+        ) : userError ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={40} color="#EF4444" />
           <Text style={[styles.errorText, { color: "#EF4444" }]}>{t('error')}</Text>

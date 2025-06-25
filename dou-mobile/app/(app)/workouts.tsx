@@ -22,7 +22,7 @@ import { programKeys } from '../../hooks/query/useProgramQuery';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
-
+import CustomLoadingScreen from '../../components/shared/CustomLoadingScreen';
 
 // Import custom components
 import ViewSelector, { VIEW_TYPES, VIEW_ORDER } from '../../components/workouts/ViewSelector';
@@ -814,10 +814,15 @@ export default function WorkoutsScreen() {
   // Render loading state
   if (isLoading() && !refreshing) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
-        <ActivityIndicator size="large" color={palette.highlight} />
-        <Text style={[styles.loadingText, { color: palette.text }]}>Loading...</Text>
-      </View>
+      <CustomLoadingScreen 
+        animationType="bounce"
+        text={t('loading')}
+        size='large'
+        preloadImages={true}
+        // style={{ backgroundColor: palette.page_background }}
+        // textColor={palette.text}
+        // tintColor={palette.highlight}
+      />
     );
   }
 

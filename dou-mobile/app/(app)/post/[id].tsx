@@ -32,6 +32,7 @@ import {
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
 import ProfilePreviewModal from '../../../components/profile/ProfilePreviewModal';
+import CustomLoadingScreen from '../../../components/shared/CustomLoadingScreen';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -308,13 +309,15 @@ export default function PostDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, dynamicStyles.loadingContainer]}>
-        <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color={palette.accent} />
-        <Text style={[styles.loadingText, dynamicStyles.loadingText]}>
-          {t('loading_post') || 'Loading post...'}
-        </Text>
-      </SafeAreaView>
+      <CustomLoadingScreen 
+        animationType="pulse"
+        size='large'
+        text={t('loading') || 'Loading post...'}
+        preloadImages={true}
+        // style={{ backgroundColor: palette.page_background }}
+        // textColor={palette.text}
+        // tintColor={palette.accent}
+      />
     );
   }
 

@@ -1,5 +1,5 @@
-// app/_layout.tsx - Cleaned and optimized version
-import { useEffect, useRef, useMemo } from 'react';
+// app/_layout.tsx - Enhanced with image preloading
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AppState, AppStateStatus } from 'react-native';
@@ -12,29 +12,148 @@ import { ThemeProvider } from '../context/ThemeContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { WorkoutProvider } from '../context/WorkoutContext';
 import { cacheManager } from '../utils/cacheManager';
+import { imageManager } from '../utils/imageManager';
+import CustomLoadingScreen from '../components/shared/CustomLoadingScreen';
 
 // Keep the splash screen visible
 SplashScreen.preventAutoHideAsync();
 
 // Create QueryClient with optimized settings for mobile - MEMOIZED
+// app/_layout.tsx - Improved QueryClient configuration
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false, // CRITICAL: Stop auto-refetch
-      refetchOnMount: false, // CRITICAL: Stop auto-refetch
+      retry: (failureCount, error: any) => {
+        // Don't retry on 4xx errors except 401 (handled by interceptor)
+        if (error?.response?.status >= 400 && error?.response?.status < 500 && error?.response?.status !== 401) {
+          return false;
+        }
+        return failureCount < 2; // Max 2 retries
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
+      staleTime: 2 * 60 * 1000, // 2 minutes (reduced from 5)
+      gcTime: 5 * 60 * 1000, // 5 minutes (reduced from 10)
+      
+      // ✅ Enable selective refetching
+      refetchOnWindowFocus: true,   // Refetch when app comes to foreground
+      refetchOnReconnect: true,     // Refetch when network reconnects
+      refetchOnMount: 'always',     // Always refetch on mount for fresh data
+      
+      // Network and performance optimizations
       networkMode: 'online',
-      // Add deduplication to prevent duplicate requests
       structuralSharing: true,
+      
+      // Add refetch interval for critical data (optional)
+      refetchInterval: false, // Disable by default, enable per query if needed
+      
+      // Reduce background refetch aggressiveness 
+      refetchIntervalInBackground: false,
     },
     mutations: {
       retry: 1,
+      networkMode: 'online',
     },
   },
 });
+
+// App initialization manager for images and critical resources
+function AppInitializationManager({ children }: { children: React.ReactNode }) {
+  const [initializationState, setInitializationState] = useState<{
+    criticalImagesLoaded: boolean;
+    appReady: boolean;
+    error: string | null;
+    progress: number;
+  }>({
+    criticalImagesLoaded: false,
+    appReady: false,
+    error: null,
+    progress: 0,
+  });
+
+  const initializationStarted = useRef(false);
+
+  useEffect(() => {
+    if (initializationStarted.current) return;
+    initializationStarted.current = true;
+
+    const initialize = async () => {
+      try {
+        console.log('🚀 Starting app initialization...');
+
+        // Step 1: Initialize cache manager
+        cacheManager.setQueryClient(queryClient);
+        setInitializationState(prev => ({ ...prev, progress: 20 }));
+
+        // Step 2: Preload critical images (loading screens) first
+        console.log('📸 Preloading critical images...');
+        await imageManager.preloadCriticalImages();
+        
+        setInitializationState(prev => ({ 
+          ...prev, 
+          criticalImagesLoaded: true, 
+          progress: 60 
+        }));
+
+        // Step 3: Preload essential image categories in background
+        console.log('📦 Preloading essential image categories...');
+        await Promise.all([
+          imageManager.preloadLocalImagesByCategory('icons'),
+          imageManager.preloadLocalImagesByCategory('personality').catch(err => {
+            console.warn('Non-critical: Failed to preload personality images:', err);
+          })
+        ]);
+
+        setInitializationState(prev => ({ ...prev, progress: 80 }));
+
+        // Step 4: Small delay to ensure all providers are mounted
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        setInitializationState(prev => ({ ...prev, progress: 100 }));
+
+        // Step 5: Mark app as ready
+        console.log('✅ App initialization complete');
+        setInitializationState(prev => ({ 
+          ...prev, 
+          appReady: true 
+        }));
+
+      } catch (error) {
+        console.error('❌ Error during app initialization:', error);
+        setInitializationState(prev => ({ 
+          ...prev, 
+          error: error instanceof Error ? error.message : 'Initialization failed',
+          appReady: true // Don't block the app
+        }));
+      }
+    };
+
+    initialize();
+  }, []);
+
+  // Show custom loading screen during initialization
+  if (!initializationState.appReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#080f19' }}>
+        <StatusBar style="light" />
+        <CustomLoadingScreen
+          text={
+            initializationState.progress < 60 
+              ? 'Initializing...' 
+              : initializationState.progress < 80
+              ? 'Loading images...'
+              : 'Almost ready...'
+          }
+          animationType="pulse"
+          size="large"
+          preloadImages={initializationState.criticalImagesLoaded}
+          style={{ backgroundColor: '#080f19' }}
+        />
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
 
 // Combined app state and background manager - SIMPLIFIED
 function AppLifecycleManager({ children }: { children: React.ReactNode }) {
@@ -138,34 +257,21 @@ const MemoizedProviders = ({ children }: { children: React.ReactNode }) => {
 
 export default function RootLayout() {
   const hideSplashComplete = useRef(false);
-  const initializationComplete = useRef(false);
 
-  // Single initialization effect
+  // Hide splash screen after initialization
   useEffect(() => {
-    if (initializationComplete.current) return;
-    
-    const initialize = async () => {
+    const hideSplash = async () => {
       try {
-        // Initialize cache manager first
-        cacheManager.setQueryClient(queryClient);
-        console.log('📋 Cache manager initialized');
+        // Wait a bit longer to ensure critical images are loaded
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Small delay to ensure all providers are mounted
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Hide splash screen
         if (!hideSplashComplete.current) {
           await SplashScreen.hideAsync();
           hideSplashComplete.current = true;
           console.log('✅ Splash screen hidden');
         }
-        
-        initializationComplete.current = true;
-        console.log('🚀 App initialization complete');
-        
       } catch (error) {
-        console.warn('⚠️ Error during app initialization:', error);
-        
+        console.warn('⚠️ Error hiding splash screen:', error);
         // Fallback splash screen hiding
         if (!hideSplashComplete.current) {
           try {
@@ -177,8 +283,8 @@ export default function RootLayout() {
         }
       }
     };
-    
-    initialize();
+
+    hideSplash();
   }, []);
 
   // Memoize the main app structure
@@ -191,11 +297,13 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppLifecycleManager>
-        <MemoizedProviders>
-          {appContent}
-        </MemoizedProviders>
-      </AppLifecycleManager>
+      <AppInitializationManager>
+        <AppLifecycleManager>
+          <MemoizedProviders>
+            {appContent}
+          </MemoizedProviders>
+        </AppLifecycleManager>
+      </AppInitializationManager>
     </QueryClientProvider>
   );
 }

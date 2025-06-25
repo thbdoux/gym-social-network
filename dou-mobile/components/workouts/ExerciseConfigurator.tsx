@@ -723,7 +723,7 @@ const ExerciseConfigurator = ({
                     color: workoutPalette.text
                   }
                 ]}
-                value={set.rest_time.toString()}
+                value={set.rest_time}
                 onChangeText={(text) => handleUpdateSet(index, 'rest_time', text)}
                 keyboardType="number-pad"
                 maxLength={3}
