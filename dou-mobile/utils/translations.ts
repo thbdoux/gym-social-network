@@ -15,12 +15,21 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    "access_denied": "Access Denied",
+    "no_permission_to_view_log": "You don't have permission to view this workout log. It may be private or you might not be friends with the owner.",
+    "log_does_not_exist": "This workout log doesn't exist or has been deleted.",
+    "something_went_wrong": "Something went wrong",
+    "unable_to_load_log": "We couldn't load this workout log. Please try again later.",
+    "no_permission_to_edit": "You don't have permission to edit this workout log.",
+    "no_permission_to_delete": "You don't have permission to delete this workout log.",
+    "failed_to_update_partners": "Failed to update workout partners. Please try again.",
+    "failed_to_update_gym": "Failed to update gym. Please try again.",
     loading_posts: 'loading posts',
     reply: 'reply',
     reply_to: 'type a reply',
     hide_replies: 'hide replies',
     view_replies: 'view replies',
-
+    hour: 'Time',
     w_ago:' week ago',
     h_ago: ' hour ago',
     mo_ago: ' month ago',
@@ -84,13 +93,23 @@ const common = {
     no_workout_partners_yet:'No partners yet...',
   },
   fr: {
+    date_time: 'Date & Heure',
     loading_posts: 'Chargement des posts',
     reply: 'Répondre',
     reply_to: 'Votre réponse',
     hide_replies: 'Cacher les réponses',
     view_replies: 'Voir les réponses',
-    
+    "access_denied": "Accès refusé",
+    "no_permission_to_view_log": "Vous n'avez pas l'autorisation de voir ce journal d'entraînement. Il peut être privé ou vous n'êtes peut-être pas ami avec le propriétaire.",
+    "log_does_not_exist": "Ce journal d'entraînement n'existe pas ou a été supprimé.",
+    "something_went_wrong": "Quelque chose s'est mal passé",
+    "unable_to_load_log": "Nous n'avons pas pu charger ce journal d'entraînement. Veuillez réessayer plus tard.",
+    "no_permission_to_edit": "Vous n'avez pas l'autorisation de modifier ce journal d'entraînement.",
+    "no_permission_to_delete": "Vous n'avez pas l'autorisation de supprimer ce journal d'entraînement.",
+    "failed_to_update_partners": "Impossible de mettre à jour les partenaires d'entraînement. Veuillez réessayer.",
+    "failed_to_update_gym": "Impossible de mettre à jour la salle de sport. Veuillez réessayer.",
     w_ago:' semaine plus tôt',
+    hour: 'Heure',
     h_ago: ' heure plus tôt',
     mo_ago: ' mois plus tôt',
     no_programs_created : 'Aucun programme',
@@ -217,6 +236,7 @@ const post_creation = {
         share_post: 'Share this post',
         group_workout: 'Group Workout',
         workout_log: 'Workout Log',
+        workout_logs: 'Workout Logs',
         workout_invite: 'Workout Invite',
         whats_on_your_mind: "What's on your mind?",
         add_program_note: 'Add a note about this program...',
@@ -240,8 +260,14 @@ const post_creation = {
         select_workout_log: 'Select Workout Log',
         search_workouts : 'Search',
         search_program : 'Search',
+        edit_date: 'Edit Date',
+        enter_date_dd_mm_yyyy: "Required format : DD/MM/YYYY",
+        tap_to_edit : 'Tap to edit'
     },
     fr: {
+        tap_to_edit : 'Appuyer pour modifier',
+        edit_date: 'Modifier la date',
+        enter_date_dd_mm_yyyy: "Format requis : JJ/MM/AAAA",
         create_post: 'Créer une publication',
         regular_post: 'Publication',
         share_workout: 'Partager un entraînement',
@@ -249,6 +275,7 @@ const post_creation = {
         share_post: 'Partager le post',
         group_workout: 'Entraînement en groupe',
         workout_log: 'Entraînement',
+        workout_logs: 'Entraînements',
         workout_invite: 'Invitation à l\'entraînement',
         whats_on_your_mind: 'Quoi de neuf?',
         add_program_note: 'Ajouter une note à propos de ce programme...',
@@ -277,6 +304,7 @@ const post_creation = {
 // Workout-related translations
 const workout = {
   en: {
+    enter_new_log_name: 'Enter new workout name',
     workouts: 'Workouts',
     workout: 'Workout',
     workout_history: 'Workout History',
@@ -343,6 +371,7 @@ const workout = {
     weight_kg: 'Weight (kg)',
   },
   fr: {
+    enter_new_log_name: 'Entrez un nouveau nom d\'entraînement',
     primary: "Principal",
     secondary:"Secondaire",
     weight_unit: 'Unité de mesure (poids)',

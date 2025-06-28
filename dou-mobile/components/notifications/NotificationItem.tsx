@@ -41,7 +41,6 @@ export const NotificationItem: React.FC<NotificationItemProps> = React.memo(({
   
   // Enhanced data fetching
   const { data: userData } = useUser(notification.sender);
-  console.log(userData)
   const shouldFetchPost = notification.object_id && 
     ['like', 'comment', 'comment_reply', 'mention', 'post_reaction', 'comment_reaction', 'share'].includes(notification.notification_type);
   const { data: postData } = usePost(shouldFetchPost ? notification.object_id : null);

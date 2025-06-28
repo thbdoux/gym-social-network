@@ -340,7 +340,7 @@ class WorkoutLogSerializer(serializers.ModelSerializer):
         model = WorkoutLog
         fields = [
            'id', 'name', 'user', 'username', 'program', 'program_name',
-           'based_on_instance', 'based_on_instance_id', 'date', 'gym', 'gym_name',
+           'based_on_instance', 'based_on_instance_id', 'date','duration', 'gym', 'gym_name',
            'notes', 'completed', 'mood_rating', 'perceived_difficulty', 
            'performance_notes', 'media', 'exercises', 'created_at',
            'workout_partners', 'workout_partners_usernames', 'workout_partners_details'

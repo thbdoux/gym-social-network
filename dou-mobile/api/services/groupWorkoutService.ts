@@ -78,6 +78,14 @@ const groupWorkoutService = {
   getGroupWorkouts: async (filters?: Record<string, any>): Promise<GroupWorkout[]> => {
     const queryString = filters ? new URLSearchParams(filters).toString() : '';
     const response = await apiClient.get(`/workouts/group-workouts/${queryString ? `?${queryString}` : ''}`);
+    console.log('QUERY STRING : ', queryString),
+    console.log(response.data)
+    return extractData(response);
+  },
+
+  getUserGroupWorkouts: async (userId: number, filters?: Record<string, any>): Promise<GroupWorkout[]> => {
+    const queryString = filters ? new URLSearchParams(filters).toString() : '';
+    const response = await apiClient.get(`/workouts/group-workouts/user/${userId}/${queryString ? `?${queryString}` : ''}`);
     return extractData(response);
   },
 

@@ -1,5 +1,5 @@
-// app/(app)/group-workout/[id].tsx - Enhanced Event Planning Style with Voting
-import React, { useState, useEffect } from 'react';
+// app/(app)/group-workout/[id].tsx - Enhanced Event Planning Style with Animated Header
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -9,8 +9,8 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
-  ScrollView,
-  Alert
+  Alert,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -29,7 +29,7 @@ import { useWorkoutTemplates } from '../../../hooks/query/useWorkoutQuery';
 import groupWorkoutService from '../../../api/services/groupWorkoutService';
 
 // Components
-import CompactHeader from './CompactHeader';
+import { Header } from './components/Header';
 import WorkoutCard from '../../../components/workouts/WorkoutCard';
 import ActionButtons from './ActionButtons';
 import EnhancedChatPreview from './EnhancedChatPreview';
@@ -73,6 +73,10 @@ export default function GroupWorkoutDetailScreen() {
   // Get theme context - NOW USING GROUP WORKOUT PALETTE
   const { groupWorkoutPalette, palette } = useTheme();
   
+  // Scroll animation setup
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [headerHeight, setHeaderHeight] = useState(280);
+  
   // Create dynamic theme colors with enhanced gradient support
   const COLORS = {
     primary: groupWorkoutPalette.background,
@@ -111,6 +115,7 @@ export default function GroupWorkoutDetailScreen() {
   // Participants state
   const [invitedParticipants, setInvitedParticipants] = useState([]);
   const [confirmedParticipants, setConfirmedParticipants] = useState([]);
+  const [selectedGym, setSelectedGym] = useState(null);
   
   // Hooks
   const { user } = useAuth();
@@ -127,6 +132,13 @@ export default function GroupWorkoutDetailScreen() {
       fetchParticipants();
     }
   }, [groupWorkoutId]);
+
+  // Set selected gym from workout data
+  useEffect(() => {
+    if (groupWorkout?.gym_details) {
+      setSelectedGym(groupWorkout.gym_details);
+    }
+  }, [groupWorkout]);
 
   const fetchParticipants = async () => {
     try {
@@ -146,6 +158,43 @@ export default function GroupWorkoutDetailScreen() {
     await refetch();
     await refetchMostVoted();
     await fetchParticipants();
+  };
+  
+  // Handle field updates from the animated header
+  const handleFieldUpdate = async (field: string, value: any) => {
+    try {
+      await groupWorkoutService.updateGroupWorkout(groupWorkoutId, {
+        [field]: value
+      });
+      await refreshData();
+    } catch (error) {
+      console.error(`Failed to update ${field}:`, error);
+      Alert.alert(t('error'), t('failed_to_update_workout'));
+    }
+  };
+
+  // Handle workout deletion
+  const handleDeleteWorkout = () => {
+    Alert.alert(
+      t('delete_workout'),
+      t('are_you_sure_delete_workout'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await groupWorkoutService.deleteGroupWorkout(groupWorkoutId);
+              router.back();
+            } catch (error) {
+              console.error('Failed to delete workout:', error);
+              Alert.alert(t('error'), t('failed_to_delete_workout'));
+            }
+          }
+        }
+      ]
+    );
   };
   
   // Count pending join requests
@@ -240,28 +289,40 @@ export default function GroupWorkoutDetailScreen() {
   const isOfficialTemplate = groupWorkout.workout_template === displayWorkoutId;
   
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: COLORS.background }]}>
+    <View style={[styles.container, { backgroundColor: COLORS.background }]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       
-      {/* Compact Header without Participants */}
-      <CompactHeader 
+      {/* Animated Header */}
+      <Header
+        scrollY={scrollY}
         groupWorkout={groupWorkout}
         colors={COLORS}
-        onBackPress={() => router.back()}
+        isCreator={groupWorkout.is_creator}
+        selectedGym={selectedGym}
+        participantsCount={confirmedParticipants.length}
+        maxParticipants={groupWorkout.max_participants || 0}
+        onBack={() => router.back()}
+        onDeleteWorkout={handleDeleteWorkout}
         onSharePress={() => setShowSharePostModal(true)}
-        onJoinRequestsPress={() => setShowJoinRequestsModal(true)}
         onEditPress={() => setShowEditModal(true)}
         onInvitePress={() => setShowInviteModal(true)}
-        isCreator={groupWorkout.is_creator}
-        isParticipant={isParticipant()}
-        pendingRequestsCount={pendingRequestsCount}
+        onFieldUpdate={handleFieldUpdate}
+        onHeaderHeightChange={setHeaderHeight}
       />
       
-      {/* Main Content - Event Planning Style */}
-      <ScrollView 
+      {/* Main Content - Event Planning Style with Animated ScrollView */}
+      <Animated.ScrollView 
         style={styles.scrollContainer} 
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingTop: headerHeight + 20 } // Add padding for header + extra space
+        ]}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       >
         {/* Participants Display Section - Moved outside header */}
         <View style={styles.section}>
@@ -382,7 +443,7 @@ export default function GroupWorkoutDetailScreen() {
         
         {/* Bottom spacing for better UX */}
         <View style={styles.bottomSpacing} />
-      </ScrollView>
+      </Animated.ScrollView>
       
       {/* All Modals */}
       <ParticipantsModal
@@ -472,14 +533,13 @@ export default function GroupWorkoutDetailScreen() {
         onSelect={handleSubmitWorkoutTemplate}
         forProposal={true}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContainer: {
     flex: 1,
@@ -641,19 +701,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 6,
   },
-  selectMostVotedButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-  },
-  selectMostVotedText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  }
 });

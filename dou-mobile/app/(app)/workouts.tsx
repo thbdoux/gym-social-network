@@ -163,7 +163,7 @@ export default function WorkoutsScreen() {
     data: joinedGroupWorkouts = [],
     isLoading: joinedGroupWorkoutsLoading,
     refetch: refetchJoinedGroupWorkouts
-  } = useUserJoinedGroupWorkouts();
+  } = useUserJoinedGroupWorkouts(user?.id);
   
   const getAllGroupWorkouts = () => {
     const workoutsMap = new Map();

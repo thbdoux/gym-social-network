@@ -37,22 +37,55 @@ export const useActiveGroupWorkouts = () => {
   return useGroupWorkouts({ status: 'active' });
 };
 
-// Get workout groups created by a specific user
-export const useUserCreatedGroupWorkouts = (userId) => {
+// Get group workouts for a specific user
+export const useUserGroupWorkouts = (userId: number, filters = {}) => {
   return useQuery({
-    queryKey: groupWorkoutKeys.userWorkouts(userId),
-    queryFn: () => groupWorkoutService.getGroupWorkouts({ 
-      participation: 'created', 
-      user_id: userId 
-    }),
+    queryKey: [...groupWorkoutKeys.lists(), 'user', userId, filters],
+    queryFn: () => groupWorkoutService.getUserGroupWorkouts(userId, filters),
     enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 };
 
-// Get group workouts that the user has joined
-export const useUserJoinedGroupWorkouts = () => {
-  return useGroupWorkouts({ participation: 'joined' });
+// Get group workouts created by a specific user
+export const useUserCreatedGroupWorkouts = (userId: number) => {
+  return useUserGroupWorkouts(userId, { participation: 'created' });
 };
+
+// Get group workouts joined by a specific user
+export const useUserJoinedGroupWorkouts = (userId: number) => {
+  return useUserGroupWorkouts(userId, { participation: 'joined' });
+};
+
+// Get group workouts where user was invited
+export const useUserInvitedGroupWorkouts = (userId: number) => {
+  return useUserGroupWorkouts(userId, { participation: 'invited' });
+};
+
+// // Get workout groups created by a specific user
+// export const useUserCreatedGroupWorkouts = (userId) => {
+//   return useQuery({
+//     queryKey: groupWorkoutKeys.userWorkouts(userId),
+//     queryFn: () => groupWorkoutService.getGroupWorkouts({ 
+//       participation: 'created', 
+//       user_id: userId 
+//     }),
+//     enabled: !!userId,
+//   });
+// };
+
+// // Get group workouts that the user has joined
+// export const useUserJoinedGroupWorkouts = (userId?: number) => {
+//   return useQuery({
+//     queryKey: [...groupWorkoutKeys.lists(), 'joined', userId],
+//     queryFn: () => groupWorkoutService.getGroupWorkouts({ 
+//       participation: 'joined', 
+//       user_id: userId 
+//     }),
+//     enabled: !!userId,
+//     staleTime: 1000 * 60 * 2, // 2 minutes
+//   });
+// };
 
 // Get group workout by id
 export const useGroupWorkout = (id) => {

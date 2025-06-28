@@ -19,7 +19,6 @@ interface SocketMessage {
 export const useNotificationSocket = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<SocketMessage | null>(null);
-  const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
   const socketRef = useRef<WebSocket | null>(null);
@@ -27,11 +26,16 @@ export const useNotificationSocket = () => {
   const { isAuthenticated, user } = useAuth();
   const { t } = useLanguage();
   
+  // Use refs to avoid stale closures and dependency issues
+  const connectionAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY = 3000; // 3 seconds
   const HEARTBEAT_INTERVAL = 30000; // 30 seconds
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Remove connectionAttempts from dependencies to prevent infinite loops
   const connectSocket = useCallback(async () => {
     // Only try to connect if user is authenticated
     if (!isAuthenticated || !user) {
@@ -61,11 +65,17 @@ export const useNotificationSocket = () => {
         heartbeatRef.current = null;
       }
       
+      // Clear any pending reconnection attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
       // Extract base URL without the /api path
       const baseUrl = API_BASE_URL.replace(/^https?:\/\//, '').replace('/api', '');
       
       // Create WebSocket connection with token
-      const wsUrl = `wss://${baseUrl}/ws/notifications/?token=${token}`;
+      const wsUrl = `ws://${baseUrl}/ws/notifications/?token=${token}`;
       
       console.log('🔌 Connecting to WebSocket:', wsUrl.replace(token, '[TOKEN]'));
       
@@ -74,7 +84,7 @@ export const useNotificationSocket = () => {
       socket.onopen = () => {
         console.log('✅ WebSocket connected successfully');
         setIsConnected(true);
-        setConnectionAttempts(0);
+        connectionAttemptsRef.current = 0; // Reset attempts on successful connection
         setError(null);
         
         // Start heartbeat to keep connection alive
@@ -168,11 +178,18 @@ export const useNotificationSocket = () => {
         }
         
         // Try to reconnect if not a normal closure and under max attempts
-        if (event.code !== 1000 && event.code !== 4003 && connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
-          console.log(`🔄 Attempting to reconnect (${connectionAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
-          setConnectionAttempts(prev => prev + 1);
-          setTimeout(connectSocket, RECONNECT_DELAY);
-        } else if (connectionAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        if (event.code !== 1000 && event.code !== 4003 && connectionAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          console.log(`🔄 Attempting to reconnect (${connectionAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+          connectionAttemptsRef.current += 1;
+          
+          // Use ref to avoid creating new timeouts if one is already pending
+          if (!reconnectTimeoutRef.current) {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              reconnectTimeoutRef.current = null;
+              connectSocket();
+            }, RECONNECT_DELAY);
+          }
+        } else if (connectionAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
           console.log('❌ Max reconnection attempts reached');
           setError('Unable to reconnect to notifications');
         }
@@ -184,12 +201,10 @@ export const useNotificationSocket = () => {
       console.error('❌ Error connecting to notification socket:', error);
       setError('Failed to connect to notifications');
     }
-  }, [isAuthenticated, user?.id, connectionAttempts]);
+  }, [isAuthenticated, user?.id]); // Remove connectionAttempts dependency
   
   // Handle new notification received via WebSocket
   const handleNewNotification = useCallback((notification: Notification) => {
-    
-    
     // Optionally update cache directly for immediate UI updates
     queryClient.setQueryData(notificationKeys.lists(), (oldData: Notification[] = []) => {
       // Add new notification to the beginning of the list
@@ -221,6 +236,12 @@ export const useNotificationSocket = () => {
       heartbeatRef.current = null;
     }
     
+    // Clear any pending reconnections
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
     if (socketRef.current) {
       socketRef.current.close(1000, 'User logout or manual disconnect');
       socketRef.current = null;
@@ -228,7 +249,7 @@ export const useNotificationSocket = () => {
     
     setIsConnected(false);
     setError(null);
-    setConnectionAttempts(0);
+    connectionAttemptsRef.current = 0; // Reset attempts
   }, []);
   
   const sendMessage = useCallback((message: any) => {
@@ -303,7 +324,7 @@ export const useNotificationSocket = () => {
   // Force reconnection
   const reconnect = useCallback(() => {
     console.log('🔄 Forcing WebSocket reconnection');
-    setConnectionAttempts(0);
+    connectionAttemptsRef.current = 0;
     setError(null);
     disconnectSocket();
     setTimeout(connectSocket, 1000);
@@ -330,6 +351,9 @@ export const useNotificationSocket = () => {
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       disconnectSocket();
     };
   }, [disconnectSocket]);
@@ -338,7 +362,7 @@ export const useNotificationSocket = () => {
     isConnected,
     lastMessage,
     error,
-    connectionAttempts,
+    connectionAttempts: connectionAttemptsRef.current, // Expose current value
     markAsRead,
     markAllAsRead,
     reconnect,

@@ -219,6 +219,7 @@ class SetInstance(BaseSet):
 class WorkoutLog(models.Model):
     """Record of an actual performed workout"""
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='workout_logs')
+    duration = models.PositiveIntegerField(null=True, blank=True, help_text="Workout duration in minutes")
     based_on_instance = models.ForeignKey(WorkoutInstance, on_delete=models.SET_NULL, null=True,
                                         help_text="Original instance this workout was based on")
     program = models.ForeignKey(Program, on_delete=models.SET_NULL, null=True, blank=True)

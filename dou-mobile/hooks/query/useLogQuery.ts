@@ -58,12 +58,38 @@ export const usePartnerLogs = () => {
   });
 };
 
-// Get log by id
+// Enhanced log fetching with better error handling
 export const useLog = (logId) => {
   return useQuery({
     queryKey: logKeys.detail(logId),
-    queryFn: () => logService.getLogById(logId),
+    queryFn: async () => {
+      try {
+        return await logService.getLogById(logId);
+      } catch (error) {
+        // Enhance error with type information for better handling
+        if (error.response?.status === 403) {
+          const enhancedError = new Error('Access denied to this workout log');
+          enhancedError.name = 'UNAUTHORIZED';
+          enhancedError.status = 403;
+          throw enhancedError;
+        } else if (error.response?.status === 404) {
+          const enhancedError = new Error('Workout log not found');
+          enhancedError.name = 'NOT_FOUND';
+          enhancedError.status = 404;
+          throw enhancedError;
+        }
+        // Re-throw other errors as-is
+        throw error;
+      }
+    },
     enabled: !!logId,
+    retry: (failureCount, error) => {
+      // Don't retry on permission errors
+      if (error?.name === 'UNAUTHORIZED' || error?.name === 'NOT_FOUND') {
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
 };
 
