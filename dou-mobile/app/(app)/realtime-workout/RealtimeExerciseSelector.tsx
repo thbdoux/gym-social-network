@@ -180,8 +180,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
         id: exercise.id,
         name: getExerciseName(exercise, t),
         nameKey: exercise.nameKey,
-        equipment: getEquipmentName(exercise, t),
-        equipmentKey: exercise.equipmentKey,
+        equipment: exercise.equipmentKey,
         muscle_group: getTargetMuscleName(exercise, t),
         targetMuscleKey: exercise.targetMuscleKey,
         secondary_muscles: getSecondaryMuscleNames(exercise, t),
@@ -287,6 +286,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
   
   // Render each exercise item
   const renderExerciseItem = useCallback(({ item }) => (
+
     <TouchableOpacity
       style={[styles.exerciseItem, { backgroundColor: themePalette.card_background }]}
       onPress={() => onSelectExercise(item)}
@@ -358,7 +358,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
               { backgroundColor: `${themePalette.accent}30` }
             ]}>
               <Text style={[styles.exerciseTagText, { color: themePalette.accent }]}>
-                {item.equipment}
+                {t(item.equipment)}
               </Text>
             </View>
           )}

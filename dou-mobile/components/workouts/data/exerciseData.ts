@@ -64,7 +64,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'c5', 
         nameKey: 'exercise_cable_crossover', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_pectorals', 
         secondaryMuscleKeys: ['muscle_anterior_deltoids'],
         difficulty: 'intermediate',
@@ -154,7 +154,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'c15', 
         nameKey: 'exercise_cable_flyes', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_pectorals', 
         secondaryMuscleKeys: ['muscle_anterior_deltoids'],
         difficulty: 'intermediate',
@@ -179,7 +179,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'b2', 
         nameKey: 'exercise_lat_pulldown', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_latissimus_dorsi', 
         secondaryMuscleKeys: ['muscle_biceps', 'muscle_posterior_deltoids'],
         difficulty: 'beginner',
@@ -197,7 +197,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'b4', 
         nameKey: 'exercise_seated_cable_row', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_middle_back', 
         secondaryMuscleKeys: ['muscle_biceps', 'muscle_posterior_deltoids'],
         difficulty: 'beginner',
@@ -287,7 +287,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'b14', 
         nameKey: 'exercise_wide_grip_lat_pulldown', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_latissimus_dorsi', 
         secondaryMuscleKeys: ['muscle_biceps', 'muscle_posterior_deltoids'],
         difficulty: 'beginner',
@@ -296,7 +296,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'b15', 
         nameKey: 'exercise_cable_reverse_flyes', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_posterior_deltoids', 
         secondaryMuscleKeys: ['muscle_rhomboids', 'muscle_middle_back'],
         difficulty: 'beginner',
@@ -330,7 +330,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 's3', 
         nameKey: 'exercise_face_pulls', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_posterior_deltoids', 
         secondaryMuscleKeys: ['muscle_rhomboids', 'muscle_middle_back'],
         difficulty: 'beginner',
@@ -348,7 +348,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 's5', 
         nameKey: 'exercise_shrugs', 
-        equipmentKey: 'equipment_dumbbells_barbell', 
+        equipmentKey: 'equipment_dumbbells', 
         targetMuscleKey: 'muscle_trapezius', 
         secondaryMuscleKeys: ['muscle_rhomboids'],
         difficulty: 'beginner',
@@ -402,7 +402,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 's11', 
         nameKey: 'exercise_cable_lateral_raise', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_lateral_deltoids', 
         secondaryMuscleKeys: ['muscle_trapezius'],
         difficulty: 'beginner',
@@ -438,7 +438,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 's15', 
         nameKey: 'exercise_cable_front_raise', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_anterior_deltoids', 
         secondaryMuscleKeys: ['muscle_upper_pectorals'],
         difficulty: 'beginner',
@@ -454,7 +454,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'a1', 
         nameKey: 'exercise_bicep_curls', 
-        equipmentKey: 'equipment_dumbbells_barbell', 
+        equipmentKey: 'equipment_dumbbells', 
         targetMuscleKey: 'muscle_biceps', 
         secondaryMuscleKeys: ['muscle_forearms'],
         difficulty: 'beginner',
@@ -463,7 +463,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'a2', 
         nameKey: 'exercise_tricep_pushdowns', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_triceps', 
         secondaryMuscleKeys: [],
         difficulty: 'beginner',
@@ -481,7 +481,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'a4', 
         nameKey: 'exercise_skull_crushers', 
-        equipmentKey: 'equipment_barbell_ez_bar', 
+        equipmentKey: 'equipment_barbell', 
         targetMuscleKey: 'muscle_triceps', 
         secondaryMuscleKeys: [],
         difficulty: 'intermediate',
@@ -499,7 +499,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'a6', 
         nameKey: 'exercise_preacher_curls', 
-        equipmentKey: 'equipment_barbell_ez_bar', 
+        equipmentKey: 'equipment_barbell', 
         targetMuscleKey: 'muscle_biceps', 
         secondaryMuscleKeys: [],
         difficulty: 'intermediate',
@@ -562,7 +562,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'a13', 
         nameKey: 'exercise_cable_bicep_curls', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_biceps', 
         secondaryMuscleKeys: ['muscle_forearms'],
         difficulty: 'beginner',
@@ -614,7 +614,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'l3', 
         nameKey: 'exercise_lunges', 
-        equipmentKey: 'equipment_bodyweight_dumbbells', 
+        equipmentKey: 'equipment_dumbbells', 
         targetMuscleKey: 'muscle_quadriceps_glutes', 
         secondaryMuscleKeys: ['muscle_hamstrings', 'muscle_calves', 'muscle_core'],
         difficulty: 'beginner',
@@ -650,7 +650,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'l7', 
         nameKey: 'exercise_calf_raises', 
-        equipmentKey: 'equipment_machine_bodyweight', 
+        equipmentKey: 'equipment_machine', 
         targetMuscleKey: 'muscle_calves', 
         secondaryMuscleKeys: [],
         difficulty: 'beginner',
@@ -695,7 +695,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'l12', 
         nameKey: 'exercise_goblet_squats', 
-        equipmentKey: 'equipment_dumbbell_kettlebell', 
+        equipmentKey: 'equipment_dumbbell', 
         targetMuscleKey: 'muscle_quadriceps_glutes', 
         secondaryMuscleKeys: ['muscle_hamstrings', 'muscle_core'],
         difficulty: 'beginner',
@@ -783,7 +783,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'ab3', 
         nameKey: 'exercise_russian_twists', 
-        equipmentKey: 'equipment_bodyweight_weight', 
+        equipmentKey: 'equipment_bodyweight', 
         targetMuscleKey: 'muscle_obliques', 
         secondaryMuscleKeys: ['muscle_rectus_abdominis'],
         difficulty: 'beginner',
@@ -846,7 +846,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'ab10', 
         nameKey: 'exercise_cable_wood_chops', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_obliques', 
         secondaryMuscleKeys: ['muscle_core', 'muscle_shoulders'],
         difficulty: 'intermediate',
@@ -891,7 +891,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'ab15', 
         nameKey: 'exercise_cable_crunches', 
-        equipmentKey: 'equipment_cable_machine', 
+        equipmentKey: 'equipment_cable', 
         targetMuscleKey: 'muscle_rectus_abdominis', 
         secondaryMuscleKeys: [],
         difficulty: 'beginner',
@@ -925,7 +925,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'ca3', 
         nameKey: 'exercise_cycling', 
-        equipmentKey: 'equipment_machine_bicycle', 
+        equipmentKey: 'equipment_machine', 
         targetMuscleKey: 'muscle_cardiovascular_system_legs', 
         secondaryMuscleKeys: ['muscle_glutes', 'muscle_calves'],
         difficulty: 'beginner',
@@ -954,7 +954,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
         nameKey: 'exercise_burpees', 
         equipmentKey: 'equipment_bodyweight', 
         targetMuscleKey: 'muscle_cardiovascular_system_full_body', 
-        secondaryMuscleKeys: ['muscle_legs', 'muscle_chest', 'muscle_shoulders', 'muscle_core'],
+        secondaryMuscleKeys: ['muscle_legs', 'muscle_pectorals', 'muscle_shoulders', 'muscle_core'],
         difficulty: 'intermediate',
         effort_type: 'reps'
       },
@@ -1094,7 +1094,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'f6', 
         nameKey: 'exercise_farmers_walk', 
-        equipmentKey: 'equipment_dumbbells_kettlebells', 
+        equipmentKey: 'equipment_dumbbells', 
         targetMuscleKey: 'muscle_grip_core_legs', 
         secondaryMuscleKeys: ['muscle_shoulders', 'muscle_back', 'muscle_forearms'],
         difficulty: 'intermediate',
@@ -1159,7 +1159,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
         nameKey: 'exercise_man_makers', 
         equipmentKey: 'equipment_dumbbells', 
         targetMuscleKey: 'muscle_full_body', 
-        secondaryMuscleKeys: ['muscle_shoulders', 'muscle_chest', 'muscle_core', 'muscle_legs'],
+        secondaryMuscleKeys: ['muscle_shoulders', 'muscle_pectorals', 'muscle_core', 'muscle_legs'],
         difficulty: 'advanced',
         effort_type: 'reps'
       },
@@ -1175,7 +1175,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
       { 
         id: 'f15', 
         nameKey: 'exercise_overhead_carry', 
-        equipmentKey: 'equipment_dumbbells_kettlebells', 
+        equipmentKey: 'equipment_dumbbells', 
         targetMuscleKey: 'muscle_shoulders_core', 
         secondaryMuscleKeys: ['muscle_back', 'muscle_legs'],
         difficulty: 'intermediate',
@@ -1188,10 +1188,12 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
 // Enhanced equipment types with Smith Machine
 export const EQUIPMENT_TYPES = [
   { id: 'barbell', nameKey: 'equipment_barbell', iconName: 'barbell-outline' },
-  { id: 'dumbbell', nameKey: 'equipment_dumbbells', iconName: 'barbell-outline' },
+  { id: 'dumbbells', nameKey: 'equipment_dumbbells', iconName: 'barbell-outline' },
+  { id: 'dumbbell', nameKey: 'equipment_dumbbell', iconName: 'barbell-outline' },
   { id: 'kettlebell', nameKey: 'equipment_kettlebell', iconName: 'fitness-outline' },
+  { id: 'kettlebells', nameKey: 'equipment_kettlebells', iconName: 'fitness-outline' },
   { id: 'machine', nameKey: 'equipment_machine', iconName: 'construct-outline' },
-  { id: 'cable', nameKey: 'equipment_cable_machine', iconName: 'git-network-outline' },
+  { id: 'cable', nameKey: 'equipment_cable', iconName: 'git-network-outline' },
   { id: 'smith_machine', nameKey: 'equipment_smith_machine', iconName: 'grid-outline' },
   { id: 'bodyweight', nameKey: 'equipment_bodyweight', iconName: 'body-outline' },
   { id: 'resistance_bands', nameKey: 'equipment_resistance_bands', iconName: 'infinite-outline' },

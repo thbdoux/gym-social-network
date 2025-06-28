@@ -1,4 +1,3 @@
-// context/AuthContext.tsx - Simplified version
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
@@ -6,7 +5,6 @@ import userService from '../api/services/userService';
 import { useQueryClient } from '@tanstack/react-query';
 import { userKeys } from '../hooks/query/useUserQuery';
 import { authEvents } from '../api/utils/authEvents';
-import { AppState } from 'react-native';
 
 interface User {
   id: number;
@@ -20,6 +18,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitialized: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -33,82 +32,137 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Simple flags to prevent multiple operations
   const initializationComplete = useRef(false);
   const isLoggingOut = useRef(false);
 
-  // Check auth status only once on mount
-  const checkAuthStatus = useCallback(async () => {
-    if (initializationComplete.current) return;
-    
-    console.log('🔍 Checking auth status...');
-    
-    try {
-      const token = await SecureStore.getItemAsync('token');
-      
-      if (!token) {
-        console.log('❌ No token found');
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsLoading(false);
-        initializationComplete.current = true;
-        return;
-      }
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('🔄 AuthContext state:', { 
+      isAuthenticated, 
+      isLoading, 
+      isInitialized, 
+      hasUser: !!user,
+      error: !!error 
+    });
+  }, [isAuthenticated, isLoading, isInitialized, user, error]);
 
-      console.log('📱 Token found, verifying...');
-      const userData = await userService.getCurrentUser();
-      
-      console.log('✅ User verified');
-      setUser(userData);
-      setIsAuthenticated(true);
-      setError(null);
-      
-      // Cache user data
-      queryClient.setQueryData(userKeys.current(), userData);
-      
-    } catch (error: any) {
-      console.log('🚨 Auth verification failed:', error?.response?.status);
-      
-      // Don't clear token here - let the API interceptor handle it with refresh
-      if (error?.response?.status !== 401) {
-        setError('Authentication verification failed');
-      }
-      
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-      initializationComplete.current = true;
-    }
-  }, [queryClient]);
-
-  // Handle logout from auth events (token refresh failure)
-  const handleTokenExpired = useCallback(async () => {
+  // Enhanced logout function
+  const performLogout = useCallback(async (reason = 'Manual logout') => {
     if (isLoggingOut.current) return;
-    
     isLoggingOut.current = true;
-    console.log('🚪 Token expired, logging out...');
+    
+    console.log('🚪 AuthContext logout:', reason);
     
     try {
+      // Clear tokens
+      await SecureStore.deleteItemAsync('token');
+      await SecureStore.deleteItemAsync('refreshToken');
+      
+      // Update state immediately
       setUser(null);
       setIsAuthenticated(false);
       setError(null);
+      setIsInitialized(true);
       
-      // Clear cache
+      // Clear all cached data
       queryClient.clear();
       
+      console.log('✅ AuthContext logout completed');
+      
     } catch (error) {
-      console.error('Error during token expiry logout:', error);
+      console.error('Error during AuthContext logout:', error);
     } finally {
       isLoggingOut.current = false;
     }
   }, [queryClient]);
 
-  // Login function
-  const login = async (username: string, password: string): Promise<boolean> => {
+  // Check auth status
+  const checkAuthStatus = useCallback(async () => {
+    if (initializationComplete.current) return;
+    
+    console.log('🔍 AuthContext checking auth status...');
+    setIsLoading(true);
+    setIsInitialized(false);
+    
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      
+      if (!token) {
+        console.log('❌ No token found in AuthContext');
+        setIsAuthenticated(false);
+        setUser(null);
+        setError(null);
+        setIsInitialized(true);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('📱 Token found, verifying user...');
+      const userData = await userService.getCurrentUser();
+      
+      // Check if the response is actually an error object
+      if (userData && typeof userData === 'object' && 
+          (userData.code === 'token_not_valid' || userData.detail || userData.error)) {
+        console.log('🚨 Token verification returned error object:', userData);
+        throw new Error(`Token validation failed: ${userData.detail || userData.error || 'Invalid token'}`);
+      }
+      
+      // Validate that we have a proper user object
+      if (!userData || !userData.id || !userData.username) {
+        console.log('🚨 Invalid user data structure:', userData);
+        throw new Error('Invalid user data received');
+      }
+      
+      console.log('✅ User verified in AuthContext:', userData);
+      setUser(userData);
+      setIsAuthenticated(true);
+      setError(null);
+      queryClient.setQueryData(userKeys.current(), userData);
+      
+    } catch (error: any) {
+      console.log('🚨 Auth verification failed in AuthContext:', error?.response?.status, error?.response?.data);
+      
+      // If token is invalid/expired, clear everything immediately
+      if (error?.response?.status === 401 || error?.response?.data?.code === 'token_not_valid') {
+        console.log('🧹 Token invalid - clearing auth state immediately');
+        
+        try {
+          await SecureStore.deleteItemAsync('token');
+          await SecureStore.deleteItemAsync('refreshToken');
+        } catch (clearError) {
+          console.error('Error clearing tokens:', clearError);
+        }
+        
+        setUser(null);
+        setIsAuthenticated(false);
+        setError(null);
+        queryClient.clear();
+      } else {
+        // For other errors, set an error message
+        setError('Authentication verification failed');
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      
+    } finally {
+      setIsLoading(false);
+      setIsInitialized(true);
+      initializationComplete.current = true;
+    }
+  }, [queryClient]);
+
+  // Handle token expired event from API interceptor
+  const handleTokenExpired = useCallback(async () => {
+    console.log('🚨 AuthContext received tokenExpired event');
+    await performLogout('Token expired');
+  }, [performLogout]);
+
+  // Login function - wrapped in useCallback for optimization
+  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
     
@@ -116,7 +170,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const tokenData = await userService.login(username, password);
       await SecureStore.setItemAsync('token', tokenData.access);
       
-      // Store refresh token if available
       if (tokenData.refresh) {
         await SecureStore.setItemAsync('refreshToken', tokenData.refresh);
       }
@@ -125,6 +178,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       setUser(userData);
       setIsAuthenticated(true);
+      setIsInitialized(true);
+      setError(null);
       queryClient.setQueryData(userKeys.current(), userData);
       
       return true;
@@ -132,38 +187,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error: any) {
       console.error('Login failed:', error);
       setError(error?.response?.data?.detail || 'Login failed');
+      setIsInitialized(true);
       return false;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [queryClient]);
 
   // Manual logout
   const logout = useCallback(async () => {
-    if (isLoggingOut.current) return;
-    
-    isLoggingOut.current = true;
-    
-    try {
-      await SecureStore.deleteItemAsync('token');
-      await SecureStore.deleteItemAsync('refreshToken');
-      
-      setUser(null);
-      setIsAuthenticated(false);
-      setError(null);
-      
-      queryClient.clear();
-      router.replace('/(auth)/login');
-      
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      isLoggingOut.current = false;
-    }
-  }, [queryClient]);
+    await performLogout('Manual logout');
+    router.replace('/(auth)/login');
+  }, [performLogout]);
 
-  // Register user
-  const registerUser = async (userData: any): Promise<{ success: boolean; message: string }> => {
+  // Register user - wrapped in useCallback for optimization
+  const registerUser = useCallback(async (userData: any): Promise<{ success: boolean; message: string }> => {
     try {
       await userService.register(userData);
       return { success: true, message: "Registration successful" };
@@ -173,17 +211,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         message: error.response?.data?.detail || "Registration failed" 
       };
     }
-  };
+  }, []);
+
+  // Exposed setUser function for external state updates
+  const setUserCallback = useCallback((newUser: User | null) => {
+    setUser(newUser);
+    if (newUser) {
+      setIsAuthenticated(true);
+      queryClient.setQueryData(userKeys.current(), newUser);
+    } else {
+      setIsAuthenticated(false);
+      queryClient.removeQueries({ queryKey: userKeys.current() });
+    }
+  }, [queryClient]);
 
   // Initialize auth on mount
   useEffect(() => {
     checkAuthStatus();
+    
+    // Failsafe: if auth doesn't initialize within 10 seconds, force it
+    const failsafeTimer = setTimeout(() => {
+      if (!initializationComplete.current) {
+        console.log('⚠️ Auth initialization taking too long, forcing completion');
+        setIsLoading(false);
+        setIsInitialized(true);
+        setIsAuthenticated(false);
+        setUser(null);
+        initializationComplete.current = true;
+      }
+    }, 10000);
+    
+    return () => clearTimeout(failsafeTimer);
   }, [checkAuthStatus]);
 
-  // Listen for auth events
+  // Listen for auth events from API interceptor
   useEffect(() => {
     const unsubscribe = authEvents.subscribe((eventType) => {
       if (eventType === 'tokenExpired') {
+        console.log('🚨 AuthContext received tokenExpired event from API interceptor');
         handleTokenExpired();
       }
     });
@@ -191,30 +256,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return unsubscribe;
   }, [handleTokenExpired]);
 
-  // Handle app state changes
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      // When app comes to foreground, check if user is still valid
-      // but don't force re-authentication unless absolutely necessary
-      if (nextAppState === 'active' && isAuthenticated && !isLoading) {
-        console.log('📱 App resumed, user still authenticated');
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription?.remove();
-  }, [isAuthenticated, isLoading]);
-
   const contextValue = useMemo(() => ({
     user,
     isAuthenticated,
     isLoading,
+    isInitialized,
     login,
     logout,
-    setUser,
+    setUser: setUserCallback,
     registerUser,
     error,
-  }), [user, isAuthenticated, isLoading, error]); // Only re-render when these change
+  }), [user, isAuthenticated, isLoading, isInitialized, error, login, logout, setUserCallback, registerUser]);
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -309,8 +309,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = React.memo(({
           {/* Main notification text with better formatting */}
           <View style={styles.textContainer}>
             <Text style={styles.notificationText} numberOfLines={isExpanded ? undefined : 3}>
-              <Text style={styles.usernameText}>{username}</Text>
-              <Text style={styles.actionText}> {translatedContent.body}</Text>
+              <Text style={styles.actionText}>{translatedContent.body}</Text>
             </Text>
             
             {/* Enhanced metadata display */}

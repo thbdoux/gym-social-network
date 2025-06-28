@@ -13,7 +13,8 @@ import {
   Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLanguage } from '../../../context/LanguageContext';
+import { useLanguage } from '../../../../context/LanguageContext';
+import { EQUIPMENT_OPTIONS } from '../utils/workoutUtils';
 
 interface SetData {
   id: string | number;
@@ -175,6 +176,56 @@ const WeightUnitModal = ({ visible, onClose, currentUnit, onSelect, theme }) => 
           ))}
           
           <TouchableOpacity style={[styles.modalButton, { backgroundColor: theme.border }]} onPress={onClose}>
+            <Text style={[styles.modalButtonText, { color: theme.text }]}>{t('cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+// Equipment Selector Modal
+const EquipmentModal = ({ visible, onClose, currentEquipment, onSelect, theme }) => {
+  const { t } = useLanguage();
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('equipment')}</Text>
+          
+          <ScrollView style={styles.equipmentList}>
+            {EQUIPMENT_OPTIONS.map(equipment => (
+              <TouchableOpacity
+                key={equipment.id}
+                style={[
+                  styles.equipmentOption,
+                  { 
+                    backgroundColor: currentEquipment === equipment.id ? `${theme.accent}20` : 'transparent',
+                    borderColor: currentEquipment === equipment.id ? theme.accent : theme.border
+                  }
+                ]}
+                onPress={() => {
+                  onSelect(equipment.id);
+                  onClose();
+                }}
+              >
+                <View style={styles.equipmentInfo}>
+                  <Text style={[styles.equipmentName, { color: theme.text }]}>
+                    {t(equipment.id)}
+                  </Text>
+                </View>
+                {currentEquipment === equipment.id && (
+                  <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: theme.border }]} 
+            onPress={onClose}
+          >
             <Text style={[styles.modalButtonText, { color: theme.text }]}>{t('cancel')}</Text>
           </TouchableOpacity>
         </View>
@@ -489,6 +540,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
   const [tempValue, setTempValue] = useState<string>('');
   const [effortTypeModalVisible, setEffortTypeModalVisible] = useState(false);
   const [weightUnitModalVisible, setWeightUnitModalVisible] = useState(false);
+  const [equipmentModalVisible, setEquipmentModalVisible] = useState(false);
   const [nameEditModalVisible, setNameEditModalVisible] = useState(false);
   const [tempName, setTempName] = useState(exercise.name || '');
   
@@ -497,7 +549,20 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
 
   const effortType = exercise.effort_type || 'reps';
   const weightUnit = exercise.sets.length > 0 ? (exercise.sets[0].weight_unit || 'kg') : 'kg';
+  console.log(exercise.equipment)
+  const currentEquipment = exercise.equipment || 'barbell';
 
+  // Handle equipment change
+  const handleEquipmentChange = (equipmentId: string) => {
+    onUpdateExercise(exerciseIndex, { ...exercise, equipment: equipmentId });
+  };
+
+  // Get equipment display name
+  const getEquipmentDisplayName = (equipmentId: string) => {
+    const equipment = EQUIPMENT_OPTIONS.find(eq => eq.id === equipmentId);
+    console.log(equipmentId, equipment)
+    return equipment ? t(equipment.id) : t('equipment_other');
+  };
   // Handle set completion
   const handleCompleteSet = async (setIndex: number) => {
     const set = exercise.sets[setIndex];
@@ -687,17 +752,19 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
               <Ionicons name="create-outline" size={16} color={themePalette.text_secondary} />
             </TouchableOpacity>
             
-            {exercise.equipment && (
-              <View style={styles.equipmentTag}>
-                <Ionicons name="barbell-outline" size={12} color={themePalette.text_secondary} />
-                <Text style={[styles.equipmentText, { color: themePalette.text_secondary }]}>
-                  {exercise.equipment}
-                </Text>
-              </View>
-            )}
 
             {/* Effort Type and Weight Unit Controls */}
             <View style={styles.controlsRow}>
+              {/* Equipment Control */}
+              <TouchableOpacity
+                style={[styles.controlButton, { backgroundColor: `${themePalette.success}20` }]}
+                onPress={() => setEquipmentModalVisible(true)}
+              >
+                <Text style={[styles.controlButtonText, { color: themePalette.success }]}>
+                  {getEquipmentDisplayName(currentEquipment)}
+                </Text>
+                <Ionicons name="chevron-down" size={12} color={themePalette.success} />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.controlButton, { backgroundColor: `${themePalette.accent}20` }]}
                 onPress={() => setEffortTypeModalVisible(true)}
@@ -719,6 +786,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
                   <Ionicons name="chevron-down" size={12} color={themePalette.info} />
                 </TouchableOpacity>
               )}
+
             </View>
           </View>
           
@@ -919,6 +987,15 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
         onSelect={handleWeightUnitChange}
         theme={themePalette}
       />
+
+      {/* Equipment Modal */}
+      <EquipmentModal
+        visible={equipmentModalVisible}
+        onClose={() => setEquipmentModalVisible(false)}
+        currentEquipment={currentEquipment}
+        onSelect={handleEquipmentChange}
+        theme={themePalette}
+      />
     </View>
   );
 };
@@ -1083,14 +1160,10 @@ const styles = StyleSheet.create({
   },
   // Modal styles
   modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalBackdrop: {
     position: 'absolute',
@@ -1098,18 +1171,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    width: 280,
+    width: '90%',
+    maxWidth: 400,
     borderRadius: 16,
     padding: 20,
-    alignItems: 'center',
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
+    textAlign: 'center',
   },
   modalInput: {
     width: '100%',
@@ -1207,6 +1281,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  equipmentList: {
+    maxHeight: 400,
+    marginBottom: 16,
+  },
+  equipmentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  equipmentInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  equipmentName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  
 
   // Weight unit modal styles
   unitOption: {

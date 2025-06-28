@@ -199,7 +199,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             {exercise.equipment && (
               <View style={styles.equipmentInfo}>
                 <Ionicons name="barbell-outline" size={12} color="rgba(255, 255, 255, 0.6)" />
-                <Text style={styles.equipmentText}>{exercise.equipment}</Text>
+                <Text style={styles.equipmentText}>{t(exercise.equipment)}</Text>
               </View>
             )}
             

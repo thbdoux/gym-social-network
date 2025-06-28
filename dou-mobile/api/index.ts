@@ -5,7 +5,6 @@ import { router } from 'expo-router';
 import { handleApiError } from './utils/errorHandler';
 import { authEvents } from './utils/authEvents';
 import { API_URL } from './config';
-import NetInfo from '@react-native-async-storage/async-storage'; // If you have it
 
 // Prevent multiple operations
 let isLoggingOut = false;
@@ -217,6 +216,9 @@ export const resetApiClient = () => {
   // Clear any existing interceptors and recreate them if needed
   console.log('🔄 API client reset completed');
 };
+
+// Export resetLogoutFlag as an alias for resetApiClient for compatibility
+export const resetLogoutFlag = resetApiClient;
 
 // Health check function to test connectivity
 export const checkApiHealth = async (): Promise<boolean> => {

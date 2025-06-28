@@ -441,7 +441,7 @@ export const Header: React.FC<HeaderProps> = ({
               <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
                 <View style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                    {t('select_date_time')}
+                    {t('date_time')}
                   </Text>
                 </View>
                 

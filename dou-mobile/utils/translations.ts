@@ -1790,7 +1790,6 @@ const exercises = {
     "equipment_kettlebell": "Kettlebell",
     "equipment_kettlebells": "Kettlebells",
     "equipment_machine": "Machine",
-    "equipment_cable_machine": "Cable Machine",
     "equipment_bodyweight": "Bodyweight",
     "equipment_bodyweight_dumbbells": "Bodyweight/Dumbbells",
     "equipment_bodyweight_weight": "Bodyweight/Weight",
@@ -1858,6 +1857,13 @@ const exercises = {
     "muscle_grip_core_legs": "Grip, Core, Legs",
     "muscle_hamstrings_lower_back": "Hamstrings, Lower Back",
     "muscle_full_core": "Full Core",
+    "muscle_hip_flexors": "Hip Flexors",
+    "muscle_forearms": "Forearms",
+    "muscle_legs" : "Legs",
+    "muscle_shoulders" : "Shoulders",
+    "muscle_arms": "Arms",
+    "muscle_rhomboids": "Rhomboids",
+    "muscle_back":"Back",
     "muscle_other": "Other",
     
     // Exercise names - Chest
@@ -1973,6 +1979,8 @@ const exercises = {
     "exercise_bear_crawl": "Bear Crawl",
     // New Equipment
     'equipment_smith_machine': 'Smith Machine',
+    'equipment_resistance_band' : 'Resistance Band',
+        
     
     // New Chest Exercises
     'exercise_smith_machine_bench_press': 'Smith Machine Bench Press',
@@ -2069,7 +2077,7 @@ const exercises = {
     "equipment_kettlebell": "Kettlebell",
     "equipment_kettlebells": "Kettlebells",
     "equipment_machine": "Machine",
-    "equipment_cable_machine": "Machine à Câbles",
+    "equipment_cable": "Poulie",
     "equipment_bodyweight": "Poids du Corps",
     "equipment_bodyweight_dumbbells": "Poids du Corps/Haltères",
     "equipment_bodyweight_weight": "Poids du Corps/Poids",
@@ -2137,6 +2145,14 @@ const exercises = {
     "muscle_grip_core_legs": "Préhension, Ceinture Abdominale, Jambes",
     "muscle_hamstrings_lower_back": "Ischio-jambiers, Bas du Dos",
     "muscle_full_core": "Ceinture Abdominale Complète",
+    "muscle_hip_flexors": "Fléchisseurs de la Hanche",
+    "muscle_forearms": "Avant-bras",
+    "muscle_legs" : "Jambes",
+    "muscle_shoulders" : "Épaules",
+    "muscle_arms": "Bras",
+    "muscle_rhomboids": "Rhomboides",
+    "muscle_back":"Dos",
+
     "muscle_other": "Autre",
     
     // Exercise names - Chest
@@ -2168,14 +2184,14 @@ const exercises = {
     "exercise_inverted_row": "Rowing Inversé",
     
     // Exercise names - Shoulders
-    "exercise_overhead_press": "Développé Militaire",
+    "exercise_overhead_press": "Développé Militaire / Overhead Press",
     "exercise_lateral_raises": "Élévations Latérales",
     "exercise_face_pulls": "Face Pulls",
     "exercise_front_raises": "Élévations Frontales",
     "exercise_shrugs": "Haussements d'Épaules",
     "exercise_arnold_press": "Développé Arnold",
-    "exercise_upright_row": "Tirage Menton",
-    "exercise_reverse_flyes": "Élévations Arrière",
+    "exercise_upright_row": "Upright Row",
+    "exercise_reverse_flyes": "Élévations Arrière d'Épaule",
     "exercise_seated_dumbbell_press": "Développé Assis avec Haltères",
     "exercise_push_press": "Push Press",
     "exercise_cable_lateral_raise": "Élévations Latérales à la Poulie",
@@ -2252,6 +2268,7 @@ const exercises = {
     "exercise_bear_crawl": "Marche de l'Ours",
     // New Equipment
     'equipment_smith_machine': 'Machine Smith',
+    'equipment_resistance_band' : 'Bande de résistance',
         
     // New Chest Exercises
     'exercise_smith_machine_bench_press': 'Développé couché à la machine Smith',
@@ -2540,7 +2557,6 @@ const realtime_logger = {
     "equipment_barbell": "Barre",
     "equipment_dumbbell": "Haltère",
     "equipment_kettlebell": "Kettlebell",
-    "equipment_cable": "Câble",
     "equipment_machine": "Machine",
     "equipment_bodyweight": "Poids du corps",
     "equipment_band": "Élastique",

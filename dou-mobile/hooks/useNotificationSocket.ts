@@ -75,7 +75,7 @@ export const useNotificationSocket = () => {
       const baseUrl = API_BASE_URL.replace(/^https?:\/\//, '').replace('/api', '');
       
       // Create WebSocket connection with token
-      const wsUrl = `ws://${baseUrl}/ws/notifications/?token=${token}`;
+      const wsUrl = `wss://${baseUrl}/ws/notifications/?token=${token}`;
       
       console.log('🔌 Connecting to WebSocket:', wsUrl.replace(token, '[TOKEN]'));
       

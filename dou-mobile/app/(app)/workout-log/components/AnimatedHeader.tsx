@@ -717,7 +717,7 @@ export const AnimatedHeader: React.FC<AnimatedHeaderProps> = ({
                 <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
                   <View style={styles.modalHeader}>
                     <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                      {t('select_date')}
+                      {t('date')}
                     </Text>
                   </View>
                   
