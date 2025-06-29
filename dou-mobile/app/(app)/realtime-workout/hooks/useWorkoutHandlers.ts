@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { useCreateLog } from '../../../../hooks/query/useLogQuery';
 import { useCreatePost } from '../../../../hooks/query/usePostQuery';
-import { createDefaultSet, prepareExercisesFromTemplate, prepareExercisesFromProgramWorkout } from '../utils/workoutUtils';
+import { createDefaultSet, prepareExercisesFromTemplate, prepareExercisesFromProgramWorkout, generateUniqueId } from '../utils/workoutUtils';
 
 export const useWorkoutHandlers = (workoutManager: any) => {
   const { t } = useLanguage();
@@ -30,13 +30,94 @@ export const useWorkoutHandlers = (workoutManager: any) => {
     addExercise,
     updateExercise,
     deleteExercise,
-    createSuperset,
-    removeFromSuperset,
-    addExerciseToSuperset,
     template,
     programWorkout,
     config
   } = workoutManager;
+
+  // Helper function to transform exercises for API submission
+  const transformExercisesForSubmission = (exercises: any[]): any[] => {
+    return exercises.map((exercise: any, index: number) => {
+      const transformedExercise = {
+        name: exercise.name,
+        equipment: exercise.equipment || '',
+        notes: exercise.notes || '',
+        order: index,
+        effort_type: exercise.effort_type || 'reps',
+        sets: exercise.sets.map((set: any, idx: number) => {
+          const baseSet = {
+            rest_time: set.rest_time,
+            order: idx,
+            weight_unit: set.weight_unit || 'kg'
+          };
+
+          // Add fields based on effort type
+          switch (exercise.effort_type) {
+            case 'time':
+              return {
+                ...baseSet,
+                duration: set.actual_duration || set.duration,
+                weight: (set.actual_weight !== null && set.actual_weight !== undefined) ? set.actual_weight : set.weight,
+                reps: null,
+                distance: null
+              };
+            case 'distance':
+              return {
+                ...baseSet,
+                distance: set.actual_distance || set.distance,
+                duration: (set.actual_duration !== null && set.actual_duration !== undefined) ? set.actual_duration : set.duration,
+                weight: null,
+                reps: null
+              };
+            case 'reps':
+            default:
+              return {
+                ...baseSet,
+                reps: set.actual_reps || set.reps,
+                weight: (set.actual_weight !== null && set.actual_weight !== undefined) ? set.actual_weight : set.weight,
+                duration: null,
+                distance: null
+              };
+          }
+        })
+      };
+
+      // Handle superset transformation
+      if (exercise.superset_group) {
+        // Find all exercises in the same superset group
+        const supersetExercises = exercises
+          .map((ex, idx) => ({ exercise: ex, index: idx }))
+          .filter(({ exercise: ex }) => ex.superset_group === exercise.superset_group);
+
+        // Find the paired exercise (the other one in the superset)
+        const pairedExerciseData = supersetExercises.find(
+          ({ exercise: ex, index: idx }) => idx !== index
+        );
+
+        if (pairedExerciseData) {
+          transformedExercise.is_superset = true;
+          transformedExercise.superset_with = pairedExerciseData.index;
+          transformedExercise.superset_paired_exercise = {
+            id: pairedExerciseData.exercise.id,
+            name: pairedExerciseData.exercise.name,
+            order: pairedExerciseData.index
+          };
+        } else {
+          // Fallback if paired exercise not found
+          transformedExercise.is_superset = exercise.is_superset || false;
+          transformedExercise.superset_with = null;
+          transformedExercise.superset_paired_exercise = null;
+        }
+      } else {
+        // Not a superset exercise
+        transformedExercise.is_superset = false;
+        transformedExercise.superset_with = null;
+        transformedExercise.superset_paired_exercise = null;
+      }
+
+      return transformedExercise;
+    });
+  };
 
   // Workout lifecycle handlers
   const handleStartWorkout = async () => {
@@ -80,59 +161,17 @@ export const useWorkoutHandlers = (workoutManager: any) => {
     if (!activeWorkout) return;
     
     try {
-      const formattedExercises = activeWorkout.exercises.map((exercise: any, index: number) => ({
-        name: exercise.name,
-        equipment: exercise.equipment || '',
-        notes: exercise.notes || '',
-        order: index,
-        effort_type: exercise.effort_type || 'reps',
-        superset_group: exercise.superset_group || null,
-        sets: exercise.sets.map((set: any, idx: number) => {
-          const baseSet = {
-            rest_time: set.rest_time,
-            order: idx,
-            weight_unit: set.weight_unit || 'kg'
-          };
-
-          // Add fields based on effort type
-          switch (exercise.effort_type) {
-            case 'time':
-              return {
-                ...baseSet,
-                duration: set.actual_duration || set.duration,
-                weight: (set.actual_weight !== null && set.actual_weight !== undefined) ? set.actual_weight : set.weight,
-                reps: null,
-                distance: null
-              };
-            case 'distance':
-              return {
-                ...baseSet,
-                distance: set.actual_distance || set.distance,
-                duration: (set.actual_duration !== null && set.actual_duration !== undefined) ? set.actual_duration : set.duration,
-                weight: null,
-                reps: null
-              };
-            case 'reps':
-            default:
-              return {
-                ...baseSet,
-                reps: set.actual_reps || set.reps,
-                weight: (set.actual_weight !== null && set.actual_weight !== undefined) ? set.actual_weight : set.weight,
-                duration: null,
-                distance: null
-              };
-          }
-        })
-      }));
+      // Transform exercises from internal format to API format
+      const formattedExercises = transformExercisesForSubmission(activeWorkout.exercises);
       
       const workoutData = {
         date: new Date().toISOString().split('T')[0],
         name: activeWorkout.name,
         description: '',
         notes: additionalData.notes || '',
-        duration_minutes: Math.round(activeWorkout.duration / 60),
+        duration: Math.round(activeWorkout.duration / 60),
         mood_rating: additionalData.mood_rating || 3,
-        difficulty_level: additionalData.difficulty_level || 'moderate',
+        perceived_difficulty: additionalData.difficulty_level || 2,
         completed: true,
         exercises: formattedExercises,
         template_id: activeWorkout.templateId,
@@ -145,7 +184,7 @@ export const useWorkoutHandlers = (workoutManager: any) => {
       
       // Create the workout log
       const result = await createLog(workoutData);
-      
+      console.log("API RESULT : ", result);
       // Create post if sharing is enabled
       if (additionalData.will_share_to_social) {
         await createWorkoutPost(result.id, additionalData);
@@ -250,6 +289,216 @@ export const useWorkoutHandlers = (workoutManager: any) => {
     await updateWorkout({ currentExerciseIndex: index });
   };
 
+  // Enhanced superset handlers
+  const handleCreateSuperset = async (exerciseIndex: number) => {
+    if (!activeWorkout) return;
+    
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    
+    // Check if exercise is already in a superset
+    if (exercise.superset_group) {
+      Alert.alert(
+        t('already_in_superset'),
+        t('exercise_already_in_superset'),
+        [{ text: t('ok') }]
+      );
+      return;
+    }
+    
+    // Get available exercises for superset linking (exclude current and already in superset)
+    const availableExercises = activeWorkout.exercises
+      .map((ex: any, idx: number) => ({ ...ex, originalIndex: idx }))
+      .filter((ex: any, idx: number) => idx !== exerciseIndex && !ex.superset_group);
+
+    if (availableExercises.length === 0) {
+      // No available exercises, go straight to exercise selector
+      const supersetGroupId = generateUniqueId();
+      
+      // Update current exercise to be part of superset
+      const updatedExercises = [...activeWorkout.exercises];
+      updatedExercises[exerciseIndex] = {
+        ...exercise,
+        superset_group: supersetGroupId,
+        is_superset: true,
+        superset_rest_time: 90
+      };
+      
+      await updateWorkout({ exercises: updatedExercises });
+      
+      // Set pending superset for when new exercise is selected
+      workoutManager.setPendingSuperset({
+        groupId: supersetGroupId,
+        exerciseIndex: exerciseIndex
+      });
+      
+      // Open exercise selector
+      setSelectingExercise(true);
+    } else {
+      // Show superset options - this will be handled by the UI showing the SupersetLinkModal
+      // The modal will either call handleLinkWithExisting or handleLinkWithNew
+      return { availableExercises, exerciseIndex };
+    }
+  };
+
+  // Handle linking current exercise with an existing exercise
+  const handleLinkWithExisting = async (sourceExerciseIndex: number, targetExercise: any, targetIndex: number) => {
+    if (!activeWorkout) return;
+    
+    const sourceExercise = activeWorkout.exercises[sourceExerciseIndex];
+    
+    // Check if either exercise is already in a superset
+    if (sourceExercise.superset_group || targetExercise.superset_group) {
+      Alert.alert(t('error'), t('exercises_already_in_superset'));
+      return;
+    }
+
+    // Generate superset group ID
+    const supersetGroupId = generateUniqueId();
+    
+    // Update both exercises
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises[sourceExerciseIndex] = {
+      ...sourceExercise,
+      superset_group: supersetGroupId,
+      is_superset: true,
+      superset_rest_time: 90,
+      superset_with: targetExercise.id
+    };
+    
+    updatedExercises[targetIndex] = {
+      ...targetExercise,
+      superset_group: supersetGroupId,
+      is_superset: true,
+      superset_rest_time: 90,
+      superset_with: sourceExercise.id
+    };
+    
+    await updateWorkout({ exercises: updatedExercises });
+  };
+
+  // Handle linking current exercise with a new exercise (opens exercise selector)
+  const handleLinkWithNew = async (exerciseIndex: number) => {
+    if (!activeWorkout) return;
+    
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    
+    // Check if exercise is already in a superset
+    if (exercise.superset_group) {
+      Alert.alert(
+        t('already_in_superset'),
+        t('exercise_already_in_superset'),
+        [{ text: t('ok') }]
+      );
+      return;
+    }
+    
+    // Generate superset group ID
+    const supersetGroupId = generateUniqueId();
+    
+    // Update current exercise to be part of superset
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises[exerciseIndex] = {
+      ...exercise,
+      superset_group: supersetGroupId,
+      is_superset: true,
+      superset_rest_time: 90
+    };
+    
+    await updateWorkout({ exercises: updatedExercises });
+    
+    // Set pending superset for when new exercise is selected
+    workoutManager.setPendingSuperset({
+      groupId: supersetGroupId,
+      exerciseIndex: exerciseIndex
+    });
+    
+    // Open exercise selector
+    setSelectingExercise(true);
+  };
+
+  const handleRemoveFromSuperset = async (exerciseIndex: number) => {
+    if (!activeWorkout) return;
+    
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    if (!exercise.superset_group) return;
+    
+    const supersetGroupId = exercise.superset_group;
+    
+    Alert.alert(
+      t('remove_from_superset'),
+      t('remove_superset_confirmation'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { 
+          text: t('remove'),
+          style: 'destructive',
+          onPress: async () => {
+            // Get all exercises in this superset
+            const supersetExercises = activeWorkout.exercises.filter((ex: any) => 
+              ex.superset_group === supersetGroupId
+            );
+            
+            if (supersetExercises.length === 2) {
+              // If only 2 exercises, remove superset properties from both
+              const updatedExercises = activeWorkout.exercises.map((ex: any) => {
+                if (ex.superset_group === supersetGroupId) {
+                  const { superset_group, is_superset, superset_rest_time, superset_with, ...exerciseWithoutSuperset } = ex;
+                  return exerciseWithoutSuperset;
+                }
+                return ex;
+              });
+              
+              await updateWorkout({ exercises: updatedExercises });
+            } else {
+              // More than 2 exercises, just remove this one from superset
+              const updatedExercises = [...activeWorkout.exercises];
+              const { superset_group, is_superset, superset_rest_time, superset_with, ...exerciseWithoutSuperset } = exercise;
+              updatedExercises[exerciseIndex] = exerciseWithoutSuperset;
+              
+              await updateWorkout({ exercises: updatedExercises });
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleAddExerciseToSuperset = async (exercise: any, supersetInfo: any) => {
+    if (!activeWorkout) return;
+    
+    const effortType = exercise.effort_type || 'reps';
+    const weightUnit = exercise.weight_unit || 'kg';
+    
+    const newExercise = {
+      ...exercise,
+      id: exercise.id || generateUniqueId(),
+      effort_type: effortType,
+      weight_unit: weightUnit,
+      equipment: exercise.equipment || '',
+      superset_group: supersetInfo.groupId,
+      is_superset: true,
+      superset_rest_time: 90,
+      superset_with: activeWorkout.exercises[supersetInfo.exerciseIndex].id,
+      sets: exercise.sets || [createDefaultSet(effortType, 0, null, weightUnit)]
+    };
+    
+    // Insert the new exercise right after the superset partner
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises.splice(supersetInfo.exerciseIndex + 1, 0, newExercise);
+    
+    // Update the original exercise's superset_with field
+    updatedExercises[supersetInfo.exerciseIndex] = {
+      ...updatedExercises[supersetInfo.exerciseIndex],
+      superset_with: newExercise.id
+    };
+    
+    await updateWorkout({ exercises: updatedExercises });
+    setSelectingExercise(false);
+    
+    // Clear pending superset
+    workoutManager.setPendingSuperset(null);
+  };
+
   // Set handlers
   const handleCompleteSet = async (exerciseIndex: number, setIndex: number, setData: any) => {
     if (!activeWorkout) return;
@@ -270,12 +519,34 @@ export const useWorkoutHandlers = (workoutManager: any) => {
     // Combine set completion and rest timer start
     const updates: any = { exercises: updatedExercises };
     
-    if (currentSet.rest_time > 0) {
+    // For supersets, use superset rest time if it's the last exercise in the superset
+    const isSuperset = exercise.superset_group;
+    let restTime = currentSet.rest_time;
+    
+    if (isSuperset) {
+      const supersetExercises = activeWorkout.exercises.filter((ex: any) => 
+        ex.superset_group === exercise.superset_group
+      );
+      const currentSupersetIndex = supersetExercises.findIndex((ex: any) => ex.id === exercise.id);
+      const isLastInSuperset = currentSupersetIndex === supersetExercises.length - 1;
+      
+      if (isLastInSuperset) {
+        restTime = exercise.superset_rest_time || currentSet.rest_time;
+      } else {
+        // Move to next exercise in superset immediately
+        const nextSupersetExercise = supersetExercises[currentSupersetIndex + 1];
+        const nextExerciseIndex = activeWorkout.exercises.findIndex((ex: any) => ex.id === nextSupersetExercise.id);
+        updates.currentExerciseIndex = nextExerciseIndex;
+        restTime = 0; // No rest between superset exercises
+      }
+    }
+    
+    if (restTime > 0) {
       const restTimer = {
         isActive: true,
-        totalSeconds: currentSet.rest_time,
+        totalSeconds: restTime,
         startTime: new Date().toISOString(),
-        remainingSeconds: currentSet.rest_time
+        remainingSeconds: restTime
       };
       updates.restTimer = restTimer;
     }
@@ -377,19 +648,6 @@ export const useWorkoutHandlers = (workoutManager: any) => {
     await updateWorkout({ exercises: updatedExercises });
   };
 
-  // Superset handlers
-  const handleCreateSuperset = async (exerciseIndices: number[]) => {
-    await createSuperset(exerciseIndices);
-  };
-
-  const handleRemoveFromSuperset = async (exerciseIndex: number) => {
-    await removeFromSuperset(exerciseIndex);
-  };
-
-  const handleAddToSuperset = async (exerciseIndex: number, targetSupersetGroup: string) => {
-    await addExerciseToSuperset(exerciseIndex, targetSupersetGroup);
-  };
-
   // Helper function to create workout post
   const createWorkoutPost = async (workoutLogId: number, additionalData: any) => {
     try {
@@ -398,43 +656,16 @@ export const useWorkoutHandlers = (workoutManager: any) => {
 
       const formData = new FormData();
       
-      const workoutStats = {
-        name: activeWorkout?.name || workoutName,
-        duration: Math.floor(workoutDuration / 60),
-        exercises_count: exercises.length,
-        sets_completed: exercises.reduce((acc: number, ex: any) => 
-          acc + ex.sets.filter((set: any) => set.completed).length, 0
-        ),
-        completion_percentage: calculateCompletionPercentage(),
-        mood: getMoodOptions().find((m: any) => m.value === additionalData.mood_rating)?.label || 'good',
-        difficulty: additionalData.difficulty_level,
-        gym_name: selectedGym?.name || null,
-        gym_location: selectedGym?.location || null
-      };
-
-      let postContent = additionalData.post_content || 
-        `Just finished "${workoutStats.name}"! 💪\n\n` +
-        `⏱️ ${workoutStats.duration} minutes\n` +
-        `✅ ${workoutStats.sets_completed} sets completed\n` +
-        `🏋️ ${workoutStats.exercises_count} exercises\n` +
-        `📊 ${workoutStats.completion_percentage}% complete\n`;
+      let postContent = additionalData.post_content;
 
       if (selectedGym) {
-        postContent += `🏢 ${selectedGym.name} - ${selectedGym.location}\n`;
+        postContent += `${t('at')} 🏢 ${selectedGym.name} - ${selectedGym.location}\n`;
       }
 
-      postContent += `\n#fitness #workout #training`;
-
+      console.log("WORKOUT LOG ID : ", workoutLogId);
       formData.append('content', postContent);
       formData.append('post_type', 'workout_log');
       formData.append('workout_log_id', workoutLogId.toString());
-      formData.append('workout_stats', JSON.stringify(workoutStats));
-      
-      const allTags = [
-        ...additionalData.tags || [],
-        'fitness', 'workout'
-      ];
-      formData.append('tags', JSON.stringify(allTags));
 
       await createPost(formData);
     } catch (error) {
@@ -494,17 +725,19 @@ export const useWorkoutHandlers = (workoutManager: any) => {
     handleDeleteExercise,
     handleNavigateToExercise,
     
+    // Enhanced superset management
+    handleCreateSuperset,
+    handleRemoveFromSuperset,
+    handleAddExerciseToSuperset,
+    handleLinkWithExisting,
+    handleLinkWithNew,
+    
     // Set management
     handleCompleteSet,
     handleUncompleteSet,
     handleUpdateSet,
     handleAddSet,
     handleRemoveSet,
-    
-    // Superset management
-    handleCreateSuperset,
-    handleRemoveFromSuperset,
-    handleAddToSuperset,
     
     // UI state
     setSelectingExercise

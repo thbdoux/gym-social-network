@@ -4,13 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Animated,
-  Easing,
   Pressable,
   ScrollView,
   Alert,
-  Modal
+  Modal,
+  TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../../../context/LanguageContext';
@@ -55,12 +54,11 @@ const EditableField: React.FC<EditableFieldProps> = ({
 }) => {
   const formatValue = (val: string | number): string => {
     if (typeof val === 'number') {
-      // Si c'est un nombre entier, on l'affiche sans décimales
-      // Si c'est un nombre avec décimales, on garde jusqu'à 2 décimales
       return val % 1 === 0 ? val.toString() : val.toFixed(2).replace(/\.?0+$/, '');
     }
     return val.toString();
   };
+  
   return (
     <Pressable
       style={[styles.editableField, { 
@@ -86,103 +84,6 @@ const EditableField: React.FC<EditableFieldProps> = ({
   );
 };
 
-// Effort Type Selector Modal
-const EffortTypeModal = ({ visible, onClose, currentType, onSelect, theme }) => {
-  const { t } = useLanguage();
-  
-  const effortTypes = [
-    { id: 'reps', name: t('reps'), icon: 'repeat-outline'},
-    { id: 'time', name: t('time'), icon: 'timer-outline'},
-    { id: 'distance', name: t('distance'), icon: 'speedometer-outline'}
-  ];
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <Pressable style={styles.modalBackdrop} onPress={onClose} />
-        <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
-          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('effort_type')}</Text>
-          
-          {effortTypes.map(type => (
-            <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.effortTypeOption,
-                { 
-                  backgroundColor: currentType === type.id ? `${theme.accent}20` : 'transparent',
-                  borderColor: currentType === type.id ? theme.accent : theme.border
-                }
-              ]}
-              onPress={() => {
-                onSelect(type.id);
-                onClose();
-              }}
-            >
-              <Ionicons name={type.icon} size={24} color={currentType === type.id ? theme.accent : theme.text_secondary} />
-              <View style={styles.effortTypeInfo}>
-                <Text style={[styles.effortTypeName, { color: theme.text }]}>{type.name}</Text>
-              </View>
-              {currentType === type.id && (
-                <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
-              )}
-            </TouchableOpacity>
-          ))}
-          
-          <TouchableOpacity style={[styles.modalButton, { backgroundColor: theme.border }]} onPress={onClose}>
-            <Text style={[styles.modalButtonText, { color: theme.text }]}>{t('cancel')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-// Weight Unit Selector Modal
-const WeightUnitModal = ({ visible, onClose, currentUnit, onSelect, theme }) => {
-  const { t } = useLanguage();
-  const units = [
-    { id: 'kg', name: t('kilograms'), abbr: 'kg' },
-    { id: 'lbs', name: t('pounds'), abbr: 'lbs' }
-  ];
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <Pressable style={styles.modalBackdrop} onPress={onClose} />
-        <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
-          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('weight_unit')}</Text>
-          
-          {units.map(unit => (
-            <TouchableOpacity
-              key={unit.id}
-              style={[
-                styles.unitOption,
-                { 
-                  backgroundColor: currentUnit === unit.id ? `${theme.accent}20` : 'transparent',
-                  borderColor: currentUnit === unit.id ? theme.accent : theme.border
-                }
-              ]}
-              onPress={() => {
-                onSelect(unit.id);
-                onClose();
-              }}
-            >
-              <Text style={[styles.unitName, { color: theme.text }]}>{unit.name}</Text>
-              <Text style={[styles.unitAbbr, { color: theme.text_secondary }]}>({unit.abbr})</Text>
-              {currentUnit === unit.id && (
-                <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
-              )}
-            </TouchableOpacity>
-          ))}
-          
-          <TouchableOpacity style={[styles.modalButton, { backgroundColor: theme.border }]} onPress={onClose}>
-            <Text style={[styles.modalButtonText, { color: theme.text }]}>{t('cancel')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-};
 // Equipment Selector Modal
 const EquipmentModal = ({ visible, onClose, currentEquipment, onSelect, theme }) => {
   const { t } = useLanguage();
@@ -227,6 +128,324 @@ const EquipmentModal = ({ visible, onClose, currentEquipment, onSelect, theme })
             onPress={onClose}
           >
             <Text style={[styles.modalButtonText, { color: theme.text }]}>{t('cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Effort Type Selector Modal
+const EffortTypeModal = ({ visible, onClose, currentEffortType, onSelect, theme }) => {
+  const { t } = useLanguage();
+  const effortTypes = [
+    { id: 'reps', label: t('reps'), icon: 'repeat-outline' },
+    { id: 'time', label: t('time'), icon: 'time-outline' },
+    { id: 'distance', label: t('distance'), icon: 'footsteps-outline' }
+  ];
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('effort_type')}</Text>
+          
+          <View style={styles.equipmentList}>
+            {effortTypes.map(effortType => (
+              <TouchableOpacity
+                key={effortType.id}
+                style={[
+                  styles.equipmentOption,
+                  { 
+                    backgroundColor: currentEffortType === effortType.id ? `${theme.accent}20` : 'transparent',
+                    borderColor: currentEffortType === effortType.id ? theme.accent : theme.border
+                  }
+                ]}
+                onPress={() => {
+                  onSelect(effortType.id);
+                  onClose();
+                }}
+              >
+                <Ionicons name={effortType.icon} size={20} color={theme.text_secondary} />
+                <View style={styles.equipmentInfo}>
+                  <Text style={[styles.equipmentName, { color: theme.text }]}>
+                    {effortType.label}
+                  </Text>
+                </View>
+                {currentEffortType === effortType.id && (
+                  <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: theme.border }]} 
+            onPress={onClose}
+          >
+            <Text style={[styles.modalButtonText, { color: theme.text }]}>{t('cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Weight Unit Selector Modal
+const WeightUnitModal = ({ visible, onClose, currentWeightUnit, onSelect, theme }) => {
+  const { t } = useLanguage();
+  const weightUnits = [
+    { id: 'kg', label: 'Kilograms (kg)', icon: 'barbell-outline' },
+    { id: 'lbs', label: 'Pounds (lbs)', icon: 'barbell-outline' }
+  ];
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('weight_unit')}</Text>
+          
+          <View style={styles.equipmentList}>
+            {weightUnits.map(unit => (
+              <TouchableOpacity
+                key={unit.id}
+                style={[
+                  styles.equipmentOption,
+                  { 
+                    backgroundColor: currentWeightUnit === unit.id ? `${theme.accent}20` : 'transparent',
+                    borderColor: currentWeightUnit === unit.id ? theme.accent : theme.border
+                  }
+                ]}
+                onPress={() => {
+                  onSelect(unit.id);
+                  onClose();
+                }}
+              >
+                <Ionicons name={unit.icon} size={20} color={theme.text_secondary} />
+                <View style={styles.equipmentInfo}>
+                  <Text style={[styles.equipmentName, { color: theme.text }]}>
+                    {unit.label}
+                  </Text>
+                </View>
+                {currentWeightUnit === unit.id && (
+                  <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.modalButton, { backgroundColor: theme.border }]} 
+            onPress={onClose}
+          >
+            <Text style={[styles.modalButtonText, { color: theme.text }]}>{t('cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Superset Link Modal (replaces three dots menu)
+const SupersetLinkModal = ({ visible, onClose, onLinkWithExisting, onLinkWithNew, availableExercises, theme }) => {
+  const { t } = useLanguage();
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={[styles.optionsModalContent, { backgroundColor: theme.card_background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('create_superset')}</Text>
+          
+          <TouchableOpacity
+            style={[styles.optionButton, { borderBottomColor: theme.border }]}
+            onPress={() => {
+              onLinkWithNew();
+              onClose();
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={theme.accent} />
+            <Text style={[styles.optionButtonText, { color: theme.accent }]}>
+              {t('new_exercise')}
+            </Text>
+          </TouchableOpacity>
+          
+          {availableExercises.length > 0 && (
+            <View>
+              <Text style={[styles.subSectionTitle, { color: theme.text_secondary }]}>
+                {t('existing_exercise')}:
+              </Text>
+              {availableExercises.map((exercise, index) => (
+                <TouchableOpacity
+                  key={exercise.id || index}
+                  style={[styles.optionButton, { borderBottomColor: theme.border }]}
+                  onPress={() => {
+                    onLinkWithExisting(exercise, index);
+                    onClose();
+                  }}
+                >
+                  <Ionicons name="link-outline" size={20} color={theme.success} />
+                  <Text style={[styles.optionButtonText, { color: theme.text }]}>
+                    {exercise.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={onClose}
+          >
+            <Ionicons name="close-outline" size={20} color={theme.text_secondary} />
+            <Text style={[styles.optionButtonText, { color: theme.text_secondary }]}>
+              {t('cancel')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Rename Exercise Modal
+const RenameExerciseModal = ({ visible, onClose, currentName, onSave, theme }) => {
+  const { t } = useLanguage();
+  const [tempName, setTempName] = useState(currentName || '');
+
+  const handleSave = () => {
+    if (tempName.trim()) {
+      onSave(tempName.trim());
+      onClose();
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        
+        <View style={[styles.modalContent, { backgroundColor: theme.card_background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>
+            {t('rename_exercise')}
+          </Text>
+          
+          <TextInput
+            style={[styles.nameInput, { 
+              color: theme.text,
+              backgroundColor: theme.input_background,
+              borderColor: theme.border
+            }]}
+            value={tempName}
+            onChangeText={setTempName}
+            autoFocus
+            placeholder={t('exercise_name')}
+            placeholderTextColor={theme.text_tertiary}
+          />
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, { borderColor: theme.border }]}
+              onPress={onClose}
+            >
+              <Text style={[styles.modalButtonText, { color: theme.text }]}>
+                {t('cancel')}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, { 
+                backgroundColor: theme.accent,
+                borderColor: theme.accent
+              }]}
+              onPress={handleSave}
+            >
+              <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
+                {t('save')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Exercise Options Modal (replaces Long Press Options Modal)
+const ExerciseOptionsModal = ({ visible, onClose, onDelete, onSuperset, isSuperset, onBreakSuperset, onRename, theme }) => {
+  const { t } = useLanguage();
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={[styles.optionsModalContent, { backgroundColor: theme.card_background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>{t('exercise_options')}</Text>
+          
+          {isSuperset ? (
+            <TouchableOpacity
+              style={[styles.optionButton, { borderBottomColor: theme.border }]}
+              onPress={() => {
+                onBreakSuperset();
+                onClose();
+              }}
+            >
+              <Ionicons name="unlink-outline" size={20} color={theme.warning} />
+              <Text style={[styles.optionButtonText, { color: theme.warning }]}>
+                {t('break_superset')}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.optionButton, { borderBottomColor: theme.border }]}
+              onPress={() => {
+                onSuperset();
+                onClose();
+              }}
+            >
+              <Ionicons name="link-outline" size={20} color={theme.accent} />
+              <Text style={[styles.optionButtonText, { color: theme.accent }]}>
+                {t('create_superset')}
+              </Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity
+            style={[styles.optionButton, { borderBottomColor: theme.border }]}
+            onPress={() => {
+              onRename();
+              onClose();
+            }}
+          >
+            <Ionicons name="create-outline" size={20} color={theme.success} />
+            <Text style={[styles.optionButtonText, { color: theme.success }]}>
+              {t('rename_exercise')}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.optionButton, { borderBottomColor: theme.border }]}
+            onPress={() => {
+              onDelete();
+              onClose();
+            }}
+          >
+            <Ionicons name="trash-outline" size={20} color={theme.error} />
+            <Text style={[styles.optionButtonText, { color: theme.error }]}>
+              {t('delete_exercise')}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={onClose}
+          >
+            <Ionicons name="close-outline" size={20} color={theme.text_secondary} />
+            <Text style={[styles.optionButtonText, { color: theme.text_secondary }]}>
+              {t('cancel')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -320,17 +539,15 @@ const SetRow = ({
               flex={1.2}
             />
             
-            {(weight !== null && weight !== undefined) && (
-              <EditableField
-                value={weight || 0}
-                onEdit={() => handleEditPress('weight')}
-                editable={true}
-                completed={isCompleted}
-                label={t(`weight_${set.weight_unit || 'kg'}`).toUpperCase()}
-                theme={theme}
-                flex={1}
-              />
-            )}
+            <EditableField
+              value={weight || 0}
+              onEdit={() => handleEditPress('weight')}
+              editable={true}
+              completed={isCompleted}
+              label={t(`weight_${set.weight_unit || 'kg'}`).toUpperCase()}
+              theme={theme}
+              flex={1}
+            />
             
             <EditableField
               value={set.rest_time}
@@ -361,17 +578,17 @@ const SetRow = ({
               flex={1.2}
             />
             
-            {(time !== null && time !== undefined) && (
-              <EditableField
-                value={time || 0}
-                onEdit={() => handleEditPress('duration')}
-                editable={true}
-                completed={isCompleted}
-                label={t(`time_s`).toUpperCase()}
-                theme={theme}
-                flex={1}
-              />
-            )}
+            
+            <EditableField
+              value={time || 0}
+              onEdit={() => handleEditPress('duration')}
+              editable={true}
+              completed={isCompleted}
+              label={t(`time_s`).toUpperCase()}
+              theme={theme}
+              flex={1}
+            />
+            
             
             <EditableField
               value={set.rest_time}
@@ -490,7 +707,6 @@ const SetRow = ({
               onPress={handleComplete}
             >
               <Text style={[styles.completeSetText, { color: '#FFFFFF' }]}>{t('complete')}</Text>
-              {/* <Ionicons name="checkmark-sharp" size={16} color="#FFFFFF" /> */}
             </TouchableOpacity>
             
             {/* Remove set */}
@@ -518,8 +734,14 @@ interface RealtimeExerciseCardProps {
   onUpdateExercise: (exerciseIndex: number, exerciseData: any) => void;
   onAddSet: (exerciseIndex: number) => void;
   onRemoveSet: (exerciseIndex: number, setIndex: number) => void;
+  onShowEditModal: (exerciseIndex: number, setIndex: number, field: string) => void;
+  onCreateSuperset: (exerciseIndex: number) => void;
+  onRemoveFromSuperset: (exerciseIndex: number) => void;
   editingPrevious?: boolean;
   themePalette: any;
+  availableExercises?: any[];
+  onLinkWithExisting?: (targetExercise: any, targetIndex: number) => void;
+  onLinkWithNew?: () => void;
 }
 
 const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
@@ -531,38 +753,67 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
   onUpdateExercise,
   onAddSet,
   onRemoveSet,
+  onShowEditModal,
+  onCreateSuperset,
+  onRemoveFromSuperset,
   editingPrevious = false,
   themePalette,
+  availableExercises = [],
+  onLinkWithExisting,
+  onLinkWithNew
 }) => {
   const { t } = useLanguage();
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingSet, setEditingSet] = useState<{index: number, field: string} | null>(null);
-  const [tempValue, setTempValue] = useState<string>('');
+  const [equipmentModalVisible, setEquipmentModalVisible] = useState(false);
   const [effortTypeModalVisible, setEffortTypeModalVisible] = useState(false);
   const [weightUnitModalVisible, setWeightUnitModalVisible] = useState(false);
-  const [equipmentModalVisible, setEquipmentModalVisible] = useState(false);
-  const [nameEditModalVisible, setNameEditModalVisible] = useState(false);
-  const [tempName, setTempName] = useState(exercise.name || '');
+  const [supersetLinkModalVisible, setSupersetLinkModalVisible] = useState(false);
+  const [exerciseOptionsVisible, setExerciseOptionsVisible] = useState(false);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
   
-  // Animation for edit modal
-  const modalAnimation = useRef(new Animated.Value(0)).current;
-
   const effortType = exercise.effort_type || 'reps';
   const weightUnit = exercise.sets.length > 0 ? (exercise.sets[0].weight_unit || 'kg') : 'kg';
-  console.log(exercise.equipment)
   const currentEquipment = exercise.equipment || 'barbell';
+  const isSuperset = !!exercise.superset_group;
 
   // Handle equipment change
   const handleEquipmentChange = (equipmentId: string) => {
     onUpdateExercise(exerciseIndex, { ...exercise, equipment: equipmentId });
   };
 
+  // Handle effort type change
+  const handleEffortTypeChange = (newEffortType: string) => {
+    onUpdateExercise(exerciseIndex, { ...exercise, effort_type: newEffortType });
+  };
+
+  // Handle weight unit change
+  const handleWeightUnitChange = (newWeightUnit: string) => {
+    const updatedSets = exercise.sets.map(set => ({
+      ...set,
+      weight_unit: newWeightUnit
+    }));
+    onUpdateExercise(exerciseIndex, { 
+      ...exercise, 
+      weight_unit: newWeightUnit,
+      sets: updatedSets
+    });
+  };
+
   // Get equipment display name
   const getEquipmentDisplayName = (equipmentId: string) => {
     const equipment = EQUIPMENT_OPTIONS.find(eq => eq.id === equipmentId);
-    console.log(equipmentId, equipment)
     return equipment ? t(equipment.id) : t('equipment_other');
   };
+
+  // Get effort type display name
+  const getEffortTypeDisplayName = (effortTypeId: string) => {
+    switch (effortTypeId) {
+      case 'time': return t('time');
+      case 'distance': return t('distance');
+      case 'reps':
+      default: return t('reps');
+    }
+  };
+
   // Handle set completion
   const handleCompleteSet = async (setIndex: number) => {
     const set = exercise.sets[setIndex];
@@ -597,94 +848,6 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
     onUncompleteSet(exerciseIndex, setIndex);
   };
 
-  // Show edit modal for a field
-  const showEditModal = (setIndex: number, field: string) => {
-    const set = exercise.sets[setIndex];
-    let initialValue = '';
-    
-    switch (field) {
-      case 'reps':
-        initialValue = (set.actual_reps !== undefined ? set.actual_reps : set.reps)?.toString() || '0';
-        break;
-      case 'weight':
-        initialValue = (set.actual_weight !== undefined ? set.actual_weight : set.weight)?.toString() || '0';
-        break;
-      case 'duration':
-        initialValue = (set.actual_duration !== undefined ? set.actual_duration : set.duration)?.toString() || '0';
-        break;
-      case 'distance':
-        initialValue = (set.actual_distance !== undefined ? set.actual_distance : set.distance)?.toString() || '0';
-        break;
-      case 'rest':
-        initialValue = set.rest_time.toString();
-        break;
-    }
-    
-    setEditingSet({index: setIndex, field});
-    setTempValue(initialValue);
-    
-    // Animate modal in
-    setEditModalVisible(true);
-    Animated.spring(modalAnimation, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 50,
-      friction: 7
-    }).start();
-  };
-  
-  // Hide edit modal
-  const hideEditModal = () => {
-    Animated.timing(modalAnimation, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-      easing: Easing.out(Easing.ease)
-    }).start(() => {
-      setEditModalVisible(false);
-      setEditingSet(null);
-    });
-  };
-  
-  // Save edited value
-  const saveEditedValue = () => {
-    if (!editingSet) return;
-    
-    const { index, field } = editingSet;
-    
-    const normalizedValue = tempValue.replace(',', '.');
-    const numValue = parseFloat(normalizedValue);
-    
-    if (isNaN(numValue)) {
-      hideEditModal();
-      return;
-    }
-    
-    // Update the set with new value
-    const updatedSet = {...exercise.sets[index]};
-    
-    switch (field) {
-      case 'reps':
-        updatedSet.actual_reps = Math.round(numValue);
-        break;
-      case 'weight':
-        updatedSet.actual_weight = numValue; // Allow decimals
-        break;
-      case 'duration':
-        updatedSet.actual_duration = Math.round(numValue);
-        break;
-      case 'distance':
-        updatedSet.actual_distance = numValue; // Allow decimals
-        break;
-      case 'rest':
-        updatedSet.rest_time = Math.round(numValue);
-        break;
-    }
-    
-    onUpdateSet(exerciseIndex, index, updatedSet);
-    hideEditModal();
-  };
-
   // Handle removing a specific set
   const handleRemoveSet = (setIndex: number) => {
     Alert.alert(
@@ -701,59 +864,78 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
     );
   };
 
-  // Handle effort type change
-  const handleEffortTypeChange = (newType: string) => {
-    onUpdateExercise(exerciseIndex, { ...exercise, effort_type: newType });
-  };
-
-  // Handle weight unit change
-  const handleWeightUnitChange = (newUnit: string) => {
-    const updatedSets = exercise.sets.map(set => ({
-      ...set,
-      weight_unit: newUnit
-    }));
-    
-    // Update the entire exercise with the new sets
-    onUpdateExercise(exerciseIndex, {
-      ...exercise,
-      sets: updatedSets
-    });
-  };
-
   // Handle name change
-  const handleNameChange = () => {
-    if (tempName.trim()) {
-      onUpdateExercise(exerciseIndex, { ...exercise, name: tempName.trim() });
+  const handleNameChange = (newName: string) => {
+    onUpdateExercise(exerciseIndex, { ...exercise, name: newName });
+  };
+
+  // Handle delete from exercise options
+  const handleDelete = () => {
+    Alert.alert(
+      t('delete_exercise'),
+      t('delete_exercise_confirmation', { name: exercise.name }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { 
+          text: t('delete'),
+          style: 'destructive',
+          onPress: () => {
+            // This will be handled by the parent component
+            console.log('Delete exercise', exerciseIndex);
+          }
+        }
+      ]
+    );
+  };
+
+  // Handle link with existing exercise
+  const handleLinkWithExisting = (targetExercise: any, targetIndex: number) => {
+    if (onLinkWithExisting) {
+      onLinkWithExisting(targetExercise, targetIndex);
     }
-    setNameEditModalVisible(false);
+  };
+
+  // Handle link with new exercise
+  const handleLinkWithNew = () => {
+    if (onLinkWithNew) {
+      onLinkWithNew();
+    } else {
+      onCreateSuperset(exerciseIndex);
+    }
   };
   
   // Calculate completed sets
   const completedSets = exercise.sets.filter(set => set.completed).length;
   const totalSets = exercise.sets.length;
-  const progress = totalSets > 0 ? (completedSets / totalSets) * 100 : 0;
 
   return (
-    <View style={[styles.container, { backgroundColor: themePalette.card_background }]}>
+    <Pressable 
+      style={[styles.container, { backgroundColor: themePalette.card_background }]}
+      onLongPress={() => setExerciseOptionsVisible(true)}
+      delayLongPress={500}
+    >
       {/* Exercise Header */}
       <View style={[styles.header, { borderBottomColor: themePalette.border }]}>
         <View style={styles.headerContent}>
           <View style={styles.titleSection}>
-            <TouchableOpacity 
-              style={styles.exerciseNameContainer}
-              onPress={() => {
-                setTempName(exercise.name || '');
-                setNameEditModalVisible(true);
-              }}
-            >
+            {/* Exercise name - no longer touchable */}
+            <View style={styles.exerciseNameContainer}>
               <Text style={[styles.exerciseName, { color: themePalette.text }]}>
                 {exercise.name}
               </Text>
-              <Ionicons name="create-outline" size={16} color={themePalette.text_secondary} />
-            </TouchableOpacity>
+            </View>
             
+            {/* Superset indicator */}
+            {isSuperset && (
+              <View style={[styles.supersetBadge, { backgroundColor: `${themePalette.accent}20` }]}>
+                <Ionicons name="link" size={12} color={themePalette.accent} />
+                <Text style={[styles.supersetText, { color: themePalette.accent }]}>
+                  {t('superset')}
+                </Text>
+              </View>
+            )}
 
-            {/* Effort Type and Weight Unit Controls */}
+            {/* Controls Row - Added effort type and weight unit badges */}
             <View style={styles.controlsRow}>
               {/* Equipment Control */}
               <TouchableOpacity
@@ -765,46 +947,45 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
                 </Text>
                 <Ionicons name="chevron-down" size={12} color={themePalette.success} />
               </TouchableOpacity>
+
+              {/* Effort Type Control */}
               <TouchableOpacity
                 style={[styles.controlButton, { backgroundColor: `${themePalette.accent}20` }]}
                 onPress={() => setEffortTypeModalVisible(true)}
               >
                 <Text style={[styles.controlButtonText, { color: themePalette.accent }]}>
-                  {t(effortType)}
+                  {getEffortTypeDisplayName(effortType)}
                 </Text>
                 <Ionicons name="chevron-down" size={12} color={themePalette.accent} />
               </TouchableOpacity>
 
-              {(effortType === 'reps' || effortType === 'time') && (
-                <TouchableOpacity
-                  style={[styles.controlButton, { backgroundColor: `${themePalette.info}20` }]}
-                  onPress={() => setWeightUnitModalVisible(true)}
-                >
-                  <Text style={[styles.controlButtonText, { color: themePalette.info }]}>
-                    {weightUnit}
-                  </Text>
-                  <Ionicons name="chevron-down" size={12} color={themePalette.info} />
-                </TouchableOpacity>
-              )}
-
+              {/* Weight Unit Control */}
+              <TouchableOpacity
+                style={[styles.controlButton, { backgroundColor: `${themePalette.warning}20` }]}
+                onPress={() => setWeightUnitModalVisible(true)}
+              >
+                <Text style={[styles.controlButtonText, { color: themePalette.warning }]}>
+                  {weightUnit.toUpperCase()}
+                </Text>
+                <Ionicons name="chevron-down" size={12} color={themePalette.warning} />
+              </TouchableOpacity>
             </View>
           </View>
           
-          <View style={styles.progressSection}>
-            <Text style={[styles.progressText, { color: themePalette.text_secondary }]}>
-              {completedSets}/{totalSets} sets
-            </Text>
-            <View style={[styles.progressBar, { backgroundColor: `${themePalette.accent}30` }]}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${progress}%`, 
-                    backgroundColor: progress === 100 ? themePalette.success : themePalette.accent 
-                  }
-                ]} 
+          {/* Replace chain link button with three dots button */}
+          <View style={styles.optionsSection}>
+            <TouchableOpacity
+              style={[styles.optionsButton, { 
+                backgroundColor: `${themePalette.text_secondary}15`
+              }]}
+              onPress={() => setExerciseOptionsVisible(true)}
+            >
+              <Ionicons 
+                name="ellipsis-horizontal" 
+                size={18} 
+                color={themePalette.text_secondary} 
               />
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
         
@@ -827,7 +1008,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
             index={index}
             onComplete={() => handleCompleteSet(index)}
             onUncomplete={() => handleUncompleteSet(index)}
-            onEdit={(field) => showEditModal(index, field)}
+            onEdit={(field) => onShowEditModal(exerciseIndex, index, field)}
             onRemove={() => handleRemoveSet(index)}
             last={index === exercise.sets.length - 1}
             isCompleted={set.completed}
@@ -854,139 +1035,6 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
-      
-      {/* Edit Modal */}
-      {editModalVisible && (
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={hideEditModal} />
-          
-          <Animated.View 
-            style={[
-              styles.modalContent,
-              { 
-                backgroundColor: themePalette.card_background,
-                transform: [
-                  { scale: modalAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.9, 1]
-                  })},
-                ],
-                opacity: modalAnimation
-              }
-            ]}
-          >
-            <Text style={[styles.modalTitle, { color: themePalette.text }]}>
-              {editingSet?.field === 'reps' && t('edit_reps')}
-              {editingSet?.field === 'weight' && t('edit_weight')}
-              {editingSet?.field === 'duration' && t('edit_duration')}
-              {editingSet?.field === 'distance' && t('edit_distance')}
-              {editingSet?.field === 'rest' && t('edit_rest_time')}
-            </Text>
-            
-            <TextInput
-              style={[styles.modalInput, { 
-                color: themePalette.text,
-                backgroundColor: themePalette.input_background,
-                borderColor: themePalette.border
-              }]}
-              value={tempValue}
-              onChangeText={setTempValue}
-              keyboardType="decimal-pad"
-              autoFocus
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { borderColor: themePalette.border }]}
-                onPress={hideEditModal}
-              >
-                <Text style={[styles.modalButtonText, { color: themePalette.text }]}>
-                  {t('cancel')}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, { 
-                  backgroundColor: themePalette.accent,
-                  borderColor: themePalette.accent
-                }]}
-                onPress={saveEditedValue}
-              >
-                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
-                  {t('save')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </View>
-      )}
-
-      {/* Name Edit Modal */}
-      {nameEditModalVisible && (
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setNameEditModalVisible(false)} />
-          
-          <View style={[styles.modalContent, { backgroundColor: themePalette.card_background }]}>
-            <Text style={[styles.modalTitle, { color: themePalette.text }]}>
-              {t('edit')}
-            </Text>
-            
-            <TextInput
-              style={[styles.modalInput, { 
-                color: themePalette.text,
-                backgroundColor: themePalette.input_background,
-                borderColor: themePalette.border
-              }]}
-              value={tempName}
-              onChangeText={setTempName}
-              autoFocus
-              placeholder={t('exercise_name')}
-              placeholderTextColor={themePalette.text_tertiary}
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { borderColor: themePalette.border }]}
-                onPress={() => setNameEditModalVisible(false)}
-              >
-                <Text style={[styles.modalButtonText, { color: themePalette.text }]}>
-                  {t('cancel')}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, { 
-                  backgroundColor: themePalette.accent,
-                  borderColor: themePalette.accent
-                }]}
-                onPress={handleNameChange}
-              >
-                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>
-                  {t('save')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Effort Type Modal */}
-      <EffortTypeModal
-        visible={effortTypeModalVisible}
-        onClose={() => setEffortTypeModalVisible(false)}
-        currentType={effortType}
-        onSelect={handleEffortTypeChange}
-        theme={themePalette}
-      />
-
-      {/* Weight Unit Modal */}
-      <WeightUnitModal
-        visible={weightUnitModalVisible}
-        onClose={() => setWeightUnitModalVisible(false)}
-        currentUnit={weightUnit}
-        onSelect={handleWeightUnitChange}
-        theme={themePalette}
-      />
 
       {/* Equipment Modal */}
       <EquipmentModal
@@ -996,7 +1044,56 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
         onSelect={handleEquipmentChange}
         theme={themePalette}
       />
-    </View>
+
+      {/* Effort Type Modal */}
+      <EffortTypeModal
+        visible={effortTypeModalVisible}
+        onClose={() => setEffortTypeModalVisible(false)}
+        currentEffortType={effortType}
+        onSelect={handleEffortTypeChange}
+        theme={themePalette}
+      />
+
+      {/* Weight Unit Modal */}
+      <WeightUnitModal
+        visible={weightUnitModalVisible}
+        onClose={() => setWeightUnitModalVisible(false)}
+        currentWeightUnit={weightUnit}
+        onSelect={handleWeightUnitChange}
+        theme={themePalette}
+      />
+
+      {/* Superset Link Modal */}
+      <SupersetLinkModal
+        visible={supersetLinkModalVisible}
+        onClose={() => setSupersetLinkModalVisible(false)}
+        onLinkWithExisting={handleLinkWithExisting}
+        onLinkWithNew={handleLinkWithNew}
+        availableExercises={availableExercises.filter((ex, idx) => idx !== exerciseIndex && !ex.superset_group)}
+        theme={themePalette}
+      />
+
+      {/* Exercise Options Modal (replaces Long Press Options Modal) */}
+      <ExerciseOptionsModal
+        visible={exerciseOptionsVisible}
+        onClose={() => setExerciseOptionsVisible(false)}
+        onDelete={handleDelete}
+        onSuperset={() => setSupersetLinkModalVisible(true)}
+        isSuperset={isSuperset}
+        onBreakSuperset={() => onRemoveFromSuperset(exerciseIndex)}
+        onRename={() => setRenameModalVisible(true)}
+        theme={themePalette}
+      />
+
+      {/* Rename Exercise Modal */}
+      <RenameExerciseModal
+        visible={renameModalVisible}
+        onClose={() => setRenameModalVisible(false)}
+        currentName={exercise.name}
+        onSave={handleNameChange}
+        theme={themePalette}
+      />
+    </Pressable>
   );
 };
 
@@ -1020,11 +1117,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   titleSection: {
-    flex: 2,
-  },
-  progressSection: {
     flex: 1,
+  },
+  optionsSection: {
     alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+  },
+  optionsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   exerciseNameContainer: {
@@ -1037,19 +1140,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginRight: 8,
   },
-  equipmentTag: {
+  supersetBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
     marginBottom: 8,
   },
-  equipmentText: {
-    fontSize: 12,
+  supersetText: {
+    fontSize: 10,
+    fontWeight: 'bold',
     marginLeft: 4,
   },
   controlsRow: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'wrap',
   },
   controlButton: {
     flexDirection: 'row',
@@ -1062,20 +1170,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginRight: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  progressBar: {
-    height: 4,
-    width: 60,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
   },
   notesContainer: {
     flexDirection: 'row',
@@ -1092,7 +1186,6 @@ const styles = StyleSheet.create({
   setsContainer: {
     maxHeight: 350,
   },
-  
   setNumberBadge: {
     width: 15,
     height: 15,
@@ -1185,7 +1278,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  modalInput: {
+  nameInput: {
     width: '100%',
     height: 50,
     borderWidth: 1,
@@ -1193,7 +1286,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     marginBottom: 20,
-    textAlign: 'center',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -1239,7 +1331,6 @@ const styles = StyleSheet.create({
     flex: 0.4,
     marginLeft: 8,
   },
-  
   completeSetButton: {
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -1247,9 +1338,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 4,
-    // minWidth: 50,
   },
-  
   editableField: {
     padding: 4,
     borderRadius: 4,
@@ -1257,29 +1346,6 @@ const styles = StyleSheet.create({
     minWidth: 55,
     maxWidth: 75,
     marginHorizontal: 1,
-  },
-
-  // Effort type modal styles
-  effortTypeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
-    width: '100%',
-  },
-  effortTypeInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  effortTypeName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  effortTypeDescription: {
-    fontSize: 12,
-    marginTop: 2,
   },
   equipmentList: {
     maxHeight: 400,
@@ -1301,25 +1367,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  
-
-  // Weight unit modal styles
-  unitOption: {
+  // Options modal styles
+  optionsModalContent: {
+    width: '80%',
+    maxWidth: 300,
+    borderRadius: 16,
+    padding: 20,
+  },
+  optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
-    width: '100%',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
-  unitName: {
+  optionButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+    marginLeft: 12,
   },
-  unitAbbr: {
+  subSectionTitle: {
     fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 12,
   },
 });
 

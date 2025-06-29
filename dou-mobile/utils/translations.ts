@@ -2024,8 +2024,29 @@ const exercises = {
     'exercise_man_makers': 'Man Makers',
     'exercise_thrusters': 'Thrusters',
     'exercise_overhead_carry': 'Overhead Carry',
+    
+    'create_superset': 'Create Superset',
+    'break_superset': 'Break Superset',
+    'break_superset_confirmation': 'Do you want to break this superset?',
+    'break' : 'Break',
+    'existing_exercise': 'Existing Exercises',
+    'new_exercise': 'New Exercise',
+    'delete_exercise': "Delete Exercice",
+    "rename_exercise":'Rename Exercise',
+    'time_s': 'time (s)',
+
     },
   "fr": {
+    'create_superset': 'Créer un Superset',
+    'break_superset': 'Rompre le Superset',
+    'break_superset_confirmation': 'Veux-tu rompre le Superset?',
+    'break' : 'Rompre',
+    'existing_exercise': 'Exercises existants',
+    'new_exercise': 'Nouvel Exercice',
+    'delete_exercise': "Supprimer l'Exercice",
+    "rename_exercise":"Renommer l'Exercice",
+    'time_s': 'temps (s)',
+
     // General UI
     "select_exercise": "Sélectionner un Exercice",
     "search_exercises": "Rechercher des exercices...",
@@ -4331,9 +4352,65 @@ fr:{
     }
   }
 }
-}
+};
 
 
+const name_propositions = {
+  "en": {
+    "morning_session": "Morning Session",
+    "am_workout": "AM Workout",
+    "afternoon_pump": "Afternoon Pump",
+    "quick_midday_workout": "Quick Midday Workout",
+    "evening_workout": "Evening Workout",
+    "pm_power": "PM Power",
+    "push_day": "Push Day",
+    "pull_day": "Pull Day",
+    "leg_day": "Leg Day",
+    "upper_body": "Upper Body",
+    "full_body": "Full Body",
+    "arms_day": "Arms Day",
+    "shoulders_blast": "Shoulders Blast",
+    "road_to_arnold": "Road to Arnold",
+    "rocky_prep": "Rocky Prep",
+    "chuck_norris_prep": "Chuck Norris Prep",
+    "cardio_blast": "Cardio Blast",
+    "strength_training": "Strength Training",
+    "functional": "Functional",
+    "running_prep": "Running Prep",
+    "endurance": "Endurance",
+    "intense": "Intense",
+    "focus": "Focus",
+    'just_finished' : "Just finished",
+    'at' : 'at',
+  },
+  "fr": {
+    "morning_session": "Séance Matinale",
+    "am_workout": "Entraînement du Matin",
+    "afternoon_pump": "Pump de l'Après-midi",
+    "quick_midday_workout": "Express de Midi",
+    "evening_workout": "Entraînement du Soir",
+    "pm_power": "Power du Soir",
+    "push_day": "Push",
+    "pull_day": "Pull",
+    "leg_day": "Jambes",
+    "upper_body": "Haut du Corps",
+    "full_body": "Full Body",
+    "arms_day": "Bras",
+    "shoulders_blast": "Épaules en 3D",
+    "road_to_arnold": "Projet Arnold",
+    "rocky_prep": "Projet Rocky",
+    "chuck_norris_prep": "Projet Chuck Norris",
+    "cardio_blast": "Cardio Intense",
+    "strength_training": "Musculation",
+    "functional": "Fonctionnel",
+    "running_prep": "Préparation Course",
+    "endurance": "Endurance",
+    "intense": "Intense",
+    "focus": "Focus",
+    'just_finished' : 'Je viens de terminer',
+    'at': 'à'
+  }
+};
 
 const translations: Translations = {
   en: {
@@ -4360,6 +4437,7 @@ const translations: Translations = {
     ...more_analytics.en,
     ...notifications.en,
     ...notif_settings.en,
+    ...name_propositions.en,
   },
   fr: {
     ...common.fr,
@@ -4385,6 +4463,7 @@ const translations: Translations = {
     ...more_analytics.fr,
     ...notifications.fr,
     ...notif_settings.fr,
+    ...name_propositions.fr,
   }
 };
 

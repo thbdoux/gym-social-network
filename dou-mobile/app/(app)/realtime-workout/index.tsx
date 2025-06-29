@@ -41,6 +41,17 @@ export default function RealtimeWorkoutLogger() {
   // Get handlers
   const handlers = useWorkoutHandlers(workoutManager);
 
+  // Enhanced handler for adding exercises (handles supersets)
+  const enhancedHandleAddExercise = async (exercise: any) => {
+    if (workoutManager.pendingSuperset) {
+      // Add exercise to pending superset
+      await handlers.handleAddExerciseToSuperset(exercise, workoutManager.pendingSuperset);
+    } else {
+      // Normal exercise addition
+      await handlers.handleAddExercise(exercise);
+    }
+  };
+
   // Handle back button
   const handleBackPress = () => {
     if (activeWorkout?.started) {
@@ -73,18 +84,78 @@ export default function RealtimeWorkoutLogger() {
     return () => backHandler.remove();
   }, [activeWorkout?.started]);
 
+  // Enhanced handlers object with superset functionality
+  const enhancedHandlers = {
+    ...handlers,
+    handleAddExercise: enhancedHandleAddExercise,
+    handleCompleteSet: async (exerciseIndex: number, setIndex: number, setData: any) => {
+      if (!activeWorkout) return;
+      
+      const updatedExercises = [...activeWorkout.exercises];
+      const exercise = {...updatedExercises[exerciseIndex]};
+      const sets = [...exercise.sets];
+      const currentSet = sets[setIndex];
+      
+      sets[setIndex] = {
+        ...sets[setIndex],
+        ...setData,
+        completed: true
+      };
+      exercise.sets = sets;
+      updatedExercises[exerciseIndex] = exercise;
+      
+      // Combine set completion and rest timer start
+      const updates: any = { exercises: updatedExercises };
+      
+      // For supersets, handle special rest timer logic
+      const isSuperset = exercise.superset_group;
+      let restTime = currentSet.rest_time;
+      
+      if (isSuperset) {
+        const supersetExercises = activeWorkout.exercises.filter((ex: any) => 
+          ex.superset_group === exercise.superset_group
+        );
+        const currentSupersetIndex = supersetExercises.findIndex((ex: any) => ex.id === exercise.id);
+        const isLastInSuperset = currentSupersetIndex === supersetExercises.length - 1;
+        
+        if (isLastInSuperset) {
+          // Use superset rest time for the end of superset cycle
+          restTime = exercise.superset_rest_time || currentSet.rest_time;
+        } else {
+          // Move to next exercise in superset immediately (no rest between superset exercises)
+          const nextSupersetExercise = supersetExercises[currentSupersetIndex + 1];
+          const nextExerciseIndex = activeWorkout.exercises.findIndex((ex: any) => ex.id === nextSupersetExercise.id);
+          updates.currentExerciseIndex = nextExerciseIndex;
+          restTime = 0; // No rest between superset exercises
+        }
+      }
+      
+      if (restTime > 0) {
+        const restTimer = {
+          isActive: true,
+          totalSeconds: restTime,
+          startTime: new Date().toISOString(),
+          remainingSeconds: restTime
+        };
+        updates.restTimer = restTimer;
+      }
+
+      await workoutManager.updateWorkout(updates);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={palette.accent} />
       <View style={styles.container}>
         {hasActiveWorkout && activeWorkout?.started ? (
           <ActiveWorkoutScreen 
-            handlers={handlers}
+            handlers={enhancedHandlers}
             workoutManager={workoutManager}
           />
         ) : (
           <WorkoutSetupScreen 
-            handlers={handlers}
+            handlers={enhancedHandlers}
             workoutManager={workoutManager}
             onBack={handleBackPress}
           />

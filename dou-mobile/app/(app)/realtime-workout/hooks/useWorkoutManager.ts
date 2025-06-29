@@ -23,6 +23,11 @@ interface Gym {
   is_default?: boolean;
 }
 
+interface PendingSuperset {
+  groupId: string;
+  exerciseIndex: number;
+}
+
 export const useWorkoutManager = (config: WorkoutManagerConfig) => {
   const { 
     activeWorkout, 
@@ -50,6 +55,9 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
   const [completeModalVisible, setCompleteModalVisible] = useState(false);
   const [gymModalVisible, setGymModalVisible] = useState(false);
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
+  
+  // Superset state
+  const [pendingSuperset, setPendingSuperset] = useState<PendingSuperset | null>(null);
 
   // Get program workout if needed
   const programWorkout = program?.workouts?.find(w => w.id === config.workoutId);
@@ -87,6 +95,11 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
   const addExercise = async (exercise: any) => {
     if (!activeWorkout) return;
     
+    // Check if we're adding an exercise to a pending superset
+    if (pendingSuperset) {
+      return addExerciseToSuperset(exercise, pendingSuperset);
+    }
+    
     const effortType = exercise.effort_type || 'reps';
     const weightUnit = exercise.weight_unit || 'kg';
     
@@ -96,7 +109,6 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
       effort_type: effortType,
       weight_unit: weightUnit,
       equipment: exercise.equipment || '',
-      superset_group: null, // Initialize superset group as null
       sets: exercise.sets || [createDefaultSet(effortType, 0, null, weightUnit)]
     };
     
@@ -106,6 +118,39 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
       currentExerciseIndex: activeWorkout.exercises.length
     });
     setSelectingExercise(false);
+  };
+
+  const addExerciseToSuperset = async (exercise: any, supersetInfo: PendingSuperset) => {
+    if (!activeWorkout) return;
+    
+    const effortType = exercise.effort_type || 'reps';
+    const weightUnit = exercise.weight_unit || 'kg';
+    
+    const newExercise = {
+      ...exercise,
+      id: exercise.id || generateUniqueId(),
+      effort_type: effortType,
+      weight_unit: weightUnit,
+      equipment: exercise.equipment || '',
+      superset_group: supersetInfo.groupId,
+      is_superset: true,
+      superset_rest_time: 90,
+      sets: exercise.sets || [createDefaultSet(effortType, 0, null, weightUnit)]
+    };
+    
+    // Insert the new exercise right after the superset partner
+    const updatedExercises = [...activeWorkout.exercises];
+    updatedExercises.splice(supersetInfo.exerciseIndex + 1, 0, newExercise);
+    
+    // Update the original exercise's superset_with field
+    updatedExercises[supersetInfo.exerciseIndex] = {
+      ...updatedExercises[supersetInfo.exerciseIndex],
+      superset_with: newExercise.id
+    };
+    
+    await updateWorkout({ exercises: updatedExercises });
+    setSelectingExercise(false);
+    setPendingSuperset(null);
   };
 
   const updateExercise = async (exerciseIndex: number, exerciseData: any) => {
@@ -141,9 +186,9 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
     const updatedExercises = [...activeWorkout.exercises];
     const exerciseToDelete = updatedExercises[exerciseIndex];
     
-    // If exercise is part of a superset, handle superset cleanup
+    // If this exercise is part of a superset, handle superset cleanup
     if (exerciseToDelete.superset_group) {
-      await cleanupSuperset(exerciseToDelete.superset_group, exerciseIndex);
+      await handleSupersetDeletion(exerciseToDelete.superset_group, exerciseIndex);
       return;
     }
     
@@ -164,66 +209,91 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
     });
   };
 
-  // Superset management
-  const createSuperset = async (exerciseIndices: number[]) => {
-    if (!activeWorkout || exerciseIndices.length < 2) return;
-    
-    const supersetId = generateUniqueId();
-    const updatedExercises = [...activeWorkout.exercises];
-    
-    exerciseIndices.forEach(index => {
-      if (updatedExercises[index]) {
-        updatedExercises[index] = {
-          ...updatedExercises[index],
-          superset_group: supersetId
-        };
-      }
-    });
-    
-    await updateWorkout({ exercises: updatedExercises });
-  };
-
-  const removeFromSuperset = async (exerciseIndex: number) => {
+  const handleSupersetDeletion = async (supersetGroupId: string, exerciseIndex: number) => {
     if (!activeWorkout) return;
     
-    const updatedExercises = [...activeWorkout.exercises];
-    const exercise = updatedExercises[exerciseIndex];
-    
-    if (!exercise.superset_group) return;
-    
-    const supersetGroup = exercise.superset_group;
-    updatedExercises[exerciseIndex] = {
-      ...exercise,
-      superset_group: null
-    };
-    
-    // Check if superset still has enough exercises
-    const remainingInSuperset = updatedExercises.filter(ex => 
-      ex.superset_group === supersetGroup
+    const supersetExercises = activeWorkout.exercises.filter((ex: any) => 
+      ex.superset_group === supersetGroupId
     );
     
-    if (remainingInSuperset.length < 2) {
-      // Break up the superset
-      updatedExercises.forEach((ex, idx) => {
-        if (ex.superset_group === supersetGroup) {
-          updatedExercises[idx] = { ...ex, superset_group: null };
+    if (supersetExercises.length === 2) {
+      // If only 2 exercises in superset, remove superset properties from the remaining one
+      const updatedExercises = activeWorkout.exercises.map((ex: any, index: number) => {
+        if (index === exerciseIndex) {
+          // This is the exercise being deleted, so skip it
+          return null;
+        } else if (ex.superset_group === supersetGroupId) {
+          // Remove superset properties from the remaining exercise
+          const { superset_group, is_superset, superset_rest_time, superset_with, ...exerciseWithoutSuperset } = ex;
+          return exerciseWithoutSuperset;
         }
+        return ex;
+      }).filter(Boolean); // Remove null entries
+      
+      let newCurrentIndex = activeWorkout.currentExerciseIndex;
+      if (newCurrentIndex >= exerciseIndex && newCurrentIndex > 0) {
+        newCurrentIndex = newCurrentIndex - 1;
+      } else if (updatedExercises.length === 0) {
+        newCurrentIndex = 0;
+      } else if (newCurrentIndex >= updatedExercises.length) {
+        newCurrentIndex = updatedExercises.length - 1;
+      }
+      
+      await updateWorkout({ 
+        exercises: updatedExercises,
+        currentExerciseIndex: newCurrentIndex
+      });
+    } else {
+      // More than 2 exercises in superset, just remove this one
+      const updatedExercises = [...activeWorkout.exercises];
+      updatedExercises.splice(exerciseIndex, 1);
+      
+      let newCurrentIndex = activeWorkout.currentExerciseIndex;
+      if (newCurrentIndex >= exerciseIndex && newCurrentIndex > 0) {
+        newCurrentIndex = newCurrentIndex - 1;
+      } else if (updatedExercises.length === 0) {
+        newCurrentIndex = 0;
+      } else if (newCurrentIndex >= updatedExercises.length) {
+        newCurrentIndex = updatedExercises.length - 1;
+      }
+      
+      await updateWorkout({ 
+        exercises: updatedExercises,
+        currentExerciseIndex: newCurrentIndex
       });
     }
-    
-    await updateWorkout({ exercises: updatedExercises });
   };
 
-  const addExerciseToSuperset = async (exerciseIndex: number, targetSupersetGroup: string) => {
+  const removeExerciseFromSuperset = async (exerciseIndex: number) => {
     if (!activeWorkout) return;
     
-    const updatedExercises = [...activeWorkout.exercises];
-    updatedExercises[exerciseIndex] = {
-      ...updatedExercises[exerciseIndex],
-      superset_group: targetSupersetGroup
-    };
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    if (!exercise.superset_group) return;
     
-    await updateWorkout({ exercises: updatedExercises });
+    const supersetGroupId = exercise.superset_group;
+    const supersetExercises = activeWorkout.exercises.filter((ex: any) => 
+      ex.superset_group === supersetGroupId
+    );
+    
+    if (supersetExercises.length === 2) {
+      // If only 2 exercises, remove superset from both
+      const updatedExercises = activeWorkout.exercises.map((ex: any) => {
+        if (ex.superset_group === supersetGroupId) {
+          const { superset_group, is_superset, superset_rest_time, superset_with, ...exerciseWithoutSuperset } = ex;
+          return exerciseWithoutSuperset;
+        }
+        return ex;
+      });
+      
+      await updateWorkout({ exercises: updatedExercises });
+    } else {
+      // More than 2 exercises, just remove this one from superset
+      const updatedExercises = [...activeWorkout.exercises];
+      const { superset_group, is_superset, superset_rest_time, superset_with, ...exerciseWithoutSuperset } = exercise;
+      updatedExercises[exerciseIndex] = exerciseWithoutSuperset;
+      
+      await updateWorkout({ exercises: updatedExercises });
+    }
   };
 
   // Helper functions
@@ -274,63 +344,30 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
     }
   };
 
-  const cleanupSuperset = async (supersetGroup: string, excludeIndex: number) => {
-    if (!activeWorkout) return;
+  // Superset utility functions
+  const getExerciseSuperset = (exerciseIndex: number) => {
+    if (!activeWorkout || !activeWorkout.exercises[exerciseIndex]) return null;
     
-    let updatedExercises = [...activeWorkout.exercises];
+    const exercise = activeWorkout.exercises[exerciseIndex];
+    if (!exercise.superset_group) return null;
     
-    // Remove the exercise
-    updatedExercises.splice(excludeIndex, 1);
+    const supersetExercises = activeWorkout.exercises
+      .map((ex, index) => ({ exercise: ex, index }))
+      .filter(({ exercise: ex }) => ex.superset_group === exercise.superset_group);
     
-    // Check remaining exercises in superset
-    const remainingInSuperset = updatedExercises.filter(ex => 
-      ex.superset_group === supersetGroup
-    );
-    
-    if (remainingInSuperset.length < 2) {
-      // Break up the superset
-      updatedExercises = updatedExercises.map(ex => 
-        ex.superset_group === supersetGroup 
-          ? { ...ex, superset_group: null }
-          : ex
-      );
-    }
-    
-    // Update current exercise index
-    let newCurrentIndex = activeWorkout.currentExerciseIndex;
-    if (newCurrentIndex >= excludeIndex && newCurrentIndex > 0) {
-      newCurrentIndex = newCurrentIndex - 1;
-    } else if (updatedExercises.length === 0) {
-      newCurrentIndex = 0;
-    } else if (newCurrentIndex >= updatedExercises.length) {
-      newCurrentIndex = updatedExercises.length - 1;
-    }
-    
-    await updateWorkout({ 
-      exercises: updatedExercises,
-      currentExerciseIndex: newCurrentIndex
-    });
+    return {
+      groupId: exercise.superset_group,
+      exercises: supersetExercises,
+      currentIndex: supersetExercises.findIndex(({ index }) => index === exerciseIndex)
+    };
   };
 
-  // Get superset groups
-  const getSuperset = (supersetGroup: string) => {
-    if (!activeWorkout) return [];
-    return activeWorkout.exercises.filter(ex => ex.superset_group === supersetGroup);
-  };
-
-  const getAllSupersets = () => {
-    if (!activeWorkout) return [];
+  const getNextExerciseInSuperset = (exerciseIndex: number): number | null => {
+    const superset = getExerciseSuperset(exerciseIndex);
+    if (!superset) return null;
     
-    const supersetGroups = new Set(
-      activeWorkout.exercises
-        .filter(ex => ex.superset_group)
-        .map(ex => ex.superset_group)
-    );
-    
-    return Array.from(supersetGroups).map(group => ({
-      id: group,
-      exercises: getSuperset(group!)
-    }));
+    const nextIndex = (superset.currentIndex + 1) % superset.exercises.length;
+    return superset.exercises[nextIndex].index;
   };
 
   return {
@@ -349,6 +386,10 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
     setGymModalVisible,
     templateModalVisible,
     setTemplateModalVisible,
+    
+    // Superset state
+    pendingSuperset,
+    setPendingSuperset,
     
     // Data
     currentUser,
@@ -369,15 +410,14 @@ export const useWorkoutManager = (config: WorkoutManagerConfig) => {
     
     // Exercise management
     addExercise,
+    addExerciseToSuperset,
     updateExercise,
     deleteExercise,
+    removeExerciseFromSuperset,
     
-    // Superset management
-    createSuperset,
-    removeFromSuperset,
-    addExerciseToSuperset,
-    getSuperset,
-    getAllSupersets,
+    // Superset utilities
+    getExerciseSuperset,
+    getNextExerciseInSuperset,
     
     // Config
     config

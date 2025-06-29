@@ -33,7 +33,7 @@ type GymType = {
 };
 
 const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocationProps) => {
-  const { t } = useLanguage();
+  const { t , language} = useLanguage();
   const { user } = useAuth();
   const { workoutLogPalette, palette } = useTheme();
   
@@ -108,19 +108,10 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
   
   // Format date for display
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(language, {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    });
-  };
-  
-  // Format time for display
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
     });
   };
   
@@ -182,7 +173,7 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
           <View style={styles.cardHeader}>
             <Ionicons name="calendar-outline" size={20} color={workoutLogPalette.highlight} />
             <Text style={[styles.cardTitle, { color: workoutLogPalette.text }]}>
-              {t('date')} • {formatTime(formData.date)}
+              {t('date')}
             </Text>
           </View>
           
@@ -212,6 +203,7 @@ const Step2DateLocation = ({ formData, updateFormData, errors }: Step2DateLocati
             <DateTimePicker
               value={formData.date}
               mode="date"
+              locale={language}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleDateChange}
               maximumDate={new Date()} // Can't log future workouts

@@ -59,7 +59,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   disableNavigation = false,
   onWorkoutLogClick,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { workoutLogPalette } = useTheme();
   const isOwner = user === log.username;
   // Animation for selection mode
@@ -137,14 +137,14 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
       // Check if date is in DD/MM/YYYY format
       if (typeof dateString === 'string' && dateString.includes('/')) {
         const [day, month, year] = dateString.split('/');
-        return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, { 
+        return new Date(`${year}-${month}-${day}`).toLocaleDateString(language, { 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric' 
         });
       }
       // Otherwise try standard parsing
-      return new Date(dateString).toLocaleDateString(undefined, { 
+      return new Date(dateString).toLocaleDateString(language, { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
@@ -229,9 +229,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           isSelected && [styles.selectedContainer, { borderColor: workoutLogPalette.text }]
         ]}
       >
-        {/* Completed indicator strip */}
-        {log.completed && <View style={[styles.completedStrip, { backgroundColor: workoutLogPalette.text }]} />}
-        
+ 
         {/* Selection indicator */}
         {selectionMode && (
           <View style={styles.selectionIndicator}>
@@ -289,12 +287,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
               <Text style={[styles.dateText, { color: workoutLogPalette.text }]}>
                 {formatDate(log.date)}
               </Text>
-              <View style={[
-                styles.statusDot,
-                log.completed 
-                  ? [styles.completedDot, { backgroundColor: workoutLogPalette.text }] 
-                  : [styles.pendingDot, { backgroundColor: 'rgba(255, 255, 255, 0.5)' }]
-              ]} />
+              
             </View>
             
             {gym ? (

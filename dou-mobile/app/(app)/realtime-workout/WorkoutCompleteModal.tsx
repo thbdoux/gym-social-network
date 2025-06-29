@@ -40,9 +40,9 @@ const MOOD_OPTIONS = [
 ];
 
 const DIFFICULTY_OPTIONS = [
-  { value: 'easy', label: 'easy', color: '#10b981' },
-  { value: 'moderate', label: 'moderate', color: '#f59e0b' },
-  { value: 'hard', label: 'hard', color: '#ef4444' }
+  { value: '1', label: 'easy', color: '#10b981' },
+  { value: '2', label: 'moderate', color: '#f59e0b' },
+  { value: '3', label: 'hard', color: '#ef4444' }
 ];
 
 const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
@@ -58,9 +58,8 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
 }) => {
   const { t } = useLanguage();
   const [mood, setMood] = useState(3);
-  const [difficulty, setDifficulty] = useState('moderate');
+  const [difficulty, setDifficulty] = useState(1);
   const [notes, setNotes] = useState('');
-  const [tags, setTags] = useState('');
   
   // Social sharing states
   const [shareToSocial, setShareToSocial] = useState(true);
@@ -89,7 +88,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
       acc + ex.sets.filter((set: any) => set.completed).length, 0
     );
     
-    return `Just finished "${workoutName}"! 💪\n\n`;
+    return `${t('just_finished')}: ${workoutName} 💪\n\n`;
   };
 
   const handleSubmit = () => {
@@ -116,16 +115,10 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const formattedTags = tags
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
-
       const workoutData = {
         mood_rating: mood,
         difficulty_level: difficulty,
         notes,
-        tags: formattedTags,
         will_share_to_social: shareToSocial,
         post_content: shareToSocial ? postContent : null
       };
@@ -226,7 +219,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                         {completionPercentage}%
                       </Text>
                       <Text style={[styles.statLabel, { color: themePalette.text_secondary }]}>
-                        {t('complete')}
+                        {t('completed')}
                       </Text>
                     </View>
                   </View>
@@ -394,29 +387,7 @@ const WorkoutCompleteModal: React.FC<WorkoutCompleteModalProps> = ({
                   />
                 </View>
                 
-                {/* Tags */}
-                <View style={styles.sectionContainer}>
-                  <Text style={[styles.sectionLabel, { color: themePalette.text }]}>
-                    {t('tags')} ({t('optional')})
-                  </Text>
-                  
-                  <TextInput
-                    style={[
-                      styles.tagsInput,
-                      { 
-                        color: themePalette.text,
-                        backgroundColor: themePalette.input_background,
-                        borderColor: themePalette.border
-                      }
-                    ]}
-                    value={tags}
-                    onChangeText={setTags}
-                    placeholder={t('enter_tags_example')}
-                    placeholderTextColor={themePalette.text_tertiary}
-                    editable={!isSubmitting}
-                  />
-                </View>
-
+              
                 {/* Bottom padding for keyboard */}
                 <View style={styles.bottomPadding} />
               </ScrollView>
@@ -628,13 +599,6 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     height: 80,
-  },
-  tagsInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    height: 50,
   },
   bottomPadding: {
     height: 20,
