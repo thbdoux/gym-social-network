@@ -66,6 +66,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { palette } = useTheme();
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+  const [replyingToParent, setReplyingToParent] = useState<Comment | null>(null); // Track the parent comment
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
   const [replyText, setReplyText] = useState('');
@@ -73,11 +74,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
   const [selectedComment, setSelectedComment] = useState<Comment | null>(null);
   const [longPressedComment, setLongPressedComment] = useState<number | null>(null);
-  // Add the missing state for reaction panel
   const [reactionPanelVisible, setReactionPanelVisible] = useState<number | null>(null);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  // Add a separate animation value for border highlight that doesn't use native driver
   const borderAnim = useRef(new Animated.Value(0)).current;
 
   const { mutate: commentOnPost } = useCommentOnPost();
@@ -85,6 +84,38 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { mutate: deleteComment } = useDeleteComment();
   const { mutate: reactToComment } = useReactToComment();
   const { mutate: unreactToComment } = useUnreactToComment();
+
+  // Helper function to find the top-level parent comment
+  const findParentComment = (comment: Comment, allComments: Comment[]): Comment => {
+    // First, check if this is already a top-level comment
+    const isTopLevel = allComments.some(topComment => topComment.id === comment.id);
+    if (isTopLevel) {
+      return comment;
+    }
+    
+    // If it has an explicit parent field, use that to find the parent
+    if (comment.parent) {
+      for (const topComment of allComments) {
+        if (topComment.id === comment.parent) {
+          return topComment;
+        }
+      }
+    }
+    
+    // If no explicit parent field, search through the nested replies structure
+    for (const topComment of allComments) {
+      if (topComment.replies && topComment.replies.length > 0) {
+        // Check if this comment is in the replies of this top comment
+        const isReplyOfThis = topComment.replies.some(reply => reply.id === comment.id);
+        if (isReplyOfThis) {
+          return topComment;
+        }
+      }
+    }
+    
+    // Fallback: return the comment itself if parent not found
+    return comment;
+  };
 
   // Format time as "x min ago", "x hr ago", etc.
   const formatTimeAgo = (dateString) => {
@@ -130,21 +161,22 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const handleReplySubmit = () => {
-    if (replyText.trim() && replyingTo) {
+    if (replyText.trim() && replyingTo && replyingToParent) {
       // Include the @username mention in the reply
       const replyContent = `@${replyingTo.user_username} ${replyText}`;
       
       commentOnPost({
         postId: postId, 
         content: replyContent,
-        parentId: replyingTo.id
+        parentId: replyingToParent.id // Always use the top-level comment ID
       }, {
         onSuccess: () => {
           setReplyText('');
           setReplyingTo(null);
+          setReplyingToParent(null);
           // Auto-expand replies when a new reply is added
-          if (!expandedReplies.includes(replyingTo.id)) {
-            setExpandedReplies([...expandedReplies, replyingTo.id]);
+          if (!expandedReplies.includes(replyingToParent.id)) {
+            setExpandedReplies([...expandedReplies, replyingToParent.id]);
           }
         }
       });
@@ -177,7 +209,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const handleReactToComment = (comment: Comment, reactionType: string) => {
     // Check if user already has this reaction
-    const currentUserReaction = comment.reactions.find(
+    const currentUserReaction = (comment.reactions || []).find(
       r => r.user_id === userData?.id && r.reaction_type === reactionType
     );
     
@@ -263,15 +295,29 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   };
 
+  // Handle reply button click - improved logic for flat replies
+  const handleReplyClick = (comment: Comment) => {
+    // Find the parent comment (top-level comment)
+    const parentComment = findParentComment(comment, comments);
+    
+    setReplyingTo(comment); // The comment we're actually replying to (for mention)
+    setReplyingToParent(parentComment); // The parent comment (for parentId)
+    
+    // Auto-expand the parent comment's replies if not already expanded
+    if (!expandedReplies.includes(parentComment.id)) {
+      setExpandedReplies([...expandedReplies, parentComment.id]);
+    }
+  };
+
   // Get total reaction count for a comment
   const getTotalReactions = (comment: Comment) => {
-    return comment.reactions.length;
+    return (comment.reactions || []).length;
   };
 
   // Get dominant reaction types for display
   const getTopReactions = (comment: Comment) => {
     const reactionCounts = {};
-    comment.reactions.forEach(reaction => {
+    (comment.reactions || []).forEach(reaction => {
       reactionCounts[reaction.reaction_type] = (reactionCounts[reaction.reaction_type] || 0) + 1;
     });
     
@@ -328,11 +374,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const renderComment = (comment: Comment, isReply = false) => {
     const isCurrentUserComment = comment.user_id === userData?.id;
-    const hasUserReacted = comment.reactions.some(r => r.user_id === userData?.id);
-    const userReactionType = comment.reactions.find(r => r.user_id === userData?.id)?.reaction_type;
+    const hasUserReacted = (comment.reactions || []).some(r => r.user_id === userData?.id);
+    const userReactionType = (comment.reactions || []).find(r => r.user_id === userData?.id)?.reaction_type;
     const topReactions = getTopReactions(comment);
     const totalReactions = getTotalReactions(comment);
     const isLongPressed = longPressedComment === comment.id;
+
+    console.log(comment);
+    
+    // Determine if this comment should show the reply input
+    const isShowingReplyInput = replyingToParent?.id === comment.id && !isReply;
     
     return (
       <View key={comment.id} style={[
@@ -364,7 +415,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               <Animated.View style={[
                 styles.commentBubble, 
                 { backgroundColor: palette.layout === '#F8F9FA' ? '#F3F4F6' : 'rgba(31, 41, 55, 0.8)' },
-                // Use opacity and scale which are compatible with native driver
                 isLongPressed && {
                   opacity: fadeAnim.interpolate({
                     inputRange: [0, 1],
@@ -379,7 +429,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                   ]
                 }
               ]}>
-                {/* Use a separate non-animated border View when highlight is needed */}
                 {isLongPressed && (
                   <Animated.View 
                     style={{
@@ -507,14 +556,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           )}
           
           {/* Replies section */}
-          {!isReply && expandedReplies.includes(comment.id) && comment.replies.length > 0 && (
+          {!isReply && expandedReplies.includes(comment.id) && (comment.replies || []).length > 0 && (
             <View style={styles.repliesContainer}>
-              {comment.replies.map(reply => renderComment(reply, true))}
+              {(comment.replies || []).map(reply => renderComment(reply, true))}
             </View>
           )}
           
-          {/* Reply input if replying to this comment */}
-          {replyingTo?.id === comment.id && (
+          {/* Reply input - only show for the parent comment we're replying under */}
+          {isShowingReplyInput && (
             <View style={styles.replyInputContainer}>
               <View style={styles.replyInputAvatar}>
                 <Image 
@@ -529,7 +578,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                     backgroundColor: palette.layout === '#F8F9FA' ? '#E2E8F0' : '#1F2937',
                     color: palette.text 
                   }]}
-                  placeholder={t('reply_to', { username: comment.user_username })}
+                  placeholder={t('reply_to', { username: replyingTo?.user_username })}
                   placeholderTextColor={palette.border}
                   value={replyText}
                   onChangeText={setReplyText}
@@ -602,8 +651,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       
       {/* Comments List */}
       <View style={styles.commentsContainer}>
-        {comments.length > 0 ? (
-          comments.map(comment => renderComment(comment))
+        {(comments || []).length > 0 ? (
+          (comments || []).map(comment => renderComment(comment))
         ) : (
           <Text style={[styles.noCommentsText, { color: palette.border }]}>
             {t('no_comments')}
@@ -676,7 +725,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                   <TouchableOpacity
                     style={styles.actionOption}
                     onPress={() => {
-                      setReplyingTo(selectedComment);
+                      handleReplyClick(selectedComment);
                       handleCloseActionMenu();
                     }}
                   >
