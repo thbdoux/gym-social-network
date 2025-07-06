@@ -13,7 +13,13 @@ interface ExercisesListProps {
   log: any;
   colors: any;
   isCreator: boolean;
-  onEditExercises: () => void;
+  canEdit: boolean;
+  permissionLevel: string;
+  onAddExercise: () => void;
+  onEditExercise: (exercise: any, index: number) => void;
+  onDeleteExercise: (index: number) => void;
+  onCreateSuperset: (index: number) => void;
+  onBreakSuperset: (index: number) => void;
   t: (key: string) => string;
 }
 
@@ -21,26 +27,30 @@ export const ExercisesList: React.FC<ExercisesListProps> = ({
   log,
   colors,
   isCreator,
-  onEditExercises,
+  canEdit,
+  permissionLevel,
+  onAddExercise,
+  onEditExercise,
+  onDeleteExercise,
+  onCreateSuperset,
+  onBreakSuperset,
   t,
 }) => {
   return (
     <View style={styles.exercisesSection}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{t('exercises')}</Text>
-        <View style={styles.exerciseControls}>
-          {isCreator && (
-            <TouchableOpacity 
-              style={[styles.editExercisesButton, { backgroundColor: `rgba(${colors.secondary.replace('#', '')}, 0.1)` }]}
-              onPress={onEditExercises}
-            >
-              <Ionicons name="create-outline" size={16} color={colors.secondary} />
-              <Text style={[styles.editExercisesText, { color: colors.secondary }]}>
-                {t('edit')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        {canEdit && (
+          <TouchableOpacity 
+            style={[styles.addExerciseButton, { backgroundColor: `rgba(16, 185, 129, 0.1)` }]}
+            onPress={onAddExercise}
+          >
+            <Ionicons name="add-circle" size={16} color={colors.success} />
+            <Text style={[styles.addExerciseText, { color: colors.success }]}>
+              {t('add_exercise')}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
       
       {/* Render exercises list or empty state */}
@@ -53,6 +63,11 @@ export const ExercisesList: React.FC<ExercisesListProps> = ({
               index={index}
               exercises={log.exercises}
               colors={colors}
+              canEdit={canEdit}
+              onEdit={() => onEditExercise(exercise, index)}
+              onDelete={() => onDeleteExercise(index)}
+              onCreateSuperset={() => onCreateSuperset(index)}
+              onBreakSuperset={() => onBreakSuperset(index)}
               t={t}
             />
           ))}
@@ -63,10 +78,10 @@ export const ExercisesList: React.FC<ExercisesListProps> = ({
           <Text style={[styles.emptyStateText, { color: colors.text.tertiary }]}>
             {t('no_exercises')}
           </Text>
-          {isCreator && (
+          {canEdit && (
             <TouchableOpacity
               style={[styles.emptyStateAddButton, { backgroundColor: `rgba(16, 185, 129, 0.1)` }]}
-              onPress={onEditExercises}
+              onPress={onAddExercise}
             >
               <Ionicons name="add-circle" size={20} color={colors.success} />
               <Text style={[styles.emptyStateAddText, { color: colors.success }]}>
@@ -128,18 +143,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  exerciseControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  editExercisesButton: {
+  addExerciseButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
   },
-  editExercisesText: {
+  addExerciseText: {
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 4,

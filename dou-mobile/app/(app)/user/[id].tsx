@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useCurrentUser, useUser, useFriendshipStatus } from '../../../hooks/query/useUserQuery';
-import { useGymDisplay } from '../../../hooks/query/useGymQuery';
+import { useGym } from '../../../hooks/query/useGymQuery';
 import { useProgram } from '../../../hooks/query/useProgramQuery';
 import { useUserLogs, useWorkoutStats } from '../../../hooks/query/useLogQuery';
 import { useUserJoinedGroupWorkouts, useUserGroupWorkouts } from '../../../hooks/query/useGroupWorkoutQuery';
@@ -107,10 +107,9 @@ export default function ProfilePreviewPage() {
   
   // Get preferred gym info
   const {
-    displayText: gymDisplayText,
     isLoading: gymLoading,
-    gym
-  } = useGymDisplay(userId, userData?.preferred_gym);
+    data: gym
+  } = useGym(userData?.preferred_gym);
   
   // Get program data if available
   const {

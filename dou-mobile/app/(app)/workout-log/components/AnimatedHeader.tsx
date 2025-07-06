@@ -138,12 +138,7 @@ export const AnimatedHeader: React.FC<AnimatedHeaderProps> = ({
 
   // Calculate dynamic header height based on content
   const calculateHeaderHeight = () => {
-    let height = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0; // Status bar
-    height += 12; // Top padding
-    height += 48; // Header top row
-    height += 8; // Margin after title
-    height += 78; // Workout stats container (2 rows)
-    height += 12; // Margin after stats
+    let height = Platform.OS === 'ios' ? 280 : StatusBar.currentHeight || 0; // Status bar
     
     // Add height for workout partners section if present
     if (workoutPartners.length > 0 || isCreator) {
@@ -158,8 +153,6 @@ export const AnimatedHeader: React.FC<AnimatedHeaderProps> = ({
       height += notesHeight;
       height += 8; // Margin after notes
     }
-    
-    height += 100; // Bottom padding
     
     return height;
   };
@@ -888,7 +881,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   partnersAvatars: {
-    marginRight: 8,
+    marginRight: 60,
   },
   notesContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.15)',

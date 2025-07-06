@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// components/workouts/workout-steps/StepExercises.tsx
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,505 +7,441 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform
+  Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { WorkoutTemplateFormData } from '../WorkoutTemplateWizard';
-import { Ionicons } from '@expo/vector-icons';
+import { useRecentExerciseNames } from '../../../hooks/query/useLogQuery';
+import { formatRestTime } from '../../../app/(app)/workout/formatters';
+
+// Import the modals
 import ExerciseSelector from '../ExerciseSelector';
 import ExerciseConfigurator from '../ExerciseConfigurator';
-import ExerciseCard, { Exercise as CardExercise, ExerciseSet as CardExerciseSet } from '../ExerciseCard';
-import { useRecentExercises, useRecentExerciseNames } from './../../../hooks/query/useLogQuery';
+import { ExerciseCard } from '../../../app/(app)/workout-log/components/ExerciseCard';
+// Types - should match the ones from WorkoutLogWizard
+export type ExerciseSet = {
+  id?: number;
+  reps?: number | null;
+  weight?: number | null;
+  weight_unit?: 'kg' | 'lbs';
+  weight_unit_display?: string;
+  weight_display?: string;
+  duration?: number | null;
+  distance?: number | null;
+  rest_time: number;
+  order?: number;
+};
 
-// Type mappings to ensure compatibility
-type Exercise = CardExercise;
-type ExerciseSet = CardExerciseSet;
+export type Exercise = {
+  id?: number;
+  name: string;
+  equipment?: string;
+  notes?: string;
+  order?: number;
+  effort_type?: 'reps' | 'time' | 'distance';
+  effort_type_display?: string;
+  superset_with?: number | null;
+  is_superset?: boolean;
+  superset_rest_time?: number;
+  sets: ExerciseSet[];
+};
 
 type StepExercisesProps = {
-  formData: WorkoutTemplateFormData;
-  updateFormData: (data: Partial<WorkoutTemplateFormData>) => void;
+  formData: {
+    exercises: Exercise[];
+    [key: string]: any;
+  };
+  updateFormData: (updates: any) => void;
   errors: Record<string, string>;
 };
 
-const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps) => {
+// Helper function to get default set based on effort type
+const getDefaultSet = (effortType: 'reps' | 'time' | 'distance' = 'reps'): ExerciseSet => {
+  switch (effortType) {
+    case 'time':
+      return {
+        duration: 30,
+        weight: null,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+    case 'distance':
+      return {
+        distance: 100,
+        duration: null,
+        rest_time: 120
+      };
+    case 'reps':
+    default:
+      return {
+        reps: 10,
+        weight: 20,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+  }
+};
+
+const StepExercises: React.FC<StepExercisesProps> = ({ 
+  formData, 
+  updateFormData, 
+  errors 
+}) => {
   const { t } = useLanguage();
   const { workoutPalette, palette } = useTheme();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
+  
   // Modal states
   const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
   const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
-  
-  // Edit state
-  const [editExerciseIndex, setEditExerciseIndex] = useState<number | null>(null);
-  const [selectedExercise, setSelectedExercise] = useState<any>(null);
-  
-  // Superset pairing state
-  const [pairingMode, setPairingMode] = useState<boolean>(false);
-  const [pairingSourceIndex, setPairingSourceIndex] = useState<number | null>(null);
-  
-  // Recently used exercises for the selector component
-  // const [recentExercises, setRecentExercises] = useState<string[]>([]);
-  // const { data: recentExercises = [] } = useRecentExercises(30, 15);
-  const { data: recentExercises = [], isLoading: isLoadingRecent } = useRecentExerciseNames(30, 15);
-  // Add keyboard event listeners
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardVisible(true);
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-        setKeyboardHeight(0);
-      }
-    );
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [editingIndex, setEditingIndex] = useState(-1);
 
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
+  // Get recent exercises for the selector
+  const { data: recentExerciseNames } = useRecentExerciseNames(30, 15);
+
+  // Create colors object for the ExerciseCard component
+  const colors = {
+    card: palette.card_background,
+    text: {
+      primary: palette.text,
+      secondary: palette.text_secondary,
+      tertiary: palette.text_tertiary,
+    },
+    border: palette.border,
+    success: '#10B981',
+    error: '#EF4444',
+    card_background: palette.card_background,
+  };
+
+  // Handle adding a new exercise from selector
+  const handleSelectExercise = useCallback((selectedExercise: any) => {
+    const newExercise: Exercise = {
+      id: Date.now(), // Temporary ID for new exercises
+      name: selectedExercise.name,
+      equipment: selectedExercise.equipment || selectedExercise.equipmentKey,
+      effort_type: selectedExercise.effort_type || 'reps',
+      notes: selectedExercise.notes || '',
+      order: formData.exercises.length, // Set order to current length
+      sets: [getDefaultSet(selectedExercise.effort_type || 'reps')],
+      superset_with: null,
+      is_superset: false,
+      superset_rest_time: 60
     };
+
+    setEditingExercise(newExercise);
+    setEditingIndex(-1); // -1 indicates new exercise
+    setExerciseConfiguratorVisible(true);
+  }, [formData.exercises.length]);
+
+  // Handle editing an existing exercise
+  const handleEditExercise = useCallback((exercise: Exercise, index: number) => {
+    setEditingExercise({ ...exercise });
+    setEditingIndex(index);
+    setExerciseConfiguratorVisible(true);
   }, []);
 
-  // Handle adding a new exercise - open the exercise selector
-  const handleAddExercise = () => {
-    setEditExerciseIndex(null);
-    setSelectedExercise(null);
-    setExerciseSelectorVisible(true);
-  };
-  
-  // Handle selecting an exercise from the ExerciseSelector
-  const handleSelectExercise = (exercise: any) => {
-    setSelectedExercise(exercise);
-    setExerciseSelectorVisible(false);
-    setExerciseConfiguratorVisible(true);
-  };
-  
   // Handle saving exercise from configurator
-  const handleSaveExercise = (configuredExercise: Exercise) => {
-    const updatedExercises = [...formData.exercises];
+  const handleSaveExercise = useCallback((configuredExercise: Exercise) => {
+    const exercises = [...formData.exercises];
     
-    // Create the exercise object with proper order
-    const exerciseToSave: Exercise = {
-      ...configuredExercise,
-      order: editExerciseIndex !== null ? updatedExercises[editExerciseIndex]?.order ?? editExerciseIndex : updatedExercises.length
-    };
-    
-    if (editExerciseIndex !== null) {
-      // Update existing exercise
-      const previousExercise = updatedExercises[editExerciseIndex];
-      const hadSuperset = previousExercise.is_superset && previousExercise.superset_with !== null;
-      const oldSupersetWith = previousExercise.superset_with;
-      
-      updatedExercises[editExerciseIndex] = exerciseToSave;
-      
-      // Handle superset relationship changes
-      if (hadSuperset && !configuredExercise.is_superset && oldSupersetWith !== null) {
-        const pairedIndex = updatedExercises.findIndex(ex => ex.order === oldSupersetWith);
-        if (pairedIndex !== -1) {
-          updatedExercises[pairedIndex].is_superset = false;
-          updatedExercises[pairedIndex].superset_with = null;
-          updatedExercises[pairedIndex].superset_rest_time = undefined;
-        }
-      }
+    if (editingIndex === -1) {
+      // Adding new exercise
+      configuredExercise.order = exercises.length;
+      exercises.push(configuredExercise);
     } else {
-      // Add new exercise
-      updatedExercises.push(exerciseToSave);
+      // Updating existing exercise - preserve order
+      configuredExercise.order = exercises[editingIndex].order;
+      exercises[editingIndex] = configuredExercise;
+    }
+
+    // Ensure all exercises have correct order property
+    const reorderedExercises = exercises.map((ex, i) => ({ ...ex, order: i }));
+    updateFormData({ exercises: reorderedExercises });
+    
+    setExerciseConfiguratorVisible(false);
+    setEditingExercise(null);
+    setEditingIndex(-1);
+  }, [formData.exercises, editingIndex, updateFormData]);
+
+  // Handle deleting an exercise
+  const handleDeleteExercise = useCallback((index: number) => {
+    const exercises = [...formData.exercises];
+    const exerciseToDelete = exercises[index];
+    
+    // If deleting a superset exercise, break the superset first
+    if (exerciseToDelete.is_superset && exerciseToDelete.superset_with !== null) {
+      const pairedExerciseIndex = exercises.findIndex(
+        ex => ex.order === exerciseToDelete.superset_with
+      );
+      
+      if (pairedExerciseIndex !== -1) {
+        exercises[pairedExerciseIndex] = {
+          ...exercises[pairedExerciseIndex],
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
+      }
     }
     
-    updateFormData({ exercises: updatedExercises });
-    setExerciseConfiguratorVisible(false);
-    setEditExerciseIndex(null);
-    setSelectedExercise(null);
-  };
-  
-  // Handle editing an exercise
-  const handleEditExercise = (index: number) => {
-    const exercise = formData.exercises[index];
-    setSelectedExercise(exercise);
-    setEditExerciseIndex(index);
-    setExerciseConfiguratorVisible(true);
-  };
-  
-  // Handle removing an exercise
-  const handleRemoveExercise = (index: number) => {
+    // Remove the exercise
+    const filteredExercises = exercises.filter((_, i) => i !== index);
+    
+    // Update order for remaining exercises and fix superset references
+    const reorderedExercises = filteredExercises.map((ex, i) => {
+      let updatedExercise = { ...ex, order: i };
+      
+      // If this exercise was in a superset with the deleted exercise, break the superset
+      if (updatedExercise.is_superset && updatedExercise.superset_with === exerciseToDelete.order) {
+        updatedExercise = {
+          ...updatedExercise,
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
+      }
+      // Update superset references for exercises that were after the deleted one
+      else if (updatedExercise.is_superset && updatedExercise.superset_with !== null && updatedExercise.superset_with > index) {
+        updatedExercise = {
+          ...updatedExercise,
+          superset_with: updatedExercise.superset_with - 1
+        };
+      }
+      
+      return updatedExercise;
+    });
+    
+    updateFormData({ exercises: reorderedExercises });
+  }, [formData.exercises, updateFormData]);
+
+  // Handle creating superset
+  const handleCreateSuperset = useCallback((sourceIndex: number) => {
+    const exercises = formData.exercises || [];
+    
+    if (exercises.length < 2) {
+      Alert.alert(t('error'), t('need_two_exercises_for_superset'));
+      return;
+    }
+    
+    // Show selection modal for pairing
+    const availableExercises = exercises
+      .map((ex, idx) => ({ ...ex, originalIndex: idx }))
+      .filter((_, idx) => idx !== sourceIndex && !_.is_superset);
+      
+    if (availableExercises.length === 0) {
+      Alert.alert(t('error'), t('no_available_exercises_for_superset'));
+      return;
+    }
+    
     Alert.alert(
-      t('remove_exercise'),
-      t('remove_exercise_confirmation'),
+      t('create_superset'),
+      t('select_exercise_to_pair'),
       [
         { text: t('cancel'), style: 'cancel' },
-        { 
-          text: t('remove'), 
-          style: 'destructive',
-          onPress: () => {
-            const updatedExercises = [...formData.exercises];
-            const exerciseToRemove = updatedExercises[index];
-            
-            // If this is part of a superset, update the paired exercise
-            if (exerciseToRemove.is_superset && exerciseToRemove.superset_with !== null) {
-              const pairedIndex = updatedExercises.findIndex(
-                ex => ex.order === exerciseToRemove.superset_with
-              );
-              
-              if (pairedIndex !== -1) {
-                updatedExercises[pairedIndex].is_superset = false;
-                updatedExercises[pairedIndex].superset_with = null;
-                updatedExercises[pairedIndex].superset_rest_time = undefined;
-              }
-            }
-            
-            // Remove the exercise
-            updatedExercises.splice(index, 1);
-            
-            // Update order values for remaining exercises
-            updatedExercises.forEach((exercise, idx) => {
-              exercise.order = idx;
-              
-              // Update superset relationships
-              if (exercise.superset_with !== null && exercise.superset_with !== undefined) {
-                if (exercise.superset_with === exerciseToRemove.order) {
-                  exercise.is_superset = false;
-                  exercise.superset_with = null;
-                  exercise.superset_rest_time = undefined;
-                } else if (exercise.superset_with > exerciseToRemove.order) {
-                  exercise.superset_with--;
-                }
-              }
-            });
-            
-            updateFormData({ exercises: updatedExercises });
-          }
-        }
+        ...availableExercises.map((ex) => ({
+          text: ex.name,
+          onPress: () => createSupersetPair(sourceIndex, ex.originalIndex)
+        }))
       ]
     );
-  };
-  
-  // Handle moving exercise up/down
-  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
-    if (
-      (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === formData.exercises.length - 1)
-    ) {
-      return;
-    }
-    
-    const updatedExercises = [...formData.exercises];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
-    const exercise = updatedExercises[index];
-    const targetExercise = updatedExercises[targetIndex];
-    const exerciseOrder = exercise.order;
-    const targetOrder = targetExercise.order;
-    
-    // Swap positions
-    [updatedExercises[index], updatedExercises[targetIndex]] = 
-    [updatedExercises[targetIndex], updatedExercises[index]];
-    
-    // Update order values
-    updatedExercises[index].order = exerciseOrder;
-    updatedExercises[targetIndex].order = targetOrder;
-    
-    // Update superset relationships
-    for (const ex of updatedExercises) {
-      if (ex.superset_with === exerciseOrder) {
-        ex.superset_with = targetOrder;
-      } else if (ex.superset_with === targetOrder) {
-        ex.superset_with = exerciseOrder;
-      }
-    }
-    
-    updateFormData({ exercises: updatedExercises });
-  };
-  
-  // Superset functions
-  const handleStartPairing = (index: number) => {
-    setPairingMode(true);
-    setPairingSourceIndex(index);
-  };
+  }, [formData.exercises, t]);
 
-  const handleCancelPairing = () => {
-    setPairingMode(false);
-    setPairingSourceIndex(null);
-  };
-
-  const handlePairExercises = (targetIndex: number) => {
-    if (pairingSourceIndex === null || pairingSourceIndex === targetIndex) {
-      return;
-    }
-
-    const updatedExercises = [...formData.exercises];
-    const sourceExercise = updatedExercises[pairingSourceIndex];
-    const targetExercise = updatedExercises[targetIndex];
-
-    // Set up the superset relationship
-    sourceExercise.superset_with = targetExercise.order;
-    sourceExercise.is_superset = true;
-    targetExercise.superset_with = sourceExercise.order;
-    targetExercise.is_superset = true;
-
-    // Add default superset rest time
-    sourceExercise.superset_rest_time = 90;
-    targetExercise.superset_rest_time = 90;
-
-    updateFormData({ exercises: updatedExercises });
-    setPairingMode(false);
-    setPairingSourceIndex(null);
-  };
-
-  const handleRemoveSuperset = (index: number) => {
-    const updatedExercises = [...formData.exercises];
-    const exercise = updatedExercises[index];
-    
-    if (exercise.superset_with !== null && exercise.superset_with !== undefined) {
-      // Find the paired exercise
-      const pairedIndex = updatedExercises.findIndex(ex => ex.order === exercise.superset_with);
+  // Create superset pair
+  const createSupersetPair = useCallback((sourceIndex: number, targetIndex: number) => {
+    try {
+      const updatedExercises = [...formData.exercises];
       
-      if (pairedIndex !== -1) {
-        updatedExercises[pairedIndex].superset_with = null;
-        updatedExercises[pairedIndex].is_superset = false;
-        updatedExercises[pairedIndex].superset_rest_time = undefined;
-      }
-      
-      exercise.superset_with = null;
-      exercise.is_superset = false;
-      exercise.superset_rest_time = undefined;
-      
-      updateFormData({ exercises: updatedExercises });
-    }
-  };
-
-  // Function to get the paired exercise name for display
-  const getPairedExerciseName = (exercise: Exercise): string | null => {
-    if (!exercise.superset_with && exercise.superset_with !== 0) return null;
-    
-    const pairedExercise = formData.exercises.find(ex => ex.order === exercise.superset_with);
-    return pairedExercise ? pairedExercise.name : null;
-  };
-
-  // Handle exercise card updates
-  const handleUpdateSet = (exerciseIndex: number, setIndex: number, field: keyof ExerciseSet, value: number | string | null) => {
-    const updatedExercises = [...formData.exercises];
-    const exercise = updatedExercises[exerciseIndex];
-    const updatedSets = [...exercise.sets];
-    
-    if (field === 'weight_unit') {
-      updatedSets[setIndex] = {
-        ...updatedSets[setIndex],
-        [field]: value as 'kg' | 'lbs'
+      // Create superset relationship
+      updatedExercises[sourceIndex] = {
+        ...updatedExercises[sourceIndex],
+        is_superset: true,
+        superset_with: updatedExercises[targetIndex].order,
+        superset_rest_time: 90
       };
-    } else {
-      updatedSets[setIndex] = {
-        ...updatedSets[setIndex],
-        [field]: value
+      
+      updatedExercises[targetIndex] = {
+        ...updatedExercises[targetIndex],
+        is_superset: true,
+        superset_with: updatedExercises[sourceIndex].order,
+        superset_rest_time: 90
       };
-    }
-    
-    exercise.sets = updatedSets;
-    updateFormData({ exercises: updatedExercises });
-  };
-
-  const handleAddSet = (exerciseIndex: number) => {
-    const updatedExercises = [...formData.exercises];
-    const exercise = updatedExercises[exerciseIndex];
-    const lastSet = exercise.sets[exercise.sets.length - 1];
-    
-    // Copy the last set structure based on effort type
-    let newSet: ExerciseSet;
-    const effortType = exercise.effort_type || 'reps';
-    
-    if (lastSet) {
-      newSet = { ...lastSet };
-    } else {
-      // Default set based on effort type
-      switch (effortType) {
-        case 'time':
-          newSet = { duration: 30, weight: null, weight_unit: 'kg', rest_time: 60 };
-          break;
-        case 'distance':
-          newSet = { distance: 100, duration: null, rest_time: 120 };
-          break;
-        default:
-          newSet = { reps: 10, weight: 20, weight_unit: 'kg', rest_time: 60 };
-      }
-    }
-    
-    exercise.sets.push(newSet);
-    updateFormData({ exercises: updatedExercises });
-  };
-
-  const handleRemoveSet = (exerciseIndex: number, setIndex: number) => {
-    const updatedExercises = [...formData.exercises];
-    const exercise = updatedExercises[exerciseIndex];
-    
-    if (exercise.sets.length > 1) {
-      exercise.sets.splice(setIndex, 1);
-      updateFormData({ exercises: updatedExercises });
-    }
-  };
-
-  const handleUpdateNotes = (exerciseIndex: number, notes: string) => {
-    const updatedExercises = [...formData.exercises];
-    updatedExercises[exerciseIndex].notes = notes;
-    updateFormData({ exercises: updatedExercises });
-  };
-
-  const handleUpdateSupersetRestTime = (exerciseIndex: number, time: number) => {
-    const updatedExercises = [...formData.exercises];
-    const exercise = updatedExercises[exerciseIndex];
-    
-    if (exercise.is_superset && exercise.superset_with !== null && exercise.superset_with !== undefined) {
-      exercise.superset_rest_time = time;
-      
-      // Update the paired exercise too
-      const pairedIndex = updatedExercises.findIndex(ex => ex.order === exercise.superset_with);
-      if (pairedIndex !== -1) {
-        updatedExercises[pairedIndex].superset_rest_time = time;
-      }
       
       updateFormData({ exercises: updatedExercises });
+      
+      Alert.alert(
+        t('success'), 
+        t('superset_created_successfully')
+      );
+    } catch (error) {
+      console.error('Failed to create superset:', error);
+      Alert.alert(t('error'), t('failed_to_create_superset'));
     }
-  };
+  }, [formData.exercises, updateFormData, t]);
+
+  // Handle breaking superset
+  const handleBreakSuperset = useCallback((index: number) => {
+    try {
+      const updatedExercises = [...formData.exercises];
+      const currentExercise = updatedExercises[index];
+      
+      if (currentExercise.is_superset && currentExercise.superset_with !== null) {
+        // Find the paired exercise
+        const pairedExerciseIndex = updatedExercises.findIndex(
+          ex => ex.order === currentExercise.superset_with
+        );
+        
+        // Remove superset relationship from current exercise
+        updatedExercises[index] = {
+          ...currentExercise,
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
+        
+        // Remove superset relationship from paired exercise if found
+        if (pairedExerciseIndex !== -1) {
+          updatedExercises[pairedExerciseIndex] = {
+            ...updatedExercises[pairedExerciseIndex],
+            is_superset: false,
+            superset_with: null,
+            superset_rest_time: undefined
+          };
+        }
+        
+        updateFormData({ exercises: updatedExercises });
+        
+        Alert.alert(
+          t('success'),
+          t('superset_broken_successfully')
+        );
+      }
+    } catch (error) {
+      console.error('Failed to break superset:', error);
+      Alert.alert(t('error'), t('failed_to_break_superset'));
+    }
+  }, [formData.exercises, updateFormData, t]);
 
   return (
     <View style={styles.container}>
-      {/* Header with exercise count */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: workoutPalette.text }]}>
-          {t('add_exercises')}
-        </Text>
-        <View style={[
-          styles.countBadge, 
-          { backgroundColor: `${workoutPalette.highlight}20` }
-        ]}>
-          <Text style={[styles.countText, { color: workoutPalette.highlight }]}>
-            {formData.exercises.length} {formData.exercises.length === 1 ? t('exercise') : t('exercises')}
-          </Text>
-        </View>
-      </View>
-      
-      {/* Error message if any */}
-      {errors.exercises && (
-        <Text style={[styles.errorText, { color: palette.error }]}>
-          {errors.exercises}
-        </Text>
-      )}
-      
-      {/* Pairing mode indicator */}
-      {pairingMode && (
-        <View style={[
-          styles.pairingModeIndicator,
-          { backgroundColor: `${workoutPalette.highlight}10` }
-        ]}>
-          <Ionicons name="link" size={16} color={workoutPalette.highlight} />
-          <Text style={[styles.pairingModeText, { color: workoutPalette.highlight }]}>
-            {t('select_exercise_to_pair')}
-          </Text>
-          <TouchableOpacity onPress={handleCancelPairing} style={styles.cancelPairingButton}>
-            <Ionicons name="close-circle" size={16} color={palette.error} />
-            <Text style={[styles.cancelPairingText, { color: palette.error }]}>
-              {t('cancel')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      
-      {/* Exercise list */}
       <ScrollView 
-        style={styles.exercisesList}
-        contentContainerStyle={styles.exercisesListContent}
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        {formData.exercises.length > 0 ? (
-          formData.exercises.map((exercise, index) => (
-            <ExerciseCard
-              key={index}
-              exercise={exercise}
-              pairedExerciseName={getPairedExerciseName(exercise)}
-              exerciseIndex={index}
-              editMode={!pairingMode}
-              showAllSets={false}
-              isFirst={index === 0}
-              isLast={index === formData.exercises.length - 1}
-              pairingMode={pairingMode && pairingSourceIndex !== index}
-              onEdit={() => handleEditExercise(index)}
-              onDelete={() => handleRemoveExercise(index)}
-              onMakeSuperset={() => handleStartPairing(index)}
-              onRemoveSuperset={() => handleRemoveSuperset(index)}
-              onMoveUp={() => handleMoveExercise(index, 'up')}
-              onMoveDown={() => handleMoveExercise(index, 'down')}
-              onAddSet={() => handleAddSet(index)}
-              onRemoveSet={(setIndex) => handleRemoveSet(index, setIndex)}
-              onUpdateSet={(setIndex, field, value) => handleUpdateSet(index, setIndex, field, value)}
-              onUpdateNotes={(notes) => handleUpdateNotes(index, notes)}
-              onUpdateSupersetRestTime={(time) => handleUpdateSupersetRestTime(index, time)}
-              onSelect={() => handlePairExercises(index)}
-            />
-          ))
-        ) : (
-          <View style={[
-            styles.emptyState,
-            { 
-              backgroundColor: palette.card_background,
-              borderColor: palette.border
-            }
-          ]}>
-            <Ionicons name="barbell-outline" size={48} color={palette.text_tertiary} />
-            <Text style={[styles.emptyStateText, { color: palette.text }]}>
-              {t('no_exercises_yet')}
-            </Text>
-            <Text style={[styles.emptyStateSubtext, { color: palette.text_tertiary }]}>
-              {t('tap_to_add_exercises')}
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: workoutPalette.text }]}>
+            {t('exercises')}
+          </Text>
+          <Text style={[styles.subtitle, { color: palette.text_tertiary }]}>
+            {t('add_and_configure_exercises')}
+          </Text>
+        </View>
+
+        {/* Error Display */}
+        {errors.exercises && (
+          <View style={[styles.errorContainer, { backgroundColor: '#EF444420' }]}>
+            <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+            <Text style={[styles.errorText, { color: '#EF4444' }]}>
+              {errors.exercises}
             </Text>
           </View>
         )}
+
+        {/* Add Exercise Button */}
+        <TouchableOpacity
+          style={[
+            styles.addExerciseButton,
+            { 
+              backgroundColor: `${workoutPalette.highlight}15`,
+              borderColor: workoutPalette.highlight,
+            }
+          ]}
+          onPress={() => setExerciseSelectorVisible(true)}
+        >
+          <Ionicons name="add-circle" size={24} color={workoutPalette.highlight} />
+          <Text style={[styles.addExerciseText, { color: workoutPalette.highlight }]}>
+            {t('add_exercise')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Exercises List */}
+        {formData.exercises.length > 0 ? (
+          <View style={styles.exercisesList}>
+            {formData.exercises.map((exercise, index) => (
+              <ExerciseCard
+                key={`exercise-${exercise.id || index}`}
+                exercise={exercise}
+                index={index}
+                exercises={formData.exercises}
+                colors={colors}
+                canEdit={true}
+                onEdit={() => handleEditExercise(exercise, index)}
+                onDelete={() => handleDeleteExercise(index)}
+                onCreateSuperset={() => handleCreateSuperset(index)}
+                onBreakSuperset={() => handleBreakSuperset(index)}
+                t={t}
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.emptyState, { backgroundColor: palette.card_background }]}>
+            <Ionicons name="barbell-outline" size={64} color={palette.text_tertiary} />
+            <Text style={[styles.emptyStateTitle, { color: palette.text }]}>
+              {t('no_exercises_added')}
+            </Text>
+            <Text style={[styles.emptyStateSubtitle, { color: palette.text_tertiary }]}>
+              {t('tap_add_exercise_to_get_started')}
+            </Text>
+          </View>
+        )}
+
+        {/* Exercise Count Summary */}
+        {formData.exercises.length > 0 && (
+          <View style={[styles.summaryContainer, { backgroundColor: palette.input_background }]}>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: palette.text_tertiary }]}>
+                {t('total_exercises')}:
+              </Text>
+              <Text style={[styles.summaryValue, { color: workoutPalette.text }]}>
+                {formData.exercises.length}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: palette.text_tertiary }]}>
+                {t('total_sets')}:
+              </Text>
+              <Text style={[styles.summaryValue, { color: workoutPalette.text }]}>
+                {formData.exercises.reduce((total, ex) => total + ex.sets.length, 0)}
+              </Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
-      
-      {/* Add exercise button */}
-      <TouchableOpacity
-        style={[styles.addButton, { backgroundColor: workoutPalette.highlight }]}
-        onPress={handleAddExercise}
-      >
-        <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.addButtonText}>{t('add_exercise')}</Text>
-      </TouchableOpacity>
-      
-      {/* ExerciseSelector Modal */}
+
+      {/* Exercise Selector Modal */}
       <ExerciseSelector
         visible={exerciseSelectorVisible}
         onClose={() => setExerciseSelectorVisible(false)}
         onSelectExercise={handleSelectExercise}
-        recentExercises={recentExercises}
+        recentExercises={recentExerciseNames || []}
       />
-      
-      {/* ExerciseConfigurator Modal */}
-      <ExerciseConfigurator
-        visible={exerciseConfiguratorVisible}
-        onClose={() => {
-          setExerciseConfiguratorVisible(false);
-          setEditExerciseIndex(null);
-          setSelectedExercise(null);
-        }}
-        onSave={handleSaveExercise}
-        exerciseName={selectedExercise?.name || ''}
-        initialEffortType={selectedExercise?.effort_type || 'reps'}
-        initialSets={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.sets : undefined}
-        initialNotes={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.notes : ''}
-        initialEquipment={selectedExercise?.equipment || ''}
-        // initialEquipmentKey={selectedExercise?.equipmentKey || ''}
-        isSuperset={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.is_superset : false}
-        supersetWith={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.superset_with : null}
-        supersetRestTime={editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.superset_rest_time || 90 : 90}
-        supersetPairedExerciseName={editExerciseIndex !== null ? getPairedExerciseName(formData.exercises[editExerciseIndex]) : null}
-        isEdit={editExerciseIndex !== null}
-      />
+
+      {/* Exercise Configurator Modal */}
+      {editingExercise && (
+        <ExerciseConfigurator
+          visible={exerciseConfiguratorVisible}
+          onClose={() => {
+            setExerciseConfiguratorVisible(false);
+            setEditingExercise(null);
+            setEditingIndex(-1);
+          }}
+          onSave={handleSaveExercise}
+          exercise={editingExercise}
+          isEdit={editingIndex !== -1}
+        />
+      )}
     </View>
   );
 };
@@ -513,92 +450,93 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
-  countBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 22,
   },
-  countText: {
-    fontSize: 14,
-    fontWeight: '600',
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   errorText: {
     fontSize: 14,
-    marginBottom: 16,
-  },
-  pairingModeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  pairingModeText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
     marginLeft: 8,
-  },
-  cancelPairingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  cancelPairingText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-  exercisesList: {
     flex: 1,
   },
-  exercisesListContent: {
-    paddingBottom: 80, // Add padding for button
-  },
-  emptyState: {
-    borderRadius: 12,
-    padding: 24,
+  addExerciseButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    marginBottom: 20,
   },
-  emptyStateText: {
+  addExerciseText: {
     fontSize: 16,
     fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 4,
+    marginLeft: 8,
   },
-  emptyStateSubtext: {
-    fontSize: 14,
-    textAlign: 'center',
+  exercisesList: {
+    marginBottom: 20,
   },
-  addButton: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
+  
+  // Empty state and summary styles
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
+    padding: 40,
+    borderRadius: 12,
+    marginBottom: 20,
   },
-  addButtonText: {
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  summaryContainer: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  summaryValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
   },
 });
 

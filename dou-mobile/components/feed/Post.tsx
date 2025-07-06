@@ -1103,8 +1103,9 @@ const themedStyles = createThemedStyles((palette) => ({
   
   // Enhanced likers section with consistent spacing
   likersContainer: {
-    height: 40, // Fixed height to prevent layout jumping
+    height: 20, // Fixed height to prevent layout jumping
     paddingHorizontal: 16,
+    paddingBottom:8,
     justifyContent: 'center',
   },
   likersContent: {

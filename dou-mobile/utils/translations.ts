@@ -15,6 +15,8 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    not_specified: 'Not Specified',
+    'biometric_login_failed': 'Login failed',
     "access_denied": "Access Denied",
     "no_permission_to_view_log": "You don't have permission to view this workout log. It may be private or you might not be friends with the owner.",
     "log_does_not_exist": "This workout log doesn't exist or has been deleted.",
@@ -76,6 +78,7 @@ const common = {
     add_first_workout: "Add anyway",
     select_day: "Select a day",
     select_template: "Select a template",
+    
     scheduled_day: 'Scheduled Day',
     no_workouts_in_program: "There is no workout in this program yet.",
     deselect_all: "Deselect All",
@@ -93,6 +96,8 @@ const common = {
     no_workout_partners_yet:'No partners yet...',
   },
   fr: {
+    not_specified: 'Non renseigné',
+    'biometric_login_failed': 'La connexion a échoué.',
     date_time: 'Date & Heure',
     loading_posts: 'Chargement des posts',
     reply: 'Répondre',
@@ -323,6 +328,10 @@ const workout = {
     rest_s : 'Rest (s)',
     weight_unit: 'Measure unit (weight)',
     effort_type: "Effort type",
+    effort_types: "Effort types",
+    effort_type_reps:'Repetitions',
+    effort_type_time:'Duration',
+    effort_type_distance: 'Distance',
     workout_completed: 'Workout Completed',
     start_workout: 'Start Workout',
     finish_workout: 'Finish Workout',
@@ -338,6 +347,7 @@ const workout = {
     from_program:'Current Program',
     log_from_current_program: "from my current active program",
     from_template: 'Template',
+    from_workout_log: 'from a past workout',
     log_from_workout_template: "from an existing template",
     from_scratch: 'From scratch',
     create_new_workout_log: 'Information filled manually',
@@ -369,13 +379,34 @@ const workout = {
     no_exercises: 'No Exercises',
     weight_lbs: 'Weight (lbs)',
     weight_kg: 'Weight (kg)',
+    created_from_workout:'Created from workout',
+    split_method:'Split Method',
+    estimated_duration: 'Duration',
+    equipment_required: 'Equipment',
+    private_template:'Private Template',
+    public_template: 'Public Template',
+    upper_lower : 'Upper - Lower', 
+    push_pull_legs: 'Push - Pull - Legs',
+    body_part: 'Split',
   },
   fr: {
+    split_method:'Méthode',
+    estimated_duration: 'Durée',
+    equipment_required: 'Équipement',
+    private_template:'Modèle privé',
+    public_template:'Modèle public',
+    upper_lower : 'Upper - Lower', 
+    push_pull_legs: 'Push - Pull - Legs',
+    body_part: 'Split',
     enter_new_log_name: 'Entrez un nouveau nom d\'entraînement',
     primary: "Principal",
     secondary:"Secondaire",
     weight_unit: 'Unité de mesure (poids)',
     effort_type: "Type d'effort",
+    effort_types: "Types d'effort",
+    effort_type_reps:'Répétitions',
+    effort_type_time:'Durée',
+    effort_type_distance: 'Distance',
     workouts: 'Entraînements',
     workout: 'Entraînement',
     workout_history: 'Historique',
@@ -422,6 +453,7 @@ const workout = {
     from_program:'À partir du programme actif',
     log_from_current_program: "À partir de mon programme actuel",
     from_template: 'Modèle existant',
+    from_workout_log: 'à partir d\'un entraînement passé',
     log_from_workout_template: "à partir d'un modèle existant",
     from_scratch: 'Manuellement',
     create_new_workout_log: 'Je renseigne tout à la main',
@@ -437,6 +469,7 @@ const workout = {
     avg_per_rep: "Moyenne par répétition",
     save_workout: "Enregistrer",
     workout_feedback: "Ressenti sur l'entraînement",
+    created_from_workout:'Créé à partir de l\'entraînement',
   }
 };
 
@@ -451,6 +484,7 @@ const program = {
     create_your_first_program: 'Create your first program',
     program_options: 'Program Options',
     active_program: 'Active Program',
+    deactive_program: 'Deactivate Program',
     program_details: 'Program Details',
     current_program: 'Current Program',
     fork_program: 'Fork Program',
@@ -529,6 +563,7 @@ const program = {
     fork_program: 'Dupliquer le programme',
     program_forked: 'Programme dupliqué',
     activate_program: 'Activer le programme',
+    deactivate_program: 'Désactiver le programme',
     // ProgramWizard
     create_new_program: "Créer un programme d'entraînement",
     edit_program: 'Modifier le programme',
@@ -1552,7 +1587,7 @@ const more_analytics = {
     "aim_for_3_4_sessions_per_week": "Aim for 3-4 endurance sessions per week"
   },
   "fr": {
-    "workout_analytics": "Analyses d'Entraînement",
+    "workout_analytics": "Analyses avancées",
     "loading_analytics": "Chargement des analyses...",
     "comparison_view": "Général",
     "strength_analysis": "Force",
@@ -1787,10 +1822,15 @@ const exercises = {
     "equipment_barbell": "Barbell",
     "equipment_dumbbells": "Dumbbells",
     "equipment_dumbbell": "Dumbbell",
+    "barbell": "Barbell",
+    "dumbbells": "Dumbbells",
+    "dumbbell": "Dumbbell",
+    "bodyweight": "Poids du Corps",
     "equipment_kettlebell": "Kettlebell",
     "equipment_kettlebells": "Kettlebells",
     "equipment_machine": "Machine",
     "equipment_bodyweight": "Bodyweight",
+    
     "equipment_bodyweight_dumbbells": "Bodyweight/Dumbbells",
     "equipment_bodyweight_weight": "Bodyweight/Weight",
     "equipment_resistance_bands": "Resistance Bands",
@@ -2037,6 +2077,10 @@ const exercises = {
 
     },
   "fr": {
+    "barbell": "Barre",
+    "dumbbells": "Haltères",
+    "dumbbell": "Haltère",
+    "bodyweight": "Poids du Corps",
     'create_superset': 'Créer un Superset',
     'break_superset': 'Rompre le Superset',
     'break_superset_confirmation': 'Veux-tu rompre le Superset?',
@@ -3393,6 +3437,7 @@ const wizard = {
       verify_your_email: "Verify your e-mail",
       verification_email_sent_to:"Verification email sent to ",
       resend_verification_email:"Send again",
+      no_account: 'No account yet?',
 
     },
   fr: {

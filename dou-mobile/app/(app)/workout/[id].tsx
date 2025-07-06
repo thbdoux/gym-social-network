@@ -1,8 +1,7 @@
 // app/(app)/workout/[id].tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -11,8 +10,8 @@ import {
   StatusBar,
   Platform,
   Alert,
-  TextInput,
-  Keyboard
+  Keyboard,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -26,154 +25,59 @@ import {
   useWorkoutTemplate,
   useUpdateWorkoutTemplate,
   useDeleteWorkoutTemplate,
-  useUpdateTemplateExercise,
-  useAddExerciseToTemplate,
-  useDeleteTemplateExercise
 } from '../../../hooks/query/useWorkoutQuery';
 
-// Shared components
-import ExerciseManager from './ExerciseManager';
-import { formatRestTime } from './formatters';
+// Components
+import ExerciseConfigurator from '../../../components/workouts/ExerciseConfigurator';
+import ExerciseSelector from '../../../components/workouts/ExerciseSelector';
+import { AnimatedHeader } from './components/AnimatedHeader';
+import { ExercisesList } from '../workout-log/components/ExercisesList';
+import { LoadingState } from '../workout-log/components/LoadingState';
+import { ErrorState } from '../workout-log/components/ErrorState';
 
-// Helper functions for different effort types
-const formatTime = (seconds: number): string => {
-  if (seconds === 0) return '-';
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return secs > 0 ? `${minutes}m ${secs}s` : `${minutes}m`;
-};
+interface WorkoutTemplateDetailScreenProps {
+  overrideUserId?: number;
+  overrideTemplateId?: number;
+}
 
-const formatDistance = (meters: number): string => {
-  if (meters >= 1000) {
-    return `${(meters / 1000).toFixed(1)} km`;
-  }
-  return `${meters} m`;
-};
-
-const formatWeightDisplay = (weight: number | null, unit: 'kg' | 'lbs' = 'kg'): string => {
-  if (!weight || weight === 0) return '-';
-  return `${weight}${unit}`;
-};
-
-const getEffortTypeDisplay = (effortType: string, t: any) => {
+// Default set templates for different effort types
+const getDefaultSetForEffortType = (effortType: 'reps' | 'time' | 'distance') => {
   switch (effortType) {
     case 'time':
-      return t('time');
+      return {
+        duration: 30,
+        weight: 0,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
     case 'distance':
-      return t('distance');
+      return {
+        distance: 1000,
+        duration: 300,
+        rest_time: 60
+      };
     case 'reps':
     default:
-      return t('reps');
+      return {
+        reps: 10,
+        weight: 0,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
   }
 };
 
-const getEffortTypeIcon = (effortType: string) => {
-  switch (effortType) {
-    case 'time':
-      return 'time-outline';
-    case 'distance':
-      return 'location-outline';
-    case 'reps':
-    default:
-      return 'repeat-outline';
-  }
-};
-
-const getEffortTypeColor = (effortType: string) => {
-  switch (effortType) {
-    case 'time':
-      return '#10B981';
-    case 'distance':
-      return '#3B82F6';
-    case 'reps':
-    default:
-      return '#F59E0B';
-  }
-};
-
-// Component to render set data based on effort type
-const SetDataDisplay = ({ set, effortType, t }) => {
-  switch (effortType) {
-    case 'time':
-      return (
-        <>
-          <Text style={styles.setCell}>
-            {set.duration ? formatTime(set.duration) : '-'}
-          </Text>
-          <Text style={styles.setCell}>
-            {formatWeightDisplay(set.weight, set.weight_unit)}
-          </Text>
-          <Text style={styles.setCell}>{formatRestTime(set.rest_time)}</Text>
-        </>
-      );
-    case 'distance':
-      return (
-        <>
-          <Text style={styles.setCell}>
-            {set.distance ? formatDistance(set.distance) : '-'}
-          </Text>
-          <Text style={styles.setCell}>
-            {set.duration ? formatTime(set.duration) : '-'}
-          </Text>
-          <Text style={styles.setCell}>{formatRestTime(set.rest_time)}</Text>
-        </>
-      );
-    case 'reps':
-    default:
-      return (
-        <>
-          <Text style={styles.setCell}>{set.reps || '-'}</Text>
-          <Text style={styles.setCell}>
-            {formatWeightDisplay(set.weight, set.weight_unit)}
-          </Text>
-          <Text style={styles.setCell}>{formatRestTime(set.rest_time)}</Text>
-        </>
-      );
-  }
-};
-
-// Component to render table headers based on effort type
-const TableHeaders = ({ effortType, t }) => {
-  switch (effortType) {
-    case 'time':
-      return (
-        <>
-          <Text style={styles.setColumnHeader}>{t('set')}</Text>
-          <Text style={styles.setColumnHeader}>{t('time')}</Text>
-          <Text style={styles.setColumnHeader}>{t('weight')}</Text>
-          <Text style={styles.setColumnHeader}>{t('rest')}</Text>
-        </>
-      );
-    case 'distance':
-      return (
-        <>
-          <Text style={styles.setColumnHeader}>{t('set')}</Text>
-          <Text style={styles.setColumnHeader}>{t('distance')}</Text>
-          <Text style={styles.setColumnHeader}>{t('time')}</Text>
-          <Text style={styles.setColumnHeader}>{t('rest')}</Text>
-        </>
-      );
-    case 'reps':
-    default:
-      return (
-        <>
-          <Text style={styles.setColumnHeader}>{t('set')}</Text>
-          <Text style={styles.setColumnHeader}>{t('reps')}</Text>
-          <Text style={styles.setColumnHeader}>{t('weight')}</Text>
-          <Text style={styles.setColumnHeader}>{t('rest')}</Text>
-        </>
-      );
-  }
-};
-
-export default function WorkoutDetailScreen() {
-  // Get workout ID from route params
-  const { id } = useLocalSearchParams();
-  const workoutId = typeof id === 'string' ? parseInt(id, 10) : 0;
+export default function WorkoutTemplateDetailScreen({ 
+  overrideUserId, 
+  overrideTemplateId 
+}: WorkoutTemplateDetailScreenProps = {}) {
   
   // Get theme context
   const { workoutPalette, palette } = useTheme();
+  
+  // Animation setup with dynamic header height
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [dynamicHeaderHeight, setDynamicHeaderHeight] = useState(300);
   
   // Create dynamic theme colors
   const COLORS = {
@@ -192,47 +96,69 @@ export default function WorkoutDetailScreen() {
     danger: "#ef4444"
   };
   
-  // State for workout details
-  const [workoutName, setWorkoutName] = useState('');
-  const [workoutDescription, setWorkoutDescription] = useState('');
-  const [workoutDuration, setWorkoutDuration] = useState(0);
-  const [workoutDifficulty, setWorkoutDifficulty] = useState('beginner');
-  const [workoutFocus, setWorkoutFocus] = useState('');
+  const { t, language } = useLanguage();
+  const { id } = useLocalSearchParams();
+  const templateId = typeof id === 'string' ? parseInt(id, 10) : 0;
+  
+  const { user } = useAuth();
+
+  // State for template details
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [splitMethod, setSplitMethod] = useState('');
+  const [difficultyLevel, setDifficultyLevel] = useState('');
+  const [estimatedDuration, setEstimatedDuration] = useState(0);
+  const [equipmentRequired, setEquipmentRequired] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [isPublic, setIsPublic] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   
-  // Exercise management state
-  const [isExerciseManagerVisible, setIsExerciseManagerVisible] = useState(false);
+  // UI state for new exercise editing
+  const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
+  const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
+  const [currentEditingExercise, setCurrentEditingExercise] = useState(null);
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState(-1);
   
   // Hooks
-  const { user } = useAuth();
-  const { t } = useLanguage();
-  const { data: workout, isLoading, refetch } = useWorkoutTemplate(workoutId);
-  const { mutateAsync: updateWorkout } = useUpdateWorkoutTemplate();
-  const { mutateAsync: deleteWorkout } = useDeleteWorkoutTemplate();
+  const { data: template, isLoading, error, refetch } = useWorkoutTemplate(templateId);
+  const { mutateAsync: updateTemplate, isPending: isUpdating } = useUpdateWorkoutTemplate();
+  const { mutateAsync: deleteTemplate } = useDeleteWorkoutTemplate();
+
+  console.log(template)
+
+  // Permission logic - only creator can edit templates
+  const canEdit = template && user && (template.creator_username === user.username);
+  const canView = !!template;
+  const isCreator = canEdit;
   
-  // Initialize form state when workout data is loaded
+  // Handle header height changes
+  const handleHeaderHeightChange = useCallback((height: number) => {
+    setDynamicHeaderHeight(height);
+  }, []);
+  
+  // Initialize form state when template data is loaded
   useEffect(() => {
-    if (workout) {
-      setWorkoutName(workout.name);
-      setWorkoutDescription(workout.description || '');
-      setWorkoutDuration(workout.estimated_duration || 0);
-      setWorkoutDifficulty(workout.difficulty_level || 'beginner');
+    if (template) {
+      setTemplateName(template.name);
+      setTemplateDescription(template.description || '');
+      setSplitMethod(template.split_method || '');
+      setDifficultyLevel(template.difficulty_level || '');
+      setEstimatedDuration(template.estimated_duration || 0);
+      setEquipmentRequired(template.equipment_required || []);
+      setTags(template.tags || []);
+      setIsPublic(template.is_public || false);
     }
-  }, [workout]);
+  }, [template]);
   
   // Add keyboard event listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => {
-        setKeyboardVisible(true);
-      }
+      () => setKeyboardVisible(true)
     );
     const keyboardDidHideListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-      }
+      () => setKeyboardVisible(false)
     );
 
     return () => {
@@ -240,214 +166,41 @@ export default function WorkoutDetailScreen() {
       keyboardDidHideListener.remove();
     };
   }, []);
-  
-  // Check if current user is the workout creator
-  const isCreator = workout?.creator_username === user?.username;
-  const isTemplate = !workout?.preferred_weekday; // If it has preferred_weekday, it's an instance
-  
-  // Get weekday name
-  const getWeekdayName = (day?: number): string => {
-    if (day === undefined) return '';
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return weekdays[day];
-  };
-  
-  // Get difficulty indicator based on level
-  const getDifficultyIndicator = (level?: string): string => {
-    if (!level) return '🔥';
-    switch(level?.toLowerCase()) {
-      case 'beginner': return '🔥';
-      case 'intermediate': return '🔥🔥';
-      case 'advanced': return '🔥🔥🔥';
-      default: return '🔥';
+
+  // Handle saving individual template field
+  const handleSaveTemplateField = async (field: string, value: any) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
     }
-  };
-  
-  // Handle options menu
-  const handleOptionsMenu = () => {
-    Alert.alert(
-      t('workout_options'),
-      t('select_an_option'),
-      [
-        {
-          text: t('edit_workout_info'),
-          onPress: () => handleEditWorkoutInfo()
-        },
-        {
-          text: t('edit_exercises'),
-          onPress: () => setIsExerciseManagerVisible(true)
-        },
-        {
-          text: t('delete_workout'),
-          style: 'destructive',
-          onPress: handleDeleteWorkout
-        },
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        }
-      ]
-    );
-  };
-
-  // Handle editing workout info
-  const handleEditWorkoutInfo = () => {
-    Alert.alert(
-      t('edit_workout_info'),
-      t('select_field_to_edit'),
-      [
-        {
-          text: t('name'),
-          onPress: () => handleEditWorkoutName()
-        },
-        {
-          text: t('description'),
-          onPress: () => handleEditWorkoutDescription()
-        },
-        {
-          text: t('duration'),
-          onPress: () => handleEditWorkoutDuration()
-        },
-        {
-          text: t('difficulty'),
-          onPress: () => handleEditWorkoutDifficulty()
-        },
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        }
-      ]
-    );
-  };
-
-  // Handle editing workout name
-  const handleEditWorkoutName = () => {
-    Alert.prompt(
-      t('edit_name'),
-      t('enter_new_workout_name'),
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        },
-        {
-          text: t('save'),
-          onPress: (name) => {
-            if (name && name.trim() !== '') {
-              setWorkoutName(name);
-              handleSaveWorkoutField('name', name);
-            }
-          }
-        }
-      ],
-      'plain-text',
-      workoutName
-    );
-  };
-
-  // Handle editing workout description
-  const handleEditWorkoutDescription = () => {
-    Alert.prompt(
-      t('edit_description'),
-      t('enter_new_workout_description'),
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        },
-        {
-          text: t('save'),
-          onPress: (description) => {
-            setWorkoutDescription(description || '');
-            handleSaveWorkoutField('description', description || '');
-          }
-        }
-      ],
-      'plain-text',
-      workoutDescription
-    );
-  };
-
-  // Handle editing workout duration
-  const handleEditWorkoutDuration = () => {
-    Alert.prompt(
-      t('edit_duration'),
-      t('enter_duration_in_minutes'),
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        },
-        {
-          text: t('save'),
-          onPress: (durationText) => {
-            const duration = parseInt(durationText || '0', 10);
-            setWorkoutDuration(duration);
-            handleSaveWorkoutField('estimated_duration', duration);
-          }
-        }
-      ],
-      'plain-text',
-      workoutDuration.toString(),
-      'numeric'
-    );
-  };
-
-  // Handle editing workout difficulty
-  const handleEditWorkoutDifficulty = () => {
-    Alert.alert(
-      t('edit_difficulty'),
-      t('select_difficulty_level'),
-      [
-        {
-          text: t('beginner'),
-          onPress: () => {
-            setWorkoutDifficulty('beginner');
-            handleSaveWorkoutField('difficulty_level', 'beginner');
-          }
-        },
-        {
-          text: t('intermediate'),
-          onPress: () => {
-            setWorkoutDifficulty('intermediate');
-            handleSaveWorkoutField('difficulty_level', 'intermediate');
-          }
-        },
-        {
-          text: t('advanced'),
-          onPress: () => {
-            setWorkoutDifficulty('advanced');
-            handleSaveWorkoutField('difficulty_level', 'advanced');
-          }
-        },
-        {
-          text: t('cancel'),
-          style: 'cancel'
-        }
-      ]
-    );
-  };
-
-  // Handle saving individual workout field
-  const handleSaveWorkoutField = async (field, value) => {
+    
     try {
-      const updates = { [field]: value };
-      await updateWorkout({
-        id: workoutId,
-        updates
+      const updates = { 
+        [field]: value,
+        exercises: template?.exercises || []
+      };
+      
+      await updateTemplate({
+        id: templateId,
+        updates: updates
       });
       await refetch();
     } catch (error) {
-      console.error(`Failed to update workout ${field}:`, error);
-      Alert.alert(t('error'), t('failed_to_update_workout'));
+      console.error(`Failed to update template ${field}:`, error);
+      Alert.alert(t('error'), t('failed_to_update_template'));
     }
   };
-  
-  // Handle deleting the workout
-  const handleDeleteWorkout = () => {
+
+  // Handle deleting the template
+  const handleDeleteTemplate = () => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_delete'));
+      return;
+    }
+    
     Alert.alert(
-      t('delete_workout'),
-      isTemplate ? t('confirm_delete_template') : t('confirm_delete_workout'),
+      t('delete_template'),
+      t('confirm_delete_template'),
       [
         { text: t('cancel'), style: 'cancel' },
         { 
@@ -455,11 +208,11 @@ export default function WorkoutDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteWorkout(workoutId);
+              await deleteTemplate(templateId);
               router.back();
             } catch (error) {
-              console.error('Failed to delete workout:', error);
-              Alert.alert(t('error'), t('failed_to_delete_workout'));
+              console.error('Failed to delete template:', error);
+              Alert.alert(t('error'), t('failed_to_delete_template'));
             }
           }
         }
@@ -467,687 +220,378 @@ export default function WorkoutDetailScreen() {
     );
   };
 
-  // Handle exercise management completion
-  const handleExerciseManagerComplete = async () => {
-    setIsExerciseManagerVisible(false);
-    await refetch();
+  // New exercise management functions
+  const handleAddNewExercise = () => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    setExerciseSelectorVisible(true);
   };
-  
+
+  const handleSelectExercise = (selectedExercise) => {
+    const effortType = selectedExercise.effort_type || 'reps';
+    const defaultSet = getDefaultSetForEffortType(effortType);
+    
+    const newExercise = {
+      id: Date.now(),
+      name: selectedExercise.name,
+      equipment: selectedExercise.equipment || '',
+      effort_type: effortType,
+      sets: [{ 
+        ...defaultSet,
+        id: Date.now() + Math.floor(Math.random() * 1000)
+      }],
+      order: (template?.exercises?.length || 0),
+      notes: selectedExercise.notes || ''
+    };
+    
+    setCurrentEditingExercise(newExercise);
+    setEditingExerciseIndex(-1); // -1 indicates new exercise
+    setExerciseSelectorVisible(false);
+    setExerciseConfiguratorVisible(true);
+  };
+
+  const handleEditExercise = (exercise, index) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    setCurrentEditingExercise({ ...exercise });
+    setEditingExerciseIndex(index);
+    setExerciseConfiguratorVisible(true);
+  };
+
+  const handleDeleteExercise = (exerciseIndex) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+
+    Alert.alert(
+      t('delete_exercise'),
+      t('delete_exercise_confirmation'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updatedExercises = [...(template?.exercises || [])];
+              updatedExercises.splice(exerciseIndex, 1);
+              
+              // Update order for remaining exercises
+              updatedExercises.forEach((exercise, index) => {
+                exercise.order = index;
+              });
+
+              await updateTemplate({
+                id: templateId,
+                updates: { exercises: updatedExercises }
+              });
+              await refetch();
+            } catch (error) {
+              console.error('Failed to delete exercise:', error);
+              Alert.alert(t('error'), t('failed_to_delete_exercise'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCreateSuperset = (sourceIndex) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    
+    const exercises = template?.exercises || [];
+    if (exercises.length < 2) {
+      Alert.alert(t('error'), t('need_two_exercises_for_superset'));
+      return;
+    }
+
+    // Show selection modal for pairing
+    const availableExercises = exercises
+      .map((ex, idx) => ({ ...ex, originalIndex: idx }))
+      .filter((_, idx) => idx !== sourceIndex && !_.is_superset);
+
+    Alert.alert(
+      t('create_superset'),
+      t('select_exercise_to_pair'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        ...availableExercises.map((ex, idx) => ({
+          text: ex.name,
+          onPress: () => createSupersetPair(sourceIndex, ex.originalIndex)
+        }))
+      ]
+    );
+  };
+
+  const createSupersetPair = async (sourceIndex, targetIndex) => {
+    try {
+      const updatedExercises = [...(template?.exercises || [])];
+      
+      // Create superset relationship
+      updatedExercises[sourceIndex] = {
+        ...updatedExercises[sourceIndex],
+        is_superset: true,
+        superset_with: updatedExercises[targetIndex].order,
+        superset_rest_time: 90
+      };
+      
+      updatedExercises[targetIndex] = {
+        ...updatedExercises[targetIndex],
+        is_superset: true,
+        superset_with: updatedExercises[sourceIndex].order,
+        superset_rest_time: 90
+      };
+
+      await updateTemplate({
+        id: templateId,
+        updates: { exercises: updatedExercises }
+      });
+      await refetch();
+    } catch (error) {
+      console.error('Failed to create superset:', error);
+      Alert.alert(t('error'), t('failed_to_create_superset'));
+    }
+  };
+
+  // Handle breaking superset
+  const handleBreakSuperset = async (exerciseIndex) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    
+    try {
+      const updatedExercises = [...(template?.exercises || [])];
+      const currentExercise = updatedExercises[exerciseIndex];
+      
+      if (currentExercise.is_superset && currentExercise.superset_with !== null) {
+        // Find the paired exercise
+        const pairedExerciseIndex = updatedExercises.findIndex(
+          ex => ex.order === currentExercise.superset_with
+        );
+        
+        // Remove superset relationship from current exercise
+        updatedExercises[exerciseIndex] = {
+          ...currentExercise,
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
+        
+        // Remove superset relationship from paired exercise if found
+        if (pairedExerciseIndex !== -1) {
+          updatedExercises[pairedExerciseIndex] = {
+            ...updatedExercises[pairedExerciseIndex],
+            is_superset: false,
+            superset_with: null,
+            superset_rest_time: undefined
+          };
+        }
+        
+        await updateTemplate({
+          id: templateId,
+          updates: { exercises: updatedExercises }
+        });
+        await refetch();
+      }
+    } catch (error) {
+      console.error('Failed to break superset:', error);
+      Alert.alert(t('error'), t('failed_to_break_superset'));
+    }
+  };
+
+  const handleSaveExercise = async (exercise) => {
+    try {
+      console.log('handleSaveExercise called with:', exercise);
+      console.log('currentEditingExercise:', currentEditingExercise);
+      console.log('editingExerciseIndex:', editingExerciseIndex);
+      
+      if (!exercise) {
+        console.error('Exercise is undefined');
+        Alert.alert(t('error'), 'Exercise data is missing');
+        return;
+      }
+      
+      const updatedExercises = [...(template?.exercises || [])];
+      
+      if (editingExerciseIndex === -1) {
+        // Adding new exercise
+        const newExercise = {
+          ...exercise,
+          id: exercise.id || Date.now(),
+          order: updatedExercises.length
+        };
+        console.log('Adding new exercise:', newExercise);
+        updatedExercises.push(newExercise);
+      } else {
+        // Updating existing exercise
+        const updatedExercise = {
+          ...exercise,
+          id: currentEditingExercise?.id,
+          order: currentEditingExercise?.order
+        };
+        console.log('Updating exercise at index', editingExerciseIndex, ':', updatedExercise);
+        updatedExercises[editingExerciseIndex] = updatedExercise;
+      }
+
+      console.log('Final updated exercises:', updatedExercises);
+
+      await updateTemplate({
+        id: templateId,
+        updates: { exercises: updatedExercises }
+      });
+      
+      setExerciseConfiguratorVisible(false);
+      setCurrentEditingExercise(null);
+      setEditingExerciseIndex(-1);
+      await refetch();
+    } catch (error) {
+      console.error('Failed to save exercise:', error);
+      Alert.alert(t('error'), t('failed_to_save_exercise'));
+    }
+  };
+
   // Render loading state
   if (isLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: COLORS.background }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={[styles.loadingText, { color: COLORS.text.primary }]}>{t('loading')}</Text>
-      </View>
-    );
+    return <LoadingState colors={COLORS} t={t} />;
   }
   
-  // Render error state if workout not found
-  if (!workout) {
+  // Render error state if there's an error or no access
+  if (error || !template || !canView) {
     return (
-      <View style={[styles.errorContainer, { backgroundColor: COLORS.background }]}>
-        <Ionicons name="alert-circle-outline" size={60} color={COLORS.danger} />
-        <Text style={[styles.errorTitle, { color: COLORS.text.primary }]}>
-          {isTemplate ? t('template_not_found') : t('workout_not_found')}
-        </Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={[styles.backButtonText, { color: COLORS.text.primary }]}>{t('back_to_workouts')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState 
+        colors={COLORS} 
+        t={t} 
+        onBack={() => router.back()} 
+        error={error}
+      />
     );
   }
   
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: COLORS.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      
-      {/* Header */}
+    <View style={[styles.container, { backgroundColor: COLORS.background }]}>
+      {/* Safe Area with Header Colors */}
       <LinearGradient
         colors={[COLORS.primary, COLORS.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={styles.safeAreaGradient}
       >
-        {/* Top Row: Back button, Title, Options */}
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
-          </TouchableOpacity>
-          
-          <View style={styles.titleContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {workout.name}
-            </Text>
-          </View>
-          
-          {isCreator && (
-            <TouchableOpacity 
-              style={styles.optionsButton}
-              onPress={handleOptionsMenu}
-            >
-              <Ionicons name="ellipsis-vertical" size={24} color={COLORS.text.primary} />
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        {/* Creator info row */}
-        <View style={styles.creatorRow}>
-          <View style={styles.creatorInfo}>
-            <Ionicons name="person" size={14} color={COLORS.text.secondary} />
-            <Text style={styles.creatorText}>{workout.creator_username}</Text>
-          </View>
-          <View style={[styles.typeBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-            <Text style={styles.typeBadgeText}>
-              {isTemplate ? t('template') : t('workout')}
-            </Text>
-          </View>
-        </View>
-        
-        {/* Workout Info Row */}
-        <View style={styles.workoutInfoRow}>
-          
-          {/* Duration */}
-          <View style={styles.workoutInfoItem}>
-            <Ionicons name="time-outline" size={14} color={COLORS.text.secondary} />
-            <Text style={styles.infoText}>
-              {workout.estimated_duration} {t('min')}
-            </Text>
-          </View>
-          
-          {/* Difficulty */}
-          <View style={styles.workoutInfoItem}>
-            <Text style={styles.infoIcon}>
-              {getDifficultyIndicator(workout.difficulty_level)}
-            </Text>
-            <Text style={styles.infoText}>
-              {t(workout.difficulty_level || 'beginner')}
-            </Text>
-          </View>
-          
-          {/* Weekday for scheduled workouts */}
-          {!isTemplate && workout.preferred_weekday !== undefined && (
-            <View style={styles.workoutInfoItem}>
-              <Ionicons name="calendar-outline" size={14} color={COLORS.text.secondary} />
-              <Text style={styles.infoText}>
-                {getWeekdayName(workout.preferred_weekday)}
-              </Text>
-            </View>
-          )}
-        </View>
-        
-        {/* Description - only if available */}
-        {workout.description && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionText} numberOfLines={2}>
-              {workout.description}
-            </Text>
-          </View>
-        )}
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        </SafeAreaView>
       </LinearGradient>
       
+      {/* Animated Header */}
+      <AnimatedHeader
+        scrollY={scrollY}
+        template={template}
+        colors={COLORS}
+        isCreator={isCreator}
+        estimatedDuration={estimatedDuration}
+        onDeleteTemplate={handleDeleteTemplate}
+        onFieldUpdate={handleSaveTemplateField}
+        setTemplateName={setTemplateName}
+        setTemplateDescription={setTemplateDescription}
+        setSplitMethod={setSplitMethod}
+        setDifficultyLevel={setDifficultyLevel}
+        setEstimatedDuration={setEstimatedDuration}
+        setEquipmentRequired={setEquipmentRequired}
+        setTags={setTags}
+        setIsPublic={setIsPublic}
+        onHeaderHeightChange={handleHeaderHeightChange}
+        t={t}
+        language={language}
+      />
+      
       {/* Main Content */}
-      <ScrollView style={styles.contentContainer}>
-        <View style={styles.exercisesSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>{t('exercises')}</Text>
-            <View style={styles.exerciseControls}>
-              <Text style={[styles.exerciseCount, { color: COLORS.text.secondary }]}>
-                {workout.exercises?.length || 0} {t('total')}
-              </Text>
-              
-              {isCreator && (
-                <TouchableOpacity 
-                  style={styles.editExercisesButton}
-                  onPress={() => setIsExerciseManagerVisible(true)}
-                >
-                  <Ionicons name="create-outline" size={16} color={COLORS.secondary} />
-                  <Text style={[styles.editExercisesText, { color: COLORS.secondary }]}>
-                    {t('edit')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          
-          {/* Render exercises list or empty state */}
-          {workout.exercises && workout.exercises.length > 0 ? (
-            <View style={styles.exercisesList}>
-              {workout.exercises.map((exercise, index) => {
-                // Find paired exercise name if this is a superset
-                const pairedExerciseName = exercise.is_superset && exercise.superset_with !== null
-                  ? workout.exercises.find(ex => ex.order === exercise.superset_with)?.name
-                  : null;
-                
-                const effortType = exercise.effort_type || 'reps';
-                const effortTypeColor = getEffortTypeColor(effortType);
-                
-                return (
-                  <View 
-                    key={`exercise-${exercise.id || index}`}
-                    style={[
-                      styles.exerciseCard, 
-                      exercise.is_superset && styles.supersetCard,
-                      { backgroundColor: COLORS.card }
-                    ]}
-                  >
-                    {/* Exercise Header */}
-                    <View style={styles.exerciseHeader}>
-                      <View style={styles.exerciseHeaderLeft}>
-                        {/* Exercise index badge */}
-                        <View style={styles.exerciseIndexBadge}>
-                          <Text style={styles.exerciseIndexText}>{index + 1}</Text>
-                        </View>
-                        
-                        <View style={styles.exerciseTitleContainer}>
-                          <View style={styles.exerciseNameRow}>
-                            <Text style={styles.exerciseTitle}>{exercise.name}</Text>
-                            
-                            {/* Effort type indicator */}
-                            <View style={[styles.effortTypeBadge, { backgroundColor: `${effortTypeColor}30` }]}>
-                              <Ionicons 
-                                name={getEffortTypeIcon(effortType)} 
-                                size={12} 
-                                color={effortTypeColor} 
-                              />
-                              <Text style={[styles.effortTypeText, { color: effortTypeColor }]}>
-                                {getEffortTypeDisplay(effortType, t)}
-                              </Text>
-                            </View>
-                          </View>
-                          
-                          {/* Equipment info */}
-                          {exercise.equipment && (
-                            <View style={styles.equipmentInfo}>
-                              <Ionicons name="barbell-outline" size={12} color="rgba(255, 255, 255, 0.6)" />
-                              <Text style={styles.equipmentText}>{exercise.equipment}</Text>
-                            </View>
-                          )}
-                          
-                          {/* Superset info */}
-                          {exercise.is_superset && pairedExerciseName && (
-                            <View style={styles.supersetInfo}>
-                              <Ionicons name="git-branch-outline" size={14} color="#0ea5e9" />
-                              <Text style={styles.supersetInfoText}>
-                                {t('paired_with')}: {pairedExerciseName}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                      
-                      {/* Set count badge */}
-                      <View style={styles.setCountBadge}>
-                        <Text style={styles.setCountText}>
-                          {exercise.sets.length} {exercise.sets.length === 1 ? t('set') : t('sets')}
-                        </Text>
-                      </View>
-                    </View>
-                    
-                    {/* Exercise Sets Table */}
-                    <View style={styles.setsTable}>
-                      {/* Table Header - Dynamic based on effort type */}
-                      <View style={styles.setsTableHeader}>
-                        <TableHeaders effortType={effortType} t={t} />
-                      </View>
-                      
-                      {/* Table Rows */}
-                      {exercise.sets.map((set, setIndex) => (
-                        <View 
-                          key={`set-${setIndex}`}
-                          style={[
-                            styles.setRow,
-                            setIndex % 2 === 1 && { backgroundColor: 'rgba(0, 0, 0, 0.2)' }
-                          ]}
-                        >
-                          <Text style={styles.setCell}>{setIndex + 1}</Text>
-                          <SetDataDisplay set={set} effortType={effortType} t={t} />
-                        </View>
-                      ))}
-                    </View>
-                    
-                    {/* Exercise Notes */}
-                    {exercise.notes && (
-                      <View style={styles.notesContainer}>
-                        <Text style={styles.notesLabel}>{t('notes')}:</Text>
-                        <Text style={styles.notesText}>{exercise.notes}</Text>
-                      </View>
-                    )}
-                    
-                    {/* Superset Rest Time */}
-                    {exercise.is_superset && exercise.superset_rest_time && (
-                      <View style={styles.supersetRestContainer}>
-                        <Text style={styles.supersetRestLabel}>{t('superset_rest')}:</Text>
-                        <Text style={styles.supersetRestValue}>
-                          {formatRestTime(exercise.superset_rest_time)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={[styles.emptyState, { backgroundColor: COLORS.card }]}>
-              <Ionicons name="barbell-outline" size={48} color={COLORS.text.tertiary} />
-              <Text style={[styles.emptyStateText, { color: COLORS.text.tertiary }]}>
-                {t('no_exercises')}
-              </Text>
-              {isCreator && (
-                <TouchableOpacity
-                  style={[styles.emptyStateAddButton, { backgroundColor: `rgba(16, 185, 129, 0.1)` }]}
-                  onPress={() => setIsExerciseManagerVisible(true)}
-                >
-                  <Ionicons name="add-circle" size={20} color={COLORS.success} />
-                  <Text style={[styles.emptyStateAddText, { color: COLORS.success }]}>
-                    {t('add_exercises')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
-        
-        {/* Tags Section (if any) */}
-        {workout.tags && workout.tags.length > 0 && (
-          <View style={styles.tagsSection}>
-            <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>{t('tags')}</Text>
-            <View style={styles.tagsContainer}>
-              {workout.tags.map((tag, index) => (
-                <View 
-                  key={`tag-${index}`} 
-                  style={[styles.tag, { backgroundColor: `rgba(66, 153, 225, 0.2)` }]}
-                >
-                  <Text style={[styles.tagText, { color: COLORS.text.secondary }]}>#{tag}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
+      <Animated.ScrollView
+        style={styles.contentScrollView}
+        contentContainerStyle={[
+          styles.contentContainer, 
+          { paddingTop: dynamicHeaderHeight + 16 }
+        ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
         )}
+        scrollEventThrottle={16}
+      >
+        <ExercisesList
+          log={template}
+          colors={COLORS}
+          isCreator={isCreator}
+          canEdit={canEdit}
+          permissionLevel={isCreator ? 'creator' : 'viewer'}
+          onAddExercise={handleAddNewExercise}
+          onEditExercise={handleEditExercise}
+          onDeleteExercise={handleDeleteExercise}
+          onCreateSuperset={handleCreateSuperset}
+          onBreakSuperset={handleBreakSuperset}
+          t={t}
+        />
         
         {/* Bottom padding */}
         <View style={styles.bottomPadding} />
-      </ScrollView>
+      </Animated.ScrollView>
       
-      {/* Exercise Manager Modal */}
-      {isExerciseManagerVisible && (
-        <ExerciseManager
-          visible={isExerciseManagerVisible}
-          workoutId={workoutId}
-          exercises={workout.exercises || []}
-          onClose={handleExerciseManagerComplete}
-          colors={COLORS}
-        />
+      {/* Modals */}
+      {canEdit && (
+        <>
+          <ExerciseSelector
+            visible={exerciseSelectorVisible}
+            onClose={() => setExerciseSelectorVisible(false)}
+            onSelectExercise={handleSelectExercise}
+          />
+
+          {currentEditingExercise && (
+            <ExerciseConfigurator
+              visible={exerciseConfiguratorVisible}
+              onClose={() => {
+                setExerciseConfiguratorVisible(false);
+                setCurrentEditingExercise(null);
+                setEditingExerciseIndex(-1);
+              }}
+              onSave={handleSaveExercise}
+              exercise={currentEditingExercise}
+              isEdit={editingExerciseIndex !== -1}
+            />
+          )}
+        </>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeAreaGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0,
+    zIndex: 1001,
+  },
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  loadingContainer: {
+  contentScrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  header: {
-    padding: 12,
-    paddingBottom: 16,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  titleContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginRight: 5,
-  },
-  optionsButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  creatorRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  creatorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingRight: 12,
-  },
-  creatorText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginLeft: 4,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  typeBadgeText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  workoutInfoRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  workoutInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    marginLeft: 4,
-  },
-  infoIcon: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  descriptionContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 4,
-  },
-  descriptionText: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    lineHeight: 18,
   },
   contentContainer: {
-    flex: 1,
+    flexGrow: 1,
     padding: 16,
-  },
-  exercisesSection: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  exerciseControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  exerciseCount: {
-    fontSize: 14,
-    marginRight: 12,
-  },
-  editExercisesButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(66, 153, 225, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  editExercisesText: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-  exercisesList: {
-    marginBottom: 16,
-  },
-  exerciseCard: {
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  supersetCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#0ea5e9',
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  exerciseHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  exerciseIndexBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    marginTop: 2,
-  },
-  exerciseIndexText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#0ea5e9',
-  },
-  exerciseTitleContainer: {
-    flex: 1,
-  },
-  exerciseNameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  exerciseTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  effortTypeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  effortTypeText: {
-    fontSize: 10,
-    marginLeft: 3,
-    fontWeight: '600',
-  },
-  equipmentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  equipmentText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginLeft: 4,
-  },
-  supersetInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  supersetInfoText: {
-    fontSize: 12,
-    color: '#0ea5e9',
-    marginLeft: 4,
-  },
-  setCountBadge: {
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginTop: 2,
-  },
-  setCountText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  setsTable: {
-    padding: 12,
-  },
-  setsTableHeader: {
-    flexDirection: 'row',
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    marginBottom: 8,
-  },
-  setColumnHeader: {
-    flex: 1,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  setRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderRadius: 4,
-  },
-  setCell: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  notesContainer: {
-    margin: 12,
-    marginTop: 4,
-    padding: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-  },
-  notesLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 4,
-  },
-  notesText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontStyle: 'italic',
-  },
-  supersetRestContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    padding: 8,
-    margin: 12,
-    marginTop: 0,
-    borderRadius: 8,
-  },
-  supersetRestLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginRight: 4,
-  },
-  supersetRestValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0ea5e9',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    marginTop: 16,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptyStateAddButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  emptyStateAddText: {
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  tagsSection: {
-    marginBottom: 16,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-  },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  tagText: {
-    fontSize: 14,
   },
   bottomPadding: {
     height: 80,

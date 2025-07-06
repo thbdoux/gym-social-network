@@ -1,5 +1,5 @@
 // app/(app)/program/[id].tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -11,10 +11,9 @@ import {
   StatusBar,
   Platform,
   Alert,
-  TextInput,
   Modal,
   Animated,
-  Dimensions
+  Keyboard
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -24,7 +23,7 @@ import { BlurView } from 'expo-blur';
 // Custom hooks
 import { useAuth } from '../../../hooks/useAuth';
 import { useLanguage } from '../../../context/LanguageContext';
-import { useTheme } from '../../../context/ThemeContext'; // Import ThemeContext
+import { useTheme } from '../../../context/ThemeContext';
 import { 
   useProgram, 
   useUpdateProgramWorkout,
@@ -37,8 +36,12 @@ import {
 } from '../../../hooks/query/useProgramQuery';
 import { useWorkoutTemplates } from '../../../hooks/query/useWorkoutQuery';
 
-// Custom components
+// Components
+import { AnimatedHeader } from './components/AnimatedHeader';
 import WorkoutCard from '../../../components/workouts/WorkoutCard';
+import { LoadingState } from '../workout-log/components/LoadingState';
+import { ErrorState } from '../workout-log/components/ErrorState';
+import TemplateSelectionBottomSheet from '../../../components/workouts/TemplateSelectionBottomSheet';
 
 export default function ProgramDetailScreen() {
   // Get program ID from route params
@@ -66,21 +69,25 @@ export default function ProgramDetailScreen() {
   // Get theme context
   const { programPalette, palette } = useTheme();
   
+  // Animation setup with dynamic header height
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [dynamicHeaderHeight, setDynamicHeaderHeight] = useState(320);
+  
   // Create dynamic theme colors
   const COLORS = {
     primary: programPalette.background,
     secondary: programPalette.highlight,
     tertiary: programPalette.border,
     background: palette.page_background,
-    card: "#1F2937", // Consistent with other screens
+    card: "#1F2937",
     text: {
       primary: programPalette.text,
       secondary: programPalette.text_secondary,
       tertiary: "rgba(255, 255, 255, 0.5)"
     },
     border: programPalette.border,
-    success: "#22c55e", // Keep universal success color
-    danger: "#EF4444", // Keep universal danger color
+    success: "#22c55e",
+    danger: "#EF4444",
     highlight: programPalette.highlight
   };
   
@@ -95,24 +102,18 @@ export default function ProgramDetailScreen() {
   const [programDifficulty, setProgramDifficulty] = useState('');
   const [programSessionsPerWeek, setProgramSessionsPerWeek] = useState(0);
   const [programEstimatedWeeks, setProgramEstimatedWeeks] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   // Selection mode state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedWorkouts, setSelectedWorkouts] = useState<number[]>([]);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   
-  // Animation values
-  const scrollY = useRef(new Animated.Value(0)).current;
-  
-  // Get screen dimensions
-  const screenWidth = Dimensions.get('window').width;
-  
   // Hooks
   const { user } = useAuth();
-  const { t } = useLanguage();
-  const { data: program, isLoading, refetch } = useProgram(programId);
-  const { data: templates = [] } = useWorkoutTemplates();
+  const { t, language } = useLanguage();
+  const { data: program, isLoading, error, refetch } = useProgram(programId);
+  const { data: templates = [], isLoading: templatesLoading } = useWorkoutTemplates();
   const { mutateAsync: updateProgramWorkout } = useUpdateProgramWorkout();
   const { mutateAsync: addWorkoutToProgram } = useAddWorkoutToProgram();
   const { mutateAsync: removeWorkoutFromProgram } = useRemoveWorkoutFromProgram();
@@ -120,6 +121,16 @@ export default function ProgramDetailScreen() {
   const { mutateAsync: updateProgram } = useUpdateProgram();
   const { mutateAsync: deleteProgram } = useDeleteProgram();
   const { mutateAsync: forkProgram } = useForkProgram();
+  
+  // Check if current user is the program creator
+  const isCreator = program?.creator_username === user?.username;
+  const canEdit = isCreator;
+  const canView = !!program;
+  
+  // Handle header height changes
+  const handleHeaderHeightChange = useCallback((height: number) => {
+    setDynamicHeaderHeight(height);
+  }, []);
   
   // Initialize form state when program data is loaded
   useEffect(() => {
@@ -133,50 +144,134 @@ export default function ProgramDetailScreen() {
     }
   }, [program]);
   
-  // Header animations based on scroll position
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, 200],
-    outputRange: [360, 0],
-    extrapolate: 'clamp'
-  });
-  
-  // Check if current user is the program creator
-  const isCreator = program?.creator_username === user?.username;
-  
-  // Format focus text (convert snake_case to Title Case)
-  const formatFocus = (focus: string) => {
-    return focus
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-  
-  // Convert hex to RGB for rgba strings
-  const hexToRgb = (hex) => {
-    // Remove # if present
-    hex = hex.replace('#', '');
+  // Add keyboard event listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  // Handle saving individual program field
+  const handleSaveProgramField = async (field: string, value: any) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
     
-    // Parse hex values
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    
-    return `${r}, ${g}, ${b}`;
-  };
-  
-  // Handle workout drag between days
-  const handleWorkoutMove = async (workoutId: number, fromDay: number, toDay: number) => {
     try {
-      await updateProgramWorkout({
-        programId,
-        workoutId,
-        updates: { preferred_weekday: toDay }
+      const updates = { [field]: value };
+      
+      await updateProgram({
+        id: programId,
+        updates: updates
       });
       await refetch();
     } catch (error) {
-      console.error('Failed to move workout:', error);
-      Alert.alert(t('error'), t('failed_to_move_workout'));
+      console.error(`Failed to update program ${field}:`, error);
+      Alert.alert(t('error'), t('failed_to_update_program'));
     }
+  };
+
+  // Handle deleting the program
+  const handleDeleteProgram = () => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_delete'));
+      return;
+    }
+    
+    Alert.alert(
+      t('delete_program'),
+      t('confirm_delete_program'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { 
+          text: t('delete'), 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteProgram(programId);
+              router.back();
+            } catch (error) {
+              console.error('Failed to delete program:', error);
+              Alert.alert(t('error'), t('failed_to_delete_program'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Handle toggling program active state
+  const handleToggleActive = async () => {
+    try {
+      await toggleProgramActive(programId);
+      await refetch();
+    } catch (error) {
+      console.error('Failed to toggle active state:', error);
+      Alert.alert(t('error'), t('failed_to_toggle_active'));
+    }
+  };
+
+  // Handle forking the program
+  const handleFork = async () => {
+    try {
+      const forkedProgram = await forkProgram(programId);
+      router.replace(`/program/${forkedProgram.id}`);
+    } catch (error) {
+      console.error('Failed to fork program:', error);
+      Alert.alert(t('error'), t('failed_to_fork_program'));
+    }
+  };
+
+  // Handle edit mode
+  const handleEditMode = () => {
+    setEditMode(true);
+  };
+
+  // Handle saving program edits
+  const handleSaveProgram = async () => {
+    try {
+      await updateProgram({
+        id: programId,
+        updates: {
+          name: programName,
+          description: programDescription,
+          focus: programFocus,
+          difficulty_level: programDifficulty,
+          sessions_per_week: parseInt(programSessionsPerWeek.toString()),
+          estimated_completion_weeks: parseInt(programEstimatedWeeks.toString())
+        }
+      });
+      setEditMode(false);
+      await refetch();
+    } catch (error) {
+      console.error('Failed to update program:', error);
+      Alert.alert(t('error'), t('failed_to_update_program'));
+    }
+  };
+
+  // Handle canceling edit mode
+  const handleCancelEdit = () => {
+    // Reset form to original values
+    if (program) {
+      setProgramName(program.name);
+      setProgramDescription(program.description || '');
+      setProgramFocus(program.focus);
+      setProgramDifficulty(program.difficulty_level);
+      setProgramSessionsPerWeek(program.sessions_per_week);
+      setProgramEstimatedWeeks(program.estimated_completion_weeks);
+    }
+    setEditMode(false);
   };
   
   // Open day selector before adding a workout
@@ -192,7 +287,7 @@ export default function ProgramDetailScreen() {
   };
   
   // Handle adding a workout template to the program
-  const handleAddWorkout = async (templateId: number) => {
+  const handleAddWorkout = async (template: any) => {
     if (selectedWeekday === null) {
       Alert.alert(t('error'), t('select_day_first'));
       return;
@@ -201,7 +296,7 @@ export default function ProgramDetailScreen() {
     try {
       await addWorkoutToProgram({
         programId,
-        templateId,
+        templateId: template.id,
         weekday: selectedWeekday
       });
       setShowTemplateSelector(false);
@@ -239,88 +334,6 @@ export default function ProgramDetailScreen() {
     );
   };
   
-  // Handle toggling program active state
-  const handleToggleActive = async () => {
-    try {
-      await toggleProgramActive(programId);
-      await refetch();
-    } catch (error) {
-      console.error('Failed to toggle active state:', error);
-      Alert.alert(t('error'), t('failed_to_toggle_active'));
-    }
-  };
-  
-  // Handle saving program edits
-  const handleSaveProgram = async () => {
-    try {
-      await updateProgram({
-        id: programId,
-        updates: {
-          name: programName,
-          description: programDescription,
-          focus: programFocus,
-          difficulty_level: programDifficulty,
-          sessions_per_week: parseInt(programSessionsPerWeek.toString()),
-          estimated_completion_weeks: parseInt(programEstimatedWeeks.toString())
-        }
-      });
-      setEditMode(false);
-      await refetch();
-    } catch (error) {
-      console.error('Failed to update program:', error);
-      Alert.alert(t('error'), t('failed_to_update_program'));
-    }
-  };
-  
-  // Handle canceling edit mode
-  const handleCancelEdit = () => {
-    // Reset form to original values
-    if (program) {
-      setProgramName(program.name);
-      setProgramDescription(program.description || '');
-      setProgramFocus(program.focus);
-      setProgramDifficulty(program.difficulty_level);
-      setProgramSessionsPerWeek(program.sessions_per_week);
-      setProgramEstimatedWeeks(program.estimated_completion_weeks);
-    }
-    setEditMode(false);
-  };
-  
-  // Handle deleting the program
-  const handleDeleteProgram = () => {
-    Alert.alert(
-      t('delete_program'),
-      t('confirm_delete_program'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        { 
-          text: t('delete'), 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteProgram(programId);
-              router.back();
-            } catch (error) {
-              console.error('Failed to delete program:', error);
-              Alert.alert(t('error'), t('failed_to_delete_program'));
-            }
-          }
-        }
-      ]
-    );
-  };
-  
-  // Handle forking the program
-  const handleFork = async () => {
-    try {
-      const forkedProgram = await forkProgram(programId);
-      router.replace(`/program/${forkedProgram.id}`);
-    } catch (error) {
-      console.error('Failed to fork program:', error);
-      Alert.alert(t('error'), t('failed_to_fork_program'));
-    }
-  };
-  
   // Get filtered workouts for selected day
   const getWorkoutsForDay = (day: number | null) => {
     if (!program || !program.workouts) return [];
@@ -332,18 +345,7 @@ export default function ProgramDetailScreen() {
     }
   };
   
-  // Filter templates by search query
-  const filteredTemplates = templates.filter(template => 
-    template.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
   const filteredWorkouts = getWorkoutsForDay(selectedWeekday);
-  
-  // Handle scroll events manually
-  const handleScroll = (event) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    scrollY.setValue(offsetY);
-  };
   
   // Selection mode handlers
   const toggleSelectionMode = () => {
@@ -419,176 +421,95 @@ export default function ProgramDetailScreen() {
       setDeleteConfirmVisible(false);
     }
   };
+
+  // Convert hex to RGB for rgba strings
+  const hexToRgb = (hex) => {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return `${r}, ${g}, ${b}`;
+  };
   
   // Render loading state
   if (isLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: COLORS.background }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={[styles.loadingText, { color: COLORS.text.primary }]}>{t('loading')}</Text>
-      </View>
-    );
+    return <LoadingState colors={COLORS} t={t} />;
   }
   
-  // Render error state if program not found
-  if (!program) {
+  // Render error state if there's an error or no access
+  if (error || !program || !canView) {
     return (
-      <View style={[styles.errorContainer, { backgroundColor: COLORS.background }]}>
-        <Ionicons name="alert-circle-outline" size={60} color={COLORS.danger} />
-        <Text style={[styles.errorTitle, { color: COLORS.text.primary }]}>{t('program_not_found')}</Text>
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} onPress={() => router.back()}>
-          <Text style={[styles.backButtonText, { color: COLORS.text.primary }]}>{t('back_to_workouts')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState 
+        colors={COLORS} 
+        t={t} 
+        onBack={() => router.back()} 
+        error={error}
+      />
     );
   }
   
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: COLORS.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      
-      {/* Fixed Header */}
-      <View style={styles.fixedHeaderContainer}>
-        <LinearGradient
-          colors={[COLORS.primary, COLORS.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.fixedHeader}
-        >
-          <View style={styles.headerControls}>
-            <TouchableOpacity 
-              style={[styles.backButton, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]} 
-              onPress={() => router.back()}
-            >
-              <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
-            </TouchableOpacity>
-            
-            <View style={styles.headerActions}>
-              {isCreator && !editMode && !selectionMode && (
-                <>
-                  <TouchableOpacity 
-                    style={[styles.headerAction, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
-                    onPress={() => setEditMode(true)}
-                  >
-                    <Ionicons name="create-outline" size={22} color={COLORS.text.primary} />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[styles.headerAction, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
-                    onPress={handleToggleActive}
-                  >
-                    <Ionicons 
-                      name={program.is_active ? "checkmark-circle" : "ellipse-outline"} 
-                      size={22} 
-                      color={COLORS.text.primary} 
-                    />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[styles.headerAction, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}
-                    onPress={handleDeleteProgram}
-                  >
-                    <Ionicons name="trash-outline" size={22} color={COLORS.text.primary} />
-                  </TouchableOpacity>
-                </>
-              )}
-              
-              {!isCreator && !selectionMode && (
-                <TouchableOpacity 
-                  style={[styles.forkButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
-                  onPress={handleFork}
-                >
-                  <Ionicons name="download-outline" size={18} color={COLORS.text.primary} />
-                  <Text style={[styles.forkText, { color: COLORS.text.primary }]}>{t('fork')}</Text>
-                </TouchableOpacity>
-              )}
-              
-              {editMode && (
-                <>
-                  <TouchableOpacity 
-                    style={[styles.cancelButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
-                    onPress={handleCancelEdit}
-                  >
-                    <Text style={[styles.cancelButtonText, { color: COLORS.text.primary }]}>{t('cancel')}</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[styles.saveButton, { backgroundColor: COLORS.success }]}
-                    onPress={handleSaveProgram}
-                  >
-                    <Text style={[styles.saveButtonText, { color: '#FFFFFF' }]}>{t('save')}</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-              
-              {selectionMode && (
-                <TouchableOpacity 
-                  style={[styles.cancelButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
-                  onPress={toggleSelectionMode}
-                >
-                  <Text style={[styles.cancelButtonText, { color: COLORS.text.primary }]}>{t('cancel')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          
-          {/* Program Title and Status */}
-          <View style={styles.headerTitleContainer}>
-            <Text style={[styles.headerTitle, { color: COLORS.text.primary }]} numberOfLines={1}>
-              {program.name}
-            </Text>
-            
-            {program.is_active && (
-              <View style={[styles.activeBadge, { 
-                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                borderColor: 'rgba(34, 197, 94, 0.3)'
-              }]}>
-                <Text style={[styles.activeBadgeText, { color: COLORS.success }]}>{t('active')}</Text>
-              </View>
-            )}
-          </View>
-          
-          {/* Program Meta Info (small text under title) */}
-          <View style={styles.programMetaInfo}>
-            <Text style={[styles.programMetaText, { color: COLORS.text.secondary }]}>
-              <Ionicons name="person" size={10} color={COLORS.text.secondary} /> {program.creator_username} • 
-              {formatFocus(program.focus)} • 
-              {program.difficulty_level}
-            </Text>
-          </View>
-        </LinearGradient>
-      </View>
-      
-      <ScrollView 
-        style={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={handleScroll}
-        contentContainerStyle={{ paddingTop: 20 }}
+    <View style={[styles.container, { backgroundColor: COLORS.background }]}>
+      {/* Safe Area with Header Colors */}
+      <LinearGradient
+        colors={[COLORS.primary, COLORS.secondary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.safeAreaGradient}
       >
-        {/* Program Description (if exists) */}
-        {(editMode || program.description) && (
-          <View style={[styles.descriptionContainer, { backgroundColor: 'rgba(31, 41, 55, 0.6)' }]}>
-            <Text style={[styles.descriptionLabel, { color: COLORS.text.secondary }]}>{t('description')}</Text>
-            {editMode ? (
-              <TextInput
-                style={[styles.descriptionInput, { 
-                  color: COLORS.text.primary,
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)' 
-                }]}
-                value={programDescription}
-                onChangeText={setProgramDescription}
-                placeholder={t('program_description')}
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                multiline
-                numberOfLines={3}
-              />
-            ) : (
-              <Text style={[styles.descriptionText, { color: COLORS.text.primary }]}>{program.description}</Text>
-            )}
-          </View>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        </SafeAreaView>
+      </LinearGradient>
+      
+      {/* Animated Header */}
+      <AnimatedHeader
+        scrollY={scrollY}
+        program={program}
+        colors={COLORS}
+        isCreator={isCreator}
+        language={language}
+        onDeleteProgram={handleDeleteProgram}
+        onFieldUpdate={handleSaveProgramField}
+        onToggleActive={handleToggleActive}
+        onFork={handleFork}
+        onEditMode={handleEditMode}
+        editMode={editMode}
+        onSaveProgram={handleSaveProgram}
+        onCancelEdit={handleCancelEdit}
+        programName={programName}
+        setProgramName={setProgramName}
+        programDescription={programDescription}
+        setProgramDescription={setProgramDescription}
+        programFocus={programFocus}
+        setProgramFocus={setProgramFocus}
+        programDifficulty={programDifficulty}
+        setProgramDifficulty={setProgramDifficulty}
+        programSessionsPerWeek={programSessionsPerWeek}
+        setProgramSessionsPerWeek={setProgramSessionsPerWeek}
+        programEstimatedWeeks={programEstimatedWeeks}
+        setProgramEstimatedWeeks={setProgramEstimatedWeeks}
+        onHeaderHeightChange={handleHeaderHeightChange}
+        t={t}
+      />
+      
+      {/* Main Content */}
+      <Animated.ScrollView
+        style={styles.contentScrollView}
+        contentContainerStyle={[
+          styles.contentContainer, 
+          { paddingTop: dynamicHeaderHeight + 16 }
+        ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
         )}
-        
+        scrollEventThrottle={16}
+      >
         {/* Weekly Schedule */}
         <View style={styles.scheduleSection}>
           <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>{t('weekly_schedule')}</Text>
@@ -597,7 +518,7 @@ export default function ProgramDetailScreen() {
           <View style={[styles.compactSchedule, { 
             backgroundColor: 'rgba(31, 41, 55, 0.5)' 
           }]}>
-            {[t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'),t('sun')].map((day, index) => {
+            {[t('mon'), t('tue'), t('wed'), t('thu'), t('fri'), t('sat'), t('sun')].map((day, index) => {
               const hasWorkout = program.workouts?.some(w => w.preferred_weekday === index);
               const isSelected = selectedWeekday === index;
               
@@ -694,7 +615,7 @@ export default function ProgramDetailScreen() {
                 <Text style={[styles.sectionTitle, { color: COLORS.text.primary }]}>
                   {selectedWeekday !== null 
                     ? `${
-                        [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')][selectedWeekday]
+                        [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'), t('sunday')][selectedWeekday]
                       }`
                     : t('all_workouts')}
                 </Text>
@@ -770,7 +691,7 @@ export default function ProgramDetailScreen() {
         
         {/* Bottom padding */}
         <View style={styles.bottomPadding} />
-      </ScrollView>
+      </Animated.ScrollView>
       
       {/* Day Selector Modal */}
       <Modal
@@ -801,7 +722,7 @@ export default function ProgramDetailScreen() {
             </LinearGradient>
             
             <View style={[styles.daySelector, { backgroundColor: 'rgba(31, 41, 55, 0.8)' }]}>
-              {[t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')].map((day, index) => (
+              {[t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'), t('sunday')].map((day, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.daySelectorItem}
@@ -830,94 +751,24 @@ export default function ProgramDetailScreen() {
         </View>
       </Modal>
       
-      {/* Template Selector Modal */}
-      <Modal
+      {/* Template Selection Bottom Sheet */}
+      <TemplateSelectionBottomSheet
         visible={showTemplateSelector}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowTemplateSelector(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { 
-            borderColor: 'rgba(75, 85, 99, 0.3)'
-          }]}>
-            <BlurView intensity={40} tint="dark" style={styles.modalBlur} />
-            
-            <LinearGradient
-              colors={[COLORS.primary, COLORS.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.modalHeader}
-            >
-              <Text style={[styles.modalTitle, { color: COLORS.text.primary }]}>
-                {selectedWeekday !== null
-                  ? `${t('select_template')} - ${
-                    [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'),t('sunday')][selectedWeekday]
-                    }`
-                  : t('select_template')}
-              </Text>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => {
-                  setShowTemplateSelector(false);
-                  setSearchQuery('');
-                }}
-              >
-                <Ionicons name="close" size={24} color={COLORS.text.primary} />
-              </TouchableOpacity>
-            </LinearGradient>
-            
-            {/* Search bar */}
-            <View style={[styles.searchContainer, { 
-              backgroundColor: 'rgba(31, 41, 55, 0.9)',
-              borderBottomColor: 'rgba(75, 85, 99, 0.3)'
-            }]}>
-              <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-              <TextInput
-                style={[styles.searchInput, { color: COLORS.text.primary }]}
-                placeholder={t('search_workouts')}
-                placeholderTextColor="#9CA3AF"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearSearchButton}
-                  onPress={() => setSearchQuery('')}
-                >
-                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            <ScrollView style={[styles.templatesList, { backgroundColor: 'rgba(31, 41, 55, 0.8)' }]}>
-              {filteredTemplates.length > 0 ? (
-                filteredTemplates.map((template) => (
-                  <View key={template.id}>
-                    {/* Use selection mode to override default navigation */}
-                    <WorkoutCard
-                      workoutId={template.id}
-                      workout={template}
-                      isTemplate={true}
-                      user={user?.username}
-                      selectionMode={true}
-                      onSelect={() => handleAddWorkout(template.id)}
-                    />
-                  </View>
-                ))
-              ) : (
-                <View style={styles.emptyTemplates}>
-                  <Text style={[styles.emptyTemplatesText, { color: COLORS.text.secondary }]}>
-                    {searchQuery.length > 0 
-                      ? t('no_search_results')
-                      : t('no_templates')}
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => {
+          setShowTemplateSelector(false);
+        }}
+        onTemplateSelected={handleAddWorkout}
+        templates={templates}
+        templatesLoading={templatesLoading}
+        user={user}
+        themePalette={{
+          page_background: COLORS.background,
+          border: COLORS.border,
+          text: COLORS.text.primary,
+          text_secondary: COLORS.text.secondary,
+          highlight: COLORS.highlight
+        }}
+      />
       
       {/* Delete Confirmation Modal */}
       <Modal
@@ -974,170 +825,31 @@ export default function ProgramDetailScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeAreaGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0,
+    zIndex: 1001,
+  },
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  
-  // Fixed Header
-  fixedHeaderContainer: {
-    zIndex: 100,
-  },
-  fixedHeader: {
-    padding: 16,
-    paddingBottom: 12,
-  },
-  headerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerAction: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  forkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  forkText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: 6,
-  },
-  saveButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  saveButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  
-  // Header Title Container (new style for inline title and active status)
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  contentScrollView: {
     flex: 1,
   },
-  headerTitleInput: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: 8,
-  },
-  activeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 8,
-    borderWidth: 1,
-  },
-  activeBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  
-  // Program Meta Info (new style for small text under title)
-  programMetaInfo: {
-    marginBottom: 4,
-  },
-  programMetaText: {
-    fontSize: 12,
-  },
-  
-  // Content Styles
   contentContainer: {
-    flex: 1,
-  },
-  
-  // Description Container (moved from program details card)
-  descriptionContainer: {
-    borderRadius: 16,
+    flexGrow: 1,
     padding: 16,
-    margin: 16,
-    marginTop: 0,
-  },
-  descriptionLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  descriptionText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  descriptionInput: {
-    fontSize: 14,
-    borderRadius: 4,
-    padding: 8,
-    textAlignVertical: 'top',
-    minHeight: 80,
   },
   
   // Compact Schedule
@@ -1246,7 +958,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bottomPadding: {
-    height: 40,
+    height: 80,
   },
   
   // Modal Styles
@@ -1314,37 +1026,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Template Selector Styles
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    height: 40,
-  },
-  clearSearchButton: {
-    padding: 4,
-  },
-  templatesList: {
-    padding: 16,
-    maxHeight: 400,
-  },
-  emptyTemplates: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  emptyTemplatesText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  // Template Selector Styles - now handled by TemplateSelectionBottomSheet
   
   // Selection mode styles
   selectionHeader: {

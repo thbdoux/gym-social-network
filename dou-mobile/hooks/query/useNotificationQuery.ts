@@ -1,4 +1,4 @@
-// hooks/query/useNotificationQuery.ts - ENHANCED VERSION aligned with backend
+// hooks/query/useNotificationQuery.ts - ENHANCED VERSION with comprehensive auth guards
 import { 
   useQuery, 
   useMutation, 
@@ -25,7 +25,7 @@ export const notificationKeys = {
   byType: (type?: string) => [...notificationKeys.all, 'by-type', type] as const,
 };
 
-// Enhanced notifications query with comprehensive filtering
+// Enhanced notifications query with comprehensive filtering - AUTH PROTECTED
 export const useNotifications = (options: {
   type?: string;
   is_read?: boolean;
@@ -35,146 +35,319 @@ export const useNotifications = (options: {
   refetchInterval?: number | false;
   enabled?: boolean;
 } = {}) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   const { type, is_read, priority, since, limit, refetchInterval, enabled = true, ...queryOptions } = options;
 
   const query = useQuery({
     queryKey: notificationKeys.list({ type, is_read, priority, since, limit }),
-    queryFn: () => notificationService.getNotifications({ type, is_read, priority, since, limit }),
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching notifications...');
+      return notificationService.getNotifications({ type, is_read, priority, since, limit });
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user &&
+      enabled,
+    
     staleTime: 1000 * 30, // 30 seconds
     refetchInterval: refetchInterval ?? (isAuthenticated ? 1000 * 60 : false), // 1 minute if authenticated
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    enabled: isAuthenticated && enabled,
-    retry: 2,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    
+    meta: {
+      requiresAuth: true,
+    },
+    
     ...queryOptions
   });
 
   return query;
 };
 
-// Enhanced infinite notifications query for pagination
+// Enhanced infinite notifications query for pagination - AUTH PROTECTED
 export const useInfiniteNotifications = (options: {
   type?: string;
   is_read?: boolean;
   priority?: string;
   limit?: number;
 } = {}) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   const { type, is_read, priority, limit = 20 } = options;
 
   return useInfiniteQuery({
     queryKey: notificationKeys.list({ type, is_read, priority, infinite: true }),
-    queryFn: ({ pageParam = 1 }) => 
-      notificationService.getNotifications({ 
+    queryFn: async ({ pageParam = 1 }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching infinite notifications page:', pageParam);
+      return notificationService.getNotifications({ 
         type, 
         is_read, 
         priority, 
         limit,
         offset: (pageParam - 1) * limit 
-      }),
+      });
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < limit) return undefined;
       return allPages.length + 1;
     },
+    
     staleTime: 1000 * 30,
-    enabled: isAuthenticated,
-    retry: 2,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced unread notifications query
+// Enhanced unread notifications query - AUTH PROTECTED
 export const useUnreadNotifications = (options: { type?: string } = {}) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: notificationKeys.unread(),
-    queryFn: () => notificationService.getUnreadNotifications(options),
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching unread notifications...');
+      return notificationService.getUnreadNotifications(options);
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 15, // 15 seconds
     refetchInterval: 1000 * 30, // 30 seconds
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    enabled: isAuthenticated,
-    retry: 3,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 3;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced notification count with detailed breakdown
+// Enhanced notification count with detailed breakdown - AUTH PROTECTED
 export const useNotificationCount = (options: {
   refetchInterval?: number | false;
   enabled?: boolean;
 } = {}) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   const { refetchInterval, enabled = true } = options;
   
   return useQuery({
     queryKey: notificationKeys.count(),
-    queryFn: notificationService.getNotificationCount,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching notification count...');
+      return notificationService.getNotificationCount();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user &&
+      enabled,
+    
     staleTime: 1000 * 15, // 15 seconds
     refetchInterval: refetchInterval ?? 1000 * 30, // 30 seconds
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    enabled: isAuthenticated && enabled,
-    retry: 3,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 3;
+    },
+    
     select: (data: NotificationCount) => ({
       ...data,
       hasUnread: data.unread > 0,
       hasUnseen: data.unseen > 0,
       recentActivity: data.recent_24h > 0,
     }),
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced notification summary
+// Enhanced notification summary - AUTH PROTECTED
 export const useNotificationSummary = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: notificationKeys.summary(),
-    queryFn: notificationService.getNotificationSummary,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching notification summary...');
+      return notificationService.getNotificationSummary();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchInterval: 1000 * 60 * 10, // 10 minutes
-    enabled: isAuthenticated,
-    retry: 2,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced notification analytics
+// Enhanced notification analytics - AUTH PROTECTED
 export const useNotificationAnalytics = (days: number = 30) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: notificationKeys.analytics(days),
-    queryFn: () => notificationService.getAnalytics(days),
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching notification analytics for', days, 'days...');
+      return notificationService.getAnalytics(days);
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 60 * 10, // 10 minutes
     refetchInterval: 1000 * 60 * 30, // 30 minutes
-    enabled: isAuthenticated,
-    retry: 2,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced notifications by type
+// Enhanced notifications by type - AUTH PROTECTED
 export const useNotificationsByType = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: notificationKeys.byType(),
-    queryFn: notificationService.getNotificationsByType,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching notifications by type...');
+      return notificationService.getNotificationsByType();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 60, // 1 minute
-    enabled: isAuthenticated,
-    retry: 2,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced mark as read with optimistic updates and error handling
+// Enhanced mark as read with optimistic updates and error handling - AUTH PROTECTED
 export const useMarkNotificationAsRead = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: (notificationId: number) => notificationService.markAsRead(notificationId),
+    mutationFn: async (notificationId: number) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('✅ Marking notification as read:', notificationId);
+      return notificationService.markAsRead(notificationId);
+    },
     onMutate: async (notificationId) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: notificationKeys.lists() });
@@ -241,15 +414,33 @@ export const useMarkNotificationAsRead = () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.summary() });
       queryClient.invalidateQueries({ queryKey: notificationKeys.analytics() });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced mark multiple notifications as read
+// Enhanced mark multiple notifications as read - AUTH PROTECTED
 export const useMarkNotificationsAsRead = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
     mutationFn: async (notificationIds: number[]) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('✅ Marking multiple notifications as read:', notificationIds.length);
       // Use bulk API if available, otherwise individual calls
       const promises = notificationIds.map(id => notificationService.markAsRead(id));
       return Promise.all(promises);
@@ -302,15 +493,35 @@ export const useMarkNotificationsAsRead = () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.summary() });
       queryClient.invalidateQueries({ queryKey: notificationKeys.analytics() });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced mark all as read with type filtering
+// Enhanced mark all as read with type filtering - AUTH PROTECTED
 export const useMarkAllNotificationsAsRead = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: (type?: string) => notificationService.markAllAsRead(type),
+    mutationFn: async (type?: string) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('✅ Marking all notifications as read. Type filter:', type || 'none');
+      return notificationService.markAllAsRead(type);
+    },
     onMutate: async (type) => {
       await queryClient.cancelQueries({ queryKey: notificationKeys.lists() });
       await queryClient.cancelQueries({ queryKey: notificationKeys.count() });
@@ -376,15 +587,35 @@ export const useMarkAllNotificationsAsRead = () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.summary() });
       queryClient.invalidateQueries({ queryKey: notificationKeys.analytics() });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced mark as seen
+// Enhanced mark as seen - AUTH PROTECTED
 export const useMarkNotificationsAsSeen = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: (notificationIds?: number[]) => notificationService.markAsSeen(notificationIds),
+    mutationFn: async (notificationIds?: number[]) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('👁️ Marking notifications as seen:', notificationIds?.length || 'all');
+      return notificationService.markAsSeen(notificationIds);
+    },
     onMutate: async (notificationIds) => {
       await queryClient.cancelQueries({ queryKey: notificationKeys.lists() });
       await queryClient.cancelQueries({ queryKey: notificationKeys.count() });
@@ -428,43 +659,109 @@ export const useMarkNotificationsAsSeen = () => {
         queryClient.setQueryData(notificationKeys.count(), context.count);
       }
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced notification preferences
+// Enhanced notification preferences - AUTH PROTECTED
 export const useNotificationPreferences = (options = {}) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: notificationKeys.preferences(),
-    queryFn: notificationService.getPreferences,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching notification preferences...');
+      return notificationService.getPreferences();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 60 * 60, // 1 hour
-    enabled: isAuthenticated,
-    retry: 2,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
+    
     ...options
   });
 };
 
-// Enhanced preference categories
+// Enhanced preference categories - AUTH PROTECTED
 export const useNotificationPreferenceCategories = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: notificationKeys.categories(),
-    queryFn: notificationService.getPreferenceCategories,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching notification preference categories...');
+      return notificationService.getPreferenceCategories();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 60 * 60 * 24, // 24 hours - categories don't change often
-    enabled: isAuthenticated,
-    retry: 1,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced update preferences
+// Enhanced update preferences - AUTH PROTECTED
 export const useUpdateNotificationPreferences = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: (preferences: Partial<NotificationPreference>) => 
-      notificationService.updatePreferences(preferences),
+    mutationFn: async (preferences: Partial<NotificationPreference>) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('⚙️ Updating notification preferences...');
+      return notificationService.updatePreferences(preferences);
+    },
     onMutate: async (newPreferences) => {
       await queryClient.cancelQueries({ queryKey: notificationKeys.preferences() });
       
@@ -489,41 +786,96 @@ export const useUpdateNotificationPreferences = () => {
     onSuccess: (updatedPreferences) => {
       queryClient.setQueryData(notificationKeys.preferences(), updatedPreferences);
     },
-  });
-};
-
-// Enhanced bulk preference update
-export const useBulkUpdateNotificationPreferences = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (categories: Record<string, boolean>) => 
-      notificationService.bulkUpdatePreferences(categories),
-    onSuccess: (updatedPreferences) => {
-      queryClient.setQueryData(notificationKeys.preferences(), updatedPreferences);
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
     },
   });
 };
 
-// Enhanced device management
-export const useDeviceTokens = () => {
-  const { isAuthenticated } = useAuth();
+// Enhanced bulk preference update - AUTH PROTECTED
+export const useBulkUpdateNotificationPreferences = () => {
+  const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
-  return useQuery({
-    queryKey: notificationKeys.devices(),
-    queryFn: notificationService.listDeviceTokens,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    enabled: isAuthenticated,
-    retry: 2,
+  return useMutation({
+    mutationFn: async (categories: Record<string, boolean>) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('⚙️ Bulk updating notification preferences...');
+      return notificationService.bulkUpdatePreferences(categories);
+    },
+    onSuccess: (updatedPreferences) => {
+      queryClient.setQueryData(notificationKeys.preferences(), updatedPreferences);
+    },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced device token registration
+// Enhanced device management - AUTH PROTECTED
+export const useDeviceTokens = () => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+  
+  return useQuery({
+    queryKey: notificationKeys.devices(),
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching device tokens...');
+      return notificationService.listDeviceTokens();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
+  });
+};
+
+// Enhanced device token registration - AUTH PROTECTED
 export const useRegisterDeviceToken = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ 
+    mutationFn: async ({ 
       token, 
       platform, 
       locale, 
@@ -533,51 +885,130 @@ export const useRegisterDeviceToken = () => {
       platform: 'ios' | 'android' | 'web';
       locale?: string;
       deviceInfo?: Record<string, any>;
-    }) => notificationService.registerDeviceToken(token, platform, locale, deviceInfo),
+    }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📱 Registering device token for platform:', platform);
+      return notificationService.registerDeviceToken(token, platform, locale, deviceInfo);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.devices() });
+    },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
     },
   });
 };
 
-// Enhanced device token unregistration
+// Enhanced device token unregistration - AUTH PROTECTED
 export const useUnregisterDeviceToken = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: (token: string) => notificationService.unregisterDeviceToken(token),
+    mutationFn: async (token: string) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📱 Unregistering device token...');
+      return notificationService.unregisterDeviceToken(token);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.devices() });
+    },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
     },
   });
 };
 
-// Enhanced test notification
+// Enhanced test notification - AUTH PROTECTED
 export const useSendTestNotification = () => {
+  const { isAuthenticated, user } = useAuth();
+  
   return useMutation({
-    mutationFn: ({ 
+    mutationFn: async ({ 
       deviceId, 
       message 
     }: {
       deviceId?: number;
       message?: string;
-    }) => notificationService.sendTestNotification(deviceId, message),
+    }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🧪 Sending test notification...');
+      return notificationService.sendTestNotification(deviceId, message);
+    },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced clear old notifications
+// Enhanced clear old notifications - AUTH PROTECTED
 export const useClearOldNotifications = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: (olderThanDays: number = 30) => 
-      notificationService.clearOldNotifications(olderThanDays),
+    mutationFn: async (olderThanDays: number = 30) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🧹 Clearing old notifications older than', olderThanDays, 'days...');
+      return notificationService.clearOldNotifications(olderThanDays);
+    },
     onSuccess: () => {
       // Refetch all notification data after clearing
       queryClient.invalidateQueries({ queryKey: notificationKeys.lists() });
       queryClient.invalidateQueries({ queryKey: notificationKeys.count() });
       queryClient.invalidateQueries({ queryKey: notificationKeys.summary() });
       queryClient.invalidateQueries({ queryKey: notificationKeys.analytics() });
+    },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
     },
   });
 };
@@ -623,6 +1054,8 @@ export const useNotificationSubscription = () => {
   const { isAuthenticated } = useAuth();
   
   const addNotification = useCallback((notification: Notification) => {
+    if (!isAuthenticated) return;
+    
     // Add to notifications list
     queryClient.setQueriesData(
       { queryKey: notificationKeys.lists() },
@@ -655,9 +1088,11 @@ export const useNotificationSubscription = () => {
         return [notification, ...oldData];
       }
     );
-  }, [queryClient]);
+  }, [queryClient, isAuthenticated]);
   
   const updateNotification = useCallback((notificationId: number, updates: Partial<Notification>) => {
+    if (!isAuthenticated) return;
+    
     queryClient.setQueriesData(
       { queryKey: notificationKeys.lists() },
       (oldData: Notification[] | undefined) => {
@@ -667,9 +1102,11 @@ export const useNotificationSubscription = () => {
         );
       }
     );
-  }, [queryClient]);
+  }, [queryClient, isAuthenticated]);
   
   const removeNotification = useCallback((notificationId: number) => {
+    if (!isAuthenticated) return;
+    
     queryClient.setQueriesData(
       { queryKey: notificationKeys.lists() },
       (oldData: Notification[] | undefined) => {
@@ -677,7 +1114,7 @@ export const useNotificationSubscription = () => {
         return oldData.filter(n => n.id !== notificationId);
       }
     );
-  }, [queryClient]);
+  }, [queryClient, isAuthenticated]);
   
   return {
     addNotification,

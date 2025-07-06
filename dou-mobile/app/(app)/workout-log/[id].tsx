@@ -28,9 +28,10 @@ import {
 } from '../../../hooks/query/useLogQuery';
 
 // Components
-import LogExerciseManager from './LogExerciseManager';
 import GymSelectionModal from '../../../components/workouts/GymSelectionModal';
 import WorkoutPartnersManagerModal from '../../../components/workouts/WorkoutPartnersManagerModal';
+import ExerciseConfigurator from '../../../components/workouts/ExerciseConfigurator';
+import ExerciseSelector from '../../../components/workouts/ExerciseSelector';
 import { AnimatedHeader } from './components/AnimatedHeader';
 import { ExercisesList } from './components/ExercisesList';
 import { LoadingState } from './components/LoadingState';
@@ -46,6 +47,33 @@ interface WorkoutLogDetailScreenProps {
 // Define permission types
 type PermissionLevel = 'creator' | 'partner' | 'viewer' | 'none';
 
+// Default set templates for different effort types
+const getDefaultSetForEffortType = (effortType: 'reps' | 'time' | 'distance') => {
+  switch (effortType) {
+    case 'time':
+      return {
+        duration: 30,
+        weight: 0,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+    case 'distance':
+      return {
+        distance: 1000,
+        duration: 300,
+        rest_time: 60
+      };
+    case 'reps':
+    default:
+      return {
+        reps: 10,
+        weight: 0,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+  }
+};
+
 export default function WorkoutLogDetailScreen({ 
   overrideUserId, 
   overrideLogId 
@@ -56,7 +84,7 @@ export default function WorkoutLogDetailScreen({
   
   // Animation setup with dynamic header height
   const scrollY = useRef(new Animated.Value(0)).current;
-  const [dynamicHeaderHeight, setDynamicHeaderHeight] = useState(230); // Default height
+  const [dynamicHeaderHeight, setDynamicHeaderHeight] = useState(230);
   
   // Create dynamic theme colors
   const COLORS = {
@@ -75,7 +103,7 @@ export default function WorkoutLogDetailScreen({
     danger: "#ef4444"
   };
   
-  const { t , language } = useLanguage();
+  const { t, language } = useLanguage();
   const { id } = useLocalSearchParams();
   const logId = typeof id === 'string' ? parseInt(id, 10) : 0;
   
@@ -94,10 +122,13 @@ export default function WorkoutLogDetailScreen({
   const [workoutPartners, setWorkoutPartners] = useState<number[]>([]);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   
-  // UI state
-  const [isExerciseManagerVisible, setIsExerciseManagerVisible] = useState(false);
+  // UI state for new exercise editing
   const [isGymSelectionVisible, setIsGymSelectionVisible] = useState(false);
   const [isPartnersManagerVisible, setIsPartnersManagerVisible] = useState(false);
+  const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
+  const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
+  const [currentEditingExercise, setCurrentEditingExercise] = useState(null);
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState(-1);
   
   // Hooks
   const { data: log, isLoading, error, refetch } = useLog(logId);
@@ -109,37 +140,20 @@ export default function WorkoutLogDetailScreen({
   const getPermissionLevel = (): PermissionLevel => {
     if (!log || !user) return 'none';
     
-    // Check if current user is the creator
     if (log.username === user.username) {
       return 'creator';
     }
     
-    // Check if current user is a workout partner
     if (log.workout_partners && log.workout_partners.includes(user.id)) {
       return 'partner';
     }
     
-    // For now, we'll allow viewing for any authenticated user
-    // This is where you would add friendship check logic
-    // e.g., if (isFriend(log.username, user.username)) return 'viewer';
-    
-    // You could add a friendship service check here:
-    // if (await friendshipService.areFriends(user.id, log.user_id)) {
-    //   return 'viewer';
-    // }
-    
-    return 'viewer'; // For now, allow viewing (you might want to change this)
+    return 'viewer';
   };
 
   const permissionLevel = getPermissionLevel();
-  
-  // Determine if user can edit (creator only)
   const canEdit = permissionLevel === 'creator';
-  
-  // Determine if user can view (creator, partner, or viewer)
   const canView = permissionLevel !== 'none';
-  
-  // Legacy isCreator for backward compatibility
   const isCreator = permissionLevel === 'creator';
   
   // Handle header height changes
@@ -159,7 +173,6 @@ export default function WorkoutLogDetailScreen({
       setLogDate(log.date || '');
       setWorkoutPartners(log.workout_partners || []);
       
-      // Set gym information
       if (gymData) {
         setSelectedGym({
           id: gymData.id,
@@ -195,7 +208,7 @@ export default function WorkoutLogDetailScreen({
     };
   }, []);
 
-  // Handle saving individual log field (only if user can edit)
+  // Handle saving individual log field
   const handleSaveLogField = async (field: string, value: any) => {
     if (!canEdit) {
       Alert.alert(t('error'), t('no_permission_to_edit'));
@@ -220,7 +233,7 @@ export default function WorkoutLogDetailScreen({
     }
   };
 
-  // Handle deleting the log (only if user can edit)
+  // Handle deleting the log
   const handleDeleteLog = () => {
     if (!canEdit) {
       Alert.alert(t('error'), t('no_permission_to_delete'));
@@ -249,7 +262,7 @@ export default function WorkoutLogDetailScreen({
     );
   };
 
-  // Handle updating workout partners (only if user can edit)
+  // Handle updating workout partners
   const handleUpdatePartners = async (partners: number[]) => {
     if (!canEdit) {
       Alert.alert(t('error'), t('no_permission_to_edit'));
@@ -275,7 +288,7 @@ export default function WorkoutLogDetailScreen({
     }
   };
 
-  // Handle gym selection (only if user can edit)
+  // Handle gym selection
   const handleGymSelection = async (gym: any) => {
     if (!canEdit) {
       Alert.alert(t('error'), t('no_permission_to_edit'));
@@ -311,19 +324,238 @@ export default function WorkoutLogDetailScreen({
     }
   };
 
-  // Handle exercise management completion (only if user can edit)
-  const handleExerciseManagerComplete = async () => {
-    setIsExerciseManagerVisible(false);
-    await refetch();
-  };
-
   // Handle clicking on workout partners section
   const handlePartnersPress = () => {
     if (canEdit || workoutPartners.length > 0) {
       setIsPartnersManagerVisible(true);
     }
   };
-  
+
+  // New exercise management functions
+  const handleAddNewExercise = () => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    setExerciseSelectorVisible(true);
+  };
+
+  const handleSelectExercise = (selectedExercise) => {
+    const effortType = selectedExercise.effort_type || 'reps';
+    const defaultSet = getDefaultSetForEffortType(effortType);
+    
+    const newExercise = {
+      id: Date.now(),
+      name: selectedExercise.name,
+      equipment: selectedExercise.equipment || '',
+      effort_type: effortType,
+      sets: [{ 
+        ...defaultSet,
+        id: Date.now() + Math.floor(Math.random() * 1000)
+      }],
+      order: (log?.exercises?.length || 0),
+      notes: selectedExercise.notes || ''
+    };
+    
+    setCurrentEditingExercise(newExercise);
+    setEditingExerciseIndex(-1); // -1 indicates new exercise
+    setExerciseSelectorVisible(false);
+    setExerciseConfiguratorVisible(true);
+  };
+
+  const handleEditExercise = (exercise, index) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    setCurrentEditingExercise({ ...exercise });
+    setEditingExerciseIndex(index);
+    setExerciseConfiguratorVisible(true);
+  };
+
+  const handleDeleteExercise = (exerciseIndex) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+
+    Alert.alert(
+      t('delete_exercise'),
+      t('delete_exercise_confirmation'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updatedExercises = [...(log?.exercises || [])];
+              updatedExercises.splice(exerciseIndex, 1);
+              
+              // Update order for remaining exercises
+              updatedExercises.forEach((exercise, index) => {
+                exercise.order = index;
+              });
+
+              await updateLog({
+                id: logId,
+                logData: { exercises: updatedExercises }
+              });
+              await refetch();
+            } catch (error) {
+              console.error('Failed to delete exercise:', error);
+              Alert.alert(t('error'), t('failed_to_delete_exercise'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCreateSuperset = (sourceIndex) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    
+    const exercises = log?.exercises || [];
+    if (exercises.length < 2) {
+      Alert.alert(t('error'), t('need_two_exercises_for_superset'));
+      return;
+    }
+
+    // Show selection modal for pairing
+    const availableExercises = exercises
+      .map((ex, idx) => ({ ...ex, originalIndex: idx }))
+      .filter((_, idx) => idx !== sourceIndex && !_.is_superset);
+
+    Alert.alert(
+      t('create_superset'),
+      t('select_exercise_to_pair'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        ...availableExercises.map((ex, idx) => ({
+          text: ex.name,
+          onPress: () => createSupersetPair(sourceIndex, ex.originalIndex)
+        }))
+      ]
+    );
+  };
+
+  const createSupersetPair = async (sourceIndex, targetIndex) => {
+    try {
+      const updatedExercises = [...(log?.exercises || [])];
+      
+      // Create superset relationship
+      updatedExercises[sourceIndex] = {
+        ...updatedExercises[sourceIndex],
+        is_superset: true,
+        superset_with: updatedExercises[targetIndex].order,
+        superset_rest_time: 90
+      };
+      
+      updatedExercises[targetIndex] = {
+        ...updatedExercises[targetIndex],
+        is_superset: true,
+        superset_with: updatedExercises[sourceIndex].order,
+        superset_rest_time: 90
+      };
+
+      await updateLog({
+        id: logId,
+        logData: { exercises: updatedExercises }
+      });
+      await refetch();
+    } catch (error) {
+      console.error('Failed to create superset:', error);
+      Alert.alert(t('error'), t('failed_to_create_superset'));
+    }
+  };
+
+  // Handle breaking superset
+  const handleBreakSuperset = async (exerciseIndex) => {
+    if (!canEdit) {
+      Alert.alert(t('error'), t('no_permission_to_edit'));
+      return;
+    }
+    
+    try {
+      const updatedExercises = [...(log?.exercises || [])];
+      const currentExercise = updatedExercises[exerciseIndex];
+      
+      if (currentExercise.is_superset && currentExercise.superset_with !== null) {
+        // Find the paired exercise
+        const pairedExerciseIndex = updatedExercises.findIndex(
+          ex => ex.order === currentExercise.superset_with
+        );
+        
+        // Remove superset relationship from current exercise
+        updatedExercises[exerciseIndex] = {
+          ...currentExercise,
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
+        
+        // Remove superset relationship from paired exercise if found
+        if (pairedExerciseIndex !== -1) {
+          updatedExercises[pairedExerciseIndex] = {
+            ...updatedExercises[pairedExerciseIndex],
+            is_superset: false,
+            superset_with: null,
+            superset_rest_time: undefined
+          };
+        }
+        
+        await updateLog({
+          id: logId,
+          logData: { exercises: updatedExercises }
+        });
+        await refetch();
+      }
+    } catch (error) {
+      console.error('Failed to break superset:', error);
+      Alert.alert(t('error'), t('failed_to_break_superset'));
+    }
+  };
+
+  const handleSaveExercise = async (exercise) => {
+    try {
+      const updatedExercises = [...(log?.exercises || [])];
+      
+      if (editingExerciseIndex === -1) {
+        // Adding new exercise
+        const newExercise = {
+          ...exercise,
+          id: exercise.id || Date.now(),
+          order: updatedExercises.length
+        };
+        updatedExercises.push(newExercise);
+      } else {
+        // Updating existing exercise
+        updatedExercises[editingExerciseIndex] = {
+          ...exercise,
+          id: currentEditingExercise?.id,
+          order: currentEditingExercise?.order
+        };
+      }
+      
+
+      await updateLog({
+        id: logId,
+        logData: { exercises: updatedExercises }
+      });
+      
+      setExerciseConfiguratorVisible(false);
+      setCurrentEditingExercise(null);
+      setEditingExerciseIndex(-1);
+      await refetch();
+    } catch (error) {
+      console.error('Failed to save exercise:', error);
+      Alert.alert(t('error'), t('failed_to_save_exercise'));
+    }
+  };
+
   // Render loading state
   if (isLoading) {
     return <LoadingState colors={COLORS} t={t} />;
@@ -355,7 +587,7 @@ export default function WorkoutLogDetailScreen({
         </SafeAreaView>
       </LinearGradient>
       
-      {/* Animated Header - Updated props */}
+      {/* Animated Header */}
       <AnimatedHeader
         scrollY={scrollY}
         log={log}
@@ -396,9 +628,13 @@ export default function WorkoutLogDetailScreen({
           log={log}
           colors={COLORS}
           isCreator={isCreator}
-          canEdit={canEdit} // Pass new prop for edit permission
-          permissionLevel={permissionLevel} // Pass permission level
-          onEditExercises={() => canEdit && setIsExerciseManagerVisible(true)}
+          canEdit={canEdit}
+          permissionLevel={permissionLevel}
+          onAddExercise={handleAddNewExercise}
+          onEditExercise={handleEditExercise}
+          onDeleteExercise={handleDeleteExercise}
+          onCreateSuperset={handleCreateSuperset}
+          onBreakSuperset={handleBreakSuperset}
           t={t}
         />
         
@@ -406,17 +642,7 @@ export default function WorkoutLogDetailScreen({
         <View style={styles.bottomPadding} />
       </Animated.ScrollView>
       
-      {/* Modals - only show if user can edit */}
-      {isExerciseManagerVisible && canEdit && (
-        <LogExerciseManager
-          visible={isExerciseManagerVisible}
-          logId={logId}
-          exercises={log.exercises || []}
-          onClose={handleExerciseManagerComplete}
-          colors={COLORS}
-        />
-      )}
-      
+      {/* Modals */}
       {canEdit && (
         <>
           <GymSelectionModal
@@ -434,6 +660,26 @@ export default function WorkoutLogDetailScreen({
             workoutName={log?.name}
             isCreator={isCreator}
           />
+
+          <ExerciseSelector
+            visible={exerciseSelectorVisible}
+            onClose={() => setExerciseSelectorVisible(false)}
+            onSelectExercise={handleSelectExercise}
+          />
+
+          {currentEditingExercise && (
+            <ExerciseConfigurator
+              visible={exerciseConfiguratorVisible}
+              onClose={() => {
+                setExerciseConfiguratorVisible(false);
+                setCurrentEditingExercise(null);
+                setEditingExerciseIndex(-1);
+              }}
+              onSave={handleSaveExercise}
+              exercise={currentEditingExercise}
+              isEdit={editingExerciseIndex !== -1}
+            />
+          )}
         </>
       )}
       
@@ -443,10 +689,10 @@ export default function WorkoutLogDetailScreen({
           visible={isPartnersManagerVisible}
           onClose={() => setIsPartnersManagerVisible(false)}
           currentPartnerIds={workoutPartners}
-          onUpdatePartners={() => {}} // No-op for view-only
+          onUpdatePartners={() => {}}
           workoutName={log?.name}
           isCreator={false}
-          viewOnly={true} // Add this prop if supported by the modal
+          viewOnly={true}
         />
       )}
     </View>

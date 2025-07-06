@@ -549,7 +549,7 @@ export default function ProgramWorkoutDetailScreen() {
                         </View>
                         
                         <View style={styles.exerciseTitleContainer}>
-                          <Text style={styles.exerciseTitle}>{exercise.name}</Text>
+                          <Text style={styles.exerciseTitle}>{t(exercise.name)}</Text>
                           
                           {/* Superset info */}
                           {exercise.is_superset && pairedExerciseName && (

@@ -301,7 +301,7 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
       <View style={styles.exerciseInfo}>
         <View style={styles.exerciseNameRow}>
           <Text style={[styles.exerciseName, { color: themePalette.text }]}>
-            {item.name}
+            {t(item.name)}
           </Text>
           <TouchableOpacity
             style={styles.favoriteButton}
@@ -408,11 +408,6 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
               ]}
               onPress={() => toggleCategory(category.id)}
             >
-              {/* <Ionicons 
-                name={category.iconName || 'fitness-outline'} 
-                size={16} 
-                color={selectedCategories.includes(category.id) ? '#FFFFFF' : themePalette.text_secondary} 
-              /> */}
               <Text
                 style={[
                   styles.filterChipText,
@@ -443,11 +438,6 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
               ]}
               onPress={() => toggleEquipment(equipment.id)}
             >
-              {/* <Ionicons 
-                name={equipment.iconName || 'fitness-outline'} 
-                size={16} 
-                color={selectedEquipment.includes(equipment.id) ? '#FFFFFF' : themePalette.text_secondary} 
-              /> */}
               <Text
                 style={[
                   styles.filterChipText,
@@ -588,17 +578,6 @@ const RealtimeExerciseSelector: React.FC<RealtimeExerciseSelectorProps> = ({
               name="options-outline" 
               size={24} 
               color={showFilterPanel ? themePalette.highlight : themePalette.text} 
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateCustomExercise}
-            disabled={!searchQuery.trim()}
-          >
-            <Ionicons 
-              name="add" 
-              size={24} 
-              color={searchQuery.trim() ? themePalette.highlight : themePalette.text_tertiary} 
             />
           </TouchableOpacity>
         </View>

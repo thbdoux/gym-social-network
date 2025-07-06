@@ -1,10 +1,11 @@
-// hooks/query/useLogQuery.ts
+// hooks/query/useLogQuery.ts - Enhanced with auth guards
 import { 
   useQuery, 
   useMutation, 
   useQueryClient 
 } from '@tanstack/react-query';
 import { logService } from '../../api/services';
+import { useAuth } from '../useAuth';
 import { calculateTotalVolume, calculateWorkoutDuration } from '../../utils/workoutUtils';
 
 // Query keys
@@ -24,11 +25,18 @@ export const logKeys = {
   recentExerciseNames: (days, limit) => [...logKeys.all, 'recent-exercise-names', { days, limit }], 
 };
 
-// Get all workout logs
+// Get all workout logs - AUTH PROTECTED
 export const useLogs = (filters = {}) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: logKeys.list(filters),
     queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching workout logs...');
       const logs = await logService.getLogs();
       
       // Apply filters if they exist
@@ -38,32 +46,108 @@ export const useLogs = (filters = {}) => {
       
       return logs;
     },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Get logs for a specific user
+// Get logs for a specific user - AUTH PROTECTED
 export const useUserLogs = (username) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: logKeys.userLogs(username),
-    queryFn: () => logService.getLogsByUsername(username),
-    enabled: !!username,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching logs for user:', username);
+      return logService.getLogsByUsername(username);
+    },
+    enabled: 
+      !!username &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Get logs where current user was a workout partner
+// Get logs where current user was a workout partner - AUTH PROTECTED
 export const usePartnerLogs = () => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: logKeys.partnerLogs(),
-    queryFn: logService.getLogsAsPartner,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching partner logs...');
+      return logService.getLogsAsPartner();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Enhanced log fetching with better error handling
+// Enhanced log fetching with better error handling - AUTH PROTECTED
 export const useLog = (logId) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: logKeys.detail(logId),
     queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
       try {
+        console.log('📡 Fetching log details:', logId);
         return await logService.getLogById(logId);
       } catch (error) {
         // Enhance error with type information for better handling
@@ -82,47 +166,121 @@ export const useLog = (logId) => {
         throw error;
       }
     },
-    enabled: !!logId,
+    enabled: 
+      !!logId &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     retry: (failureCount, error) => {
-      // Don't retry on permission errors
-      if (error?.name === 'UNAUTHORIZED' || error?.name === 'NOT_FOUND') {
+      // Don't retry on permission errors or auth errors
+      if (error?.name === 'UNAUTHORIZED' || error?.name === 'NOT_FOUND' ||
+          error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
         return false;
       }
       return failureCount < 3;
+    },
+    
+    meta: {
+      requiresAuth: true,
     },
   });
 };
 
 /**
- * Get recently used exercises with detailed information
+ * Get recently used exercises with detailed information - AUTH PROTECTED
  */
- export const useRecentExercises = (days: number = 30, limit: number = 10) => {
+export const useRecentExercises = (days: number = 30, limit: number = 10) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: logKeys.recentExercises(days, limit),
-    queryFn: () => logService.getRecentExercises(days, limit),
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching recent exercises...');
+      return logService.getRecentExercises(days, limit);
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
 /**
- * Get recently used exercise names (for exercise selector)
+ * Get recently used exercise names (for exercise selector) - AUTH PROTECTED
  */
 export const useRecentExerciseNames = (days: number = 30, limit: number = 15) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: logKeys.recentExerciseNames(days, limit),
-    queryFn: () => logService.getRecentExerciseNames(days, limit),
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching recent exercise names...');
+      return logService.getRecentExerciseNames(days, limit);
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Create log
+// Create log - AUTH PROTECTED
 export const useCreateLog = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: logService.createLog,
+    mutationFn: async (logData) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📝 Creating workout log...');
+      return logService.createLog(logData);
+    },
     onSuccess: (newLog) => {
       // Update logs list
       queryClient.setQueryData(logKeys.lists(), (oldData) => {
@@ -155,15 +313,35 @@ export const useCreateLog = () => {
         queryClient.invalidateQueries({ queryKey: logKeys.userStats(newLog.username) });
       }
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Create log from workout instance
+// Create log from workout instance - AUTH PROTECTED
 export const useCreateLogFromInstance = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: logService.createLogFromInstance,
+    mutationFn: async (instanceData) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📝 Creating log from workout instance...');
+      return logService.createLogFromInstance(instanceData);
+    },
     onSuccess: (newLog) => {
       // Update logs list
       queryClient.setQueryData(logKeys.lists(), (oldData) => {
@@ -194,15 +372,35 @@ export const useCreateLogFromInstance = () => {
         queryClient.invalidateQueries({ queryKey: logKeys.userStats(newLog.username) });
       }
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Update log
+// Update log - AUTH PROTECTED
 export const useUpdateLog = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ id, logData }) => logService.updateLog(id, logData),
+    mutationFn: async ({ id, logData }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('✏️ Updating workout log:', id);
+      return logService.updateLog(id, logData);
+    },
     onSuccess: (updatedLog) => {
       // Update log in list
       queryClient.setQueryData(logKeys.lists(), (oldData) => {
@@ -239,15 +437,35 @@ export const useUpdateLog = () => {
         queryClient.invalidateQueries({ queryKey: logKeys.userStats(updatedLog.username) });
       }
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Delete log
+// Delete log - AUTH PROTECTED
 export const useDeleteLog = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: logService.deleteLog,
+    mutationFn: async (logId) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🗑️ Deleting workout log:', logId);
+      return logService.deleteLog(logId);
+    },
     onSuccess: (_, logId) => {
       // Get the log before removing it to access its username and partners
       const log = queryClient.getQueryData(logKeys.detail(logId));
@@ -284,10 +502,22 @@ export const useDeleteLog = () => {
         queryClient.invalidateQueries({ queryKey: logKeys.userStats(username) });
       }
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Calculate workout stats based on logs
+// Calculate workout stats based on logs - AUTH PROTECTED
 export const useWorkoutStats = (username = null) => {
   const { data: logs, isLoading, error } = username 
     ? useUserLogs(username)
@@ -300,9 +530,10 @@ export const useWorkoutStats = (username = null) => {
   };
 };
 
-// Get volume analytics for logs
+// Get volume analytics for logs - AUTH PROTECTED
 export const useVolumeAnalytics = (filters = {}) => {
   const { data: logs, isLoading, error } = useLogs(filters);
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: logKeys.volume(filters),
@@ -329,13 +560,25 @@ export const useVolumeAnalytics = (filters = {}) => {
         unit: targetUnit
       };
     },
-    enabled: !!logs && !isLoading && !error,
+    enabled: 
+      !!logs && 
+      !isLoading && 
+      !error &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Get exercise-specific analytics
+// Get exercise-specific analytics - AUTH PROTECTED
 export const useExerciseAnalytics = (exerciseName, filters = {}) => {
   const { data: logs, isLoading, error } = useLogs(filters);
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
   
   return useQuery({
     queryKey: [...logKeys.analytics(), 'exercise', exerciseName, filters],
@@ -386,6 +629,18 @@ export const useExerciseAnalytics = (exerciseName, filters = {}) => {
         unit: filters.unit || 'kg'
       };
     },
-    enabled: !!logs && !!exerciseName && !isLoading && !error,
+    enabled: 
+      !!logs && 
+      !!exerciseName && 
+      !isLoading && 
+      !error &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };

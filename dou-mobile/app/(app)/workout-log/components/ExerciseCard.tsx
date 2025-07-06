@@ -1,9 +1,12 @@
 // app/(app)/log/components/ExerciseCard.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatRestTime } from '../../workout/formatters';
@@ -13,6 +16,11 @@ interface ExerciseCardProps {
   index: number;
   exercises: any[];
   colors: any;
+  canEdit: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onCreateSuperset: () => void;
+  onBreakSuperset: () => void;
   t: (key: string) => string;
 }
 
@@ -148,13 +156,128 @@ const TableHeaders = ({ effortType, t }: { effortType: string; t: any }) => {
   }
 };
 
+// Exercise Menu Component
+const ExerciseMenu = ({ 
+  visible, 
+  onClose, 
+  onEdit, 
+  onDelete, 
+  onMoveUp,
+  onMoveDown,
+  onCreateSuperset, 
+  onBreakSuperset,
+  exercise, 
+  colors,
+  t 
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onCreateSuperset: () => void;
+  onBreakSuperset: () => void;
+  exercise: any;
+  exercises: Exercise[];
+  exerciseIndex: number;
+  colors: any;
+  t: any;
+}) => {
+  const handleEdit = () => {
+    onClose();
+    onEdit();
+  };
+
+  const handleDelete = () => {
+    onClose();
+    Alert.alert(
+      t('delete_exercise'),
+      t('delete_exercise_confirmation'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('delete'), style: 'destructive', onPress: onDelete }
+      ]
+    );
+  };
+
+  const handleCreateSuperset = () => {
+    onClose();
+    onCreateSuperset();
+  };
+
+  const handleBreakSuperset = () => {
+    onClose();
+    Alert.alert(
+      t('break_superset'),
+      t('break_superset_confirmation'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('break_superset'), style: 'destructive', onPress: onBreakSuperset }
+      ]
+    );
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity 
+        style={styles.menuOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View style={[styles.menuContainer, { backgroundColor: colors.card }]}>
+          <View style={[styles.menuHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.menuTitle, { color: colors.text.primary }]}>{t(exercise.name)}</Text>
+          </View>
+          
+          <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
+            <Ionicons name="create-outline" size={20} color="#3B82F6" />
+            <Text style={[styles.menuItemText, { color: '#3B82F6' }]}>{t('edit_exercise')}</Text>
+          </TouchableOpacity>
+          
+          {exercise.is_superset ? (
+            <TouchableOpacity style={styles.menuItem} onPress={handleBreakSuperset}>
+              <Ionicons name="unlink-outline" size={20} color="#F59E0B" />
+              <Text style={[styles.menuItemText, { color: '#F59E0B' }]}>{t('break_superset')}</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.menuItem} onPress={handleCreateSuperset}>
+              <Ionicons name="link-outline" size={20} color="#10B981" />
+              <Text style={[styles.menuItemText, { color: '#10B981' }]}>{t('create_superset')}</Text>
+            </TouchableOpacity>
+          )}
+          
+          <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+          
+          <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            <Text style={[styles.menuItemText, { color: '#EF4444' }]}>{t('delete_exercise')}</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exercise,
   index,
   exercises,
   colors,
+  canEdit,
+  onEdit,
+  onDelete,
+  onCreateSuperset,
+  onBreakSuperset,
   t,
 }) => {
+  const [menuVisible, setMenuVisible] = useState(false);
+  
   const pairedExerciseName = exercise.is_superset && exercise.superset_with !== null
     ? exercises.find((ex: any) => ex.order === exercise.superset_with)?.name
     : null;
@@ -180,7 +303,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           
           <View style={styles.exerciseTitleContainer}>
             <View style={styles.exerciseNameRow}>
-              <Text style={styles.exerciseTitle}>{exercise.name}</Text>
+              <Text style={styles.exerciseTitle}>{t(exercise.name)}</Text>
               
               {/* Effort type indicator */}
               <View style={[styles.effortTypeBadge, { backgroundColor: `${effortTypeColor}30` }]}>
@@ -214,6 +337,16 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             )}
           </View>
         </View>
+        
+        {/* Three-dot menu button (only show if can edit) */}
+        {canEdit && (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => setMenuVisible(true)}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color="rgba(255, 255, 255, 0.7)" />
+          </TouchableOpacity>
+        )}
       </View>
       
       {/* Exercise Sets Table */}
@@ -255,6 +388,19 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           </Text>
         </View>
       )}
+
+      {/* Exercise Menu Modal */}
+      <ExerciseMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onCreateSuperset={onCreateSuperset}
+        onBreakSuperset={onBreakSuperset}
+        exercise={exercise}
+        colors={colors}
+        t={t}
+      />
     </View>
   );
 };
@@ -345,6 +491,11 @@ const styles = StyleSheet.create({
     color: '#0ea5e9',
     marginLeft: 4,
   },
+  menuButton: {
+    padding: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
   setsTable: {
     padding: 12,
   },
@@ -409,5 +560,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0ea5e9',
+  },
+  // Menu styles
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    borderRadius: 12,
+    minWidth: 250,
+    maxWidth: 300,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  menuHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  menuItemText: {
+    fontSize: 16,
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  menuDivider: {
+    height: 1,
+    marginVertical: 4,
   },
 });

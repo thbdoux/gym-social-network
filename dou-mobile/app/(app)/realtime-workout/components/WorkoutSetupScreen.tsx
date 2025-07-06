@@ -18,8 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useLanguage } from '../../../../context/LanguageContext';
 import { createThemedStyles } from '../../../../utils/createThemedStyles';
-import GymSelectionModal from '../../../../components/workouts/GymSelectionModal';
-import TemplateSelectionModal from '../../../../components/workouts/TemplateSelectionModal';
+import GymSelector from '../../../../components/workouts/GymSelector';
+import TemplateSelectionBottomSheet from '../../../../components/workouts/TemplateSelectionBottomSheet';
+import WorkoutCard from '../../../../components/workouts/WorkoutCard';
 
 interface WorkoutSetupScreenProps {
   handlers: any;
@@ -157,7 +158,7 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleContainer}>
-                  <Ionicons name="document-text" size={20} color={palette.accent} style={styles.sectionIcon} />
+                  <Ionicons name="document-text" size={18} color={palette.accent} style={styles.sectionIcon} />
                   <Text style={[styles.sectionTitle, { color: palette.text }]}>
                     {t('template')}
                   </Text>
@@ -169,63 +170,63 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
                 </View>
               </View>
               
-              <TouchableOpacity
-                style={[styles.selectionCard, { 
-                  backgroundColor: selectedTemplate ? palette.success_light : palette.card_background,
-                  borderColor: selectedTemplate ? palette.success : palette.border,
-                  shadowColor: selectedTemplate ? palette.success : palette.shadow,
-                }]}
-                onPress={handleOpenTemplateModal}
-                activeOpacity={0.7}
-              >
-                <View style={styles.selectionCardContent}>
-                  <View style={[styles.iconContainer, { 
-                    backgroundColor: selectedTemplate ? palette.success : palette.background_secondary 
-                  }]}>
-                    <Ionicons 
-                      name={selectedTemplate ? "document-text" : "document-text-outline"} 
-                      size={20} 
-                      color={selectedTemplate ? "#FFFFFF" : palette.text_secondary}
-                    />
-                  </View>
-                  
-                  <View style={styles.selectionInfo}>
-                    {selectedTemplate ? (
-                      <>
-                        <Text style={[styles.selectionTitle, { color: palette.text }]}>
-                          {selectedTemplate.name}
-                        </Text>
-                        <Text style={[styles.selectionSubtitle, { color: palette.text_secondary }]}>
-                          {selectedTemplate.exercises?.length || 0} {t('exercises')}
-                        </Text>
-                      </>
-                    ) : (
+              {selectedTemplate ? (
+                <View style={styles.templatePreview}>
+                  <WorkoutCard
+                    workoutId={selectedTemplate.id}
+                    workout={selectedTemplate}
+                    isTemplate={true}
+                    user={currentUser?.username || ''}
+                    selectionMode={false}
+                  />
+                  <TouchableOpacity
+                    style={[styles.clearTemplateButton, { backgroundColor: palette.page_background }]}
+                    onPress={handleClearTemplate}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="close" size={16} color={palette.text_secondary} />
+                    <Text style={[styles.clearTemplateText, { color: palette.text_secondary }]}>
+                      {t('remove')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.selectionCard, { 
+                    backgroundColor: palette.card_background,
+                    borderColor: palette.border,
+                    shadowColor: palette.shadow,
+                  }]}
+                  onPress={handleOpenTemplateModal}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.selectionCardContent}>
+                    <View style={[styles.iconContainer, { 
+                      backgroundColor: palette.page_background 
+                    }]}>
+                      <Ionicons 
+                        name="document-text-outline" 
+                        size={18} 
+                        color={palette.text_secondary}
+                      />
+                    </View>
+                    
+                    <View style={styles.selectionInfo}>
                       <Text style={[styles.placeholderText, { color: palette.text_tertiary }]}>
                         {t('select_template_optional')}
                       </Text>
-                    )}
+                    </View>
                   </View>
-                </View>
-                
-                <View style={styles.selectionActions}>
-                  {selectedTemplate && (
-                    <TouchableOpacity
-                      style={[styles.clearButton, { backgroundColor: palette.background_secondary }]}
-                      onPress={handleClearTemplate}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons name="close" size={16} color={palette.text_secondary} />
-                    </TouchableOpacity>
-                  )}
-                  <Ionicons name="chevron-forward" size={18} color={palette.text_secondary} />
-                </View>
-              </TouchableOpacity>
+                  
+                  <Ionicons name="chevron-forward" size={16} color={palette.text_secondary} />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Enhanced Workout Name with Suggestions */}
             <View style={styles.section}>
               <View style={styles.sectionTitleContainer}>
-                <Ionicons name="create" size={20} color={palette.accent} style={styles.sectionIcon} />
+                <Ionicons name="create" size={18} color={palette.accent} style={styles.sectionIcon} />
                 <Text style={[styles.sectionTitle, { color: palette.text }]}>
                   {t('workout_name')}
                 </Text>
@@ -238,7 +239,7 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
               }]}>
                 <Ionicons 
                   name="create-outline" 
-                  size={20} 
+                  size={18} 
                   color={workoutName.trim() ? palette.accent : palette.text_secondary}
                   style={styles.inputIcon}
                 />
@@ -257,7 +258,7 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
                     onPress={() => setWorkoutName('')}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="close-circle" size={18} color={palette.text_secondary} />
+                    <Ionicons name="close-circle" size={16} color={palette.text_secondary} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -290,7 +291,7 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleContainer}>
-                  <Ionicons name="location" size={20} color={palette.accent} style={styles.sectionIcon} />
+                  <Ionicons name="location" size={18} color={palette.accent} style={styles.sectionIcon} />
                   <Text style={[styles.sectionTitle, { color: palette.text }]}>
                     {t('gym_location')}
                   </Text>
@@ -317,7 +318,7 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
                   }]}>
                     <Ionicons 
                       name={selectedGym ? "fitness" : "home-outline"} 
-                      size={20} 
+                      size={18} 
                       color={selectedGym ? "#FFFFFF" : palette.text_secondary}
                     />
                   </View>
@@ -337,10 +338,15 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
                         {t('select_gym_or_home')}
                       </Text>
                     )}
+                  {selectedGym?.distance && (
+                    <Text style={[styles.selectionDistance, { color: palette.text_tertiary }]}>
+                      {selectedGym.distance.toFixed(1)} km away
+                    </Text>
+                  )}
                   </View>
                 </View>
                 
-                <Ionicons name="chevron-forward" size={18} color={palette.text_secondary} />
+                <Ionicons name="chevron-forward" size={16} color={palette.text_secondary} />
               </TouchableOpacity>
             </View>
 
@@ -378,21 +384,24 @@ const WorkoutSetupScreen: React.FC<WorkoutSetupScreenProps> = ({
         </Animated.View>
 
         {/* Modals */}
-        <GymSelectionModal
-          visible={gymModalVisible}
+        <GymSelector
+          isOpen={gymModalVisible}
           onClose={handleCloseGymModal}
-          onSelectGym={handleSelectGym}
-          selectedGym={selectedGym}
-          themePalette={palette}
+          selectedGymId={selectedGym?.id || null}
+          onGymSelected={(gym) => {
+            handleSelectGym(gym);
+            // onClose is handled automatically by the bottom sheet
+          }}
         />
         
-        <TemplateSelectionModal
+        <TemplateSelectionBottomSheet
           visible={templateModalVisible}
           onClose={handleCloseTemplateModal}
           onTemplateSelected={handleSelectTemplate}
           templates={templates || []}
           templatesLoading={templatesLoading}
           user={currentUser}
+          themePalette={palette}
         />
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
@@ -448,13 +457,13 @@ const themedStyles = createThemedStyles((palette) => ({
     justifyContent: 'center',
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitleContainer: {
     flexDirection: 'row',
@@ -464,34 +473,51 @@ const themedStyles = createThemedStyles((palette) => ({
     marginRight: 8,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
   optionalBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   optionalText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  templatePreview: {
+    marginBottom: 0,
+  },
+  clearTemplateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 0,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  clearTemplateText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   selectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: 16,
-    borderWidth: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   selectionCardContent: {
     flexDirection: 'row',
@@ -499,36 +525,41 @@ const themedStyles = createThemedStyles((palette) => ({
     flex: 1,
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   selectionInfo: {
     flex: 1,
   },
   selectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   selectionSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
   },
   placeholderText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
   },
   selectionActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  selectionDistance: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
   clearButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
@@ -536,11 +567,11 @@ const themedStyles = createThemedStyles((palette) => ({
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    marginTop:8,
-    paddingVertical: 18,
-    borderRadius: 16,
-    borderWidth: 2,
+    paddingHorizontal: 14,
+    marginTop: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -550,20 +581,20 @@ const themedStyles = createThemedStyles((palette) => ({
     elevation: 2,
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   textInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    minHeight: 24, 
+    minHeight: 22, 
   },
   clearInputButton: {
     marginLeft: 8,
     padding: 4,
   },
   suggestionsContainer: {
-    marginTop: 16,
+    marginTop: 14,
   },
   suggestionsLabel: {
     fontSize: 14,
@@ -573,12 +604,12 @@ const themedStyles = createThemedStyles((palette) => ({
   suggestionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   suggestionChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
     shadowOffset: {
       width: 0,
@@ -589,7 +620,7 @@ const themedStyles = createThemedStyles((palette) => ({
     elevation: 1,
   },
   suggestionText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
   },
   actionButtons: {

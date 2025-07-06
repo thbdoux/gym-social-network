@@ -1,57 +1,87 @@
-// components/common/CustomLoadingScreen.tsx - Enhanced with image caching
+// components/common/CustomLoadingScreen.tsx - Enhanced with logo fill animation
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, Animated, StyleSheet, ImageSourcePropType } from 'react-native';
+import { View, Text, Image, Animated, StyleSheet, ImageSourcePropType, Dimensions, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { imageManager, useImagePreloading } from '../../utils/imageManager';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 interface CustomLoadingScreenProps {
   text?: string;
   showText?: boolean;
   size?: 'small' | 'medium' | 'large';
   style?: any;
-  animationType?: 'rotate' | 'pulse' | 'bounce' | 'fade';
+  animationType?: 'rotate' | 'pulse' | 'bounce' | 'fade' | 'breathe' | 'float' | 'fill';
   imageSource?: ImageSourcePropType;
   backgroundColor?: string;
   textColor?: string;
   tintColor?: string;
-  preloadImages?: boolean; // New prop to control preloading
+  preloadImages?: boolean;
+  phase?: 'initializing' | 'checking' | 'finalizing' | 'loading';
+  showProgress?: boolean;
+  subtitle?: string;
+  // Development props
+  developmentMode?: boolean;
+  onSkip?: () => void;
 }
 
 export default function CustomLoadingScreen({ 
-  text = 'Loading...', 
+  text, 
   showText = true, 
   size = 'large',
   style,
-  animationType = 'rotate',
+  animationType = 'fill',
   imageSource,
   backgroundColor,
   textColor,
   tintColor,
-  preloadImages = true
+  preloadImages = true,
+  phase = 'loading',
+  showProgress = false,
+  subtitle,
+  developmentMode = false,
+  onSkip
 }: CustomLoadingScreenProps) {
   const { palette } = useTheme();
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const [imageLoaded, setImageLoaded] = useState(true); // Start as loaded to avoid placeholder
+  const { t } = useLanguage();
+  
+  // Animation values
+  const fillAnimValue = useRef(new Animated.Value(0)).current;
+  const fadeInAnimValue = useRef(new Animated.Value(0)).current;
+  const textAnimValue = useRef(new Animated.Value(0)).current;
+  const glowAnimValue = useRef(new Animated.Value(0)).current;
+  
+  const [imageLoaded, setImageLoaded] = useState(true);
   const [fallbackActive, setFallbackActive] = useState(false);
   
   // Preload loading screen images
   const { isLoaded: imagesPreloaded } = useImagePreloading(preloadImages ? ['icons'] : []);
 
-  // Register and get the default loading image
+  // Register images
   useEffect(() => {
-    // Register the loading screen image with the image manager
     imageManager.registerLocalImage('icons', 'loading-default', require('../../assets/images/dou-white.png'));
-    imageManager.registerLocalImage('icons', 'loading-fallback', require('../../assets/images/dou.png')); // Fallback
+    imageManager.registerLocalImage('icons', 'loading-fallback', require('../../assets/images/dou.png'));
   }, []);
 
-  // Get the appropriate image source
-  const getImageSource = () => {
-    if (imageSource) {
-      return imageSource;
-    }
+  // Get localized text based on phase
+  const getPhaseText = () => {
+    if (text) return text;
     
-    // Always use direct require for loading screens to avoid delays
-    // The imageManager preloading happens in background but we use direct requires for immediate display
+    switch (phase) {
+      case 'initializing':
+        return t?.('loading.initializing') || 'Initializing...';
+      case 'checking':
+        return t?.('loading.authenticating') || 'Authenticating...';
+      case 'finalizing':
+        return t?.('loading.preparing') || 'Preparing your experience...';
+      default:
+        return t?.('loading.default') || 'Loading...';
+    }
+  };
+
+  const getImageSource = () => {
+    if (imageSource) return imageSource;
     return require('../../assets/images/dou-white.png');
   };
 
@@ -59,22 +89,20 @@ export default function CustomLoadingScreen({
     return require('../../assets/images/dou.png');
   };
 
-  // Get size dimensions
   const getSizeConfig = () => {
     switch (size) {
       case 'small':
-        return { width: 40, height: 40 };
+        return { width: 80, height: 30 };
       case 'medium':
-        return { width: 60, height: 60 };
+        return { width: 120, height: 45 };
       case 'large':
       default:
-        return { width: 100, height: 100 };
+        return { width: 160, height: 60 };
     }
   };
 
   const sizeConfig = getSizeConfig();
 
-  // Handle image load events
   const handleImageLoad = () => {
     setImageLoaded(true);
     setFallbackActive(false);
@@ -83,161 +111,228 @@ export default function CustomLoadingScreen({
   const handleImageError = () => {
     console.warn('Loading screen image failed to load, using fallback');
     setFallbackActive(true);
-    setImageLoaded(true); // Consider loaded to continue with animation
+    setImageLoaded(true);
   };
 
-  // Setup animation
+  // Setup animations
   useEffect(() => {
-    let animation: Animated.CompositeAnimation;
+    // Fade in the entire component
+    Animated.timing(fadeInAnimValue, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
 
-    switch (animationType) {
-      case 'rotate':
-        animation = Animated.loop(
-          Animated.timing(animatedValue, {
-            toValue: 1,
-            duration: 2000,
-            useNativeDriver: true,
-          })
-        );
-        break;
-      
-      case 'pulse':
-        animation = Animated.loop(
-          Animated.sequence([
-            Animated.timing(animatedValue, {
-              toValue: 1,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(animatedValue, {
-              toValue: 0,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-          ])
-        );
-        break;
-      
-      case 'bounce':
-        animation = Animated.loop(
-          Animated.sequence([
-            Animated.timing(animatedValue, {
-              toValue: 1,
-              duration: 600,
-              useNativeDriver: true,
-            }),
-            Animated.timing(animatedValue, {
-              toValue: 0,
-              duration: 600,
-              useNativeDriver: true,
-            }),
-          ])
-        );
-        break;
-      
-      case 'fade':
-        animation = Animated.loop(
-          Animated.sequence([
-            Animated.timing(animatedValue, {
-              toValue: 1,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(animatedValue, {
-              toValue: 0.3,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-          ])
-        );
-        break;
-    }
+    // Elegant breathing animation for logo
+    const breatheAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(fillAnimValue, {
+          toValue: 1,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fillAnimValue, {
+          toValue: 0,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
 
-    // Start animation immediately - don't wait for image loading
-    animation.start();
+    // Soft glow effect
+    const glowAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnimValue, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnimValue, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    // Gentle text animation
+    const textAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(textAnimValue, {
+          toValue: 1,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textAnimValue, {
+          toValue: 0,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    breatheAnimation.start();
+    glowAnimation.start();
+    textAnimation.start();
 
     return () => {
-      animation.stop();
+      breatheAnimation.stop();
+      glowAnimation.stop();
+      textAnimation.stop();
     };
-  }, [animationType, imageLoaded, preloadImages]);
+  }, []);
 
-  const getAnimatedStyle = () => {
-    switch (animationType) {
-      case 'rotate':
-        return {
-          transform: [{
-            rotate: animatedValue.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0deg', '360deg'],
-            })
-          }]
-        };
-      
-      case 'pulse':
-        return {
-          transform: [{
-            scale: animatedValue.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1, 1.2],
-            })
-          }]
-        };
-      
-      case 'bounce':
-        return {
-          transform: [{
-            translateY: animatedValue.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, -20],
-            })
-          }]
-        };
-      
-      case 'fade':
-        return {
-          opacity: animatedValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.3, 1],
-          })
-        };
-      
-      default:
-        return {};
-    }
+  const getLogoAnimatedStyle = () => {
+    return {
+      opacity: fadeInAnimValue,
+      transform: [{
+        scale: fillAnimValue.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.95, 1.08],
+        })
+      }]
+    };
+  };
+
+  const getGlowStyle = () => {
+    return {
+      opacity: glowAnimValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.3, 0.9],
+      }),
+      transform: [{
+        scale: glowAnimValue.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.15],
+        })
+      }]
+    };
+  };
+
+  const getTextAnimatedStyle = () => {
+    return {
+      opacity: Animated.multiply(
+        fadeInAnimValue,
+        textAnimValue.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.7, 1],
+        })
+      ),
+      transform: [{
+        scale: textAnimValue.interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [1, 1.02, 1],
+        })
+      }]
+    };
   };
 
   return (
-    <View style={[
+    <Animated.View style={[
       styles.container, 
       { backgroundColor: backgroundColor || palette.page_background }, 
-      style
+      style,
+      { opacity: fadeInAnimValue }
     ]}>
-      <Animated.View style={[styles.imageContainer, getAnimatedStyle()]}>
-        <Image
-          source={fallbackActive ? getFallbackImageSource() : getImageSource()}
-          style={[
-            styles.loadingImage,
-            sizeConfig,
-            tintColor && { tintColor: tintColor || palette.highlight }
-          ]}
-          resizeMode="contain"
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-        />
-      </Animated.View>
+      {/* Logo container with breathing and glow effect */}
+      <View style={styles.logoContainer}>
+        {/* Soft glow background */}
+        <Animated.View style={[
+          styles.logoGlow,
+          {
+            width: sizeConfig.width + 60,
+            height: sizeConfig.height + 60,
+            backgroundColor: tintColor || palette.highlight,
+          },
+          getGlowStyle()
+        ]} />
 
+        {/* Main logo with breathing animation */}
+        <Animated.View style={[styles.logoWrapper, getLogoAnimatedStyle()]}>
+          <Image
+            source={fallbackActive ? getFallbackImageSource() : getImageSource()}
+            style={[
+              styles.logo,
+              sizeConfig,
+              { tintColor: '#FFFFFF' }
+            ]}
+            resizeMode="contain"
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
+        </Animated.View>
+      </View>
+
+      {/* Text content */}
       {showText && (
-        <Text
-          style={[
+        <Animated.View style={[
+          styles.textContainer,
+          getTextAnimatedStyle()
+        ]}>
+          <Text style={[
             styles.loadingText,
             { color: textColor || palette.text },
             size === 'small' && styles.smallText
-          ]}
-        >
-          {text}
-        </Text>
+          ]}>
+            {getPhaseText()}
+          </Text>
+          
+          {subtitle && (
+            <Text style={[
+              styles.subtitleText,
+              { color: `${textColor || palette.text}80` }
+            ]}>
+              {subtitle}
+            </Text>
+          )}
+        </Animated.View>
       )}
-    </View>
+
+      {/* Development Skip Button */}
+      {developmentMode && onSkip && (
+        <Animated.View style={[
+          styles.skipButtonContainer,
+          {
+            opacity: fadeInAnimValue.interpolate({
+              inputRange: [0, 0.7, 1],
+              outputRange: [0, 0, 1],
+            }),
+            transform: [{
+              translateY: fadeInAnimValue.interpolate({
+                inputRange: [0, 1],
+                outputRange: [30, 0],
+              })
+            }]
+          }
+        ]}>
+          <TouchableOpacity
+            onPress={onSkip}
+            style={[
+              styles.skipButton,
+              {
+                backgroundColor: `${tintColor || palette.highlight}20`,
+                borderColor: `${tintColor || palette.highlight}40`,
+              }
+            ]}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              styles.skipButtonText,
+              { color: tintColor || palette.highlight }
+            ]}>
+              {t?.('development.skip') || 'Skip Loading (Dev)'}
+            </Text>
+          </TouchableOpacity>
+          
+          <Text style={[
+            styles.devModeLabel,
+            { color: `${textColor || palette.text}50` }
+          ]}>
+            {t?.('development.mode') || 'Development Mode'}
+          </Text>
+        </Animated.View>
+      )}
+    </Animated.View>
   );
 }
 
@@ -248,21 +343,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  imageContainer: {
+  logoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 60,
+    position: 'relative',
   },
-  loadingImage: {
-    // Size will be applied dynamically
+  logoGlow: {
+    position: 'absolute',
+    borderRadius: 1000,
+    opacity: 0.1,
+  },
+  logoWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logo: {
+    // Size applied dynamically
+  },
+  textContainer: {
+    alignItems: 'center',
+    maxWidth: screenWidth * 0.8,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '600',
     textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  subtitleText: {
+    fontSize: 14,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
   },
   smallText: {
+    fontSize: 16,
+  },
+  skipButtonContainer: {
+    position: 'absolute',
+    bottom: 80,
+    alignItems: 'center',
+  },
+  skipButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  skipButtonText: {
     fontSize: 14,
-    marginTop: 8,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  devModeLabel: {
+    fontSize: 11,
+    fontWeight: '400',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

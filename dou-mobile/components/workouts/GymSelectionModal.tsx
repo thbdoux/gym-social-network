@@ -43,7 +43,7 @@ const GymSelectionModal: React.FC<GymSelectionModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredGyms, setFilteredGyms] = useState<Gym[]>([]);
 
-  const { workoutPalette, palette } = useTheme();
+  const { palette } = useTheme();
 
   const styles = themedStyles(palette);
 

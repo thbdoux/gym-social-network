@@ -11,9 +11,9 @@ import {
   ScrollView,
   Alert,
   Animated,
-  Pressable,
   ActivityIndicator,
-  Platform
+  Platform,
+  SafeAreaView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
@@ -31,8 +31,8 @@ import {
 type ExerciseSelectorProps = {
   visible: boolean;
   onClose: () => void;
-  onSelectExercise: (exercise: any) => void; // Updated to pass full exercise object
-  recentExercises?: string[]; // Array of recently used exercise IDs
+  onSelectExercise: (exercise: any) => void;
+  recentExercises?: string[];
 };
 
 const ExerciseSelector = ({ 
@@ -48,8 +48,11 @@ const ExerciseSelector = ({
     getEquipmentName,
     getTargetMuscleName,
     getSecondaryMuscleNames,
-    searchExercises } = useExerciseHelpers();
+    searchExercises 
+  } = useExerciseHelpers();
   const { workoutPalette, palette } = useTheme();
+  
+  // State
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -57,21 +60,37 @@ const ExerciseSelector = ({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   // Filter states
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<('beginner' | 'intermediate' | 'advanced')[]>([]);
   const [selectedEffortTypes, setSelectedEffortTypes] = useState<('reps' | 'time' | 'distance')[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   
-  // Handle exercise selection - now passes full exercise object
+  // Animation for filter panel
+  const filterPanelHeight = useState(new Animated.Value(0))[0];
+  
+  // Toggle filter panel
+  const toggleFilterPanel = useCallback(() => {
+    const toValue = showFilterPanel ? 0 : 280;
+    
+    Animated.timing(filterPanelHeight, {
+      toValue,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+    
+    setShowFilterPanel(!showFilterPanel);
+  }, [showFilterPanel, filterPanelHeight]);
+  
+  // Handle exercise selection
   const handleSelectExercise = useCallback((exercise: any) => {
-    // Create a complete exercise object with all necessary properties
     const completeExercise = {
-      ...exercise, // Preserve all mapped properties
+      ...exercise,
       effort_type: exercise.effort_type || 'reps',
       notes: exercise.notes || '',
-      favorite: exercise.favorite || false
+      favorite: exercise.favorite || false,
+      equipment: exercise.equipmentKey || exercise.equipment // Ensure equipmentKey is available
     };
     
     onSelectExercise(completeExercise);
@@ -81,8 +100,7 @@ const ExerciseSelector = ({
   // Toggle favorites
   const handleToggleFavorite = useCallback((exerciseId: string) => {
     toggleFavorite(exerciseId);
-    // Force re-render
-    setSelectedCategories([...selectedCategories]);
+    setSelectedCategories([...selectedCategories]); // Force re-render
   }, [selectedCategories]);
   
   // Reset filters
@@ -96,19 +114,19 @@ const ExerciseSelector = ({
     setSelectedCategory(null);
   }, []);
   
-  // Handle adding a custom exercise
+  // Handle creating custom exercise
   const handleCreateCustomExercise = useCallback(() => {
     if (!searchTerm.trim()) {
       Alert.alert(t('error'), t('exercise_name_required'));
       return;
     }
     
-    // Create a custom exercise object
     const customExercise = {
       id: `custom_${Date.now()}`,
       name: searchTerm.trim(),
-      effort_type: 'reps', // Default to reps for custom exercises
-      equipment: t('equipment_other') || 'Other',
+      effort_type: 'reps',
+      equipment: 'equipment_other',
+      equipmentKey: 'equipment_other',
       muscle_group: t('muscle_other') || 'Other',
       notes: '',
       secondary_muscles: [],
@@ -122,19 +140,16 @@ const ExerciseSelector = ({
   
   // Toggle category selection
   const toggleCategory = useCallback((categoryId: string) => {
-    setSelectedCategory(prev => prev === categoryId ? null : categoryId);
-    
-    // Also update the filter categories
-    if (selectedCategories.includes(categoryId)) {
-      setSelectedCategories(prev => prev.filter(id => id !== categoryId));
+    if (selectedCategory === categoryId) {
+      setSelectedCategory(null);
+      setSelectedCategories([]);
     } else {
-      // If we're clicking on a new category from the tabs, replace the selection
-      // instead of adding to it
+      setSelectedCategory(categoryId);
       setSelectedCategories([categoryId]);
     }
-  }, [selectedCategories]);
+  }, [selectedCategory]);
 
-  // Toggle category in the filter modal
+  // Toggle filter category
   const toggleFilterCategory = useCallback((categoryId: string) => {
     setSelectedCategories(prev => 
       prev.includes(categoryId)
@@ -170,31 +185,25 @@ const ExerciseSelector = ({
     );
   }, []);
   
-  // Filtered exercises based on all criteria
+  // Filtered exercises
   const filteredExercises = useMemo(() => {
     let results = [];
     
-    // If we're searching
     if (searchTerm.length > 0) {
       results = searchExercises(searchTerm, t);
-    } 
-    // If we have a selected category from the tabs
-    else if (selectedCategory) {
+    } else if (selectedCategory) {
       results = EXERCISE_CATEGORIES.find(cat => cat.id === selectedCategory)?.exercises || [];
-    } 
-    // Otherwise show all or filtered
-    else {
-      // Apply additional filters if they exist
+    } else {
       if (selectedCategories.length > 0 || selectedEquipment.length > 0 || 
           selectedDifficulty.length > 0 || selectedEffortTypes.length > 0 || showFavoritesOnly) {
-            
-        
-        results = filterExercises(selectedCategories.length > 0 ? selectedCategories : undefined,
+        results = filterExercises(
+          selectedCategories.length > 0 ? selectedCategories : undefined,
           selectedEquipment.length > 0 ? selectedEquipment : undefined,
           selectedDifficulty.length > 0 ? selectedDifficulty : undefined,
-          showFavoritesOnly, t);
+          showFavoritesOnly, 
+          t
+        );
       } else {
-        // If no filters, show all exercises
         results = getAllExercises();
       }
     }
@@ -206,9 +215,8 @@ const ExerciseSelector = ({
       );
     }
     
-    // Map the results to include display names and additional info
+    // Map results
     const mappedResults = results.map(exercise => {
-      // Find the category for this exercise
       const category = EXERCISE_CATEGORIES.find(cat => 
         cat.exercises.some(ex => ex.id === exercise.id)
       );
@@ -233,27 +241,21 @@ const ExerciseSelector = ({
       };
     });
     
-    // Sort: favorites first, then recent, then alphabetical
-    const sorted = mappedResults.sort((a, b) => {
-      // Favorites first
+    // Sort by favorites, recent, then alphabetical
+    return mappedResults.sort((a, b) => {
       if (a.favorite && !b.favorite) return -1;
       if (!a.favorite && b.favorite) return 1;
       
-      // Recently used second
       const aIsRecent = recentExercises.includes(a.name);
       const bIsRecent = recentExercises.includes(b.name);
       if (aIsRecent && !bIsRecent) return -1;
       if (!aIsRecent && bIsRecent) return 1;
       if (aIsRecent && bIsRecent) {
-        // Sort by recency order
         return recentExercises.indexOf(a.name) - recentExercises.indexOf(b.name);
       }
       
-      // Alphabetically by name
       return a.name.localeCompare(b.name);
     });
-    
-    return sorted;
   }, [
     searchTerm, 
     selectedCategory,
@@ -267,13 +269,10 @@ const ExerciseSelector = ({
     recentExercises
   ]);
   
-  // Update loading state when filters change
+  // Update loading state
   useEffect(() => {
     setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 100);
-    
+    const timer = setTimeout(() => setIsLoading(false), 100);
     return () => clearTimeout(timer);
   }, [
     searchTerm, 
@@ -286,7 +285,7 @@ const ExerciseSelector = ({
     language
   ]);
 
-  // Get effort type display info
+  // Get effort type info
   const getEffortTypeInfo = (effortType: 'reps' | 'time' | 'distance') => {
     switch (effortType) {
       case 'time':
@@ -299,7 +298,7 @@ const ExerciseSelector = ({
     }
   };
   
-  // Display difficulty badge with color
+  // Render difficulty badge
   const renderDifficultyBadge = (difficulty?: 'beginner' | 'intermediate' | 'advanced') => {
     if (!difficulty) return null;
     
@@ -307,10 +306,7 @@ const ExerciseSelector = ({
     if (!difficultyInfo) return null;
     
     return (
-      <View style={[
-        styles.exerciseTag, 
-        { backgroundColor: `${difficultyInfo.color}30` }
-      ]}>
+      <View style={[styles.exerciseTag, { backgroundColor: `${difficultyInfo.color}30` }]}>
         <Text style={[styles.exerciseTagText, { color: difficultyInfo.color }]}>
           {t(difficultyInfo.nameKey)}
         </Text>
@@ -323,10 +319,7 @@ const ExerciseSelector = ({
     const effortInfo = getEffortTypeInfo(effortType);
     
     return (
-      <View style={[
-        styles.exerciseTag, 
-        { backgroundColor: `${effortInfo.color}30` }
-      ]}>
+      <View style={[styles.exerciseTag, { backgroundColor: `${effortInfo.color}30` }]}>
         <Ionicons name={effortInfo.icon as any} size={12} color={effortInfo.color} />
         <Text style={[styles.exerciseTagText, { color: effortInfo.color, marginLeft: 4 }]}>
           {effortInfo.label}
@@ -335,32 +328,101 @@ const ExerciseSelector = ({
     );
   };
 
-  // Render secondary muscles tags
+  // Render secondary muscles
   const renderSecondaryMuscles = (secondaryMuscles: string[]) => {
     if (!secondaryMuscles || secondaryMuscles.length === 0) return null;
     
     return (
       <View style={styles.secondaryMusclesContainer}>
-        <Text style={[styles.secondaryMusclesLabel, { color: palette.text_tertiary }]}>{t('secondary')}:</Text>
+        <Text style={[styles.secondaryMusclesLabel, { color: palette.text_tertiary }]}>
+          {t('secondary')}:
+        </Text>
         <View style={styles.secondaryMusclesList}>
           {secondaryMuscles.slice(0, 3).map((muscle, index) => (
-            <View key={index} style={styles.secondaryMuscleTag}>
-              <Text style={styles.secondaryMuscleText}>{muscle}</Text>
-            </View>
+            <Text 
+              key={index} 
+              style={[styles.secondaryMuscleText, { color: '#A855F7' }]}
+            >
+              {muscle}{index < Math.min(2, secondaryMuscles.length - 1) ? ', ' : ''}
+            </Text>
           ))}
           {secondaryMuscles.length > 3 && (
-            <View style={styles.secondaryMuscleTag}>
-              <Text style={styles.secondaryMuscleText}>+{secondaryMuscles.length - 3}</Text>
-            </View>
+            <Text style={[styles.secondaryMuscleText, { color: '#A855F7' }]}>
+              , +{secondaryMuscles.length - 3}
+            </Text>
           )}
         </View>
       </View>
     );
   };
   
-  // List empty component
+  // Render exercise item
+  const renderExerciseItem = useCallback(({ item }) => (
+    <TouchableOpacity
+      style={[styles.exerciseItem, { backgroundColor: palette.card_background }]}
+      onPress={() => handleSelectExercise(item)}
+    >
+      <View style={styles.exerciseInfo}>
+        <View style={styles.exerciseNameRow}>
+          <Text style={[styles.exerciseName, { color: workoutPalette.text }]}>{item.name}</Text>
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={() => handleToggleFavorite(item.id)}
+          >
+            <Ionicons 
+              name={item.favorite ? 'star' : 'star-outline'} 
+              size={20} 
+              color={item.favorite ? '#FFD700' : palette.text_tertiary} 
+            />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Primary muscle group */}
+        {item.muscle_group && (
+          <View style={styles.primaryMuscleContainer}>
+            <Text style={[styles.primaryMuscleLabel, { color: palette.text_tertiary }]}>
+              {t('primary')}:
+            </Text>
+            <Text style={[styles.primaryMuscleText, { color: '#10B981' }]}>
+              {item.muscle_group}
+            </Text>
+          </View>
+        )}
+        
+        {/* Secondary muscles */}
+        {renderSecondaryMuscles(item.secondary_muscles)}
+        
+        {/* Equipment */}
+        {item.equipment && (
+          <View style={styles.equipmentContainer}>
+            <Text style={[styles.equipmentLabel, { color: palette.text_tertiary }]}>
+              {t('equipment')}:
+            </Text>
+            <Text style={[styles.equipmentValue, { color: palette.text }]}>
+              {item.equipment}
+            </Text>
+          </View>
+        )}
+        
+        {/* Tags */}
+        <View style={styles.tagsRow}>
+          {renderEffortTypeBadge(item.effort_type)}
+          {renderDifficultyBadge(item.difficulty)}
+          
+          {recentExercises.includes(item.name) && (
+            <View style={[styles.exerciseTag, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+              <Text style={[styles.exerciseTagText, { color: '#10B981' }]}>{t('recent')}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={palette.text_tertiary} />
+    </TouchableOpacity>
+  ), [workoutPalette.text, palette, t, handleSelectExercise, handleToggleFavorite, recentExercises]);
+  
+  // Render empty state
   const renderEmptyList = () => (
-    <View style={[styles.emptyState, { backgroundColor: palette.input_background }]}>
+    <View style={[styles.emptyState, { backgroundColor: palette.card_background }]}>
       <Ionicons name="barbell-outline" size={48} color={palette.text_tertiary} />
       <Text style={[styles.emptyStateText, { color: palette.text }]}>
         {searchTerm.length > 0 
@@ -369,10 +431,7 @@ const ExerciseSelector = ({
       </Text>
       {searchTerm.length > 0 && (
         <TouchableOpacity
-          style={[
-            styles.customExerciseButton,
-            { backgroundColor: `${workoutPalette.highlight}10` }
-          ]}
+          style={[styles.customExerciseButton, { backgroundColor: `${workoutPalette.highlight}10` }]}
           onPress={handleCreateCustomExercise}
         >
           <Ionicons name="add" size={16} color={workoutPalette.highlight} />
@@ -384,7 +443,7 @@ const ExerciseSelector = ({
     </View>
   );
   
-  // Render active filters badges
+  // Render active filters
   const renderActiveFilters = () => {
     const totalFilters = selectedCategories.length + 
                          selectedEquipment.length + 
@@ -399,271 +458,221 @@ const ExerciseSelector = ({
         <Text style={[styles.activeFiltersText, { color: palette.text_tertiary }]}>
           {t('active_filters', { count: totalFilters })}
         </Text>
-        <TouchableOpacity
-          style={styles.clearFiltersButton}
-          onPress={resetFilters}
-        >
-          <Text style={[styles.clearFiltersText, { color: workoutPalette.highlight }]}>{t('clear_all')}</Text>
+        <TouchableOpacity style={styles.clearFiltersButton} onPress={resetFilters}>
+          <Text style={[styles.clearFiltersText, { color: workoutPalette.highlight }]}>
+            {t('clear_all')}
+          </Text>
         </TouchableOpacity>
       </View>
     );
   };
   
-  // Filter modal component
-  const renderFilterModal = () => (
-    <Modal
-      visible={filterModalVisible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setFilterModalVisible(false)}
+  // Render filter panel
+  const renderFilterPanel = () => (
+    <Animated.View 
+      style={[
+        styles.filterPanel, 
+        { 
+          height: filterPanelHeight,
+          backgroundColor: palette.card_background,
+          borderColor: palette.border
+        }
+      ]}
     >
-      <View style={[styles.filterModalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.filterModalContent, { backgroundColor: palette.page_background }]}>
-          <View style={[
-            styles.modalHeader,
-            { borderBottomColor: palette.border }
-          ]}>
-            <Text style={[styles.modalTitle, { color: workoutPalette.text }]}>{t('filters')}</Text>
+      <ScrollView style={styles.filterScroll} showsVerticalScrollIndicator={false}>
+        {/* Categories */}
+        <Text style={[styles.filterSectionTitle, { color: workoutPalette.text }]}>
+          {t('categories')}
+        </Text>
+        <View style={styles.filterChipContainer}>
+          {EXERCISE_CATEGORIES.map(category => (
             <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setFilterModalVisible(false)}
-            >
-              <Ionicons name="close" size={20} color={workoutPalette.text} />
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.filterScroll}>
-            {/* Categories section */}
-            <Text style={[
-              styles.filterSectionTitle,
-              { color: workoutPalette.text }
-            ]}>
-              {t('categories')}
-            </Text>
-            <View style={styles.filterChipContainer}>
-              {EXERCISE_CATEGORIES.map(category => (
-                <TouchableOpacity
-                  key={`filter-category-${category.id}`}
-                  style={[
-                    styles.filterChip,
-                    { 
-                      backgroundColor: selectedCategories.includes(category.id)
-                        ? workoutPalette.highlight
-                        : palette.input_background,
-                      borderColor: palette.border
-                    }
-                  ]}
-                  onPress={() => toggleFilterCategory(category.id)}
-                >
-                  <Ionicons 
-                    name={category.iconName || 'fitness-outline'} 
-                    size={16} 
-                    color={selectedCategories.includes(category.id) ? '#FFFFFF' : palette.text_tertiary} 
-                  />
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      { 
-                        color: selectedCategories.includes(category.id) 
-                          ? '#FFFFFF' 
-                          : palette.text_tertiary 
-                      }
-                    ]}
-                  >
-                    {t(category.displayNameKey)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            {/* Equipment section */}
-            <Text style={[
-              styles.filterSectionTitle,
-              { color: workoutPalette.text }
-            ]}>
-              {t('equipment')}
-            </Text>
-            <View style={styles.filterChipContainer}>
-              {EQUIPMENT_TYPES.map(equipment => (
-                <TouchableOpacity
-                  key={`filter-equipment-${equipment.id}`}
-                  style={[
-                    styles.filterChip,
-                    { 
-                      backgroundColor: selectedEquipment.includes(equipment.id)
-                        ? '#8B5CF6'
-                        : palette.input_background,
-                      borderColor: palette.border
-                    }
-                  ]}
-                  onPress={() => toggleEquipment(equipment.id)}
-                >
-                  <Ionicons 
-                    name={equipment.iconName || 'fitness-outline'} 
-                    size={16} 
-                    color={selectedEquipment.includes(equipment.id) ? '#FFFFFF' : palette.text_tertiary} 
-                  />
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      { 
-                        color: selectedEquipment.includes(equipment.id) 
-                          ? '#FFFFFF' 
-                          : palette.text_tertiary 
-                      }
-                    ]}
-                  >
-                    {t(equipment.nameKey)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            {/* Effort Types section */}
-            <Text style={[
-              styles.filterSectionTitle,
-              { color: workoutPalette.text }
-            ]}>
-              {t('effort_types')}
-            </Text>
-            <View style={styles.filterChipContainer}>
-              {[
-                { id: 'reps', nameKey: 'effort_type_reps', icon: 'repeat-outline', color: '#F59E0B' },
-                { id: 'time', nameKey: 'effort_type_time', icon: 'time-outline', color: '#10B981' },
-                { id: 'distance', nameKey: 'effort_type_distance', icon: 'location-outline', color: '#3B82F6' }
-              ].map(effortType => (
-                <TouchableOpacity
-                  key={`filter-effort-${effortType.id}`}
-                  style={[
-                    styles.filterChip,
-                    { 
-                      backgroundColor: selectedEffortTypes.includes(effortType.id as any)
-                        ? effortType.color
-                        : palette.input_background,
-                      borderColor: palette.border
-                    }
-                  ]}
-                  onPress={() => toggleEffortType(effortType.id as any)}
-                >
-                  <Ionicons 
-                    name={effortType.icon as any} 
-                    size={16} 
-                    color={selectedEffortTypes.includes(effortType.id as any) ? '#FFFFFF' : palette.text_tertiary} 
-                  />
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      { 
-                        color: selectedEffortTypes.includes(effortType.id as any)
-                          ? '#FFFFFF' 
-                          : palette.text_tertiary 
-                      }
-                    ]}
-                  >
-                    {t(effortType.nameKey)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            {/* Difficulty section */}
-            <Text style={[
-              styles.filterSectionTitle,
-              { color: workoutPalette.text }
-            ]}>
-              {t('difficulty')}
-            </Text>
-            <View style={styles.filterChipContainer}>
-              {DIFFICULTY_LEVELS.map(difficulty => (
-                <TouchableOpacity
-                  key={`filter-difficulty-${difficulty.id}`}
-                  style={[
-                    styles.filterChip,
-                    { 
-                      backgroundColor: selectedDifficulty.includes(difficulty.id as any)
-                        ? difficulty.color
-                        : palette.input_background,
-                      borderColor: palette.border
-                    }
-                  ]}
-                  onPress={() => toggleDifficulty(difficulty.id as any)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      { 
-                        color: selectedDifficulty.includes(difficulty.id as any)
-                          ? '#FFFFFF' 
-                          : palette.text_tertiary 
-                      }
-                    ]}
-                  >
-                    {t(difficulty.nameKey)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            {/* Favorites toggle */}
-            <TouchableOpacity
+              key={`filter-category-${category.id}`}
               style={[
-                styles.favoritesToggle,
+                styles.filterChip,
                 { 
-                  backgroundColor: showFavoritesOnly
-                    ? '#FFD700'
+                  backgroundColor: selectedCategories.includes(category.id)
+                    ? workoutPalette.highlight
                     : palette.input_background,
                   borderColor: palette.border
                 }
               ]}
-              onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              onPress={() => toggleFilterCategory(category.id)}
             >
               <Ionicons 
-                name={showFavoritesOnly ? 'star' : 'star-outline'} 
-                size={18} 
-                color={showFavoritesOnly ? '#FFFFFF' : palette.text_tertiary} 
+                name={category.iconName || 'fitness-outline'} 
+                size={16} 
+                color={selectedCategories.includes(category.id) ? '#FFFFFF' : palette.text_tertiary} 
               />
-              <Text
-                style={[
-                  styles.favoritesToggleText,
-                  { 
-                    color: showFavoritesOnly
-                      ? '#FFFFFF' 
-                      : palette.text_tertiary 
-                  }
-                ]}
-              >
-                {t('show_favorites_only')}
+              <Text style={[
+                styles.filterChipText,
+                { 
+                  color: selectedCategories.includes(category.id) 
+                    ? '#FFFFFF' 
+                    : palette.text_tertiary 
+                }
+              ]}>
+                {t(category.displayNameKey)}
               </Text>
             </TouchableOpacity>
-          </ScrollView>
-          
-          {/* Filter actions */}
-          <View style={[
-            styles.filterActions,
-            { borderTopColor: palette.border }
-          ]}>
-            <TouchableOpacity
-              style={[
-                styles.resetFiltersButton,
-                { backgroundColor: `${palette.error}15` }
-              ]}
-              onPress={resetFilters}
-            >
-              <Ionicons name="refresh" size={18} color={palette.error} />
-              <Text style={[styles.resetFiltersText, { color: palette.error }]}>{t('reset_filters')}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.applyFiltersButton, { backgroundColor: workoutPalette.highlight }]}
-              onPress={() => setFilterModalVisible(false)}
-            >
-              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-              <Text style={styles.applyFiltersText}>{t('apply_filters')}</Text>
-            </TouchableOpacity>
-          </View>
+          ))}
         </View>
-      </View>
-    </Modal>
+        
+        {/* Equipment */}
+        <Text style={[styles.filterSectionTitle, { color: workoutPalette.text }]}>
+          {t('equipment')}
+        </Text>
+        <View style={styles.filterChipContainer}>
+          {EQUIPMENT_TYPES.map(equipment => (
+            <TouchableOpacity
+              key={`filter-equipment-${equipment.id}`}
+              style={[
+                styles.filterChip,
+                { 
+                  backgroundColor: selectedEquipment.includes(equipment.id)
+                    ? '#8B5CF6'
+                    : palette.input_background,
+                  borderColor: palette.border
+                }
+              ]}
+              onPress={() => toggleEquipment(equipment.id)}
+            >
+              <Ionicons 
+                name={equipment.iconName || 'fitness-outline'} 
+                size={16} 
+                color={selectedEquipment.includes(equipment.id) ? '#FFFFFF' : palette.text_tertiary} 
+              />
+              <Text style={[
+                styles.filterChipText,
+                { 
+                  color: selectedEquipment.includes(equipment.id) 
+                    ? '#FFFFFF' 
+                    : palette.text_tertiary 
+                }
+              ]}>
+                {t(equipment.nameKey)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* Effort Types */}
+        <Text style={[styles.filterSectionTitle, { color: workoutPalette.text }]}>
+          {t('effort_types')}
+        </Text>
+        <View style={styles.filterChipContainer}>
+          {[
+            { id: 'reps', nameKey: 'effort_type_reps', icon: 'repeat-outline', color: '#F59E0B' },
+            { id: 'time', nameKey: 'effort_type_time', icon: 'time-outline', color: '#10B981' },
+            { id: 'distance', nameKey: 'effort_type_distance', icon: 'location-outline', color: '#3B82F6' }
+          ].map(effortType => (
+            <TouchableOpacity
+              key={`filter-effort-${effortType.id}`}
+              style={[
+                styles.filterChip,
+                { 
+                  backgroundColor: selectedEffortTypes.includes(effortType.id as any)
+                    ? effortType.color
+                    : palette.input_background,
+                  borderColor: palette.border
+                }
+              ]}
+              onPress={() => toggleEffortType(effortType.id as any)}
+            >
+              <Ionicons 
+                name={effortType.icon as any} 
+                size={16} 
+                color={selectedEffortTypes.includes(effortType.id as any) ? '#FFFFFF' : palette.text_tertiary} 
+              />
+              <Text style={[
+                styles.filterChipText,
+                { 
+                  color: selectedEffortTypes.includes(effortType.id as any)
+                    ? '#FFFFFF' 
+                    : palette.text_tertiary 
+                }
+              ]}>
+                {t(effortType.nameKey)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* Difficulty */}
+        <Text style={[styles.filterSectionTitle, { color: workoutPalette.text }]}>
+          {t('difficulty')}
+        </Text>
+        <View style={styles.filterChipContainer}>
+          {DIFFICULTY_LEVELS.map(difficulty => (
+            <TouchableOpacity
+              key={`filter-difficulty-${difficulty.id}`}
+              style={[
+                styles.filterChip,
+                { 
+                  backgroundColor: selectedDifficulty.includes(difficulty.id as any)
+                    ? difficulty.color
+                    : palette.input_background,
+                  borderColor: palette.border
+                }
+              ]}
+              onPress={() => toggleDifficulty(difficulty.id as any)}
+            >
+              <Text style={[
+                styles.filterChipText,
+                { 
+                  color: selectedDifficulty.includes(difficulty.id as any)
+                    ? '#FFFFFF' 
+                    : palette.text_tertiary 
+                }
+              ]}>
+                {t(difficulty.nameKey)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* Favorites toggle */}
+        <TouchableOpacity
+          style={[
+            styles.favoritesToggle,
+            { 
+              backgroundColor: showFavoritesOnly
+                ? '#FFD700'
+                : palette.input_background,
+              borderColor: palette.border
+            }
+          ]}
+          onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
+        >
+          <Ionicons 
+            name={showFavoritesOnly ? 'star' : 'star-outline'} 
+            size={18} 
+            color={showFavoritesOnly ? '#FFFFFF' : palette.text_tertiary} 
+          />
+          <Text style={[
+            styles.favoritesToggleText,
+            { 
+              color: showFavoritesOnly
+                ? '#FFFFFF' 
+                : palette.text_tertiary 
+            }
+          ]}>
+            {t('show_favorites_only')}
+          </Text>
+        </TouchableOpacity>
+        
+        {/* Reset button */}
+        <TouchableOpacity
+          style={[styles.resetFiltersButton, { backgroundColor: `${palette.error}15` }]}
+          onPress={resetFilters}
+        >
+          <Ionicons name="refresh" size={18} color={palette.error} />
+          <Text style={[styles.resetFiltersText, { color: palette.error }]}>
+            {t('reset_filters')}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </Animated.View>
   );
   
   return (
@@ -673,102 +682,112 @@ const ExerciseSelector = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
         <View style={[styles.modalContent, { backgroundColor: palette.page_background }]}>
-          <View style={[
-            styles.modalHeader,
-            { borderBottomColor: palette.border }
-          ]}>
-            <Text style={[styles.modalTitle, { color: workoutPalette.text }]}>{t('select_exercise')}</Text>
+          {/* Header */}
+          <View style={[styles.header, { backgroundColor: palette.card_background, borderBottomColor: palette.border }]}>
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Ionicons name="close" size={24} color={workoutPalette.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: workoutPalette.text }]}>
+              {t('select_exercise')}
+            </Text>
             <View style={styles.headerActions}>
-              <TouchableOpacity
-                style={styles.headerActionButton}
-                onPress={() => setFilterModalVisible(true)}
-              >
+              <TouchableOpacity style={styles.filterButton} onPress={toggleFilterPanel}>
                 <Ionicons 
                   name="options-outline" 
-                  size={20} 
-                  color={workoutPalette.text} 
+                  size={24} 
+                  color={showFilterPanel ? workoutPalette.highlight : workoutPalette.text} 
                 />
               </TouchableOpacity>
-              
               <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={onClose}
+                style={styles.createButton}
+                onPress={handleCreateCustomExercise}
+                disabled={!searchTerm.trim()}
               >
-                <Ionicons name="close" size={20} color={workoutPalette.text} />
+                <Ionicons 
+                  name="add" 
+                  size={24} 
+                  color={searchTerm.trim() ? workoutPalette.highlight : palette.text_tertiary} 
+                />
               </TouchableOpacity>
             </View>
           </View>
           
           {/* Search bar */}
-          <View style={[
-            styles.searchContainer,
-            { backgroundColor: palette.input_background }
-          ]}>
-            <Ionicons name="search" size={16} color={palette.text_tertiary} style={styles.searchIcon} />
+          <View style={[styles.searchContainer, { backgroundColor: palette.input_background }]}>
+            <Ionicons name="search" size={20} color={palette.text_tertiary} />
             <TextInput
               style={[styles.searchInput, { color: workoutPalette.text }]}
-              value={searchTerm}
-              onChangeText={setSearchTerm}
               placeholder={t('search_exercises')}
               placeholderTextColor={palette.text_tertiary}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
               selectionColor={workoutPalette.highlight}
             />
-            {searchTerm.length > 0 && (
-              <TouchableOpacity
-                style={styles.clearSearchButton}
-                onPress={() => setSearchTerm('')}
-              >
-                <Ionicons name="close" size={14} color={palette.text_tertiary} />
+            {searchTerm ? (
+              <TouchableOpacity style={styles.clearSearch} onPress={() => setSearchTerm('')}>
+                <Ionicons name="close-circle" size={18} color={palette.text_tertiary} />
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
           
           {/* Category tabs */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoryTabs}
-            contentContainerStyle={styles.categoryTabsContent}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.categoryScroll}
+            contentContainerStyle={styles.categoryScrollContent}
           >
             <TouchableOpacity
               style={[
-                styles.categoryTab,
-                { backgroundColor: palette.input_background },
-                selectedCategory === null && { backgroundColor: workoutPalette.highlight }
+                styles.categoryChip,
+                selectedCategory === null
+                  ? { backgroundColor: workoutPalette.highlight }
+                  : { backgroundColor: palette.input_background, borderColor: palette.border }
               ]}
-              onPress={() => setSelectedCategory(null)}
+              onPress={() => {
+                setSelectedCategory(null);
+                setSelectedCategories([]);
+              }}
             >
               <Text style={[
-                styles.categoryTabText,
-                { color: palette.text },
-                selectedCategory === null && { color: '#FFFFFF' }
+                styles.categoryChipText,
+                { color: selectedCategory === null ? '#FFFFFF' : palette.text_tertiary }
               ]}>
                 {t('all')}
               </Text>
             </TouchableOpacity>
-            
-            {EXERCISE_CATEGORIES.map((category) => (
+
+            {EXERCISE_CATEGORIES.map(category => (
               <TouchableOpacity
-                key={category.id}
+                key={`quick-category-${category.id}`}
                 style={[
-                  styles.categoryTab,
-                  { backgroundColor: palette.input_background },
-                  selectedCategory === category.id && { backgroundColor: workoutPalette.highlight }
+                  styles.categoryChip,
+                  selectedCategory === category.id
+                    ? { backgroundColor: workoutPalette.highlight }
+                    : { backgroundColor: palette.input_background, borderColor: palette.border }
                 ]}
                 onPress={() => toggleCategory(category.id)}
               >
+                <Ionicons 
+                  name={category.iconName || 'fitness-outline'} 
+                  size={16}
+                  color={selectedCategory === category.id ? '#FFFFFF' : palette.text_tertiary}
+                  style={styles.categoryChipIcon}
+                />
                 <Text style={[
-                  styles.categoryTabText,
-                  { color: palette.text },
-                  selectedCategory === category.id && { color: '#FFFFFF' }
+                  styles.categoryChipText,
+                  { color: selectedCategory === category.id ? '#FFFFFF' : palette.text_tertiary }
                 ]}>
                   {t(category.displayNameKey)}
                 </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
+          
+          {/* Filter panel */}
+          {renderFilterPanel()}
           
           {/* Active filters */}
           {renderActiveFilters()}
@@ -781,373 +800,106 @@ const ExerciseSelector = ({
           ) : (
             <FlatList
               data={filteredExercises}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.exerciseList}
+              renderItem={renderExerciseItem}
+              keyExtractor={item => `exercise-${item.id}`}
+              style={styles.exerciseList}
+              contentContainerStyle={styles.exerciseListContent}
               ListEmptyComponent={renderEmptyList}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.exerciseItemCard,
-                    { backgroundColor: palette.card_background }
-                  ]}
-                  onPress={() => handleSelectExercise(item)}
-                >
-                  <View style={styles.exerciseHeader}>
-                    <View style={styles.exerciseNameContainer}>
-                      <Text style={[styles.exerciseName, { color: workoutPalette.text }]}>{item.name}</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.favoriteButton}
-                      onPress={() => handleToggleFavorite(item.id)}
-                    >
-                      <Ionicons 
-                        name={item.favorite ? 'star' : 'star-outline'} 
-                        size={20} 
-                        color={item.favorite ? '#FFD700' : palette.text_tertiary} 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <View style={styles.exerciseDetails}>
-                    <View style={styles.exerciseTags}>
-                      {item.muscle_group && (
-                        <View style={styles.muscleGroupContainer}>
-                          <Text style={[styles.muscleGroupLabel, { color: palette.text_tertiary }]}>{t('primary')}:</Text>
-                          <Text style={styles.muscleGroupValue}>{item.muscle_group}</Text>
-                        </View>
-                      )}
-                      
-                      {/* Secondary muscles */}
-                      {renderSecondaryMuscles(item.secondary_muscles)}
-                      
-                      {item.equipment && (
-                        <View style={styles.equipmentContainer}>
-                          <Text style={[styles.equipmentLabel, { color: palette.text_tertiary }]}>{t('equipment')}:</Text>
-                          <Text style={[styles.equipmentValue, { color: palette.text }]}>{item.equipment}</Text>
-                        </View>
-                      )}
-                      
-                      <View style={styles.tagsRow}>
-                        {renderEffortTypeBadge(item.effort_type)}
-                        {renderDifficultyBadge(item.difficulty)}
-                        
-                        {recentExercises.includes(item.id) && (
-                          <View style={styles.recentTag}>
-                            <Text style={styles.recentTagText}>{t('recent')}</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )}
+              showsVerticalScrollIndicator={false}
             />
           )}
-          
-          {/* Custom exercise button */}
-          {searchTerm.length > 0 && filteredExercises.length === 0 && (
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: workoutPalette.highlight }]}
-              onPress={handleCreateCustomExercise}
-            >
-              <Ionicons name="add" size={20} color="#FFFFFF" />
-              <Text style={styles.addButtonText}>
-                {t('add_custom_exercise')}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
-      </View>
-      
-      {renderFilterModal()}
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  container: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   modalContent: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    height: '90%',
-    position: 'relative',
+    height: '95%',
+    flex: 1,
   },
-  modalHeader: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  cancelButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   headerActions: {
     flexDirection: 'row',
-    alignItems: 'center',
   },
-  headerActionButton: {
+  filterButton: {
     padding: 8,
     marginRight: 8,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  createButton: {
+    padding: 8,
   },
-  modalCloseButton: {
-    padding: 4,
-  },
-  
-  // Search styles
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
     margin: 16,
-    paddingHorizontal: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    fontSize: 14,
+    fontSize: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
-  clearSearchButton: {
+  clearSearch: {
     padding: 4,
   },
-  
-  // Category tabs
-  categoryTabs: {
-    height: 50,
-    marginBottom: 10,
+  categoryScroll: {
+    maxHeight: 50,
+    marginBottom: 8,
   },
-  categoryTabsContent: {
+  categoryScrollContent: {
     paddingHorizontal: 16,
-    alignItems: 'center',
+    paddingBottom: 8,
   },
-  categoryTab: {
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
+    marginRight: 8,
     borderRadius: 16,
-    marginRight: 8,
-    height: 36,
-    justifyContent: 'center',
+    borderWidth: 1,
   },
-  categoryTabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
+  categoryChipIcon: {
+    marginRight: 4,
   },
-  
-  // Active filters
-  activeFiltersContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  activeFiltersText: {
-    fontSize: 12,
-  },
-  clearFiltersButton: {
-    padding: 4,
-  },
-  clearFiltersText: {
+  categoryChipText: {
     fontSize: 12,
     fontWeight: '500',
   },
-  
-  // Exercise list
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  exerciseList: {
-    paddingHorizontal: 16,
-    paddingBottom: 80,
-  },
-  exerciseItemCard: {
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 12,
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  exerciseNameContainer: {
-    flex: 1,
-  },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  favoriteButton: {
-    padding: 4,
-  },
-  exerciseDetails: {
-    marginBottom: 4,
-  },
-  exerciseTags: {
+  filterPanel: {
     width: '100%',
-  },
-  muscleGroupContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  muscleGroupLabel: {
-    fontSize: 12,
-    marginRight: 4,
-    fontWeight: '600',
-  },
-  muscleGroupValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#10B981', // Green for primary muscle
-  },
-  // Secondary muscles styles
-  secondaryMusclesContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-    flexWrap: 'wrap',
-  },
-  secondaryMusclesLabel: {
-    fontSize: 12,
-    marginRight: 4,
-    fontWeight: '600',
-  },
-  secondaryMusclesList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    flex: 1,
-  },
-  secondaryMuscleTag: {
-    backgroundColor: 'rgba(168, 85, 247, 0.2)', // Purple background for secondary
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 4,
-    marginBottom: 2,
-  },
-  secondaryMuscleText: {
-    fontSize: 11,
-    color: '#A855F7', // Purple text for secondary muscles
-    fontWeight: '500',
-  },
-  equipmentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  equipmentLabel: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  equipmentValue: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 4,
-  },
-  exerciseTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
-    marginTop: 4,
-  },
-  exerciseTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  recentTag: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
-    marginTop: 4,
-  },
-  recentTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#10B981',
-  },
-  
-  // Empty state
-  emptyState: {
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  customExerciseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  customExerciseText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  
-  // Add button
-  addButton: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 30 : 20,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  
-  // Filter modal
-  filterModalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  filterModalContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 20,
-    maxHeight: '80%',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    overflow: 'hidden',
   },
   filterScroll: {
     padding: 16,
-    maxHeight: 600,
   },
   filterSectionTitle: {
     fontSize: 16,
@@ -1189,38 +941,162 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
-  filterActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingTop: 16,
-    paddingHorizontal: 16,
-  },
   resetFiltersButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
-    marginRight: 8,
+    marginTop: 8,
+    marginBottom: 16,
   },
   resetFiltersText: {
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 8,
   },
-  applyFiltersButton: {
+  activeFiltersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  activeFiltersText: {
+    fontSize: 12,
+  },
+  clearFiltersButton: {
+    padding: 4,
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  exerciseList: {
     flex: 1,
+  },
+  exerciseListContent: {
+    paddingBottom: 16,
+  },
+  exerciseItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+  },
+  exerciseInfo: {
+    flex: 1,
+  },
+  exerciseNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  exerciseName: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  favoriteButton: {
+    padding: 4,
+  },
+  primaryMuscleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  primaryMuscleLabel: {
+    fontSize: 12,
+    marginRight: 4,
+    fontWeight: '600',
+  },
+  primaryMuscleText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  secondaryMusclesContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  secondaryMusclesLabel: {
+    fontSize: 12,
+    marginRight: 4,
+    fontWeight: '600',
+  },
+  secondaryMusclesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  secondaryMuscleText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  equipmentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  equipmentLabel: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  equipmentValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  exerciseTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 8,
+    marginTop: 4,
+  },
+  exerciseTagText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  emptyState: {
+    padding: 30,
+    margin: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  customExerciseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
   },
-  applyFiltersText: {
+  customExerciseText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#FFFFFF',
     marginLeft: 8,
   },
 });

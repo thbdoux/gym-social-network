@@ -1,4 +1,4 @@
-// hooks/query/usePostQuery.ts
+// hooks/query/usePostQuery.ts - Enhanced with auth guards
 import { 
   useQuery, 
   useMutation, 
@@ -6,6 +6,7 @@ import {
   useInfiniteQuery 
 } from '@tanstack/react-query';
 import { postService } from '../../api/services';
+import { useAuth } from '../useAuth';
 
 // Query keys
 export const postKeys = {
@@ -19,45 +20,126 @@ export const postKeys = {
   reactions: (postId) => [...postKeys.post(postId), 'reactions']
 };
 
-// Get the feed posts
+// Get the feed posts - AUTH PROTECTED
 export const usePostsFeed = () => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: postKeys.feed(),
-    queryFn: postService.getFeed,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching posts feed...');
+      return postService.getFeed();
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 60 * 2, // 2 minutes
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Get a single post by ID
+// Get a single post by ID - AUTH PROTECTED
 export const usePost = (postId) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: postKeys.post(postId),
-    queryFn: () => postService.getPostById(postId),
-    enabled: !!postId,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching post:', postId);
+      return postService.getPostById(postId);
+    },
+    enabled: 
+      !!postId &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Create a post
+// Create a post - AUTH PROTECTED
 export const useCreatePost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: postService.createPost,
+    mutationFn: async (postData) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📝 Creating post...');
+      return postService.createPost(postData);
+    },
     onSuccess: (newPost) => {
       queryClient.setQueryData(postKeys.feed(), (oldData) => {
         if (!oldData) return [newPost];
         return [newPost, ...oldData];
       });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Update a post
+// Update a post - AUTH PROTECTED
 export const useUpdatePost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ id, updates }) => postService.updatePost(id, updates),
+    mutationFn: async ({ id, updates }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('✏️ Updating post:', id);
+      return postService.updatePost(id, updates);
+    },
     onSuccess: (updatedPost) => {
       // Update the post in the feed
       queryClient.setQueryData(postKeys.feed(), (oldData) => {
@@ -70,15 +152,35 @@ export const useUpdatePost = () => {
       // Update the individual post cache
       queryClient.setQueryData(postKeys.post(updatedPost.id), updatedPost);
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Delete a post
+// Delete a post - AUTH PROTECTED
 export const useDeletePost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: (postId) => postService.deletePost(postId),
+    mutationFn: async (postId) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🗑️ Deleting post:', postId);
+      return postService.deletePost(postId);
+    },
     onSuccess: (_, postId) => {
       // Remove post from feed
       queryClient.setQueryData(postKeys.feed(), (oldData) => {
@@ -89,15 +191,35 @@ export const useDeletePost = () => {
       // Remove the individual post cache
       queryClient.removeQueries({ queryKey: postKeys.post(postId) });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Updated to handle both like and unlike actions
+// Updated to handle both like and unlike actions - AUTH PROTECTED
 export const useLikePost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, isLiked }) => postService.likePost(postId, isLiked),
+    mutationFn: async ({ postId, isLiked }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('❤️ Toggling like for post:', postId);
+      return postService.likePost(postId, isLiked);
+    },
     // Use optimistic updates for likes to make the UI feel responsive
     onMutate: async ({ postId, isLiked }) => {
       // Cancel any outgoing refetches to avoid overwriting optimistic update
@@ -145,22 +267,44 @@ export const useLikePost = () => {
       // Refetch after error or success to make sure we're in sync with the server
       queryClient.invalidateQueries({ queryKey: postKeys.feed() });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// React to a post
+// React to a post - AUTH PROTECTED
 export const useReactToPost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, reactionType }) => 
-      postService.reactToPost(postId, reactionType),
+    mutationFn: async ({ postId, reactionType }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('😊 Reacting to post:', postId, 'with:', reactionType);
+      return postService.reactToPost(postId, reactionType);
+    },
     onMutate: async ({ postId, reactionType, userId }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: postKeys.feed() });
       
       // Save the previous value
       const previousPosts = queryClient.getQueryData(postKeys.feed());
+      
+      // Use current user ID if not provided
+      const currentUserId = userId || user?.id;
       
       // Optimistically update the feed
       queryClient.setQueryData(postKeys.feed(), (oldData) => {
@@ -173,7 +317,7 @@ export const useReactToPost = () => {
             
             // Prepare updated reactions
             let updatedReactions = [...(post.reactions || [])];
-            const userReactionIndex = updatedReactions.findIndex(r => r.user_id === userId);
+            const userReactionIndex = updatedReactions.findIndex(r => r.user_id === currentUserId);
             
             if (userReactionIndex >= 0) {
               // Replace existing reaction
@@ -186,8 +330,8 @@ export const useReactToPost = () => {
               updatedReactions.push({
                 id: -1, // Temporary ID
                 reaction_type: reactionType,
-                user_id: userId,
-                user_username: 'currentUser', // Will be replaced
+                user_id: currentUserId,
+                user_username: user?.username || 'currentUser',
                 created_at: new Date().toISOString()
               });
             }
@@ -216,7 +360,7 @@ export const useReactToPost = () => {
         
         // Prepare updated reactions
         let updatedReactions = [...(oldPost.reactions || [])];
-        const userReactionIndex = updatedReactions.findIndex(r => r.user_id === userId);
+        const userReactionIndex = updatedReactions.findIndex(r => r.user_id === currentUserId);
         
         if (userReactionIndex >= 0) {
           // Replace existing reaction
@@ -229,8 +373,8 @@ export const useReactToPost = () => {
           updatedReactions.push({
             id: -1, // Temporary ID
             reaction_type: reactionType,
-            user_id: userId,
-            user_username: 'currentUser', // Will be replaced
+            user_id: currentUserId,
+            user_username: user?.username || 'currentUser',
             created_at: new Date().toISOString()
           });
         }
@@ -262,23 +406,45 @@ export const useReactToPost = () => {
     onSettled: () => {
       // Refetch feed to ensure consistency
       queryClient.invalidateQueries({ queryKey: postKeys.feed() });
-    }
+    },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Remove a reaction from a post
+// Remove a reaction from a post - AUTH PROTECTED
 export const useUnreactToPost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId }) => 
-      postService.unreactToPost(postId),
+    mutationFn: async ({ postId }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🚫 Removing reaction from post:', postId);
+      return postService.unreactToPost(postId);
+    },
     onMutate: async ({ postId, userId }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: postKeys.feed() });
       
       // Save the previous value
       const previousPosts = queryClient.getQueryData(postKeys.feed());
+      
+      // Use current user ID if not provided
+      const currentUserId = userId || user?.id;
       
       // Optimistically update the feed
       queryClient.setQueryData(postKeys.feed(), (oldData) => {
@@ -287,7 +453,7 @@ export const useUnreactToPost = () => {
           if (post.id === postId) {
             // Remove the user's reaction
             const updatedReactions = (post.reactions || []).filter(
-              r => r.user_id !== userId
+              r => r.user_id !== currentUserId
             );
             
             return {
@@ -307,7 +473,7 @@ export const useUnreactToPost = () => {
         
         // Remove the user's reaction
         const updatedReactions = (oldPost.reactions || []).filter(
-          r => r.user_id !== userId
+          r => r.user_id !== currentUserId
         );
         
         return {
@@ -334,34 +500,106 @@ export const useUnreactToPost = () => {
     onSettled: () => {
       // Refetch feed to ensure consistency
       queryClient.invalidateQueries({ queryKey: postKeys.feed() });
-    }
+    },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Get reactions for a post
+// Get reactions for a post - AUTH PROTECTED
 export const usePostReactions = (postId) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: postKeys.reactions(postId),
-    queryFn: () => postService.getPostReactions(postId),
-    enabled: !!postId,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching reactions for post:', postId);
+      return postService.getPostReactions(postId);
+    },
+    enabled: 
+      !!postId &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
+// Get comments for a post - AUTH PROTECTED
 export const usePostComments = (postId) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: postKeys.comments(postId),
-    queryFn: () => postService.getPostComments(postId),
-    enabled: !!postId,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching comments for post:', postId);
+      return postService.getPostComments(postId);
+    },
+    enabled: 
+      !!postId &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Comment on a post - improved to better update counts
+// Comment on a post - improved to better update counts - AUTH PROTECTED
 export const useCommentOnPost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, content, parentId }) => 
-      postService.commentOnPost(postId, content, parentId),
+    mutationFn: async ({ postId, content, parentId }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('💬 Adding comment to post:', postId);
+      return postService.commentOnPost(postId, content, parentId);
+    },
     onSuccess: (newComment, { postId }) => {
       // Update comments cache
       queryClient.setQueryData(postKeys.comments(postId), (oldData) => {
@@ -408,16 +646,35 @@ export const useCommentOnPost = () => {
         });
       });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Edit a comment
+// Edit a comment - AUTH PROTECTED
 export const useEditComment = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, commentId, content }) => 
-      postService.editComment(postId, commentId, content),
+    mutationFn: async ({ postId, commentId, content }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('✏️ Editing comment:', commentId);
+      return postService.editComment(postId, commentId, content);
+    },
     onSuccess: (updatedComment, { postId }) => {
       // Update the comments cache
       queryClient.setQueryData(postKeys.comments(postId), (oldData) => {
@@ -444,16 +701,35 @@ export const useEditComment = () => {
         });
       });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// hooks/query/usePostQuery.ts - Update the useDeleteComment hook
-
+// Delete a comment - AUTH PROTECTED
 export const useDeleteComment = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, commentId }) => postService.deleteComment(postId, commentId),
+    mutationFn: async ({ postId, commentId }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🗑️ Deleting comment:', commentId);
+      return postService.deleteComment(postId, commentId);
+    },
     
     // Add optimistic update
     onMutate: async ({ postId, commentId, parentId }) => {
@@ -508,16 +784,35 @@ export const useDeleteComment = () => {
         };
       });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// React to a comment
+// React to a comment - AUTH PROTECTED
 export const useReactToComment = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, commentId, reactionType }) => 
-      postService.reactToComment(postId, commentId, reactionType),
+    mutationFn: async ({ postId, commentId, reactionType }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('😊 Reacting to comment:', commentId);
+      return postService.reactToComment(postId, commentId, reactionType);
+    },
     onSuccess: (newReaction, { postId, commentId, parentId }) => {
       // Update the comments cache
       queryClient.setQueryData(postKeys.comments(postId), (oldData) => {
@@ -570,17 +865,39 @@ export const useReactToComment = () => {
         });
       });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Remove a reaction from a comment
+// Remove a reaction from a comment - AUTH PROTECTED
 export const useUnreactToComment = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, commentId }) => 
-      postService.unreactToComment(postId, commentId),
+    mutationFn: async ({ postId, commentId }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🚫 Removing reaction from comment:', commentId);
+      return postService.unreactToComment(postId, commentId);
+    },
     onSuccess: (_, { postId, commentId, parentId, userId }) => {
+      // Use current user ID if not provided
+      const currentUserId = userId || user?.id;
+      
       // Update the comments cache
       queryClient.setQueryData(postKeys.comments(postId), (oldData) => {
         if (!oldData) return [];
@@ -590,7 +907,7 @@ export const useUnreactToComment = () => {
           if (comment.id !== commentId) return comment;
           
           const updatedReactions = comment.reactions.filter(
-            r => r.user_id !== userId
+            r => r.user_id !== currentUserId
           );
           
           return {
@@ -617,15 +934,35 @@ export const useUnreactToComment = () => {
         });
       });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Share a post
+// Share a post - AUTH PROTECTED
 export const useSharePost = () => {
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
   
   return useMutation({
-    mutationFn: ({ postId, content }) => postService.sharePost(postId, content),
+    mutationFn: async ({ postId, content }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('🔄 Sharing post:', postId);
+      return postService.sharePost(postId, content);
+    },
     onSuccess: (sharedPost) => {
       // Add the new shared post to the feed
       queryClient.setQueryData(postKeys.feed(), (oldData) => {
@@ -650,15 +987,41 @@ export const useSharePost = () => {
         });
       });
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
-// Infinite Query for loading more posts
+// Infinite Query for loading more posts - AUTH PROTECTED
 export const useInfinitePosts = (limit = 10) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useInfiniteQuery({
     queryKey: postKeys.infinite(limit),
-    queryFn: ({ pageParam = 1 }) => 
-      postService.getPosts({ page: pageParam, limit }),
+    queryFn: async ({ pageParam = 1 }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching infinite posts page:', pageParam);
+      return postService.getPosts({ page: pageParam, limit });
+    },
+    enabled: 
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     getNextPageParam: (lastPage, allPages) => {
       // Check if there are more pages to load
       const hasMorePages = lastPage.next !== null;
@@ -667,19 +1030,58 @@ export const useInfinitePosts = (limit = 10) => {
       // Return the next page number
       return allPages.length + 1;
     },
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };
 
 /**
- * Hook to fetch users who liked a post
+ * Hook to fetch users who liked a post - AUTH PROTECTED
  * @param postId The ID of the post
  * @returns Query result with likers data
  */
- export const usePostLikers = (postId) => {
+export const usePostLikers = (postId) => {
+  const { isAuthenticated, user, isInitialized, isLoading: authLoading } = useAuth();
+
   return useQuery({
     queryKey: postKeys.likers(postId),
-    queryFn: () => postService.getLikers(postId),
-    enabled: !!postId,
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('📡 Fetching likers for post:', postId);
+      return postService.getLikers(postId);
+    },
+    enabled: 
+      !!postId &&
+      isInitialized &&
+      !authLoading &&
+      isAuthenticated &&
+      !!user,
+    
     staleTime: 1000 * 60 * 2, // 2 minutes
+    
+    retry: (failureCount, error: any) => {
+      if (error?.message?.includes('not authenticated') || 
+          error?.code === 'USER_LOGGED_OUT') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    
+    meta: {
+      requiresAuth: true,
+    },
   });
 };

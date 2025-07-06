@@ -41,7 +41,8 @@ const ExercisePreviewCard = ({
   styles, 
   onCardPress, 
   onLongPress, 
-  onSupersetLinkClick 
+  onSupersetLinkClick,
+  t
 }) => {
   // Animation value for each card
   const cardAnimation = useRef(new Animated.Value(1)).current;
@@ -121,7 +122,7 @@ const ExercisePreviewCard = ({
             ]}
             numberOfLines={2}
           >
-            {item.name}
+            {t(item.name)}
           </Text>
           
           {/* Progress indicator */}
@@ -599,7 +600,7 @@ const ActiveWorkoutScreen: React.FC<ActiveWorkoutScreenProps> = ({
       case 'reps':
         return Array.from({ length: 100 }, (_, i) => i + 1);
       case 'weight':
-        return Array.from({ length: 1000 }, (_, i) => (i + 1) * 0.25); // 0.25 to 500 in 0.25 increments
+        return Array.from({ length: 1000 }, (_, i) => (i + 1) * 0.5); // 0.5 to 500 in 0.5 increments
       case 'duration':
         return Array.from({ length: 600 }, (_, i) => i + 1); // 1 to 600 seconds
       case 'distance':
@@ -634,6 +635,7 @@ const ActiveWorkoutScreen: React.FC<ActiveWorkoutScreenProps> = ({
         onCardPress={handleCardPress}
         onLongPress={handleExercisePreviewPress}
         onSupersetLinkClick={handleSupersetLinkClick}
+        t={t}
       />
     );
   };
@@ -962,7 +964,7 @@ const ActiveWorkoutScreen: React.FC<ActiveWorkoutScreenProps> = ({
                     >
                       <Ionicons name="link-outline" size={20} color={palette.success} />
                       <Text style={[styles.optionButtonText, { color: palette.text }]}>
-                        {exercise.name}
+                        {t(exercise.name)}
                       </Text>
                     </TouchableOpacity>
                   ))}

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dou",
     "slug": "dou-social-network-mobile-app",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon2.png",
     "scheme": "dou",

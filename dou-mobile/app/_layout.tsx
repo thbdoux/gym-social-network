@@ -14,6 +14,8 @@ import { WorkoutProvider } from '../context/WorkoutContext';
 import { cacheManager } from '../utils/cacheManager';
 import { imageManager } from '../utils/imageManager';
 import CustomLoadingScreen from '../components/shared/CustomLoadingScreen';
+import { useAuth } from '../hooks/useAuth';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Keep the splash screen visible
 SplashScreen.preventAutoHideAsync();
@@ -24,6 +26,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error: any) => {
+        if (error?.code === 'USER_LOGGED_OUT' || error?.code === 'LOGOUT_IN_PROGRESS') {
+          return false;
+        }
         // Don't retry on 4xx errors except 401 (handled by interceptor)
         if (error?.response?.status >= 400 && error?.response?.status < 500 && error?.response?.status !== 401) {
           return false;
@@ -39,6 +44,8 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true,     // Refetch when network reconnects
       refetchOnMount: 'always',     // Always refetch on mount for fresh data
       
+      queryFn: undefined,
+
       // Network and performance optimizations
       networkMode: 'online',
       structuralSharing: true,
@@ -49,12 +56,57 @@ const queryClient = new QueryClient({
       // Reduce background refetch aggressiveness 
       refetchIntervalInBackground: false,
     },
+    meta: {
+      requiresAuth: true, // Default - can be overridden per query
+    },
     mutations: {
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Don't retry mutations if user is logged out
+        if (error?.code === 'USER_LOGGED_OUT' || error?.code === 'LOGOUT_IN_PROGRESS') {
+          return false;
+        }
+        return failureCount < 1;
+      },
       networkMode: 'online',
+      meta: {
+        requiresAuth: true,
+      },
     },
   },
 });
+
+
+// Add a custom query client method to check auth before executing
+const originalFetchQuery = queryClient.fetchQuery;
+queryClient.fetchQuery = function(options: any) {
+  // Check if auth is required and user is authenticated
+  const requiresAuth = options.meta?.requiresAuth !== false;
+  
+  if (requiresAuth) {
+    // This will be checked at runtime when the query executes
+    // The actual auth check happens in the individual query functions
+  }
+  
+  return originalFetchQuery.call(this, options);
+};
+
+// Enhanced query utility function for auth-aware queries
+export const createAuthAwareQuery = (queryFn: any, options: any = {}) => {
+  return {
+    ...options,
+    queryFn: async (context: any) => {
+      // Check auth state before executing query
+      const authContext = useAuth();
+      
+      if (!authContext.isAuthenticated || !authContext.user) {
+        throw new Error('User not authenticated');
+      }
+      
+      return queryFn(context);
+    },
+    enabled: options.enabled !== false, // Will be overridden with auth check
+  };
+};
 
 // App initialization manager for images and critical resources
 function AppInitializationManager({ children }: { children: React.ReactNode }) {
@@ -296,14 +348,16 @@ export default function RootLayout() {
   ), []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppInitializationManager>
-        <AppLifecycleManager>
-          <MemoizedProviders>
-            {appContent}
-          </MemoizedProviders>
-        </AppLifecycleManager>
-      </AppInitializationManager>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <AppInitializationManager>
+          <AppLifecycleManager>
+            <MemoizedProviders>
+              {appContent}
+            </MemoizedProviders>
+          </AppLifecycleManager>
+        </AppInitializationManager>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -26,6 +26,7 @@ interface WorkoutsFabMenuProps {
   currentView: string;
   onCreateProgram: () => void;
   onCreateTemplate: () => void;
+  onCreateTemplateFromLog: () => void; // New prop for creating template from log
   onCreateGroupWorkout: () => void;
   onCreateGroupWorkoutFromTemplate: () => void;
   onLogWorkout: () => void;
@@ -39,6 +40,7 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
   currentView,
   onCreateProgram,
   onCreateTemplate,
+  onCreateTemplateFromLog, // New prop
   onCreateGroupWorkout,
   onCreateGroupWorkoutFromTemplate,
   onLogWorkout,
@@ -100,6 +102,13 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
         ];
       case VIEW_TYPES.TEMPLATES:
         return [
+          {
+            id: 'create_template_from_log',
+            label: t('from_workout_log'),
+            icon: 'barbell',
+            color: workoutPalette.background,
+            action: onCreateTemplateFromLog
+          },
           {
             id: 'create_template',
             label: t('create_template'),
@@ -193,7 +202,7 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
       case VIEW_TYPES.GROUP_WORKOUTS:
         return groupWorkoutPalette.background;
       default:
-        return themePalette.highlight;
+        return palette.highlight;
     }
   };
   

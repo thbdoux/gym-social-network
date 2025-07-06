@@ -236,7 +236,6 @@ export const useWorkoutHandlers = (workoutManager: any) => {
   // Gym handlers
   const handleSelectGym = (gym: any) => {
     setSelectedGym(gym);
-    setGymModalVisible(false);
   };
 
   const handleOpenGymModal = () => {
@@ -273,7 +272,7 @@ export const useWorkoutHandlers = (workoutManager: any) => {
     
     Alert.alert(
       t('delete'),
-      t('delete_exercise_confirmation', { name: exercise.name }),
+      t('delete_exercise_confirmation', { name: t(exercise.name) }),
       [
         { text: t('cancel'), style: 'cancel' },
         { 

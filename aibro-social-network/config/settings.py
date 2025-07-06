@@ -50,6 +50,18 @@ INSTALLED_APPS = [
     'notifications.apps.NotificationsConfig',
 ]
 
+# Cache configuration (reuse your Redis)
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.environ.get('REDIS_URL', 'redis://localhost:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'TIMEOUT': 86400,  # 24 hours default
+    }
+}
+
 ASGI_APPLICATION = 'config.asgi.application'
 CHANNEL_LAYERS = {
     'default': {
@@ -297,5 +309,12 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'gyms': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        }
     },
 }
+
+REQUESTS_TIMEOUT = 30

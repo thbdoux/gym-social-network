@@ -26,7 +26,7 @@ import { BlurView } from 'expo-blur';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useCurrentUser, useUpdateUser } from '../../hooks/query/useUserQuery';
-import { useGyms, useGymDisplay } from '../../hooks/query/useGymQuery';
+import { useGym, useGyms } from '../../hooks/query/useGymQuery';
 import { getAvatarUrl } from '../../utils/imageUtils';
 
 export default function EditProfileScreen() {
@@ -202,7 +202,7 @@ export default function EditProfileScreen() {
   ];
   
   // Get preferred gym display text
-  const { displayText: gymDisplayText, gym } = useGymDisplay(profile?.id, preferredGym);
+  const { data: gym } = useGym(preferredGym);
   
   // Get gradient colors from theme
   const gradientColors = [palette.background, palette.secondary];
@@ -389,7 +389,7 @@ export default function EditProfileScreen() {
               onPress={() => setGymModalVisible(true)}
             >
               <Text style={[styles.pickerButtonText, { color: palette.text }]}>
-                {preferredGym ? gymDisplayText : t('select_gym')}
+                {preferredGym ? `${gym?.name} - ${gym?.location}` : t('select_gym')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={palette.text} />
             </TouchableOpacity>

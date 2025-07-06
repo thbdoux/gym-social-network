@@ -918,7 +918,7 @@ export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
         nameKey: 'exercise_rowing_machine', 
         equipmentKey: 'equipment_machine', 
         targetMuscleKey: 'muscle_cardiovascular_system_full_body', 
-        secondaryMuscleKeys: ['muscle_back', 'muscle_legs', 'muscle_arms'],
+        secondaryMuscleKeys: ['muscle_back', 'muscle_legs', 'muscle_biceps'],
         difficulty: 'beginner',
         effort_type: 'time'
       },

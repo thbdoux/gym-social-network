@@ -37,7 +37,7 @@ interface Log {
   gym_name?: string;          
   location?: string;         
   mood_rating?: number;
-  perceived_difficulty?: string;  
+  perceived_difficulty?: number;  
   completed?: boolean;
   exercises: Exercise[];
   program_id?: number | null;

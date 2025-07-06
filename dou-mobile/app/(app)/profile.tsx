@@ -25,7 +25,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { safeParseDate } from '../../utils/dateUtils';
 import { useLanguage } from '../../context/LanguageContext';
 import { useCurrentUser, useLogout } from '../../hooks/query/useUserQuery';
-import { useGymDisplay } from '../../hooks/query/useGymQuery';
+import { useGym } from '../../hooks/query/useGymQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
 import { useUserLogs, useWorkoutStats } from '../../hooks/query/useLogQuery';
 import { useUserJoinedGroupWorkouts, useUserGroupWorkouts } from '../../hooks/query/useGroupWorkoutQuery';
@@ -94,11 +94,10 @@ export default function ProfileScreen() {
   
   // Get preferred gym info
   const {
-    displayText: gymDisplayText,
+    data: userGym,
     isLoading: gymLoading,
-    gym
-  } = useGymDisplay(user?.id, profile?.preferred_gym);
-  
+  } = useGym(user?.preferred_gym);
+  console.log(userGym)
   // Get current program data
   const {
     data: programData,
@@ -277,7 +276,7 @@ export default function ProfileScreen() {
   };
 
   // Format gym info
-  const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
+  const gymInfo = userGym ? `${userGym.name}${userGym.location ? ` - ${userGym.location}` : ''}` : '';
 
   // Get personality-based gradient for avatar
   const getPersonalityGradient = () => {

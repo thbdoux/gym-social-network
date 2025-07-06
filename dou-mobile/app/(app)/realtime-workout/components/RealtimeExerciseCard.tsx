@@ -288,7 +288,7 @@ const SupersetLinkModal = ({ visible, onClose, onLinkWithExisting, onLinkWithNew
                 >
                   <Ionicons name="link-outline" size={20} color={theme.success} />
                   <Text style={[styles.optionButtonText, { color: theme.text }]}>
-                    {exercise.name}
+                    {t(exercise.name)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -921,7 +921,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
             {/* Exercise name - no longer touchable */}
             <View style={styles.exerciseNameContainer}>
               <Text style={[styles.exerciseName, { color: themePalette.text }]}>
-                {exercise.name}
+                {t(exercise.name)}
               </Text>
             </View>
             
@@ -1089,7 +1089,7 @@ const RealtimeExerciseCard: React.FC<RealtimeExerciseCardProps> = ({
       <RenameExerciseModal
         visible={renameModalVisible}
         onClose={() => setRenameModalVisible(false)}
-        currentName={exercise.name}
+        currentName={t(exercise.name)}
         onSave={handleNameChange}
         theme={themePalette}
       />

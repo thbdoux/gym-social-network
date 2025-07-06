@@ -24,9 +24,11 @@ import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
 import PostTypeModal from '../../components/feed/PostTypeModal';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import { getAvatarUrl } from '../../utils/imageUtils';
+import CustomLoadingScreen from '../../components/shared/CustomLoadingScreen';
 import {
   useLikePost,
   useCommentOnPost,
+  useUpdatePost,
   useSharePost,
   useDeletePost,
   useReactToPost,
@@ -106,6 +108,7 @@ export default function FeedScreen() {
 
   const { refetch: refetchPosts, isLoading: postsLoading, error: postsError } = usePostsFeed();
   const { mutateAsync: likePost } = useLikePost();
+  const { mutateAsync: updatePost } = useUpdatePost();
   const { mutateAsync: commentOnPost } = useCommentOnPost();
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
@@ -159,8 +162,16 @@ export default function FeedScreen() {
     catch (err) { console.error('Error deleting post:', err); Alert.alert('Error', 'Failed to delete post'); }
   };
   const handleEditPost = async (post: any, newContent: string) => {
-    try { await refetchPosts(); } // Placeholder for actual edit logic
-    catch (err) { console.error('Error editing post:', err); Alert.alert('Error', 'Failed to edit post'); }
+    try {
+      await updatePost({ 
+        id: post.id, 
+        updates: { content: newContent } 
+      });
+      refetchPosts();
+    } catch (err) {
+      console.error('Error editing post:', err);
+      Alert.alert('Error', 'Failed to edit post');
+    }
   };
   const handleForkProgram = async (programId: number) => {
     try { return await forkProgram(programId); }
@@ -260,10 +271,12 @@ export default function FeedScreen() {
               </TouchableOpacity>
             </View>
           ) : (postsLoading && !refreshing) || !imagesLoaded ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={styles.loadingText}>{!imagesLoaded ? t('loading_images') : t('loading_posts')}</Text>
-            </View>
+            <CustomLoadingScreen
+              animationType="bounce"
+              text={t('loading')}
+              size='large'
+              preloadImages={true}
+            />
           ) : (
             <OptimizedFeedContainer
               onLike={handleLike} 

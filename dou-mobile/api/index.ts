@@ -1,4 +1,5 @@
-// api/index.ts - Enhanced with better network handling
+// api/index.ts - Enhanced with logout state tracking
+
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
@@ -6,9 +7,10 @@ import { handleApiError } from './utils/errorHandler';
 import { authEvents } from './utils/authEvents';
 import { API_URL } from './config';
 
-// Prevent multiple operations
+// Enhanced state tracking
 let isLoggingOut = false;
 let isRefreshing = false;
+let isLoggedOut = false; // NEW: Track if user is logged out
 let failedQueue: Array<{
   resolve: (value?: any) => void;
   reject: (error?: any) => void;
@@ -25,34 +27,29 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Create multiple timeout configurations for different scenarios
+// Create API client with enhanced configuration
 const createApiClient = () => {
   return axios.create({
     baseURL: API_URL,
     headers: {
       'Content-Type': 'application/json',
     },
-    timeout: 15000, // Reduced from 20s for faster failure detection
-    
-    // Add additional axios configs for better performance
+    timeout: 15000,
     maxRedirects: 3,
-    validateStatus: (status) => status < 500, // Don't throw on 4xx errors, handle them in interceptor
+    validateStatus: (status) => status < 500,
   });
 };
 
 const apiClient = createApiClient();
 
-// Enhanced timeout handling for different request types
+// Enhanced timeout handling
 const setRequestTimeout = (config: any) => {
-  // Shorter timeout for quick operations (auth, user profile)
   if (config.url?.includes('/auth/') || config.url?.includes('/user/profile')) {
     config.timeout = 10000;
   }
-  // Longer timeout for data-heavy operations
   else if (config.url?.includes('/workouts/') || config.url?.includes('/analytics/')) {
     config.timeout = 25000;
   }
-  // Default timeout for everything else
   else {
     config.timeout = 15000;
   }
@@ -60,11 +57,30 @@ const setRequestTimeout = (config: any) => {
   return config;
 };
 
-// Request interceptor with enhanced error handling
+// Enhanced request interceptor with logout checks
 apiClient.interceptors.request.use(
   async (config) => {
     try {
-      // Apply dynamic timeout
+      // CRITICAL: Block all requests if logged out
+      if (isLoggedOut) {
+        console.log('🚫 Blocking request - user is logged out:', config.url);
+        return Promise.reject({
+          message: 'Request blocked - user is logged out',
+          code: 'USER_LOGGED_OUT',
+          config
+        });
+      }
+
+      // Block requests during logout process
+      if (isLoggingOut) {
+        console.log('🚫 Blocking request - logout in progress:', config.url);
+        return Promise.reject({
+          message: 'Request blocked - logout in progress',
+          code: 'LOGOUT_IN_PROGRESS',
+          config
+        });
+      }
+      
       config = setRequestTimeout(config);
       
       const token = await SecureStore.getItemAsync('token');
@@ -72,7 +88,6 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
       
-      // Add request timestamp for debugging
       config.metadata = { startTime: Date.now() };
       
       console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url} (timeout: ${config.timeout}ms)`);
@@ -88,10 +103,9 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Enhanced response interceptor with better error handling
+// Enhanced response interceptor
 apiClient.interceptors.response.use(
   (response) => {
-    // Log response time for debugging
     const duration = Date.now() - (response.config.metadata?.startTime || Date.now());
     console.log(`✅ API Response: ${response.config.url} (${duration}ms)`);
     return response;
@@ -99,6 +113,12 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const duration = Date.now() - (originalRequest?.metadata?.startTime || Date.now());
+    
+    // Handle blocked requests gracefully
+    if (error.code === 'USER_LOGGED_OUT' || error.code === 'LOGOUT_IN_PROGRESS') {
+      console.log(`🚫 Request blocked: ${error.message}`);
+      return Promise.reject(error);
+    }
     
     // Enhanced error logging
     if (error.code === 'ECONNABORTED') {
@@ -109,9 +129,13 @@ apiClient.interceptors.response.use(
       console.log(`❌ API Error: ${originalRequest?.url} - ${error.response?.status} (${duration}ms)`);
     }
 
-    // Handle timeout errors specifically
+    // Don't attempt refresh if logged out
+    if (isLoggedOut || isLoggingOut) {
+      return Promise.reject(error);
+    }
+
+    // Handle timeout errors
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      // For timeouts, don't attempt token refresh, just fail fast
       return Promise.reject({
         ...error,
         isTimeout: true,
@@ -119,10 +143,9 @@ apiClient.interceptors.response.use(
       });
     }
 
-    // Only handle 401 errors for token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Token refresh logic (only if not logged out)
+    if (error.response?.status === 401 && !originalRequest._retry && !isLoggedOut) {
       if (isRefreshing) {
-        // If already refreshing, queue this request
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(() => {
@@ -144,11 +167,10 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
-        // Use a fresh axios instance for token refresh to avoid infinite loops
         const refreshResponse = await axios.post(`${API_URL}/auth/refresh/`, {
           refresh: refreshToken
         }, {
-          timeout: 10000, // Short timeout for refresh
+          timeout: 10000,
         });
 
         const { access: newToken } = refreshResponse.data;
@@ -159,7 +181,6 @@ apiClient.interceptors.response.use(
         processQueue(null, newToken);
         console.log('✅ Token refreshed successfully');
         
-        // Retry original request with new token
         return apiClient(originalRequest);
         
       } catch (refreshError) {
@@ -167,8 +188,9 @@ apiClient.interceptors.response.use(
         
         processQueue(refreshError);
         
-        if (!isLoggingOut) {
+        if (!isLoggingOut && !isLoggedOut) {
           isLoggingOut = true;
+          isLoggedOut = true; // Set logged out immediately
           
           try {
             await SecureStore.deleteItemAsync('token');
@@ -194,7 +216,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Handle network errors gracefully
     if (error.message?.includes('Network Error')) {
       return Promise.reject({
         ...error,
@@ -209,18 +230,37 @@ apiClient.interceptors.response.use(
 
 // Enhanced reset function
 export const resetApiClient = () => {
+  console.log('🔄 Resetting API client state...');
+  isLoggingOut = false;
+  isRefreshing = false;
+  isLoggedOut = false; // Reset logged out state
+  failedQueue = [];
+  
+  console.log('✅ API client reset completed');
+};
+
+// New function to mark user as logged out
+export const setUserLoggedOut = () => {
+  console.log('🚫 Marking user as logged out - blocking all requests');
+  isLoggedOut = true;
   isLoggingOut = false;
   isRefreshing = false;
   failedQueue = [];
-  
-  // Clear any existing interceptors and recreate them if needed
-  console.log('🔄 API client reset completed');
 };
 
-// Export resetLogoutFlag as an alias for resetApiClient for compatibility
+// New function to mark user as logged in
+export const setUserLoggedIn = () => {
+  console.log('✅ Marking user as logged in - allowing requests');
+  isLoggedOut = false;
+  isLoggingOut = false;
+  isRefreshing = false;
+  failedQueue = [];
+};
+
+// Legacy alias
 export const resetLogoutFlag = resetApiClient;
 
-// Health check function to test connectivity
+// Health check function
 export const checkApiHealth = async (): Promise<boolean> => {
   try {
     const response = await axios.get(`${API_URL}/health/`, { 
