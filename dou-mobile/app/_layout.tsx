@@ -13,7 +13,7 @@ import { NotificationProvider } from '../context/NotificationContext';
 import { WorkoutProvider } from '../context/WorkoutContext';
 import { cacheManager } from '../utils/cacheManager';
 import { imageManager } from '../utils/imageManager';
-import CustomLoadingScreen from '../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../components/shared/DouLoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -187,17 +187,9 @@ function AppInitializationManager({ children }: { children: React.ReactNode }) {
     return (
       <View style={{ flex: 1, backgroundColor: '#080f19' }}>
         <StatusBar style="light" />
-        <CustomLoadingScreen
-          text={
-            initializationState.progress < 60 
-              ? 'Initializing...' 
-              : initializationState.progress < 80
-              ? 'Loading images...'
-              : 'Almost ready...'
-          }
+        <DouLoadingScreen
           animationType="pulse"
           size="large"
-          preloadImages={initializationState.criticalImagesLoaded}
           style={{ backgroundColor: '#080f19' }}
         />
       </View>

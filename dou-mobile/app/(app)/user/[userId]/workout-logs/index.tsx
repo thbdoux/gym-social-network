@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../../../../context/LanguageContext';
 import { useTheme } from '../../../../../context/ThemeContext';
 import { createThemedStyles } from '../../../../../utils/createThemedStyles';
-import CustomLoadingScreen from '../../../../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../../../../components/shared/DouLoadingScreen';
 import WorkoutLogCard from '../../../../../components/workouts/WorkoutLogCard';
 import { useUserLogs } from '../../../../../hooks/query/useLogQuery';
 import { useUser } from '../../../../../hooks/query/useUserQuery';
@@ -69,11 +69,9 @@ export default function UserWorkoutLogsScreen() {
   // Render loading state
   if (isLoading && !refreshing) {
     return (
-      <CustomLoadingScreen 
-        animationType="bounce"
-        text={t('loading')}
+      <DouLoadingScreen 
+        animationType="pulse"
         size="large"
-        preloadImages={true}
       />
     );
   }

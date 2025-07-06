@@ -35,7 +35,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday
 import { ColorPalette, Personality, getColorPalette } from '../../../utils/colorConfig';
 // Import the TrainingConsistencyChart component
 import TrainingConsistencyChart from '../../../components/profile/TrainingConsistencyChart';
-import CustomLoadingScreen from '../../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../../components/shared/DouLoadingScreen';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -476,11 +476,9 @@ export default function ProfilePreviewPage() {
         </Modal>
       
         {isLoading && !refreshing ? (
-          <CustomLoadingScreen 
+          <DouLoadingScreen 
             animationType="pulse"
-            text={t('loading_profile')}
             size='large'
-            preloadImages={true}
           />
         ) : userError ? (
         <View style={styles.errorContainer}>

@@ -22,7 +22,7 @@ import { programKeys } from '../../hooks/query/useProgramQuery';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
-import CustomLoadingScreen from '../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../components/shared/DouLoadingScreen';
 
 // Import workout service
 import workoutService from '../../api/services/workoutService';
@@ -918,14 +918,9 @@ export default function WorkoutsScreen() {
   // Render loading state
   if (isLoading() && !refreshing) {
     return (
-      <CustomLoadingScreen 
-        animationType="bounce"
-        text={t('loading')}
+      <DouLoadingScreen 
+        animationType="pulse"
         size='large'
-        preloadImages={true}
-        // style={{ backgroundColor: palette.page_background }}
-        // textColor={palette.text}
-        // tintColor={palette.highlight}
       />
     );
   }

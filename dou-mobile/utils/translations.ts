@@ -15,6 +15,10 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    "loading":"tout dou, it's loading...",
+    "loading.authenticating": "tout dou, it's loading...",
+    "loading.preparing": "almost ready...",
+    "loading.ready": "Let's go!",
     not_specified: 'Not Specified',
     'biometric_login_failed': 'Login failed',
     "access_denied": "Access Denied",
@@ -96,6 +100,10 @@ const common = {
     no_workout_partners_yet:'No partners yet...',
   },
   fr: {
+    "loading":"tout dou, ça charge...",
+    "loading.authenticating": "tout dou, ça charge...",
+    "loading.preparing": "encore un petit effort...",
+    "loading.ready": "Let's go !",
     not_specified: 'Non renseigné',
     'biometric_login_failed': 'La connexion a échoué.',
     date_time: 'Date & Heure',

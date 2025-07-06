@@ -42,7 +42,7 @@ import TrainingConsistencyChart from '../../components/profile/TrainingConsisten
 // Import the new ProfessionalCalendar component instead
 import ProfessionalCalendar from '../../components/profile/ProfessionalCalendar';
 
-import CustomLoadingScreen from '../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../components/shared/DouLoadingScreen';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -306,11 +306,9 @@ export default function ProfileScreen() {
   
   if (isLoading && !refreshing) {
     return (
-      <CustomLoadingScreen 
-        text={t('loading_profile')}
+      <DouLoadingScreen 
         animationType='pulse'
         size="large"
-        preloadImages={true}
       />
     );
   }

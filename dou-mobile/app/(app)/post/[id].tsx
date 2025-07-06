@@ -32,7 +32,7 @@ import {
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
 import ProfilePreviewModal from '../../../components/profile/ProfilePreviewModal';
-import CustomLoadingScreen from '../../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../../components/shared/DouLoadingScreen';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -309,7 +309,7 @@ export default function PostDetailScreen() {
 
   if (isLoading) {
     return (
-      <CustomLoadingScreen 
+      <DouLoadingScreen 
         animationType="pulse"
         size='large'
         text={t('loading') || 'Loading post...'}

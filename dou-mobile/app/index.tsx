@@ -3,13 +3,14 @@ import { useEffect, useState, useRef } from 'react';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import { View, Text, Animated, StatusBar } from 'react-native';
-import CustomLoadingScreen from '../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../components/shared/DouLoadingScreen';
 import { useLoadingScreenImages } from '../utils/imageManager';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
 
 // Development configuration
-const __DEV_MODE__ = __DEV__; // Set to false for production
+// const __DEV_MODE__ = __DEV__; // Set to false for production
+const __DEV_MODE__ = false ;
 const ENABLE_PERPETUAL_LOADING = __DEV_MODE__ && true; // Toggle perpetual loading in dev
 
 type LoadingPhase = 'initializing' | 'checking' | 'finalizing' | 'ready';
@@ -170,20 +171,13 @@ export default function Index() {
         flex: 1, 
         opacity: fadeOutValue 
       }}>
-        <CustomLoadingScreen
+        <DouLoadingScreen
           text={phaseConfig.text}
-          subtitle={phaseConfig.subtitle}
-          animationType={phaseConfig.animationType}
+          animationType={'pulse'}
           size="large"
           backgroundColor={palette.page_background || '#080f19'}
           textColor={palette.text || '#F3F4F6'}
-          tintColor={palette.highlight || '#3B82F6'}
-          preloadImages={loadingImagesReady}
-          phase={loadingPhase}
-          showProgress={phaseConfig.showProgress}
           showText={true}
-          developmentMode={ENABLE_PERPETUAL_LOADING}
-          onSkip={handleDevSkip}
         />
 
         {/* Development Mode Indicator */}

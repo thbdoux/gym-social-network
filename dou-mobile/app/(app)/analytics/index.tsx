@@ -8,7 +8,7 @@ import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { useLanguage } from '../../../context/LanguageContext';
 import { testCustomDateParsing } from './utils/debugUtils';
 import { useUserLogs } from '../../../hooks/query/useLogQuery';
-import CustomLoadingScreen from '../../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../../components/shared/DouLoadingScreen';
 
 export default function AnalyticsScreen() {
   const { palette } = useTheme();
@@ -89,7 +89,7 @@ export default function AnalyticsScreen() {
       
       <View style={[styles.container, { backgroundColor: palette.page_background }]}>
         {!isReady ? (
-          <CustomLoadingScreen 
+          <DouLoadingScreen 
             animationType="pulse"
             text={t('loading_analytics')}
             size="large"

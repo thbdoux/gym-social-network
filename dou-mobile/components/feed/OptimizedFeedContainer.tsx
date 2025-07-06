@@ -17,7 +17,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext'; 
 import { createThemedStyles } from '../../utils/createThemedStyles';
 import { useLanguage } from '@/context/LanguageContext';
-import CustomLoadingScreen from '../shared/CustomLoadingScreen';
+import DouLoadingScreen from '../shared/DouLoadingScreen';
 interface OptimizedFeedContainerProps {
   onLike: (postId: number, isLiked: boolean) => void;
   onReact: (postId: number, reactionType: string) => void;
@@ -251,7 +251,7 @@ const OptimizedFeedContainer: React.FC<OptimizedFeedContainerProps> = ({
 
   if (isLoading && !refreshing) {
     return (
-      <CustomLoadingScreen 
+      <DouLoadingScreen 
         animationType="pulse"
         text={('loading')}
         size='large'

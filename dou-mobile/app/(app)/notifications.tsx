@@ -24,7 +24,7 @@ import { createThemedStyles } from '../../utils/createThemedStyles';
 import { router } from 'expo-router';
 import { isToday, isYesterday, differenceInDays } from 'date-fns';
 import { useLanguage } from '../../context/LanguageContext';
-import CustomLoadingScreen from '../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../components/shared/DouLoadingScreen';
 import { NotificationItem } from '../../components/notifications/NotificationItem';
 import { SectionHeader } from '../../components/notifications/SectionHeader';
 
@@ -217,11 +217,9 @@ export default function NotificationsScreen() {
   
   if (isLoading) {
     return (
-      <CustomLoadingScreen 
-        text={t('notifications.loading')}
+      <DouLoadingScreen 
         animationType='pulse'
         size="large"
-        preloadImages={true}
       />
     );
   }

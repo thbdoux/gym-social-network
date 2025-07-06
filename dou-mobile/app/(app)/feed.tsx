@@ -24,7 +24,7 @@ import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
 import PostTypeModal from '../../components/feed/PostTypeModal';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import { getAvatarUrl } from '../../utils/imageUtils';
-import CustomLoadingScreen from '../../components/shared/CustomLoadingScreen';
+import DouLoadingScreen from '../../components/shared/DouLoadingScreen';
 import {
   useLikePost,
   useCommentOnPost,
@@ -271,11 +271,9 @@ export default function FeedScreen() {
               </TouchableOpacity>
             </View>
           ) : (postsLoading && !refreshing) || !imagesLoaded ? (
-            <CustomLoadingScreen
-              animationType="bounce"
-              text={t('loading')}
+            <DouLoadingScreen
+              animationType="pulse"
               size='large'
-              preloadImages={true}
             />
           ) : (
             <OptimizedFeedContainer
