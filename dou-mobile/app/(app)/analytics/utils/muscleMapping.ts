@@ -1,7 +1,9 @@
 // utils/muscleMapping.ts
-// A comprehensive mapping of exercises to muscle groups
+// Updated to align with exerciseData.ts structure
 
-// Define main muscle groups
+import { getAllExercises, ExerciseItem } from '../../../../components/workouts/data/exerciseData';
+
+// Define main muscle groups for analytics (simplified categories)
 export type MuscleGroup = 
   | 'chest' 
   | 'back' 
@@ -13,149 +15,277 @@ export type MuscleGroup =
   | 'cardio'
   | 'other';
 
+// Mapping from detailed muscle keys to simplified muscle groups
+export const muscleKeyToGroupMap: Record<string, MuscleGroup> = {
+  // Chest muscles
+  'muscle_pectorals': 'chest',
+  'muscle_upper_pectorals': 'chest',
+  'muscle_lower_pectorals': 'chest',
+  
+  // Back muscles
+  'muscle_latissimus_dorsi': 'back',
+  'muscle_upper_back': 'back',
+  'muscle_middle_back': 'back',
+  'muscle_lower_back': 'back',
+  'muscle_rhomboids': 'back',
+  
+  // Shoulder muscles
+  'muscle_deltoids': 'shoulders',
+  'muscle_anterior_deltoids': 'shoulders',
+  'muscle_lateral_deltoids': 'shoulders',
+  'muscle_posterior_deltoids': 'shoulders',
+  'muscle_deltoids_trapezius': 'shoulders',
+  'muscle_trapezius': 'shoulders',
+  
+  // Arm muscles
+  'muscle_biceps': 'arms',
+  'muscle_triceps': 'arms',
+  'muscle_brachialis_biceps': 'arms',
+  'muscle_forearms': 'arms',
+  
+  // Leg muscles
+  'muscle_quadriceps': 'legs',
+  'muscle_hamstrings': 'legs',
+  'muscle_glutes': 'legs',
+  'muscle_calves': 'legs',
+  'muscle_quadriceps_glutes': 'legs',
+  'muscle_hamstrings_glutes': 'legs',
+  'muscle_hamstrings_lower_back': 'legs',
+  'muscle_legs': 'legs',
+  
+  // Core muscles
+  'muscle_core': 'core',
+  'muscle_rectus_abdominis': 'core',
+  'muscle_obliques': 'core',
+  'muscle_lower_abs': 'core',
+  'muscle_deep_core_stabilizers': 'core',
+  'muscle_full_core': 'core',
+  'muscle_core_hip_flexors': 'core',
+  'muscle_rectus_abdominis_obliques': 'core',
+  'muscle_hip_flexors': 'core',
+  
+  // Cardiovascular/Full body
+  'muscle_cardiovascular_system': 'cardio',
+  'muscle_cardiovascular_system_full_body': 'full_body',
+  'muscle_cardiovascular_system_legs': 'cardio',
+  'muscle_cardiovascular_system_upper_body': 'cardio',
+  'muscle_full_body': 'full_body',
+  'muscle_shoulders_core': 'full_body',
+  'muscle_grip_core_legs': 'full_body',
+};
+
 // Structure for muscle mapping with primary and secondary muscles
 export interface MuscleMapping {
   primary: MuscleGroup;
   secondary?: MuscleGroup[];
 }
 
-// Comprehensive exercise to muscle group mapping
-export const exerciseMuscleMap: Record<string, MuscleMapping> = {
-  // Chest exercises
-  'Bench Press': { primary: 'chest', secondary: ['arms', 'shoulders'] },
-  'Incline Bench Press': { primary: 'chest', secondary: ['shoulders'] },
-  'Decline Bench Press': { primary: 'chest', secondary: ['arms'] },
-  'Dumbbell Press': { primary: 'chest', secondary: ['shoulders'] },
-  'Incline Dumbbell Press': { primary: 'chest', secondary: ['shoulders'] },
-  'Decline Dumbbell Press': { primary: 'chest', secondary: ['arms'] },
-  'Push-Up': { primary: 'chest', secondary: ['arms', 'shoulders'] },
-  'Dumbbell Fly': { primary: 'chest' },
-  'Cable Fly': { primary: 'chest' },
-  'Chest Press Machine': { primary: 'chest' },
-  'Pec Deck': { primary: 'chest' },
-  
-  // Back exercises
-  'Deadlift': { primary: 'back', secondary: ['legs'] },
-  'Pull-Up': { primary: 'back', secondary: ['arms'] },
-  'Chin-Up': { primary: 'back', secondary: ['arms'] },
-  'Bent Over Row': { primary: 'back', secondary: ['arms'] },
-  'T-Bar Row': { primary: 'back' },
-  'Seated Row': { primary: 'back', secondary: ['arms'] },
-  'Lat Pulldown': { primary: 'back', secondary: ['arms'] },
-  'Pendlay Row': { primary: 'back' },
-  'Face Pull': { primary: 'back', secondary: ['shoulders'] },
-  'Shrug': { primary: 'back', secondary: ['shoulders'] },
-  'Romanian Deadlift': { primary: 'back', secondary: ['legs'] },
-  'Good Morning': { primary: 'back', secondary: ['legs'] },
-  'Reverse Fly': { primary: 'back', secondary: ['shoulders'] },
-  'Superman': { primary: 'back' },
-  
-  // Leg exercises
-  'Squat': { primary: 'legs', secondary: ['core'] },
-  'Front Squat': { primary: 'legs', secondary: ['core'] },
-  'Leg Press': { primary: 'legs' },
-  'Lunge': { primary: 'legs' },
-  'Bulgarian Split Squat': { primary: 'legs' },
-  'Leg Extension': { primary: 'legs' },
-  'Leg Curl': { primary: 'legs' },
-  'Calf Raise': { primary: 'legs' },
-  'Hip Thrust': { primary: 'legs', secondary: ['core'] },
-  'Glute Bridge': { primary: 'legs' },
-  'Hack Squat': { primary: 'legs' },
-  'Box Jump': { primary: 'legs', secondary: ['cardio'] },
-  'Step-Up': { primary: 'legs' },
-  
-  // Shoulder exercises
-  'Overhead Press': { primary: 'shoulders', secondary: ['arms'] },
-  'Military Press': { primary: 'shoulders', secondary: ['arms'] },
-  'Shoulder Press': { primary: 'shoulders', secondary: ['arms'] },
-  'Lateral Raise': { primary: 'shoulders' },
-  'Front Raise': { primary: 'shoulders' },
-  'Reverse Fly': { primary: 'shoulders', secondary: ['back'] },
-  'Upright Row': { primary: 'shoulders', secondary: ['back'] },
-  'Arnold Press': { primary: 'shoulders', secondary: ['arms'] },
-  
-  // Arm exercises
-  'Bicep Curl': { primary: 'arms' },
-  'Hammer Curl': { primary: 'arms' },
-  'Preacher Curl': { primary: 'arms' },
-  'Concentration Curl': { primary: 'arms' },
-  'Tricep Extension': { primary: 'arms' },
-  'Tricep Pushdown': { primary: 'arms' },
-  'Skull Crusher': { primary: 'arms' },
-  'Diamond Push-Up': { primary: 'arms', secondary: ['chest'] },
-  'Dip': { primary: 'arms', secondary: ['chest'] },
-  'Wrist Curl': { primary: 'arms' },
-  
-  // Core exercises
-  'Crunch': { primary: 'core' },
-  'Sit-Up': { primary: 'core' },
-  'Plank': { primary: 'core' },
-  'Russian Twist': { primary: 'core' },
-  'Leg Raise': { primary: 'core' },
-  'Mountain Climber': { primary: 'core', secondary: ['cardio'] },
-  'Ab Wheel Rollout': { primary: 'core' },
-  'Flutter Kick': { primary: 'core' },
-  'Side Plank': { primary: 'core' },
-  'Bicycle Crunch': { primary: 'core' },
-  'V-Up': { primary: 'core' },
-  'Hanging Leg Raise': { primary: 'core' },
-  'Dragon Flag': { primary: 'core' },
-  
-  // Full body exercises
-  'Burpee': { primary: 'full_body', secondary: ['cardio'] },
-  'Thruster': { primary: 'full_body' },
-  'Clean and Jerk': { primary: 'full_body' },
-  'Snatch': { primary: 'full_body' },
-  'Turkish Get-Up': { primary: 'full_body' },
-  'Kettlebell Swing': { primary: 'full_body' },
-  
-  // Cardio exercises
-  'Running': { primary: 'cardio' },
-  'Cycling': { primary: 'cardio', secondary: ['legs'] },
-  'Rowing': { primary: 'cardio', secondary: ['back', 'arms'] },
-  'Jump Rope': { primary: 'cardio', secondary: ['legs'] },
-  'Elliptical': { primary: 'cardio' },
-  'Stair Climber': { primary: 'cardio', secondary: ['legs'] },
-  'Swimming': { primary: 'cardio', secondary: ['full_body'] },
-  'Battle Ropes': { primary: 'cardio', secondary: ['arms', 'shoulders'] }
-};
-
 /**
- * Get the primary muscle group for an exercise
- * @param exerciseName The name of the exercise
+ * Get the primary muscle group for an exercise using exerciseData
+ * @param exerciseName The name of the exercise (can be translation key or translated name)
+ * @param t Translation function (optional)
  * @returns The primary muscle group
  */
-export function getPrimaryMuscleGroup(exerciseName: string): MuscleGroup {
+export function getPrimaryMuscleGroup(exerciseName: string, t?: (key: string) => string): MuscleGroup {
   if (!exerciseName) return 'other';
   
-  // First try exact match
-  const normalizedName = exerciseName.trim();
-  if (exerciseMuscleMap[normalizedName]) {
-    return exerciseMuscleMap[normalizedName].primary;
-  }
+  // Get all exercises from exerciseData
+  const allExercises = getAllExercises();
   
-  // Try case-insensitive match
-  const lowerName = normalizedName.toLowerCase();
-  for (const [key, value] of Object.entries(exerciseMuscleMap)) {
-    if (key.toLowerCase() === lowerName) {
-      return value.primary;
+  // First try to find by translated name (if translation function provided)
+  if (t) {
+    const exerciseByTranslatedName = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey);
+      return translatedName.toLowerCase() === exerciseName.toLowerCase();
+    });
+    
+    if (exerciseByTranslatedName && exerciseByTranslatedName.targetMuscleKey) {
+      return muscleKeyToGroupMap[exerciseByTranslatedName.targetMuscleKey] || 'other';
     }
   }
   
-  // Try partial match (contains)
-  for (const [key, value] of Object.entries(exerciseMuscleMap)) {
-    if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
-      return value.primary;
+  // Try to find by nameKey directly
+  const exerciseByKey = allExercises.find(ex => 
+    ex.nameKey.toLowerCase() === exerciseName.toLowerCase()
+  );
+  
+  if (exerciseByKey && exerciseByKey.targetMuscleKey) {
+    return muscleKeyToGroupMap[exerciseByKey.targetMuscleKey] || 'other';
+  }
+  
+  // Try partial matching with translated names (if translation function provided)
+  if (t) {
+    const exerciseByPartialName = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey).toLowerCase();
+      const searchName = exerciseName.toLowerCase();
+      return translatedName.includes(searchName) || searchName.includes(translatedName);
+    });
+    
+    if (exerciseByPartialName && exerciseByPartialName.targetMuscleKey) {
+      return muscleKeyToGroupMap[exerciseByPartialName.targetMuscleKey] || 'other';
     }
   }
   
-  // Check for keywords
+  // Fallback to keyword-based detection
+  return detectMuscleGroupByKeywords(exerciseName);
+}
+
+/**
+ * Get secondary muscle groups for an exercise using exerciseData
+ * @param exerciseName The name of the exercise
+ * @param t Translation function (optional)
+ * @returns Array of secondary muscle groups
+ */
+export function getSecondaryMuscleGroups(exerciseName: string, t?: (key: string) => string): MuscleGroup[] {
+  if (!exerciseName) return [];
+  
+  const allExercises = getAllExercises();
+  let targetExercise: ExerciseItem | undefined;
+  
+  // First try to find by translated name
+  if (t) {
+    targetExercise = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey);
+      return translatedName.toLowerCase() === exerciseName.toLowerCase();
+    });
+  }
+  
+  // Try to find by nameKey directly
+  if (!targetExercise) {
+    targetExercise = allExercises.find(ex => 
+      ex.nameKey.toLowerCase() === exerciseName.toLowerCase()
+    );
+  }
+  
+  // Try partial matching
+  if (!targetExercise && t) {
+    targetExercise = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey).toLowerCase();
+      const searchName = exerciseName.toLowerCase();
+      return translatedName.includes(searchName) || searchName.includes(translatedName);
+    });
+  }
+  
+  if (targetExercise && targetExercise.secondaryMuscleKeys) {
+    return targetExercise.secondaryMuscleKeys
+      .map(muscleKey => muscleKeyToGroupMap[muscleKey])
+      .filter((group): group is MuscleGroup => group !== undefined);
+  }
+  
+  return [];
+}
+
+/**
+ * Get all muscle groups (primary and secondary) for an exercise
+ * @param exerciseName The name of the exercise
+ * @param t Translation function (optional)
+ * @returns Array of all muscle groups
+ */
+export function getAllMuscleGroups(exerciseName: string, t?: (key: string) => string): MuscleGroup[] {
+  const primary = getPrimaryMuscleGroup(exerciseName, t);
+  const secondary = getSecondaryMuscleGroups(exerciseName, t);
+  
+  // Remove duplicates and filter out undefined values
+  const allGroups = [primary, ...secondary].filter((group, index, arr) => 
+    group && arr.indexOf(group) === index
+  );
+  
+  return allGroups;
+}
+
+/**
+ * Get muscle mapping (primary and secondary) for an exercise
+ * @param exerciseName The name of the exercise
+ * @param t Translation function (optional)
+ * @returns MuscleMapping object
+ */
+export function getMuscleMapping(exerciseName: string, t?: (key: string) => string): MuscleMapping {
+  const primary = getPrimaryMuscleGroup(exerciseName, t);
+  const secondary = getSecondaryMuscleGroups(exerciseName, t);
+  
+  return {
+    primary,
+    secondary: secondary.length > 0 ? secondary : undefined
+  };
+}
+
+/**
+ * Calculate weighted muscle group contribution for an exercise
+ * This function provides a more nuanced view of muscle involvement
+ * @param exerciseName The name of the exercise
+ * @param setCount Number of sets performed
+ * @param t Translation function (optional)
+ * @returns Record of muscle groups and their weighted contribution
+ */
+export function calculateMuscleGroupContribution(
+  exerciseName: string, 
+  setCount: number, 
+  t?: (key: string) => string
+): Record<string, number> {
+  const allExercises = getAllExercises();
+  let targetExercise: ExerciseItem | undefined;
+  
+  // Find the exercise in our database
+  if (t) {
+    targetExercise = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey);
+      return translatedName.toLowerCase() === exerciseName.toLowerCase();
+    });
+  }
+  
+  if (!targetExercise) {
+    targetExercise = allExercises.find(ex => 
+      ex.nameKey.toLowerCase() === exerciseName.toLowerCase()
+    );
+  }
+  
+  if (!targetExercise && t) {
+    targetExercise = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey).toLowerCase();
+      const searchName = exerciseName.toLowerCase();
+      return translatedName.includes(searchName) || searchName.includes(translatedName);
+    });
+  }
+  
+  const contribution: Record<string, number> = {};
+  
+  if (targetExercise) {
+    // Primary muscle gets full contribution
+    if (targetExercise.targetMuscleKey) {
+      const primaryGroup = muscleKeyToGroupMap[targetExercise.targetMuscleKey] || 'other';
+      contribution[primaryGroup] = setCount;
+    }
+    
+    // Secondary muscles get 50% contribution
+    if (targetExercise.secondaryMuscleKeys && targetExercise.secondaryMuscleKeys.length > 0) {
+      targetExercise.secondaryMuscleKeys.forEach(muscleKey => {
+        const secondaryGroup = muscleKeyToGroupMap[muscleKey] || 'other';
+        contribution[secondaryGroup] = (contribution[secondaryGroup] || 0) + (setCount * 0.5);
+      });
+    }
+  } else {
+    // Fallback to keyword-based detection
+    const primaryGroup = detectMuscleGroupByKeywords(exerciseName);
+    contribution[primaryGroup] = setCount;
+  }
+  
+  return contribution;
+}
+
+/**
+ * Fallback function to detect muscle group by keywords
+ * @param exerciseName The exercise name
+ * @returns The detected muscle group
+ */
+function detectMuscleGroupByKeywords(exerciseName: string): MuscleGroup {
+  const lowerName = exerciseName.toLowerCase();
+  
   if (
     lowerName.includes('chest') || 
     lowerName.includes('pec') || 
+    lowerName.includes('bench') ||
     lowerName.includes('fly') || 
-    lowerName.includes('press')
+    lowerName.includes('press') && (lowerName.includes('chest') || lowerName.includes('incline') || lowerName.includes('decline'))
   ) {
     return 'chest';
   } else if (
@@ -163,7 +293,9 @@ export function getPrimaryMuscleGroup(exerciseName: string): MuscleGroup {
     lowerName.includes('row') || 
     lowerName.includes('pull') || 
     lowerName.includes('lat') || 
-    lowerName.includes('deadlift')
+    lowerName.includes('deadlift') ||
+    lowerName.includes('chin') ||
+    lowerName.includes('pulldown')
   ) {
     return 'back';
   } else if (
@@ -173,28 +305,35 @@ export function getPrimaryMuscleGroup(exerciseName: string): MuscleGroup {
     lowerName.includes('calf') || 
     lowerName.includes('hamstring') || 
     lowerName.includes('quad') || 
-    lowerName.includes('glute')
+    lowerName.includes('glute') ||
+    lowerName.includes('thigh')
   ) {
     return 'legs';
   } else if (
     lowerName.includes('shoulder') || 
     lowerName.includes('delt') || 
     lowerName.includes('lateral') || 
-    lowerName.includes('overhead')
+    lowerName.includes('overhead') ||
+    lowerName.includes('raise') ||
+    lowerName.includes('shrug')
   ) {
     return 'shoulders';
   } else if (
     lowerName.includes('arm') || 
     lowerName.includes('bicep') || 
     lowerName.includes('tricep') || 
-    lowerName.includes('curl')
+    lowerName.includes('curl') ||
+    lowerName.includes('extension') ||
+    lowerName.includes('dip')
   ) {
     return 'arms';
   } else if (
     lowerName.includes('ab') || 
     lowerName.includes('core') || 
     lowerName.includes('crunch') || 
-    lowerName.includes('plank')
+    lowerName.includes('plank') ||
+    lowerName.includes('twist') ||
+    lowerName.includes('sit')
   ) {
     return 'core';
   } else if (
@@ -202,54 +341,89 @@ export function getPrimaryMuscleGroup(exerciseName: string): MuscleGroup {
     lowerName.includes('cardio') || 
     lowerName.includes('sprint') || 
     lowerName.includes('jog') || 
-    lowerName.includes('cycling')
+    lowerName.includes('cycling') ||
+    lowerName.includes('treadmill') ||
+    lowerName.includes('elliptical') ||
+    lowerName.includes('bike') ||
+    lowerName.includes('jump')
   ) {
     return 'cardio';
+  } else if (
+    lowerName.includes('burpee') ||
+    lowerName.includes('thruster') ||
+    lowerName.includes('kettlebell') ||
+    lowerName.includes('clean') ||
+    lowerName.includes('snatch') ||
+    lowerName.includes('turkish')
+  ) {
+    return 'full_body';
   }
   
   return 'other';
 }
 
 /**
- * Get secondary muscle groups for an exercise
- * @param exerciseName The name of the exercise
- * @returns Array of secondary muscle groups, or empty array if none
+ * Get exercise by name from exerciseData
+ * @param exerciseName The name to search for
+ * @param t Translation function (optional)
+ * @returns The exercise item if found
  */
-export function getSecondaryMuscleGroups(exerciseName: string): MuscleGroup[] {
-  if (!exerciseName) return [];
+export function getExerciseByName(exerciseName: string, t?: (key: string) => string): ExerciseItem | undefined {
+  const allExercises = getAllExercises();
   
-  // Try exact match
-  const normalizedName = exerciseName.trim();
-  if (exerciseMuscleMap[normalizedName] && exerciseMuscleMap[normalizedName].secondary) {
-    return exerciseMuscleMap[normalizedName].secondary || [];
+  // Try exact match with translated name
+  if (t) {
+    const exerciseByTranslatedName = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey);
+      return translatedName.toLowerCase() === exerciseName.toLowerCase();
+    });
+    if (exerciseByTranslatedName) return exerciseByTranslatedName;
   }
   
-  // Try case-insensitive match
-  const lowerName = normalizedName.toLowerCase();
-  for (const [key, value] of Object.entries(exerciseMuscleMap)) {
-    if (key.toLowerCase() === lowerName) {
-      return value.secondary || [];
-    }
+  // Try exact match with nameKey
+  const exerciseByKey = allExercises.find(ex => 
+    ex.nameKey.toLowerCase() === exerciseName.toLowerCase()
+  );
+  if (exerciseByKey) return exerciseByKey;
+  
+  // Try partial match with translated name
+  if (t) {
+    const exerciseByPartialName = allExercises.find(ex => {
+      const translatedName = t(ex.nameKey).toLowerCase();
+      const searchName = exerciseName.toLowerCase();
+      return translatedName.includes(searchName) || searchName.includes(translatedName);
+    });
+    if (exerciseByPartialName) return exerciseByPartialName;
   }
   
-  // Try partial match
-  for (const [key, value] of Object.entries(exerciseMuscleMap)) {
-    if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
-      return value.secondary || [];
-    }
-  }
-  
-  return [];
+  return undefined;
 }
 
 /**
- * Get all muscle groups (primary and secondary) for an exercise
- * @param exerciseName The name of the exercise
+ * Get all muscle groups available in the system
  * @returns Array of all muscle groups
  */
-export function getAllMuscleGroups(exerciseName: string): MuscleGroup[] {
-  const primary = getPrimaryMuscleGroup(exerciseName);
-  const secondary = getSecondaryMuscleGroups(exerciseName);
+export function getAllMuscleGroupTypes(): MuscleGroup[] {
+  return ['chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'full_body', 'cardio', 'other'];
+}
+
+/**
+ * Get muscle group color for UI consistency
+ * @param muscleGroup The muscle group
+ * @returns Hex color string
+ */
+export function getMuscleGroupColor(muscleGroup: MuscleGroup): string {
+  const muscleGroupColors = {
+    'chest': '#f87171', // red
+    'back': '#60a5fa', // blue
+    'legs': '#4ade80', // green
+    'shoulders': '#a78bfa', // purple
+    'arms': '#fbbf24', // yellow
+    'core': '#f97316', // orange
+    'full_body': '#64748b', // slate
+    'cardio': '#ec4899', // pink
+    'other': '#94a3b8', // gray
+  };
   
-  return [primary, ...secondary];
+  return muscleGroupColors[muscleGroup] || '#94a3b8';
 }

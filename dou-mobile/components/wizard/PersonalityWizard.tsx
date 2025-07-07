@@ -1,4 +1,4 @@
-// components/wizard/PersonalityWizard.tsx
+// components/wizard/PersonalityWizard.tsx - Enhanced with error preservation
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -15,7 +15,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { userService } from '../../api/services';
 import { useAuth } from '../../hooks/useAuth';
 
-// Import steps
+// Import simplified steps
 import Step1GenderSelection from './steps/Step1GenderSelection';
 import Step2FitnessType from './steps/Step2FitnessType';
 import Step3MotivationCheck from './steps/Step3MotivationCheck';
@@ -23,8 +23,8 @@ import Step4ScenarioResponse from './steps/Step4ScenarioResponse';
 import Step5ChatMiniGame from './steps/Step5ChatMiniGame';
 import Step6IdentityReveal from './steps/Step6IdentityReveal';
 import Step7Registration from './steps/Step7Registration';
+import Step8FutureVision from './steps/Step8FutureVision';
 
-// Get the window dimensions
 const { width } = Dimensions.get('window');
 
 type ScoreType = {
@@ -46,6 +46,13 @@ type RegistrationDataType = {
   password: string;
 };
 
+// Enhanced response storage - storing the key data points requested
+type UserResponsesType = {
+  gender: string | null;
+  top_activities: string[]; // Top 4 activities list
+  future_vision: string | null; // 2 years wish
+};
+
 interface PersonalityWizardProps {
   onComplete?: () => void;
 }
@@ -54,7 +61,7 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
   const { t } = useLanguage();
   const { login } = useAuth();
   
-  // Score tracking for personality determination
+  // Simplified score tracking
   const [scores, setScores] = useState<ScoreType>({
     optimizer: 0,
     diplomate: 0, 
@@ -62,16 +69,23 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
     versatile: 0
   });
   
-  // Store scores for each individual step to allow going back
+  // Enhanced response storage - only the essentials as requested
+  const [userResponses, setUserResponses] = useState<UserResponsesType>({
+    gender: null,
+    top_activities: [],
+    future_vision: null,
+  });
+  
+  // Store scores for each step for back navigation
   const [stepScores, setStepScores] = useState<{[key: number]: ScoreType}>({
     1: { optimizer: 0, diplomate: 0, mentor: 0, versatile: 0 },
     2: { optimizer: 0, diplomate: 0, mentor: 0, versatile: 0 },
     3: { optimizer: 0, diplomate: 0, mentor: 0, versatile: 0 },
     4: { optimizer: 0, diplomate: 0, mentor: 0, versatile: 0 },
-    5: { optimizer: 0, diplomate: 0, mentor: 0, versatile: 0 }
+    5: { optimizer: 0, diplomate: 0, mentor: 0, versatile: 0 },
+    8: { optimizer: 0, diplomate: 0, mentor: 0, versatile: 0 },
   });
   
-  // User profile data
   const [userProfile, setUserProfile] = useState<UserProfileType>({
     gender: null,
   });
@@ -80,14 +94,58 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
   const [personalityResult, setPersonalityResult] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationData, setRegistrationData] = useState<RegistrationDataType | null>(null);
+  
+  // Enhanced error handling
   const [error, setError] = useState('');
+  const [preservedFormData, setPreservedFormData] = useState<Partial<RegistrationDataType>>({});
 
   // Animation values
   const fadeAnim = useState(new Animated.Value(1))[0];
   const slideAnim = useState(new Animated.Value(0))[0];
   
+  // Simplified personality calculation with better balancing
+  const calculatePersonalityType = useCallback((currentScores: ScoreType): string => {
+    console.log('🧮 Calculating personality with scores:', currentScores);
+    
+    // Apply diminishing returns to prevent single-step dominance
+    const balancedScores = Object.keys(currentScores).reduce((acc, type) => {
+      const rawScore = currentScores[type];
+      // Diminishing returns formula: score = sqrt(rawScore + 1) * 10
+      acc[type] = Math.sqrt(rawScore + 1) * 10;
+      return acc;
+    }, {} as ScoreType);
+    
+    console.log('📊 Balanced scores:', balancedScores);
+    
+    // Add randomness factor for close scores (within 10% of each other)
+    const scores = Object.entries(balancedScores);
+    const maxScore = Math.max(...scores.map(([_, score]) => score));
+    const threshold = maxScore * 0.1;
+    const closeScores = scores.filter(([_, score]) => maxScore - score <= threshold);
+    
+    if (closeScores.length > 1) {
+      console.log('🎲 Close scores detected, adding randomness factor');
+      closeScores.forEach(([type, score]) => {
+        balancedScores[type] = score + (Math.random() * 2 - 1);
+      });
+    }
+    
+    // Find the highest score
+    const result = Object.entries(balancedScores).reduce((max, [type, score]) => 
+      score > max.score ? { type, score } : max, 
+      { type: '', score: -1 }
+    );
+    
+    const finalType = result.type || 'versatile';
+    console.log('🎯 Final personality type:', finalType, 'with score:', result.score);
+    
+    return finalType;
+  }, []);
+  
   // Handle navigation to next step and update scores
-  const handleStepComplete = useCallback((newScores: ScoreType & { gender?: string, userData?: RegistrationDataType }, stepNumber = currentStep) => {
+  const handleStepComplete = useCallback((stepData: any, stepNumber = currentStep) => {
+    console.log(`📝 Step ${stepNumber} completed with data:`, stepData);
+    
     // Start transition animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -101,18 +159,36 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
         useNativeDriver: true
       })
     ]).start(() => {
-      // Save scores for this step
+      // Extract scores and responses from stepData
+      const { responses, ...scoreData } = stepData;
+      
+      // Save step scores
       setStepScores(prev => ({
         ...prev,
         [stepNumber]: {
-          optimizer: newScores.optimizer || 0,
-          diplomate: newScores.diplomate || 0,
-          mentor: newScores.mentor || 0,
-          versatile: newScores.versatile || 0
+          optimizer: scoreData.optimizer || 0,
+          diplomate: scoreData.diplomate || 0,
+          mentor: scoreData.mentor || 0,
+          versatile: scoreData.versatile || 0
         }
       }));
       
-      // Update total scores by recalculating from all steps up to the current one
+      // Save enhanced user responses based on step
+      setUserResponses(prev => {
+        const updated = { ...prev };
+        
+        if (stepNumber === 1 && stepData.gender) {
+          updated.gender = stepData.gender;
+        } else if (stepNumber === 2 && responses?.selected_activities) {
+          updated.top_activities = responses.selected_activities;
+        } else if (stepNumber === 8 && responses?.selected_vision) {
+          updated.future_vision = responses.selected_vision;
+        }
+        
+        return updated;
+      });
+      
+      // Update total scores
       const updatedTotalScores: ScoreType = {
         optimizer: 0,
         diplomate: 0,
@@ -120,39 +196,45 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
         versatile: 0
       };
       
-      // Only include scores up to the next step
+      // Include scores up to the current step
       for (let i = 1; i <= stepNumber; i++) {
         if (stepScores[i]) {
-          updatedTotalScores.optimizer += stepScores[i].optimizer;
-          updatedTotalScores.diplomate += stepScores[i].diplomate;
-          updatedTotalScores.mentor += stepScores[i].mentor;
-          updatedTotalScores.versatile += stepScores[i].versatile;
+          Object.keys(updatedTotalScores).forEach(key => {
+            updatedTotalScores[key] += stepScores[i][key];
+          });
         }
       }
       
       // Add the new scores for the current step
-      updatedTotalScores.optimizer += newScores.optimizer || 0;
-      updatedTotalScores.diplomate += newScores.diplomate || 0;
-      updatedTotalScores.mentor += newScores.mentor || 0;
-      updatedTotalScores.versatile += newScores.versatile || 0;
+      Object.keys(updatedTotalScores).forEach(key => {
+        updatedTotalScores[key] += scoreData[key] || 0;
+      });
       
       setScores(updatedTotalScores);
       
       // Update user profile if gender is provided
-      if (newScores.gender) {
+      if (stepData.gender) {
         setUserProfile(prev => ({
           ...prev,
-          gender: newScores.gender
+          gender: stepData.gender
         }));
       }
       
-      // For registration step, save user data
-      if (newScores.userData) {
-        setRegistrationData(newScores.userData);
+      // For registration step, save user data and preserve it
+      if (stepData.userData) {
+        setRegistrationData(stepData.userData);
+        setPreservedFormData(stepData.userData); // Preserve form data
       }
       
-      // Move to next step
-      setCurrentStep(prev => prev + 1);
+      // Move to next step (skip step 6 temporarily if going from step 5 to add step 8)
+      let nextStep = stepNumber + 1;
+      if (stepNumber === 5) {
+        nextStep = 8; // Go to future vision before identity reveal
+      } else if (stepNumber === 8) {
+        nextStep = 6; // Go to identity reveal after future vision
+      }
+      
+      setCurrentStep(nextStep);
       
       // Reset animation values and fade in the new content
       slideAnim.setValue(50);
@@ -175,7 +257,6 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
   // Handle going back to previous step
   const handleGoBack = useCallback(() => {
     if (currentStep <= 1) {
-      // If at first step, go back to login
       router.push('/login');
       return;
     }
@@ -193,6 +274,14 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
         useNativeDriver: true
       })
     ]).start(() => {
+      // Determine previous step (handle step 8 insertion)
+      let prevStep = currentStep - 1;
+      if (currentStep === 6) {
+        prevStep = 8; // Come from future vision
+      } else if (currentStep === 8) {
+        prevStep = 5; // Come from chat mini game
+      }
+      
       // Recalculate total scores by excluding the current step
       const updatedTotalScores: ScoreType = {
         optimizer: 0,
@@ -202,19 +291,16 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
       };
       
       // Only include scores up to the previous step
-      for (let i = 1; i < currentStep - 1; i++) {
+      for (let i = 1; i < prevStep; i++) {
         if (stepScores[i]) {
-          updatedTotalScores.optimizer += stepScores[i].optimizer;
-          updatedTotalScores.diplomate += stepScores[i].diplomate;
-          updatedTotalScores.mentor += stepScores[i].mentor;
-          updatedTotalScores.versatile += stepScores[i].versatile;
+          Object.keys(updatedTotalScores).forEach(key => {
+            updatedTotalScores[key] += stepScores[i][key];
+          });
         }
       }
       
       setScores(updatedTotalScores);
-      
-      // Move to previous step
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep(prevStep);
       
       // Reset animation values and fade in the new content
       slideAnim.setValue(-50);
@@ -234,91 +320,86 @@ const PersonalityWizard: React.FC<PersonalityWizardProps> = ({ onComplete }) => 
     });
   }, [currentStep, stepScores, fadeAnim, slideAnim]);
   
-  // Determine personality result when all personality assessment steps are completed
+  // Determine personality result when reaching step 6
   useEffect(() => {
     if (currentStep === 6 && !personalityResult) {
-      // Find the personality with the highest score
-      // Add a bit of randomness to avoid always getting 'versatile'
-      const randomFactor = 0.15; // 15% randomness factor
-      
-      const adjustedScores = {
-        optimizer: scores.optimizer * (1 + (Math.random() * randomFactor - randomFactor/2)),
-        diplomate: scores.diplomate * (1 + (Math.random() * randomFactor - randomFactor/2)),
-        mentor: scores.mentor * (1 + (Math.random() * randomFactor - randomFactor/2)),
-        versatile: scores.versatile * (0.95 + (Math.random() * randomFactor - randomFactor/2)) // Slightly reduce versatile's advantage
-      };
-      
-      const result = Object.entries(adjustedScores).reduce((max, [type, score]) => 
-        score > max.score ? { type, score } : max, 
-        { type: '', score: -1 }
-      );
-      
-      // Make sure we have a valid result
-      const finalType = result.type || 'versatile';
-      
-      console.log("Final personality scores:", scores);
-      console.log("Adjusted scores with randomness:", adjustedScores);
-      console.log("Determined personality type:", finalType);
-      
+      const finalType = calculatePersonalityType(scores);
       setPersonalityResult(finalType);
+      
+      console.log("✅ Final personality determination complete");
+      console.log("📊 Final scores:", scores);
+      console.log("🎯 Personality type:", finalType);
+      console.log("💾 User responses:", userResponses);
     }
-  }, [currentStep, scores, personalityResult]);
+  }, [currentStep, scores, personalityResult, calculatePersonalityType, userResponses]);
 
-  // Handle registration completion
-  // Update the handleRegistration function in PersonalityWizard.tsx
-
-const handleRegistration = async () => {
-  if (!registrationData) {
-    setError(t('registration_error'));
-    return;
-  }
-  
-  setIsSubmitting(true);
-  setError('');
-  
-  try {
-    // Register user with personality type - using the correct method name 'register'
-    await userService.register({
-      username: registrationData.username,
-      email: registrationData.email,
-      password: registrationData.password,
-      training_level: 'beginner',
-      personality_type: personalityResult || 'versatile',
-      language_preference: 'en', // Default language
-      fitness_goals: '', // Empty initially
-      bio: '' // Empty initially
-    });
+  // Enhanced registration with better error handling and form preservation
+  const handleRegistration = async () => {
+    if (!registrationData) {
+      setError(t('registration_error'));
+      return;
+    }
     
-    // After successful registration, we should check if email verification is required
-    // For now, we'll try to log in immediately
-    const success = await login(registrationData.username, registrationData.password);
+    setIsSubmitting(true);
+    setError('');
     
-    if (success) {
-      // If email verification is required, user may need to be redirected to verification page
-      if (!success.email_verified) {
-        router.replace('/verify-email-reminder');
-      } else {
-        // Navigate to feed if verification not required or already verified
+    try {
+      // Register user with personality type and enhanced responses
+      await userService.register({
+        username: registrationData.username,
+        email: registrationData.email,
+        password: registrationData.password,
+        training_level: 'beginner',
+        personality_type: personalityResult || 'versatile',
+        language_preference: 'en',
+        fitness_goals: '',
+        bio: '',
+        // Enhanced: Store the key personality assessment responses as requested
+        personality_assessment_responses: {
+          gender: userResponses.gender,
+          top_activities: userResponses.top_activities,
+          future_vision: userResponses.future_vision,
+          algorithm_version: '2.0',
+          completion_timestamp: new Date().toISOString(),
+          final_scores: scores,
+          final_personality_type: personalityResult || 'versatile'
+        }
+      });
+      
+      console.log('💾 Registration completed with enhanced responses:', userResponses);
+      
+      // Try to log in immediately
+      const success = await login(registrationData.username, registrationData.password);
+      
+      if (success) {
         router.replace('/(app)/feed');
+      } else {
+        throw new Error('Login failed after registration');
       }
-    } else {
-      throw new Error('Login failed after registration');
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      
+      // Enhanced error handling with form preservation
+      let errorMessage = '';
+      if (err.response?.data?.username) {
+        errorMessage = t('username_taken') || 'Username is already taken';
+      } else if (err.response?.data?.email) {
+        errorMessage = t('email_registered') || 'Email is already registered';
+      } else {
+        errorMessage = Object.values(err.response?.data || {}).flat().join('\n') || 
+                     t('registration_failed') || 'Registration failed';
+      }
+      
+      setError(errorMessage);
+      
+      // Preserve current form data for when user returns to registration
+      setPreservedFormData(registrationData);
+      
+      // Go back to registration form with preserved data
+      setCurrentStep(7);
+      setIsSubmitting(false);
     }
-  } catch (err: any) {
-    console.error('Registration error:', err);
-    if (err.response?.data?.username) {
-      setError(t('username_taken'));
-    } else if (err.response?.data?.email) {
-      setError(t('email_registered'));
-    } else {
-      setError(Object.values(err.response?.data || {}).flat().join('\n') || t('registration_failed'));
-    }
-    
-    // Go back to registration form
-    setCurrentStep(7);
-    setIsSubmitting(false);
-  }
-};
+  };
   
   // When registration data is available and personality is determined, register
   useEffect(() => {
@@ -329,7 +410,6 @@ const handleRegistration = async () => {
   
   // Render the appropriate step
   const renderStep = () => {
-    // Pass initial data from previous selections when available
     const stepProps = {
       1: { 
         onComplete: handleStepComplete,
@@ -359,7 +439,14 @@ const handleRegistration = async () => {
       },
       7: {
         onComplete: handleStepComplete,
-        personalityType: personalityResult || 'versatile'
+        personalityType: personalityResult || 'versatile',
+        // Enhanced: Pass preserved form data and error
+        initialFormData: preservedFormData,
+        initialError: error
+      },
+      8: {
+        onComplete: handleStepComplete,
+        initialScores: stepScores[8]
       }
     };
     
@@ -378,14 +465,25 @@ const handleRegistration = async () => {
         return <Step6IdentityReveal {...stepProps[6]} />;
       case 7:
         return <Step7Registration {...stepProps[7]} />;
+      case 8:
+        return <Step8FutureVision {...stepProps[8]} />;
       default:
         return null;
     }
   };
   
-  // Progress bar calculation
-  const totalSteps = 7;
-  const progressPercentage = ((currentStep - 1) / totalSteps) * 100;
+  // Progress bar calculation (including step 8)
+  const totalSteps = 8;
+  const progressPercentage = ((getProgressStep() - 1) / totalSteps) * 100;
+  
+  // Helper function to get progress step (handle step 8 insertion)
+  function getProgressStep() {
+    if (currentStep <= 5) return currentStep;
+    if (currentStep === 8) return 6; // Step 8 comes after step 5
+    if (currentStep === 6) return 7; // Step 6 comes after step 8
+    if (currentStep === 7) return 8; // Registration is last
+    return currentStep;
+  }
   
   return (
     <View style={styles.container}>
@@ -416,19 +514,20 @@ const handleRegistration = async () => {
           <View style={styles.stepIndicatorsContainer}>
             {Array.from({length: totalSteps}).map((_, index) => {
               const step = index + 1;
+              const progressStep = getProgressStep();
               return (
                 <View 
                   key={step}
                   style={[
                     styles.stepIndicator,
-                    currentStep > step 
+                    progressStep > step 
                       ? styles.stepCompleted 
-                      : currentStep === step
+                      : progressStep === step
                         ? styles.stepCurrent
                         : styles.stepFuture
                   ]}
                 >
-                  {currentStep > step ? (
+                  {progressStep > step ? (
                     <Ionicons name="checkmark" size={12} color="#FFFFFF" />
                   ) : (
                     <Text style={styles.stepNumber}>{step}</Text>
@@ -451,13 +550,6 @@ const handleRegistration = async () => {
               <Ionicons name="arrow-back" size={18} color="#9CA3AF" />
             </TouchableOpacity>
           )}
-          
-          {/* Error message for registration errors */}
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
           
           {/* Animated step content */}
           <Animated.View 
@@ -560,20 +652,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(31, 41, 55, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  errorContainer: {
-    backgroundColor: 'rgba(220, 38, 38, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.3)',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 36,
-    marginBottom: 8,
-    marginHorizontal: 16,
-  },
-  errorText: {
-    color: '#F87171',
-    fontSize: 14,
   },
   stepContent: {
     flex: 1,

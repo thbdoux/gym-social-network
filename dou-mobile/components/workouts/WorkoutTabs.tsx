@@ -3,8 +3,8 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
-import { VIEW_TYPES, VIEW_ORDER } from './ViewSelector';
 import { useTheme } from '../../context/ThemeContext';
+import { VIEW_TYPES, VIEW_ORDER } from './ViewSelector';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -18,7 +18,13 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
   onChangeView,
 }) => {
   const { t } = useLanguage();
-  const { workoutPalette, programPalette, workoutLogPalette, groupWorkoutPalette } = useTheme();
+  const { 
+    workoutPalette, 
+    programPalette, 
+    workoutLogPalette, 
+    groupWorkoutPalette,
+    palette
+  } = useTheme();
   
   // Animation values for tab transitions
   const tabAnimations = useRef({
@@ -45,7 +51,6 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
     switch (viewType) {
       case VIEW_TYPES.PROGRAMS:
         return {
-          color: '#7e22ce', // Purple
           icon: 'calendar-outline',
           activeIcon: 'calendar',
           label: t('programs'),
@@ -53,7 +58,6 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
         };
       case VIEW_TYPES.WORKOUT_HISTORY:
         return {
-          color: '#16a34a', // Green
           icon: 'bar-chart-outline',
           activeIcon: 'bar-chart',
           label: t('workout_history'),
@@ -61,7 +65,6 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
         };
       case VIEW_TYPES.TEMPLATES:
         return {
-          color: '#2563eb', // Blue
           icon: 'copy-outline',
           activeIcon: 'copy',
           label: t('templates'),
@@ -69,7 +72,6 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
         };
       case VIEW_TYPES.GROUP_WORKOUTS:
         return {
-          color: '#f97316', // Orange
           icon: 'people-outline',
           activeIcon: 'people',
           label: t('group_workouts'),
@@ -77,7 +79,6 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
         };
       default:
         return {
-          color: '#6B7280', // Gray
           icon: 'fitness-outline',
           activeIcon: 'fitness',
           label: '',
@@ -90,7 +91,6 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
   useEffect(() => {
     VIEW_ORDER.forEach(viewType => {
       const { label } = getViewDetails(viewType);
-      console.log(label)
       // Rough estimate of text width: ~8px per character + 24px for padding/icon
       textWidths[viewType] = (label.length * 1000) + 50; 
     });
@@ -151,11 +151,11 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
   }, [currentView]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: palette.card_background }]}>
       {/* This outer container gives us more control over tab positioning */}
       <View style={styles.tabsContainer}>
         {VIEW_ORDER.map((viewType) => {
-          const { color, icon, activeIcon, label, palette } = getViewDetails(viewType);
+          const { icon, activeIcon, label, palette: viewPalette } = getViewDetails(viewType);
           const isActive = currentView === viewType;
           
           // Calculate animated styles for this tab
@@ -175,7 +175,7 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
           
           const backgroundColor = tabAnimations[viewType].interpolate({
             inputRange: [0, 1],
-            outputRange: ['transparent', palette.highlight]
+            outputRange: ['transparent', viewPalette.highlight + '20'] // Adding transparency
           });
           
           return (
@@ -201,7 +201,7 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
                   <Ionicons 
                     name={isActive ? activeIcon : icon} 
                     size={22} 
-                    color={isActive ? "#FFFFFF" : "#9CA3AF"} 
+                    color={isActive ? viewPalette.highlight : palette.text_tertiary} 
                     style={isActive ? styles.activeTabIcon : styles.inactiveTabIcon}
                   />
                   
@@ -212,7 +212,7 @@ const WorkoutTabs: React.FC<WorkoutTabsProps> = ({
                         styles.tabText,
                         {
                           opacity: tabAnimations[viewType],
-                          color: '#FFFFFF'
+                          color: viewPalette.highlight
                         }
                       ]} 
                       numberOfLines={1}

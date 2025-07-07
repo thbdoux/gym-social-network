@@ -123,9 +123,6 @@ const GroupWorkoutSelector: React.FC<GroupWorkoutSelectorProps> = ({
       <Text style={styles.emptyTitle}>
         {searchQuery ? t('no_matching_group_workouts') : t('no_group_workouts')}
       </Text>
-      <Text style={styles.emptyMessage}>
-        {searchQuery ? t('adjust_search') : t('group_workouts_will_appear')}
-      </Text>
     </View>
   );
 

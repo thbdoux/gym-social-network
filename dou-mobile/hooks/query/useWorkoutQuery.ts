@@ -45,8 +45,9 @@ import {
           return [...oldData, newTemplate];
         });
         
-        // Set individual template data
-        queryClient.setQueryData(workoutKeys.template(newTemplate.id), newTemplate);
+        queryClient.invalidateQueries({ 
+          queryKey: workoutKeys.template(newTemplate.id) 
+        });
       },
     });
   };

@@ -4,22 +4,22 @@
 
 
 
-# curl -s -X POST \
-#   -H "Content-Type: application/json" \
-#   -d '{"username":"thbdoux","password":"thbdoux"}' \
-#   "http://localhost:8000/api/users/token/"
-
-
-curl -X POST http://localhost:8000/api/users/register/ \
+curl -s -X POST \
   -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser123",
-    "password": "SecurePassword123!",
-    "email": "testuser@example.com",
-    "training_level": "beginner",
-    "personality_type": "versatile",
-    "language_preference": "en",
-    "fitness_goals": "Get stronger and improve endurance",
-    "bio": "Fitness enthusiast looking to connect with like-minded people"
-  }'
+  -d '{"username":"thbdoux","password":"thbdoux"}' \
+  "https://dou-mobile/api/users/token/"
+
+
+# curl -X POST http://localhost:8000/api/users/register/ \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "username": "testuser123",
+#     "password": "SecurePassword123!",
+#     "email": "testuser@example.com",
+#     "training_level": "beginner",
+#     "personality_type": "versatile",
+#     "language_preference": "en",
+#     "fitness_goals": "Get stronger and improve endurance",
+#     "bio": "Fitness enthusiast looking to connect with like-minded people"
+#   }'
 

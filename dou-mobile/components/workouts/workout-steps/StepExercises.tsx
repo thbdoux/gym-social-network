@@ -1,931 +1,447 @@
-import React, { useState, useEffect, useRef } from 'react';
+// components/workouts/workout-steps/StepExercises.tsx
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  TextInput,
-  Modal,
   Alert,
-  Switch,
-  Animated,
-  PanResponder,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform
+  Modal,
 } from 'react-native';
-import { useLanguage } from '../../../context/LanguageContext';
-import { WorkoutTemplateFormData, Exercise, ExerciseSet } from '../WorkoutTemplateWizard';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../../context/LanguageContext';
+import { useTheme } from '../../../context/ThemeContext';
+import { useRecentExerciseNames } from '../../../hooks/query/useLogQuery';
+import { formatRestTime } from '../../../app/(app)/workout/formatters';
+
+// Import the modals
 import ExerciseSelector from '../ExerciseSelector';
+import ExerciseConfigurator from '../ExerciseConfigurator';
+import { ExerciseCard } from '../../../app/(app)/workout-log/components/ExerciseCard';
+// Types - should match the ones from WorkoutLogWizard
+export type ExerciseSet = {
+  id?: number;
+  reps?: number | null;
+  weight?: number | null;
+  weight_unit?: 'kg' | 'lbs';
+  weight_unit_display?: string;
+  weight_display?: string;
+  duration?: number | null;
+  distance?: number | null;
+  rest_time: number;
+  order?: number;
+};
+
+export type Exercise = {
+  id?: number;
+  name: string;
+  equipment?: string;
+  notes?: string;
+  order?: number;
+  effort_type?: 'reps' | 'time' | 'distance';
+  effort_type_display?: string;
+  superset_with?: number | null;
+  is_superset?: boolean;
+  superset_rest_time?: number;
+  sets: ExerciseSet[];
+};
 
 type StepExercisesProps = {
-  formData: WorkoutTemplateFormData;
-  updateFormData: (data: Partial<WorkoutTemplateFormData>) => void;
+  formData: {
+    exercises: Exercise[];
+    [key: string]: any;
+  };
+  updateFormData: (updates: any) => void;
   errors: Record<string, string>;
 };
 
-// Default set template
-const DEFAULT_SET: ExerciseSet = {
-  reps: 10,
-  weight: 0,
-  rest_time: 60 // 60 seconds
+// Helper function to get default set based on effort type
+const getDefaultSet = (effortType: 'reps' | 'time' | 'distance' = 'reps'): ExerciseSet => {
+  switch (effortType) {
+    case 'time':
+      return {
+        duration: 30,
+        weight: null,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+    case 'distance':
+      return {
+        distance: 100,
+        duration: null,
+        rest_time: 120
+      };
+    case 'reps':
+    default:
+      return {
+        reps: 10,
+        weight: 20,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+  }
 };
 
-const StepExercises = ({ formData, updateFormData, errors }: StepExercisesProps) => {
-  const { t, language } = useLanguage();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  // State for the exercise selector modal
+const StepExercises: React.FC<StepExercisesProps> = ({ 
+  formData, 
+  updateFormData, 
+  errors 
+}) => {
+  const { t } = useLanguage();
+  const { workoutPalette, palette } = useTheme();
+  
+  // Modal states
   const [exerciseSelectorVisible, setExerciseSelectorVisible] = useState(false);
-  
-  const [editExerciseIndex, setEditExerciseIndex] = useState<number | null>(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  
-  const [currentExerciseName, setCurrentExerciseName] = useState('');
-  const [currentExerciseSets, setCurrentExerciseSets] = useState<ExerciseSet[]>([{...DEFAULT_SET}]);
-  const [currentExerciseNotes, setCurrentExerciseNotes] = useState('');
-  const [draggedExerciseIndex, setDraggedExerciseIndex] = useState<number | null>(null);
-  const [restTimeEnabled, setRestTimeEnabled] = useState(true);
-  
-  // Superset state variables
-  const [pairingMode, setPairingMode] = useState<boolean>(false);
-  const [pairingSourceIndex, setPairingSourceIndex] = useState<number | null>(null);
-  const [currentExerciseIsSuperset, setCurrentExerciseIsSuperset] = useState(false);
-  const [currentSupersetRestTime, setCurrentSupersetRestTime] = useState(90);
-  const [currentSupersetWithExercise, setCurrentSupersetWithExercise] = useState<number | null>(null);
-  
-  // Recently used exercises for the selector component
-  const [recentExercises, setRecentExercises] = useState<string[]>([]);
-  
-  // Pan responder for drag and drop functionality
-  const pan = useRef(new Animated.ValueXY()).current;
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        pan.setOffset({
-          x: 0,
-          y: (pan as any)._value.y
-        });
-      },
-      onPanResponderMove: Animated.event(
-        [null, { dy: pan.y }],
-        { useNativeDriver: false }
-      ),
-      onPanResponderRelease: (_, gesture) => {
-        pan.flattenOffset();
-        // Reset position after dropping
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false
-        }).start();
-        
-        // Logic to reorder based on drop position would go here
-        if (draggedExerciseIndex !== null && gesture.dy !== 0) {
-          const direction = gesture.dy > 0 ? 'down' : 'up';
-          handleMoveExercise(draggedExerciseIndex, direction);
-        }
-        
-        setDraggedExerciseIndex(null);
-      }
-    })
-  ).current;
-  
-  // Reset edit state when modal is opened for new exercise
-  useEffect(() => {
-    if (editExerciseIndex === null && exerciseSelectorVisible) {
-      setCurrentExerciseName('');
-      setCurrentExerciseSets([{...DEFAULT_SET}]);
-      setCurrentExerciseNotes('');
-      setRestTimeEnabled(true);
-      setCurrentExerciseIsSuperset(false);
-      setCurrentSupersetWithExercise(null);
-      setCurrentSupersetRestTime(90);
-    }
-  }, [exerciseSelectorVisible, editExerciseIndex]);
-  
-  // Update current exercise info when editing
-  useEffect(() => {
-    if (editExerciseIndex !== null && formData.exercises[editExerciseIndex]) {
-      const exercise = formData.exercises[editExerciseIndex];
-      setCurrentExerciseName(exercise.name);
-      setCurrentExerciseSets([...exercise.sets]);
-      setCurrentExerciseNotes(exercise.notes || '');
-      
-      // Check if rest time is enabled for this exercise
-      const hasRestTime = exercise.sets.some(set => set.rest_time > 0);
-      setRestTimeEnabled(hasRestTime);
-      
-      // Set superset data
-      setCurrentExerciseIsSuperset(!!exercise.is_superset);
-      setCurrentSupersetWithExercise(exercise.superset_with || null);
-      setCurrentSupersetRestTime(exercise.superset_rest_time || 90);
-    }
-  }, [editExerciseIndex, formData.exercises]);
-  
-  // Add keyboard event listeners
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardVisible(true);
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-        setKeyboardHeight(0);
-      }
-    );
+  const [exerciseConfiguratorVisible, setExerciseConfiguratorVisible] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [editingIndex, setEditingIndex] = useState(-1);
 
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
+  // Get recent exercises for the selector
+  const { data: recentExerciseNames } = useRecentExerciseNames(30, 15);
+
+  // Create colors object for the ExerciseCard component
+  const colors = {
+    card: palette.card_background,
+    text: {
+      primary: palette.text,
+      secondary: palette.text_secondary,
+      tertiary: palette.text_tertiary,
+    },
+    border: palette.border,
+    success: '#10B981',
+    error: '#EF4444',
+    card_background: palette.card_background,
+  };
+
+  // Handle adding a new exercise from selector
+  const handleSelectExercise = useCallback((selectedExercise: any) => {
+    const newExercise: Exercise = {
+      id: Date.now(), // Temporary ID for new exercises
+      name: selectedExercise.name,
+      equipment: selectedExercise.equipment || selectedExercise.equipmentKey,
+      effort_type: selectedExercise.effort_type || 'reps',
+      notes: selectedExercise.notes || '',
+      order: formData.exercises.length, // Set order to current length
+      sets: [getDefaultSet(selectedExercise.effort_type || 'reps')],
+      superset_with: null,
+      is_superset: false,
+      superset_rest_time: 60
     };
+
+    setEditingExercise(newExercise);
+    setEditingIndex(-1); // -1 indicates new exercise
+    setExerciseConfiguratorVisible(true);
+  }, [formData.exercises.length]);
+
+  // Handle editing an existing exercise
+  const handleEditExercise = useCallback((exercise: Exercise, index: number) => {
+    setEditingExercise({ ...exercise });
+    setEditingIndex(index);
+    setExerciseConfiguratorVisible(true);
   }, []);
 
-  // Handle adding a new exercise - open the exercise selector
-  const handleAddExercise = () => {
-    setEditExerciseIndex(null);
-    setExerciseSelectorVisible(true);
-  };
-  
-  // Handle selecting an exercise from the ExerciseSelector
-  const handleSelectExercise = (exerciseName: string) => {
-    setCurrentExerciseName(exerciseName);
-    setExerciseSelectorVisible(false);
-    setEditModalVisible(true);
+  // Handle saving exercise from configurator
+  const handleSaveExercise = useCallback((configuredExercise: Exercise) => {
+    const exercises = [...formData.exercises];
     
-    // Add to recent exercises if it's an ID-based exercise
-    // In a real implementation, you would store the exercise ID
-    if (exerciseName.startsWith('exercise_')) {
-      const exerciseId = exerciseName.split('_')[1];
-      setRecentExercises(prev => {
-        // Remove if already exists
-        const filtered = prev.filter(id => id !== exerciseId);
-        // Add to beginning (most recent)
-        return [exerciseId, ...filtered].slice(0, 10); // Keep only 10 most recent
-      });
-    }
-  };
-  
-  // Handle adding a set - copies values from previous set
-  const handleAddSet = () => {
-    if (currentExerciseSets.length > 0) {
-      // Copy values from the last set
-      const lastSet = currentExerciseSets[currentExerciseSets.length - 1];
-      setCurrentExerciseSets([...currentExerciseSets, {...lastSet}]);
+    if (editingIndex === -1) {
+      // Adding new exercise
+      configuredExercise.order = exercises.length;
+      exercises.push(configuredExercise);
     } else {
-      setCurrentExerciseSets([...currentExerciseSets, {...DEFAULT_SET}]);
+      // Updating existing exercise - preserve order
+      configuredExercise.order = exercises[editingIndex].order;
+      exercises[editingIndex] = configuredExercise;
     }
-  };
-  
-  // Handle removing a set
-  const handleRemoveSet = (index: number) => {
-    const updatedSets = [...currentExerciseSets];
-    updatedSets.splice(index, 1);
-    setCurrentExerciseSets(updatedSets);
-  };
-  
-  // Handle updating a set
-  const handleUpdateSet = (index: number, field: keyof ExerciseSet, value: number) => {
-    const updatedSets = [...currentExerciseSets];
-    updatedSets[index] = {
-      ...updatedSets[index],
-      [field]: value
-    };
-    setCurrentExerciseSets(updatedSets);
-  };
-  
-  // Handle toggle for rest time
-  const handleToggleRestTime = (value: boolean) => {
-    setRestTimeEnabled(value);
+
+    // Ensure all exercises have correct order property
+    const reorderedExercises = exercises.map((ex, i) => ({ ...ex, order: i }));
+    updateFormData({ exercises: reorderedExercises });
     
-    // Update all sets to have either default rest time or zero
-    const updatedSets = currentExerciseSets.map(set => ({
-      ...set,
-      rest_time: value ? (set.rest_time > 0 ? set.rest_time : 60) : 0
-    }));
+    setExerciseConfiguratorVisible(false);
+    setEditingExercise(null);
+    setEditingIndex(-1);
+  }, [formData.exercises, editingIndex, updateFormData]);
+
+  // Handle deleting an exercise
+  const handleDeleteExercise = useCallback((index: number) => {
+    const exercises = [...formData.exercises];
+    const exerciseToDelete = exercises[index];
     
-    setCurrentExerciseSets(updatedSets);
-  };
-  
-  // Handle saving the current exercise
-  const handleSaveExercise = () => {
-    if (!currentExerciseName.trim()) {
-      Alert.alert(t('error'), t('exercise_name_required'));
-      return;
-    }
-    
-    if (currentExerciseSets.length === 0) {
-      Alert.alert(t('error'), t('at_least_one_set_required'));
-      return;
-    }
-    
-    // Ensure each set has an order field based on its index
-    const setsWithOrder = currentExerciseSets.map((set, index) => ({
-      ...set,
-      order: index
-    }));
-    
-    const newExercise: Exercise = {
-      name: currentExerciseName,
-      sets: setsWithOrder,
-      notes: currentExerciseNotes.trim() || undefined,
-      equipment: '', // Default empty equipment if needed
-      is_superset: currentExerciseIsSuperset,
-      superset_with: currentSupersetWithExercise,
-      superset_rest_time: currentExerciseIsSuperset ? currentSupersetRestTime : undefined
-    };
-    
-    const updatedExercises = [...formData.exercises];
-    
-    if (editExerciseIndex !== null) {
-      // Update existing exercise
-      const previousExercise = updatedExercises[editExerciseIndex];
-      const hadSuperset = previousExercise.is_superset && previousExercise.superset_with !== null;
-      const oldSupersetWith = previousExercise.superset_with;
+    // If deleting a superset exercise, break the superset first
+    if (exerciseToDelete.is_superset && exerciseToDelete.superset_with !== null) {
+      const pairedExerciseIndex = exercises.findIndex(
+        ex => ex.order === exerciseToDelete.superset_with
+      );
       
-      updatedExercises[editExerciseIndex] = {
-        ...newExercise,
-        order: updatedExercises[editExerciseIndex]?.order ?? editExerciseIndex
-      };
-      
-      // If this exercise was previously in a superset but no longer is,
-      // we need to update the paired exercise as well
-      if (hadSuperset && !currentExerciseIsSuperset && oldSupersetWith !== null) {
-        const pairedIndex = updatedExercises.findIndex(ex => ex.order === oldSupersetWith);
-        if (pairedIndex !== -1) {
-          updatedExercises[pairedIndex].is_superset = false;
-          updatedExercises[pairedIndex].superset_with = null;
-          updatedExercises[pairedIndex].superset_rest_time = undefined;
-        }
+      if (pairedExerciseIndex !== -1) {
+        exercises[pairedExerciseIndex] = {
+          ...exercises[pairedExerciseIndex],
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
       }
-    } else {
-      // Add new exercise
-      updatedExercises.push({
-        ...newExercise,
-        order: updatedExercises.length // Use the new index as the order
-      });
     }
     
-    updateFormData({ exercises: updatedExercises });
-    setEditModalVisible(false);
-  };
-  
-  // Handle editing an exercise
-  const handleEditExercise = (index: number) => {
-    setEditExerciseIndex(index);
-    setEditModalVisible(true);
-  };
-  
-  // Handle removing an exercise
-  const handleRemoveExercise = (index: number) => {
+    // Remove the exercise
+    const filteredExercises = exercises.filter((_, i) => i !== index);
+    
+    // Update order for remaining exercises and fix superset references
+    const reorderedExercises = filteredExercises.map((ex, i) => {
+      let updatedExercise = { ...ex, order: i };
+      
+      // If this exercise was in a superset with the deleted exercise, break the superset
+      if (updatedExercise.is_superset && updatedExercise.superset_with === exerciseToDelete.order) {
+        updatedExercise = {
+          ...updatedExercise,
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
+      }
+      // Update superset references for exercises that were after the deleted one
+      else if (updatedExercise.is_superset && updatedExercise.superset_with !== null && updatedExercise.superset_with > index) {
+        updatedExercise = {
+          ...updatedExercise,
+          superset_with: updatedExercise.superset_with - 1
+        };
+      }
+      
+      return updatedExercise;
+    });
+    
+    updateFormData({ exercises: reorderedExercises });
+  }, [formData.exercises, updateFormData]);
+
+  // Handle creating superset
+  const handleCreateSuperset = useCallback((sourceIndex: number) => {
+    const exercises = formData.exercises || [];
+    
+    if (exercises.length < 2) {
+      Alert.alert(t('error'), t('need_two_exercises_for_superset'));
+      return;
+    }
+    
+    // Show selection modal for pairing
+    const availableExercises = exercises
+      .map((ex, idx) => ({ ...ex, originalIndex: idx }))
+      .filter((_, idx) => idx !== sourceIndex && !_.is_superset);
+      
+    if (availableExercises.length === 0) {
+      Alert.alert(t('error'), t('no_available_exercises_for_superset'));
+      return;
+    }
+    
     Alert.alert(
-      t('remove_exercise'),
-      t('remove_exercise_confirmation'),
+      t('create_superset'),
+      t('select_exercise_to_pair'),
       [
         { text: t('cancel'), style: 'cancel' },
-        { 
-          text: t('remove'), 
-          style: 'destructive',
-          onPress: () => {
-            const updatedExercises = [...formData.exercises];
-            const exerciseToRemove = updatedExercises[index];
-            
-            // If this is part of a superset, update the paired exercise
-            if (exerciseToRemove.is_superset && exerciseToRemove.superset_with !== null) {
-              const pairedIndex = updatedExercises.findIndex(
-                ex => ex.order === exerciseToRemove.superset_with
-              );
-              
-              if (pairedIndex !== -1) {
-                updatedExercises[pairedIndex].is_superset = false;
-                updatedExercises[pairedIndex].superset_with = null;
-                updatedExercises[pairedIndex].superset_rest_time = undefined;
-              }
-            }
-            
-            // Remove the exercise
-            updatedExercises.splice(index, 1);
-            
-            // Update order values for remaining exercises
-            updatedExercises.forEach((exercise, idx) => {
-              exercise.order = idx;
-              
-              // If this exercise was in a superset with the removed exercise,
-              // update its superset_with value
-              if (exercise.superset_with !== null) {
-                if (exercise.superset_with === exerciseToRemove.order) {
-                  exercise.is_superset = false;
-                  exercise.superset_with = null;
-                  exercise.superset_rest_time = undefined;
-                } else if (exercise.superset_with > exerciseToRemove.order) {
-                  // Decrement superset_with value for exercises paired with exercises after the removed one
-                  exercise.superset_with--;
-                }
-              }
-            });
-            
-            updateFormData({ exercises: updatedExercises });
-          }
-        }
+        ...availableExercises.map((ex) => ({
+          text: ex.name,
+          onPress: () => createSupersetPair(sourceIndex, ex.originalIndex)
+        }))
       ]
     );
-  };
-  
-  // Updated handleMoveExercise function to maintain superset relationships
-  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
-    if (
-      (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === formData.exercises.length - 1)
-    ) {
-      return;
-    }
-    
-    const updatedExercises = [...formData.exercises];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
-    // Save superset relationships before swapping
-    const exercise = updatedExercises[index];
-    const targetExercise = updatedExercises[targetIndex];
-    
-    // Get the superset information before swapping
-    const exerciseOrder = exercise.order;
-    const targetOrder = targetExercise.order;
-    const exerciseSuperset = exercise.superset_with;
-    const targetSuperset = targetExercise.superset_with;
-    
-    // Swap positions
-    [updatedExercises[index], updatedExercises[targetIndex]] = 
-    [updatedExercises[targetIndex], updatedExercises[index]];
-    
-    // Update order values
-    updatedExercises[index].order = exerciseOrder;
-    updatedExercises[targetIndex].order = targetOrder;
-    
-    // Update superset relationships
-    if (exerciseSuperset !== null && exerciseSuperset !== undefined) {
-      // Find exercises that have this exercise as their superset pair
-      for (const ex of updatedExercises) {
-        if (ex.superset_with === exerciseOrder) {
-          // Update to point to the new order
-          ex.superset_with = targetOrder;
-        }
-      }
-    }
-    
-    if (targetSuperset !== null && targetSuperset !== undefined) {
-      // Find exercises that have target exercise as their superset pair
-      for (const ex of updatedExercises) {
-        if (ex.superset_with === targetOrder) {
-          // Update to point to the new order
-          ex.superset_with = exerciseOrder;
-        }
-      }
-    }
-    
-    updateFormData({ exercises: updatedExercises });
-  };
-  
-  // Start dragging an exercise
-  const handleStartDrag = (index: number) => {
-    setDraggedExerciseIndex(index);
-  };
-  
-  // Superset functions
-  
-  // Function to start pairing an exercise
-  const handleStartPairing = (index: number) => {
-    setPairingMode(true);
-    setPairingSourceIndex(index);
-  };
+  }, [formData.exercises, t]);
 
-  // Function to cancel pairing mode
-  const handleCancelPairing = () => {
-    setPairingMode(false);
-    setPairingSourceIndex(null);
-  };
-
-  // Function to pair exercises as a superset
-  const handlePairExercises = (targetIndex: number) => {
-    if (pairingSourceIndex === null || pairingSourceIndex === targetIndex) {
-      return;
-    }
-
-    const updatedExercises = [...formData.exercises];
-    const sourceExercise = updatedExercises[pairingSourceIndex];
-    const targetExercise = updatedExercises[targetIndex];
-
-    // Set up the superset relationship
-    sourceExercise.superset_with = targetExercise.order;
-    sourceExercise.is_superset = true;
-    targetExercise.superset_with = sourceExercise.order;
-    targetExercise.is_superset = true;
-
-    // Add default superset rest time
-    sourceExercise.superset_rest_time = 90;  // Default 90 seconds
-    targetExercise.superset_rest_time = 90;
-
-    updateFormData({ exercises: updatedExercises });
-    setPairingMode(false);
-    setPairingSourceIndex(null);
-  };
-
-  // Function to remove a superset pairing
-  const handleRemoveSuperset = (index: number) => {
-    const updatedExercises = [...formData.exercises];
-    const exercise = updatedExercises[index];
-    
-    if (exercise.superset_with !== null && exercise.superset_with !== undefined) {
-      // Find the paired exercise
-      const pairedIndex = updatedExercises.findIndex(ex => ex.order === exercise.superset_with);
+  // Create superset pair
+  const createSupersetPair = useCallback((sourceIndex: number, targetIndex: number) => {
+    try {
+      const updatedExercises = [...formData.exercises];
       
-      if (pairedIndex !== -1) {
-        // Remove the superset relationship from the paired exercise
-        updatedExercises[pairedIndex].superset_with = null;
-        updatedExercises[pairedIndex].is_superset = false;
-        updatedExercises[pairedIndex].superset_rest_time = undefined;
-      }
+      // Create superset relationship
+      updatedExercises[sourceIndex] = {
+        ...updatedExercises[sourceIndex],
+        is_superset: true,
+        superset_with: updatedExercises[targetIndex].order,
+        superset_rest_time: 90
+      };
       
-      // Remove the superset relationship from this exercise
-      exercise.superset_with = null;
-      exercise.is_superset = false;
-      exercise.superset_rest_time = undefined;
+      updatedExercises[targetIndex] = {
+        ...updatedExercises[targetIndex],
+        is_superset: true,
+        superset_with: updatedExercises[sourceIndex].order,
+        superset_rest_time: 90
+      };
       
       updateFormData({ exercises: updatedExercises });
-    }
-  };
-
-  // Function to get the paired exercise name for display
-  const getPairedExerciseName = (exercise: Exercise): string | null => {
-    if (!exercise.superset_with && exercise.superset_with !== 0) return null;
-    
-    const pairedExercise = formData.exercises.find(ex => ex.order === exercise.superset_with);
-    return pairedExercise ? pairedExercise.name : null;
-  };
-
-  // Function to update superset rest time
-  const handleUpdateSupersetRestTime = (index: number, restTime: number) => {
-    const updatedExercises = [...formData.exercises];
-    const exercise = updatedExercises[index];
-    
-    if (exercise.is_superset && exercise.superset_with !== null && exercise.superset_with !== undefined) {
-      // Update rest time for this exercise
-      exercise.superset_rest_time = restTime;
       
-      // Find the paired exercise and update its rest time too
-      const pairedIndex = updatedExercises.findIndex(ex => ex.order === exercise.superset_with);
-      if (pairedIndex !== -1) {
-        updatedExercises[pairedIndex].superset_rest_time = restTime;
+      Alert.alert(
+        t('success'), 
+        t('superset_created_successfully')
+      );
+    } catch (error) {
+      console.error('Failed to create superset:', error);
+      Alert.alert(t('error'), t('failed_to_create_superset'));
+    }
+  }, [formData.exercises, updateFormData, t]);
+
+  // Handle breaking superset
+  const handleBreakSuperset = useCallback((index: number) => {
+    try {
+      const updatedExercises = [...formData.exercises];
+      const currentExercise = updatedExercises[index];
+      
+      if (currentExercise.is_superset && currentExercise.superset_with !== null) {
+        // Find the paired exercise
+        const pairedExerciseIndex = updatedExercises.findIndex(
+          ex => ex.order === currentExercise.superset_with
+        );
+        
+        // Remove superset relationship from current exercise
+        updatedExercises[index] = {
+          ...currentExercise,
+          is_superset: false,
+          superset_with: null,
+          superset_rest_time: undefined
+        };
+        
+        // Remove superset relationship from paired exercise if found
+        if (pairedExerciseIndex !== -1) {
+          updatedExercises[pairedExerciseIndex] = {
+            ...updatedExercises[pairedExerciseIndex],
+            is_superset: false,
+            superset_with: null,
+            superset_rest_time: undefined
+          };
+        }
+        
+        updateFormData({ exercises: updatedExercises });
+        
+        Alert.alert(
+          t('success'),
+          t('superset_broken_successfully')
+        );
       }
-      
-      updateFormData({ exercises: updatedExercises });
+    } catch (error) {
+      console.error('Failed to break superset:', error);
+      Alert.alert(t('error'), t('failed_to_break_superset'));
     }
-  };
-  
-  // Format rest time for display
-  const formatRestTime = (seconds: number): string => {
-    if (seconds === 0) return '-';
-    if (seconds < 60) return `${seconds}s`;
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  };
+  }, [formData.exercises, updateFormData, t]);
 
   return (
     <View style={styles.container}>
-      {/* Header with exercise count */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('add_exercises')}</Text>
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>
-            {formData.exercises.length} {formData.exercises.length === 1 ? t('exercise') : t('exercises')}
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: workoutPalette.text }]}>
+            {t('exercises')}
+          </Text>
+          <Text style={[styles.subtitle, { color: palette.text_tertiary }]}>
+            {t('add_and_configure_exercises')}
           </Text>
         </View>
-      </View>
-      
-      {/* Error message if any */}
-      {errors.exercises && (
-        <Text style={styles.errorText}>{errors.exercises}</Text>
-      )}
-      
-      {/* Pairing mode indicator */}
-      {pairingMode && (
-        <View style={styles.pairingModeIndicator}>
-          <Ionicons name="link" size={16} color="#0ea5e9" />
-          <Text style={styles.pairingModeText}>{t('select_exercise_to_pair')}</Text>
-          <TouchableOpacity onPress={handleCancelPairing} style={styles.cancelPairingButton}>
-            <Ionicons name="close-circle" size={16} color="#EF4444" />
-            <Text style={styles.cancelPairingText}>{t('cancel')}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      
-      {/* Exercise list */}
-      <ScrollView 
-        style={styles.exercisesList}
-        contentContainerStyle={styles.exercisesListContent}
-        showsVerticalScrollIndicator={false}
-      >
+
+        {/* Error Display */}
+        {errors.exercises && (
+          <View style={[styles.errorContainer, { backgroundColor: '#EF444420' }]}>
+            <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+            <Text style={[styles.errorText, { color: '#EF4444' }]}>
+              {errors.exercises}
+            </Text>
+          </View>
+        )}
+
+        {/* Add Exercise Button */}
+        <TouchableOpacity
+          style={[
+            styles.addExerciseButton,
+            { 
+              backgroundColor: `${workoutPalette.highlight}15`,
+              borderColor: workoutPalette.highlight,
+            }
+          ]}
+          onPress={() => setExerciseSelectorVisible(true)}
+        >
+          <Ionicons name="add-circle" size={24} color={workoutPalette.highlight} />
+          <Text style={[styles.addExerciseText, { color: workoutPalette.highlight }]}>
+            {t('add_exercise')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Exercises List */}
         {formData.exercises.length > 0 ? (
-          formData.exercises.map((exercise, index) => (
-            <Animated.View 
-              key={index} 
-              style={[
-                styles.exerciseCard,
-                draggedExerciseIndex === index && {
-                  transform: [{ translateY: pan.y }],
-                  elevation: 5,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                },
-                exercise.is_superset && styles.supersetCard
-              ]}
-              {...(draggedExerciseIndex === index ? panResponder.panHandlers : {})}
-            >
-              <TouchableOpacity
-                style={styles.exerciseHeader}
-                onPress={() => handleEditExercise(index)}
-                onLongPress={() => handleStartDrag(index)}
-                delayLongPress={200}
-              >
-                <View style={styles.exerciseNameContainer}>
-                  {exercise.is_superset && (
-                    <View style={styles.supersetBadge}>
-                      <Ionicons name="link" size={12} color="#0ea5e9" />
-                      <Text style={styles.supersetBadgeText}>{t('superset')}</Text>
-                    </View>
-                  )}
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                </View>
-                <Text style={styles.setCount}>
-                  {exercise.sets.length} {exercise.sets.length === 1 ? t('set') : t('sets')}
-                </Text>
-              </TouchableOpacity>
-              
-              <View style={styles.exerciseDetails}>
-                {/* First set info as summary */}
-                <View style={styles.setInfo}>
-                  <View style={styles.setInfoItem}>
-                    <Text style={styles.setInfoLabel}>{t('reps')}:</Text>
-                    <Text style={styles.setInfoValue}>{exercise.sets[0].reps}</Text>
-                  </View>
-                  <View style={styles.setInfoItem}>
-                    <Text style={styles.setInfoLabel}>{t('weight')}:</Text>
-                    <Text style={styles.setInfoValue}>
-                      {exercise.sets[0].weight > 0 ? `${exercise.sets[0].weight}kg` : '-'}
-                    </Text>
-                  </View>
-                  <View style={styles.setInfoItem}>
-                    <Text style={styles.setInfoLabel}>{t('rest')}:</Text>
-                    <Text style={styles.setInfoValue}>
-                      {formatRestTime(exercise.sets[0].rest_time)}
-                    </Text>
-                  </View>
-                </View>
-                
-                {/* Exercise notes preview if they exist */}
-                {exercise.notes && (
-                  <Text style={styles.exerciseNotes} numberOfLines={1}>
-                    {exercise.notes}
-                  </Text>
-                )}
-              </View>
-              
-              {/* Superset info */}
-              {exercise.is_superset && exercise.superset_with !== null && (
-                <View style={styles.supersetContainer}>
-                  <Text style={styles.supersetPairText}>
-                    {t('paired_with')}: {getPairedExerciseName(exercise)}
-                  </Text>
-                  <Text style={styles.supersetRestText}>
-                    {t('superset_rest')}: {formatRestTime(exercise.superset_rest_time || 90)}
-                  </Text>
-                </View>
-              )}
-              
-              {/* Controls */}
-              <View style={styles.exerciseControls}>
-                {pairingMode ? (
-                  pairingSourceIndex !== index ? (
-                    // Target exercise for pairing
-                    <TouchableOpacity
-                      style={styles.pairButton}
-                      onPress={() => handlePairExercises(index)}
-                    >
-                      <Ionicons name="link" size={16} color="#0ea5e9" />
-                      <Text style={styles.controlText}>{t('pair_as_superset')}</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    // Source exercise (cancel pairing)
-                    <TouchableOpacity
-                      style={styles.cancelButton}
-                      onPress={handleCancelPairing}
-                    >
-                      <Ionicons name="close-circle" size={16} color="#EF4444" />
-                      <Text style={[styles.controlText, styles.removeText]}>{t('cancel')}</Text>
-                    </TouchableOpacity>
-                  )
-                ) : (
-                  // Regular controls
-                  <>
-                    <TouchableOpacity
-                      style={styles.controlButton}
-                      onPress={() => handleEditExercise(index)}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#0ea5e9" />
-                      <Text style={styles.controlText}>{t('edit')}</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
-                      style={styles.controlButton}
-                      onPress={() => handleRemoveExercise(index)}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                      <Text style={[styles.controlText, styles.removeText]}>{t('remove')}</Text>
-                    </TouchableOpacity>
-                    
-                    {exercise.is_superset ? (
-                      <TouchableOpacity
-                        style={styles.controlButton}
-                        onPress={() => handleRemoveSuperset(index)}
-                      >
-                        <Ionicons name="link-off" size={16} color="#EF4444" />
-                        <Text style={[styles.controlText, styles.removeText]}>{t('remove_superset')}</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.controlButton}
-                        onPress={() => handleStartPairing(index)}
-                      >
-                        <Ionicons name="link" size={16} color="#0ea5e9" />
-                        <Text style={styles.controlText}>{t('make_superset')}</Text>
-                      </TouchableOpacity>
-                    )}
-                    
-                    <View style={styles.orderControls}>
-                      <TouchableOpacity
-                        style={[
-                          styles.orderButton,
-                          index === 0 && styles.orderButtonDisabled
-                        ]}
-                        onPress={() => handleMoveExercise(index, 'up')}
-                        disabled={index === 0}
-                      >
-                        <Ionicons name="chevron-up" size={16} color={index === 0 ? "#6B7280" : "#0ea5e9"} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.orderButton,
-                          index === formData.exercises.length - 1 && styles.orderButtonDisabled
-                        ]}
-                        onPress={() => handleMoveExercise(index, 'down')}
-                        disabled={index === formData.exercises.length - 1}
-                      >
-                        <Ionicons name="chevron-down" size={16} color={index === formData.exercises.length - 1 ? "#6B7280" : "#0ea5e9"} />
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-              </View>
-            </Animated.View>
-          ))
+          <View style={styles.exercisesList}>
+            {formData.exercises.map((exercise, index) => (
+              <ExerciseCard
+                key={`exercise-${exercise.id || index}`}
+                exercise={exercise}
+                index={index}
+                exercises={formData.exercises}
+                colors={colors}
+                canEdit={true}
+                onEdit={() => handleEditExercise(exercise, index)}
+                onDelete={() => handleDeleteExercise(index)}
+                onCreateSuperset={() => handleCreateSuperset(index)}
+                onBreakSuperset={() => handleBreakSuperset(index)}
+                t={t}
+              />
+            ))}
+          </View>
         ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="barbell-outline" size={48} color="#6B7280" />
-            <Text style={styles.emptyStateText}>{t('no_exercises_yet')}</Text>
-            <Text style={styles.emptyStateSubtext}>{t('tap_to_add_exercises')}</Text>
+          <View style={[styles.emptyState, { backgroundColor: palette.card_background }]}>
+            <Ionicons name="barbell-outline" size={64} color={palette.text_tertiary} />
+            <Text style={[styles.emptyStateTitle, { color: palette.text }]}>
+              {t('no_exercises_added')}
+            </Text>
+            <Text style={[styles.emptyStateSubtitle, { color: palette.text_tertiary }]}>
+              {t('tap_add_exercise_to_get_started')}
+            </Text>
+          </View>
+        )}
+
+        {/* Exercise Count Summary */}
+        {formData.exercises.length > 0 && (
+          <View style={[styles.summaryContainer, { backgroundColor: palette.input_background }]}>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: palette.text_tertiary }]}>
+                {t('total_exercises')}:
+              </Text>
+              <Text style={[styles.summaryValue, { color: workoutPalette.text }]}>
+                {formData.exercises.length}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: palette.text_tertiary }]}>
+                {t('total_sets')}:
+              </Text>
+              <Text style={[styles.summaryValue, { color: workoutPalette.text }]}>
+                {formData.exercises.reduce((total, ex) => total + ex.sets.length, 0)}
+              </Text>
+            </View>
           </View>
         )}
       </ScrollView>
-      
-      {/* Add exercise button */}
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={handleAddExercise}
-      >
-        <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.addButtonText}>{t('add_exercise')}</Text>
-      </TouchableOpacity>
-      
-      {/* ExerciseSelector Modal */}
+
+      {/* Exercise Selector Modal */}
       <ExerciseSelector
         visible={exerciseSelectorVisible}
         onClose={() => setExerciseSelectorVisible(false)}
         onSelectExercise={handleSelectExercise}
-        recentExercises={recentExercises}
+        recentExercises={recentExerciseNames || []}
       />
-      
-      {/* Exercise edit modal */}
-      <Modal
-        visible={editModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalContainer}
-        >
-          <View style={[
-            styles.modalContent,
-            keyboardVisible && { height: Platform.OS === 'ios' ? '90%' : '95%' }
-          ]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editExerciseIndex !== null ? t('edit_exercise') : t('configure_exercise')}
-              </Text>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setEditModalVisible(false)}
-              >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView
-              style={styles.editModalScroll}
-              contentContainerStyle={[
-                styles.editModalContent,
-                { paddingBottom: keyboardVisible ? keyboardHeight + 100 : 100 }
-              ]}
-              showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="interactive"
-            >
-              {/* Exercise name */}
-              <View style={styles.exerciseNameContainer}>
-                <Text style={styles.exerciseEditLabel}>{t('exercise_name')}</Text>
-                <TextInput
-                  style={styles.exerciseNameInput}
-                  value={currentExerciseName}
-                  onChangeText={setCurrentExerciseName}
-                  placeholder={t('enter_exercise_name')}
-                  placeholderTextColor="#9CA3AF"
-                  selectionColor="#0ea5e9"
-                />
-              </View>
-              
-              {/* Superset information if applicable */}
-              {currentExerciseIsSuperset && currentSupersetWithExercise !== null && (
-                <View style={styles.supersetInfoSection}>
-                  <Text style={styles.exerciseEditLabel}>{t('superset_info')}</Text>
-                  <View style={styles.supersetInfoContent}>
-                    <Ionicons name="link" size={16} color="#0ea5e9" style={{ marginRight: 8 }} />
-                    <Text style={styles.supersetInfoText}>
-                      {t('paired_with')}: {getPairedExerciseName({
-                        order: editExerciseIndex !== null ? formData.exercises[editExerciseIndex]?.order : 0,
-                        superset_with: currentSupersetWithExercise
-                      } as Exercise)}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.supersetRestTimeSection}>
-                    <Text style={styles.exerciseEditLabel}>{t('superset_rest_time')} (s)</Text>
-                    <TextInput
-                      style={styles.supersetRestTimeInput}
-                      value={currentSupersetRestTime.toString()}
-                      onChangeText={(text) => setCurrentSupersetRestTime(parseInt(text) || 90)}
-                      keyboardType="number-pad"
-                      maxLength={3}
-                    />
-                  </View>
-                </View>
-              )}
-              
-              {/* Rest time toggle */}
-              <View style={styles.restTimeToggleContainer}>
-                <Text style={styles.exerciseEditLabel}>{t('rest_time')}</Text>
-                <View style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{restTimeEnabled ? t('enabled') : t('disabled')}</Text>
-                  <Switch
-                    value={restTimeEnabled}
-                    onValueChange={handleToggleRestTime}
-                    trackColor={{ false: '#374151', true: 'rgba(14, 165, 233, 0.4)' }}
-                    thumbColor={restTimeEnabled ? '#0ea5e9' : '#6B7280'}
-                  />
-                </View>
-              </View>
-              
-              {/* Sets section */}
-              <View style={styles.setsSection}>
-                <View style={styles.setsSectionHeader}>
-                  <Text style={styles.exerciseEditLabel}>{t('sets')}</Text>
-                  <TouchableOpacity
-                    style={styles.addSetButton}
-                    onPress={handleAddSet}
-                  >
-                    <Ionicons name="add" size={16} color="#0ea5e9" />
-                    <Text style={styles.addSetText}>{t('add_set')}</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                {/* Sets header */}
-                <View style={styles.setsHeader}>
-                  <Text style={[styles.setHeaderText, { flex: 0.5 }]}>{t('set')}</Text>
-                  <Text style={styles.setHeaderText}>{t('reps')}</Text>
-                  <Text style={styles.setHeaderText}>{t('weight')} (kg)</Text>
-                  {restTimeEnabled && (
-                    <Text style={styles.setHeaderText}>{t('rest')} (s)</Text>
-                  )}
-                  <View style={{ width: 40 }} />
-                </View>
-                
-                {/* Set rows */}
-                {currentExerciseSets.map((set, index) => (
-                  <View key={index} style={styles.setRow}>
-                    <Text style={[styles.setNumberText, { flex: 0.5 }]}>{index + 1}</Text>
-                    
-                    <View style={styles.setInputContainer}>
-                      <TextInput
-                        style={styles.setInput}
-                        value={set.reps.toString()}
-                        onChangeText={(text) => handleUpdateSet(index, 'reps', parseInt(text) || 0)}
-                        keyboardType="number-pad"
-                        maxLength={3}
-                      />
-                    </View>
-                    
-                    <View style={styles.setInputContainer}>
-                      <TextInput
-                        style={styles.setInput}
-                        value={set.weight > 0 ? set.weight.toString() : ''}
-                        onChangeText={(text) => handleUpdateSet(index, 'weight', parseFloat(text) || 0)}
-                        keyboardType="decimal-pad"
-                        maxLength={5}
-                        placeholder="0"
-                        placeholderTextColor="#6B7280"
-                      />
-                    </View>
-                    
-                    {restTimeEnabled && (
-                      <View style={styles.setInputContainer}>
-                        <TextInput
-                          style={styles.setInput}
-                          value={set.rest_time.toString()}
-                          onChangeText={(text) => handleUpdateSet(index, 'rest_time', parseInt(text) || 0)}
-                          keyboardType="number-pad"
-                          maxLength={3}
-                        />
-                      </View>
-                    )}
-                    
-                    <TouchableOpacity
-                      style={[
-                        styles.removeSetButton, 
-                        currentExerciseSets.length === 1 && styles.removeSetButtonDisabled
-                      ]}
-                      onPress={() => handleRemoveSet(index)}
-                      disabled={currentExerciseSets.length === 1}
-                    >
-                      <Ionicons 
-                        name="trash-outline" 
-                        size={16} 
-                        color={currentExerciseSets.length === 1 ? "#6B7280" : "#EF4444"} 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-              
-              {/* Notes section */}
-              <View style={styles.notesSection}>
-                <Text style={styles.exerciseEditLabel}>{t('notes')} ({t('optional')})</Text>
-                <TextInput
-                  style={styles.notesInput}
-                  value={currentExerciseNotes}
-                  onChangeText={setCurrentExerciseNotes}
-                  placeholder={t('exercise_notes_placeholder')}
-                  placeholderTextColor="#9CA3AF"
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
-              </View>
-            </ScrollView>
-            
-            {/* Save button */}
-            <TouchableOpacity
-              style={[
-                styles.saveExerciseButton,
-                keyboardVisible && { bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }
-              ]}
-              onPress={handleSaveExercise}
-            >
-              <Ionicons name="save-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.saveExerciseText}>{t('save_exercise')}</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+      {/* Exercise Configurator Modal */}
+      {editingExercise && (
+        <ExerciseConfigurator
+          visible={exerciseConfiguratorVisible}
+          onClose={() => {
+            setExerciseConfiguratorVisible(false);
+            setEditingExercise(null);
+            setEditingIndex(-1);
+          }}
+          onSave={handleSaveExercise}
+          exercise={editingExercise}
+          isEdit={editingIndex !== -1}
+        />
+      )}
     </View>
   );
 };
@@ -934,463 +450,93 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    marginBottom: 4,
   },
-  countBadge: {
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 22,
   },
-  countText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0ea5e9',
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   errorText: {
-    color: '#EF4444',
     fontSize: 14,
-    marginBottom: 16,
+    marginLeft: 8,
+    flex: 1,
+  },
+  addExerciseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    marginBottom: 20,
+  },
+  addExerciseText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   exercisesList: {
-    flex: 1,
+    marginBottom: 20,
   },
-  exercisesListContent: {
-    paddingBottom: 80, // Add padding for button
-  },
-  exerciseCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 12,
-  },
-  supersetCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#0ea5e9',
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  exerciseNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  supersetBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  supersetBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#0ea5e9',
-    marginLeft: 2,
-  },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  setCount: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0ea5e9',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  exerciseDetails: {
-    marginBottom: 8,
-  },
-  setInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  setInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  setInfoLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginRight: 4,
-  },
-  setInfoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#E5E7EB',
-  },
-  exerciseNotes: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    color: '#9CA3AF',
-  },
-  // Superset info styles
-  supersetContainer: {
-    marginTop: 4,
-    marginBottom: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  supersetPairText: {
-    fontSize: 13,
-    color: '#E5E7EB',
-    marginBottom: 4,
-  },
-  supersetRestText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  pairingModeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  pairingModeText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0ea5e9',
-    marginLeft: 8,
-  },
-  cancelPairingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  cancelPairingText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#EF4444',
-    marginLeft: 4,
-  },
-  exerciseControls: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    paddingTop: 8,
-    marginTop: 4,
-    justifyContent: 'space-between',
-  },
-  controlButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  controlText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#0ea5e9',
-    marginLeft: 4,
-  },
-  removeText: {
-    color: '#EF4444',
-  },
-  orderControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  orderButton: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  orderButtonDisabled: {
-    opacity: 0.5,
-  },
-  pairButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
+  
+  // Empty state and summary styles
   emptyState: {
-    backgroundColor: '#1F2937',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
     borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 20,
   },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#E5E7EB',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  addButton: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#0284c7',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#111827',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 20,
-    height: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  modalTitle: {
+  emptyStateTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  modalCloseButton: {
-    padding: 4,
+  emptyStateSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  
-  // Edit modal styles
-  editModalScroll: {
-    flex: 1,
-  },
-  editModalContent: {
+  summaryContainer: {
     padding: 16,
-    paddingBottom: 100, // Space for save button
-  },
-  exerciseNameContainer: {
+    borderRadius: 12,
     marginBottom: 20,
   },
-  exerciseEditLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#E5E7EB',
-    marginBottom: 8,
-  },
-  exerciseNameInput: {
-    backgroundColor: '#1F2937',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  
-  // Superset info in edit modal
-  supersetInfoSection: {
-    marginBottom: 16,
-    backgroundColor: 'rgba(14, 165, 233, 0.05)',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#0ea5e9',
-  },
-  supersetInfoContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  supersetInfoText: {
-    fontSize: 14,
-    color: '#E5E7EB',
-    flex: 1,
-  },
-  supersetRestTimeSection: {
-    marginTop: 4,
-  },
-  supersetRestTimeInput: {
-    backgroundColor: '#1F2937',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  
-  // Rest time toggle
-  restTimeToggleContainer: {
-    marginBottom: 20,
-  },
-  toggleRow: {
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1F2937',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  
-  // Sets section
-  setsSection: {
-    marginBottom: 20,
-  },
-  setsSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  addSetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  addSetText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0ea5e9',
-    marginLeft: 4,
-  },
-  setsHeader: {
-    flexDirection: 'row',
     marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
-  setHeaderText: {
-    flex: 1,
-    fontSize: 12,
+  summaryLabel: {
+    fontSize: 14,
     fontWeight: '500',
-    color: '#9CA3AF',
-    textAlign: 'center',
   },
-  setRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  setNumberText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0ea5e9',
-    textAlign: 'center',
-  },
-  setInputContainer: {
-    flex: 1,
-    paddingHorizontal: 4,
-  },
-  setInput: {
-    backgroundColor: '#1F2937',
-    borderRadius: 6,
-    height: 38,
-    paddingHorizontal: 8,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  removeSetButton: {
-    width: 40,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeSetButtonDisabled: {
-    opacity: 0.5,
-  },
-  
-  // Notes section
-  notesSection: {
-    marginBottom: 20,
-  },
-  notesInput: {
-    backgroundColor: '#1F2937',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#FFFFFF',
-    minHeight: 80,
-  },
-  
-  // Save button
-  saveExerciseButton: {
-    position: 'absolute',
-    bottom: 20,
-    left: 16,
-    right: 16,
-    backgroundColor: '#0284c7',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-  },
-  saveExerciseText: {
+  summaryValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
   },
 });
 

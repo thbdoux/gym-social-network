@@ -31,11 +31,31 @@ import {
 // Utility functions
 import { SupersetManager } from '../../../components/workouts/utils/SupersetManager';
 
-// Default set template for new exercises
-const DEFAULT_SET = {
-  reps: 10,
-  weight: 0,
-  rest_time: 60 // 60 seconds
+// Default set templates for different effort types
+const getDefaultSetForEffortType = (effortType: 'reps' | 'time' | 'distance') => {
+  switch (effortType) {
+    case 'time':
+      return {
+        duration: 30, // 30 seconds
+        weight: 0,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+    case 'distance':
+      return {
+        distance: 1000, // 1000 meters
+        duration: 300, // 5 minutes
+        rest_time: 60
+      };
+    case 'reps':
+    default:
+      return {
+        reps: 10,
+        weight: 0,
+        weight_unit: 'kg',
+        rest_time: 60
+      };
+  }
 };
 
 type ExerciseManagerProps = {
@@ -78,8 +98,16 @@ const ExerciseManager = ({
   // Initialize local exercises from props
   useEffect(() => {
     if (visible && exercises) {
-      // Create a deep copy to avoid modifying the original
-      setLocalExercises(JSON.parse(JSON.stringify(exercises)));
+      // Create a deep copy and ensure effort types and weight units are set
+      const exercisesWithDefaults = exercises.map(exercise => ({
+        ...exercise,
+        effort_type: exercise.effort_type || 'reps', // Default to reps if not set
+        sets: exercise.sets.map(set => ({
+          ...set,
+          weight_unit: set.weight_unit || 'kg' // Default to kg if not set
+        }))
+      }));
+      setLocalExercises(JSON.parse(JSON.stringify(exercisesWithDefaults)));
     }
   }, [visible, exercises]);
   
@@ -160,15 +188,25 @@ const ExerciseManager = ({
     setExerciseSelectorVisible(true);
   };
   
-  // Handle selecting an exercise from the selector
-  const handleSelectExercise = (exerciseName) => {
-    // Create a new exercise with the selected name
-    const newExerciseId = Date.now(); // Simple ID generation
+  // Handle selecting an exercise from the selector - updated to work with enhanced ExerciseSelector
+  const handleSelectExercise = (selectedExercise) => {
+    // Extract effort type and create appropriate default sets
+    const effortType = selectedExercise.effort_type || 'reps';
+    const defaultSet = getDefaultSetForEffortType(effortType);
+    
+    // Create a new exercise with the selected data
+    const newExerciseId = Date.now(); // Simple ID generation for local state
     const newExercise = {
       id: newExerciseId,
-      name: exerciseName,
-      sets: [{ ...DEFAULT_SET }],
-      order: localExercises.length
+      name: selectedExercise.name,
+      equipment: selectedExercise.equipment || '',
+      effort_type: effortType,
+      sets: [{ 
+        ...defaultSet,
+        id: Date.now() + Math.floor(Math.random() * 1000)
+      }],
+      order: localExercises.length,
+      notes: selectedExercise.notes || ''
     };
     
     // Add to local exercises
@@ -189,7 +227,7 @@ const ExerciseManager = ({
     setExerciseConfiguratorVisible(true);
   };
   
-  // Handle saving an edited exercise
+  // Handle saving an edited exercise - updated to handle effort types
   const handleSaveExercise = (exercise) => {
     if (currentExercise?.id) {
       // Update existing exercise in local state
@@ -203,11 +241,16 @@ const ExerciseManager = ({
       // Create a deep copy of the exercises array
       const updatedExercises = JSON.parse(JSON.stringify(localExercises));
       
-      // Update the exercise
+      // Update the exercise with proper effort type and sets
       updatedExercises[exerciseIndex] = {
         ...exercise,
         id: currentExercise.id,
-        order: currentExercise.order
+        order: currentExercise.order,
+        effort_type: exercise.effort_type || currentExercise.effort_type || 'reps',
+        sets: exercise.sets.map(set => ({
+          ...set,
+          weight_unit: set.weight_unit || 'kg'
+        }))
       };
       
       // Update local state
@@ -219,7 +262,12 @@ const ExerciseManager = ({
       const newExercise = {
         ...exercise,
         id: newExerciseId,
-        order: localExercises.length
+        order: localExercises.length,
+        effort_type: exercise.effort_type || 'reps',
+        sets: exercise.sets.map(set => ({
+          ...set,
+          weight_unit: set.weight_unit || 'kg'
+        }))
       };
       
       setLocalExercises([...localExercises, newExercise]);
@@ -350,7 +398,7 @@ const ExerciseManager = ({
     setHasUnsavedChanges(true);
   };
   
-  // Handle updating exercise sets
+  // Handle updating exercise sets with effort type awareness
   const handleAddSet = (exercise) => {
     const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
     if (exerciseIndex === -1) return;
@@ -358,13 +406,30 @@ const ExerciseManager = ({
     // Create a deep copy of the exercises array
     const updatedExercises = JSON.parse(JSON.stringify(localExercises));
     
-    // Get last set for reference or create default
+    // Get last set for reference or create default based on effort type
+    const effortType = exercise.effort_type || 'reps';
     const lastSet = exercise.sets.length > 0 
-      ? {...exercise.sets[exercise.sets.length - 1]} 
-      : { ...DEFAULT_SET };
+      ? exercise.sets[exercise.sets.length - 1] 
+      : getDefaultSetForEffortType(effortType);
+    
+    // Create new set with unique ID and values from last set (but not the ID)
+    const newSet = {
+      id: Date.now() + Math.floor(Math.random()*1000), // Generate unique ID
+      ...getDefaultSetForEffortType(effortType), // Start with defaults for effort type
+      // Override with values from last set if they exist
+      ...(lastSet.reps !== undefined && { reps: lastSet.reps }),
+      ...(lastSet.weight !== undefined && { weight: lastSet.weight }),
+      ...(lastSet.weight_unit && { weight_unit: lastSet.weight_unit }),
+      ...(lastSet.duration !== undefined && { duration: lastSet.duration }),
+      ...(lastSet.distance !== undefined && { distance: lastSet.distance }),
+      rest_time: lastSet.rest_time || 60,
+      // Copy any other properties that should be carried over (excluding id)
+      ...(lastSet.notes && { notes: lastSet.notes }),
+      ...(lastSet.completed !== undefined && { completed: lastSet.completed })
+    };
     
     // Add the new set
-    updatedExercises[exerciseIndex].sets.push(lastSet);
+    updatedExercises[exerciseIndex].sets.push(newSet);
     
     // Update local state
     setLocalExercises(updatedExercises);
@@ -398,7 +463,7 @@ const ExerciseManager = ({
     // Create a deep copy of the exercises array
     const updatedExercises = JSON.parse(JSON.stringify(localExercises));
     
-    // Update the specific set
+    // Update the specific set field
     updatedExercises[exerciseIndex].sets[setIndex][field] = value;
     
     // Update local state
@@ -415,6 +480,36 @@ const ExerciseManager = ({
     
     // Update the notes
     updatedExercises[exerciseIndex].notes = notes;
+    
+    // Update local state
+    setLocalExercises(updatedExercises);
+    setHasUnsavedChanges(true);
+  };
+
+  // Handle changing exercise effort type
+  const handleUpdateExerciseEffortType = (exercise, newEffortType) => {
+    const exerciseIndex = localExercises.findIndex(e => e.id === exercise.id);
+    if (exerciseIndex === -1) return;
+    
+    // Create a deep copy of the exercises array
+    const updatedExercises = JSON.parse(JSON.stringify(localExercises));
+    
+    // Update the effort type
+    updatedExercises[exerciseIndex].effort_type = newEffortType;
+    
+    // Convert existing sets to new effort type or add default values
+    updatedExercises[exerciseIndex].sets = updatedExercises[exerciseIndex].sets.map(set => {
+      const defaultSet = getDefaultSetForEffortType(newEffortType);
+      return {
+        ...set,
+        ...defaultSet, // Apply new defaults
+        // Keep some existing values that make sense
+        rest_time: set.rest_time || defaultSet.rest_time,
+        weight_unit: set.weight_unit || defaultSet.weight_unit || 'kg',
+        // Keep weight if it exists and the new type supports it
+        ...(newEffortType !== 'distance' && set.weight !== undefined && { weight: set.weight })
+      };
+    });
     
     // Update local state
     setLocalExercises(updatedExercises);
@@ -511,6 +606,7 @@ const ExerciseManager = ({
                       handleUpdateSet(exercise, setIndex, field, value)
                     }
                     onUpdateNotes={(notes) => handleUpdateExerciseNotes(exercise, notes)}
+                    onUpdateEffortType={(effortType) => handleUpdateExerciseEffortType(exercise, effortType)}
                     onSelect={() => pairingMode && handleSelectPair(index)}
                   />
                 );
@@ -544,7 +640,7 @@ const ExerciseManager = ({
             onSelectExercise={handleSelectExercise}
           />
           
-          {/* Exercise Configurator Modal */}
+          {/* Exercise Configurator Modal - updated with effort type props */}
           {currentExercise && (
             <ExerciseConfigurator
               visible={exerciseConfiguratorVisible}
@@ -553,6 +649,7 @@ const ExerciseManager = ({
               exerciseName={currentExercise?.name || ''}
               initialSets={currentExercise?.sets || []}
               initialNotes={currentExercise?.notes || ''}
+              initialEffortType={currentExercise?.effort_type || 'reps'}
               isSuperset={currentExercise?.is_superset || false}
               supersetWith={currentExercise?.superset_with || null}
               supersetRestTime={currentExercise?.superset_rest_time || 90}

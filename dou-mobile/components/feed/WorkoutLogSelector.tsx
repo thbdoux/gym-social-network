@@ -118,9 +118,6 @@ const WorkoutLogSelector: React.FC<WorkoutLogSelectorProps> = ({
       <Text style={styles.emptyTitle}>
         {searchQuery ? t('no_matching_workouts') : t('no_workouts_logged')}
       </Text>
-      <Text style={styles.emptyMessage}>
-        {searchQuery ? t('adjust_workout_search') : t('workouts_will_appear')}
-      </Text>
     </View>
   );
 

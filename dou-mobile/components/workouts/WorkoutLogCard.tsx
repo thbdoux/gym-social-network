@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGym } from '../../hooks/query/useGymQuery';
 import { useTheme } from '../../context/ThemeContext';
-
+import { OverlappedAvatars } from './../shared/OverlappedAvatars' ;
 interface WorkoutLogCardProps {
   logId: number;
   log: {
@@ -31,6 +31,7 @@ interface WorkoutLogCardProps {
     exercises?: any[];
     duration?: number;
     notes?: string;
+    workout_partners?: any[];
   };
   user: string;
   inFeedMode?: boolean;
@@ -58,7 +59,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
   disableNavigation = false,
   onWorkoutLogClick,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { workoutLogPalette } = useTheme();
   const isOwner = user === log.username;
   // Animation for selection mode
@@ -136,14 +137,14 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
       // Check if date is in DD/MM/YYYY format
       if (typeof dateString === 'string' && dateString.includes('/')) {
         const [day, month, year] = dateString.split('/');
-        return new Date(`${year}-${month}-${day}`).toLocaleDateString(undefined, { 
+        return new Date(`${year}-${month}-${day}`).toLocaleDateString(language, { 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric' 
         });
       }
       // Otherwise try standard parsing
-      return new Date(dateString).toLocaleDateString(undefined, { 
+      return new Date(dateString).toLocaleDateString(language, { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
@@ -228,9 +229,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
           isSelected && [styles.selectedContainer, { borderColor: workoutLogPalette.text }]
         ]}
       >
-        {/* Completed indicator strip */}
-        {log.completed && <View style={[styles.completedStrip, { backgroundColor: workoutLogPalette.text }]} />}
-        
+ 
         {/* Selection indicator */}
         {selectionMode && (
           <View style={styles.selectionIndicator}>
@@ -288,12 +287,7 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
               <Text style={[styles.dateText, { color: workoutLogPalette.text }]}>
                 {formatDate(log.date)}
               </Text>
-              <View style={[
-                styles.statusDot,
-                log.completed 
-                  ? [styles.completedDot, { backgroundColor: workoutLogPalette.text }] 
-                  : [styles.pendingDot, { backgroundColor: 'rgba(255, 255, 255, 0.5)' }]
-              ]} />
+              
             </View>
             
             {gym ? (
@@ -323,50 +317,6 @@ const WorkoutLogCard: React.FC<WorkoutLogCardProps> = ({
             </View>
           )}
           
-          {/* Stats row
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
-                {t('exercises')}
-              </Text>
-              <Text style={[styles.statValue, { color: workoutLogPalette.text }]}>
-                {exerciseCount}
-              </Text>
-            </View>
-            
-            {log.duration && (
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
-                  {t('duration')}
-                </Text>
-                <Text style={[styles.statValue, { color: workoutLogPalette.text }]}>
-                  {`${log.duration}m`}
-                </Text>
-              </View>
-            )}
-            
-            {log.mood_rating && (
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
-                  {t('mood')}
-                </Text>
-                <Text style={styles.moodValue}>
-                  {getMoodEmoji(log.mood_rating)}
-                </Text>
-              </View>
-            )}
-            
-            {log.perceived_difficulty && (
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: workoutLogPalette.text_secondary }]}>
-                  {t('difficulty')}
-                </Text>
-                <Text style={styles.difficultyValue}>
-                  {getDifficultyIndicator(log.perceived_difficulty)}
-                </Text>
-              </View>
-            )}
-          </View> */}
         </View>
       </TouchableOpacity>
     </Animated.View>

@@ -8,6 +8,7 @@ import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { useLanguage } from '../../../context/LanguageContext';
 import { testCustomDateParsing } from './utils/debugUtils';
 import { useUserLogs } from '../../../hooks/query/useLogQuery';
+import DouLoadingScreen from '../../../components/shared/DouLoadingScreen';
 
 export default function AnalyticsScreen() {
   const { palette } = useTheme();
@@ -88,12 +89,12 @@ export default function AnalyticsScreen() {
       
       <View style={[styles.container, { backgroundColor: palette.page_background }]}>
         {!isReady ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={palette.highlight} />
-            <Text style={[styles.loadingText, { color: palette.text }]}>
-              {t('loading_analytics')}
-            </Text>
-          </View>
+          <DouLoadingScreen 
+            animationType="pulse"
+            text={t('loading_analytics')}
+            size="large"
+            preloadImages={true}
+          />
         ) : (
           <AnalyticsProvider>
             <AnalyticsCharts />

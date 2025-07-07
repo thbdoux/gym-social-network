@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.db.models import Count 
 from django.utils import timezone
 from django.db.models import Q
 
@@ -10,14 +11,18 @@ from .group_workouts import (
     GroupWorkout, 
     GroupWorkoutParticipant, 
     GroupWorkoutJoinRequest, 
-    GroupWorkoutMessage
+    GroupWorkoutMessage,
+    GroupWorkoutVote,
+    GroupWorkoutProposal
 )
 from .group_workout_serializers import (
     GroupWorkoutSerializer,
     GroupWorkoutDetailSerializer,
     GroupWorkoutParticipantSerializer,
     GroupWorkoutJoinRequestSerializer,
-    GroupWorkoutMessageSerializer
+    GroupWorkoutMessageSerializer,
+    GroupWorkoutProposalSerializer,
+    GroupWorkoutVoteSerializer
 )
 from .models import WorkoutLog
 from notifications.services import NotificationService
@@ -45,6 +50,19 @@ class GroupWorkoutViewSet(viewsets.ModelViewSet):
             'participants', 'join_requests', 'messages'
         )
         
+        # Check if a specific user_id is requested
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            try:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                target_user = User.objects.get(id=user_id)
+            except (User.DoesNotExist, ValueError):
+                # If user doesn't exist or invalid user_id, return empty queryset
+                return queryset.none()
+        else:
+            target_user = user
+        
         # Filter by status (active/past)
         status_filter = self.request.query_params.get('status')
         if status_filter == 'active':
@@ -61,27 +79,35 @@ class GroupWorkoutViewSet(viewsets.ModelViewSet):
         # Filter by participation
         participation = self.request.query_params.get('participation')
         if participation == 'created':
-            # Workouts created by the user
-            queryset = queryset.filter(creator=user)
+            # Workouts created by the target user
+            queryset = queryset.filter(creator=target_user)
         elif participation == 'joined':
-            # Workouts the user has joined
+            # Workouts the target user has joined
             queryset = queryset.filter(
-                participants__user=user,
+                participants__user=target_user,
                 participants__status='joined'
             )
         elif participation == 'invited':
-            # Workouts the user has been invited to
+            # Workouts the target user has been invited to
             queryset = queryset.filter(
-                participants__user=user,
+                participants__user=target_user,
                 participants__status='invited'
             )
         else:
-            # Default: Show public workouts and those the user is part of
-            queryset = queryset.filter(
-                Q(privacy='public') | 
-                Q(creator=user) |
-                Q(participants__user=user)
-            ).distinct()
+            # Default behavior depends on whether user_id was specified
+            if user_id and target_user != user:
+                # If viewing another user's workouts, only show public ones they're part of
+                queryset = queryset.filter(
+                    Q(privacy='public') & 
+                    (Q(creator=target_user) | Q(participants__user=target_user))
+                ).distinct()
+            else:
+                # Default: Show public workouts and those the user is part of
+                queryset = queryset.filter(
+                    Q(privacy='public') | 
+                    Q(creator=user) |
+                    Q(participants__user=user)
+                ).distinct()
         
         # Filter by gym
         gym_id = self.request.query_params.get('gym_id')
@@ -695,3 +721,283 @@ class GroupWorkoutViewSet(viewsets.ModelViewSet):
                 "message": "Group workout marked as completed and workout logs created.",
                 "created_logs": created_logs
             })
+
+    @action(detail=True, methods=['post'])
+    def propose(self, request, pk=None):
+        """Propose a workout template for a group workout"""
+        group_workout = self.get_object()
+        user = request.user
+        
+        # Check if user is a participant or creator
+        is_participant = GroupWorkoutParticipant.objects.filter(
+            group_workout=group_workout,
+            user=user,
+            status='joined'
+        ).exists()
+        
+        if not is_participant and user != group_workout.creator:
+            return Response(
+                {"detail": "You must be a participant to propose workouts."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get the workout template ID
+        workout_template_id = request.data.get('workout_template_id')
+        if not workout_template_id:
+            return Response(
+                {"detail": "Workout template ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if template exists
+        try:
+            from .models import WorkoutTemplate
+            workout_template = WorkoutTemplate.objects.get(id=workout_template_id)
+        except WorkoutTemplate.DoesNotExist:
+            return Response(
+                {"detail": "Workout template not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if already proposed
+        if GroupWorkoutProposal.objects.filter(
+            group_workout=group_workout,
+            workout_template=workout_template
+        ).exists():
+            return Response(
+                {"detail": "This workout template has already been proposed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create proposal
+        proposal = GroupWorkoutProposal.objects.create(
+            group_workout=group_workout,
+            workout_template=workout_template,
+            proposed_by=user
+        )
+        
+        # Auto-vote for your own proposal
+        GroupWorkoutVote.objects.create(
+            proposal=proposal,
+            user=user
+        )
+        
+        serializer = GroupWorkoutProposalSerializer(proposal, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def proposals(self, request, pk=None):
+        """Get all proposals for a group workout"""
+        group_workout = self.get_object()
+        
+        # Check if user can access
+        is_participant = GroupWorkoutParticipant.objects.filter(
+            group_workout=group_workout,
+            user=request.user,
+            status='joined'
+        ).exists()
+        
+        if not is_participant and request.user != group_workout.creator:
+            return Response(
+                {"detail": "You must be a participant to view proposals."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get proposals with vote counts
+        proposals = group_workout.proposals.annotate(
+            votes_count=Count('votes')
+        ).order_by('-votes_count', 'created_at')
+        
+        serializer = GroupWorkoutProposalSerializer(proposals, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def vote(self, request, pk=None):
+        """Vote for a workout proposal"""
+        group_workout = self.get_object()
+        user = request.user
+        
+        # Check if user can vote
+        is_participant = GroupWorkoutParticipant.objects.filter(
+            group_workout=group_workout,
+            user=user,
+            status='joined'
+        ).exists()
+        
+        if not is_participant and user != group_workout.creator:
+            return Response(
+                {"detail": "You must be a participant to vote."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get proposal ID
+        proposal_id = request.data.get('proposal_id')
+        if not proposal_id:
+            return Response(
+                {"detail": "Proposal ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if proposal exists
+        try:
+            proposal = GroupWorkoutProposal.objects.get(
+                id=proposal_id,
+                group_workout=group_workout
+            )
+        except GroupWorkoutProposal.DoesNotExist:
+            return Response(
+                {"detail": "Proposal not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Create vote if not already voted
+        vote, created = GroupWorkoutVote.objects.get_or_create(
+            proposal=proposal,
+            user=user
+        )
+        
+        if not created:
+            return Response(
+                {"detail": "You have already voted for this proposal."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = GroupWorkoutProposalSerializer(proposal, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['delete'])
+    def remove_vote(self, request, pk=None):
+        """Remove vote from a proposal"""
+        group_workout = self.get_object()
+        user = request.user
+        
+        proposal_id = request.data.get('proposal_id')
+        if not proposal_id:
+            return Response(
+                {"detail": "Proposal ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            proposal = GroupWorkoutProposal.objects.get(
+                id=proposal_id,
+                group_workout=group_workout
+            )
+        except GroupWorkoutProposal.DoesNotExist:
+            return Response(
+                {"detail": "Proposal not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Delete vote if exists
+        deleted, _ = GroupWorkoutVote.objects.filter(
+            proposal=proposal,
+            user=user
+        ).delete()
+        
+        if not deleted:
+            return Response(
+                {"detail": "You haven't voted for this proposal."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = GroupWorkoutProposalSerializer(proposal, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def most_voted_proposal(self, request, pk=None):
+        """Get the most voted proposal"""
+        group_workout = self.get_object()
+        
+        most_voted = group_workout.proposals.annotate(
+            votes_count=Count('votes')
+        ).order_by('-votes_count').first()
+        
+        if not most_voted:
+            return Response(
+                {"detail": "No proposals found for this group workout."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = GroupWorkoutProposalSerializer(most_voted, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
+    def user_group_workouts(self, request, user_id=None):
+        """Get all group workouts for a specific user"""
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            target_user = User.objects.get(id=user_id)
+        except (User.DoesNotExist, ValueError):
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Base queryset
+        queryset = GroupWorkout.objects.select_related(
+            'creator', 'gym', 'workout_template'
+        ).prefetch_related(
+            'participants', 'join_requests', 'messages'
+        )
+        
+        # Get participation filter
+        participation = request.query_params.get('participation', 'all')
+        
+        if participation == 'created':
+            queryset = queryset.filter(creator=target_user)
+        elif participation == 'joined':
+            queryset = queryset.filter(
+                participants__user=target_user,
+                participants__status='joined'
+            )
+        elif participation == 'invited':
+            queryset = queryset.filter(
+                participants__user=target_user,
+                participants__status='invited'
+            )
+        else:
+            # All workouts user is involved in (created or participating)
+            queryset = queryset.filter(
+                Q(creator=target_user) | 
+                Q(participants__user=target_user)
+            ).distinct()
+        
+        # Apply status filter
+        status_filter = request.query_params.get('status')
+        if status_filter == 'active':
+            queryset = queryset.filter(
+                Q(scheduled_time__gt=timezone.now()) & 
+                Q(status='scheduled')
+            )
+        elif status_filter == 'past':
+            queryset = queryset.filter(
+                Q(scheduled_time__lt=timezone.now()) | 
+                ~Q(status='scheduled')
+            )
+        
+        # Apply gym filter
+        gym_id = request.query_params.get('gym_id')
+        if gym_id:
+            queryset = queryset.filter(gym_id=gym_id)
+        
+        # Order by scheduled time
+        queryset = queryset.order_by('-scheduled_time')
+        
+        # Privacy check: if requesting another user's workouts, filter by visibility
+        if target_user != request.user:
+            queryset = queryset.filter(
+                Q(privacy='public') |
+                Q(creator=request.user) |
+                Q(participants__user=request.user)
+            ).distinct()
+        
+        # Paginate
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = GroupWorkoutSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = GroupWorkoutSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)

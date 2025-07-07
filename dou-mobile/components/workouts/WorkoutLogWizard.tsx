@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Import Steps
@@ -19,8 +20,33 @@ import Step2DateLocation from './workout-log-steps/Step2DateLocation';
 import StepExercises from './workout-steps/StepExercises'; // Reuse exercise step
 import Step4Feedback from './workout-log-steps/Step4Feedback';
 
-// Import types
-import { Exercise, ExerciseSet } from './WorkoutTemplateWizard';
+// Updated types to match the new structure
+export type ExerciseSet = {
+  id?: number;
+  reps?: number | null;
+  weight?: number | null;
+  weight_unit?: 'kg' | 'lbs';
+  weight_unit_display?: string;
+  weight_display?: string;
+  duration?: number | null;
+  distance?: number | null;
+  rest_time: number;
+  order?: number;
+};
+
+export type Exercise = {
+  id?: number;
+  name: string;
+  equipment?: string;
+  notes?: string;
+  order?: number;
+  effort_type?: 'reps' | 'time' | 'distance';
+  effort_type_display?: string;
+  superset_with?: number | null;
+  is_superset?: boolean;
+  superset_rest_time?: number;
+  sets: ExerciseSet[];
+};
 
 // Define workout log form data type
 export type WorkoutLogFormData = {
@@ -70,6 +96,7 @@ const WorkoutLogWizard = ({
   programId = null
 }: WorkoutLogWizardProps) => {
   const { t } = useLanguage();
+  const { workoutLogPalette, palette } = useTheme();
   
   // Initialize the form data with default values
   const getInitialFormData = (): WorkoutLogFormData => {
@@ -92,7 +119,7 @@ const WorkoutLogWizard = ({
       difficulty_level: 'moderate',
       mood_rating: 3,
       exercises: [],
-      program_id: logFromProgram ? programId : null, // Set program_id directly from programId prop
+      program_id: logFromProgram ? programId : null,
       program_workout_id: null,
       template_id: null,
       source_type: sourceType
@@ -104,8 +131,33 @@ const WorkoutLogWizard = ({
       formData.description = programWorkout.description || '';
       formData.duration_minutes = programWorkout.estimated_duration || 45;
       formData.difficulty_level = programWorkout.difficulty_level || 'moderate';
-      formData.exercises = programWorkout.exercises ? [...programWorkout.exercises] : [];
-      // Ensure program_id is set from prop first, fallback to programWorkout.program_id
+      
+      // Map exercises with updated structure
+      formData.exercises = programWorkout.exercises ? programWorkout.exercises.map((exercise: any) => ({
+        id: exercise.id,
+        name: exercise.name,
+        equipment: exercise.equipment || '',
+        notes: exercise.notes || '',
+        order: exercise.order || 0,
+        effort_type: exercise.effort_type || 'reps',
+        effort_type_display: exercise.effort_type_display,
+        superset_with: exercise.superset_with || null,
+        is_superset: exercise.is_superset || false,
+        superset_rest_time: exercise.superset_rest_time || 60,
+        sets: exercise.sets ? exercise.sets.map((set: any) => ({
+          id: set.id,
+          reps: set.reps,
+          weight: set.weight,
+          weight_unit: set.weight_unit || 'kg',
+          weight_unit_display: set.weight_unit_display,
+          weight_display: set.weight_display,
+          duration: set.duration,
+          distance: set.distance,
+          rest_time: set.rest_time || 60,
+          order: set.order || 0
+        })) : []
+      })) : [];
+      
       formData.program_id = programId || programWorkout.program_id || null;
       formData.program_workout_id = programWorkout.id || null;
     }
@@ -116,7 +168,33 @@ const WorkoutLogWizard = ({
       formData.description = template.description || '';
       formData.duration_minutes = template.estimated_duration || 45;
       formData.difficulty_level = template.difficulty_level || 'moderate';
-      formData.exercises = template.exercises ? [...template.exercises] : [];
+      
+      // Map exercises with updated structure
+      formData.exercises = template.exercises ? template.exercises.map((exercise: any) => ({
+        id: exercise.id,
+        name: exercise.name,
+        equipment: exercise.equipment || '',
+        notes: exercise.notes || '',
+        order: exercise.order || 0,
+        effort_type: exercise.effort_type || 'reps',
+        effort_type_display: exercise.effort_type_display,
+        superset_with: exercise.superset_with || null,
+        is_superset: exercise.is_superset || false,
+        superset_rest_time: exercise.superset_rest_time || 60,
+        sets: exercise.sets ? exercise.sets.map((set: any) => ({
+          id: set.id,
+          reps: set.reps,
+          weight: set.weight,
+          weight_unit: set.weight_unit || 'kg',
+          weight_unit_display: set.weight_unit_display,
+          weight_display: set.weight_display,
+          duration: set.duration,
+          distance: set.distance,
+          rest_time: set.rest_time || 60,
+          order: set.order || 0
+        })) : []
+      })) : [];
+      
       formData.template_id = template.id || null;
     }
     
@@ -263,7 +341,16 @@ const WorkoutLogWizard = ({
         program_id: updatedFormData.program_id ?? undefined,
         program_workout_id: updatedFormData.program_workout_id ?? undefined,
         template_id: updatedFormData.template_id ?? undefined,
-        gym: updatedFormData.gym_id
+        gym: updatedFormData.gym_id,
+        // Ensure exercises have proper structure for backend
+        exercises: updatedFormData.exercises.map(exercise => ({
+          ...exercise,
+          effort_type: exercise.effort_type || 'reps',
+          sets: exercise.sets.map(set => ({
+            ...set,
+            weight_unit: set.weight_unit || 'kg'
+          }))
+        }))
       };
       console.log('Submitting workout form data:', finalData);
       // Submit the form data
@@ -283,29 +370,31 @@ const WorkoutLogWizard = ({
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={palette.page_background} />
         
-        {/* Header with integrated progress bar */}
-        <View style={styles.header}>
+        {/* Smaller Header with integrated progress bar */}
+        <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.page_background }]}>
           <LinearGradient
-            colors={['#16a34a', '#22c55e']} // Green gradient for workout log theme
+            colors={[workoutLogPalette.background, workoutLogPalette.highlight]} // Green gradient for workout log theme
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerGradient}
           >
             <View style={styles.headerContent}>
               <View style={styles.titleContainer}>
-                <Text style={styles.title}>{t('log_workout')}</Text>
+                <Text style={[styles.title, { color: workoutLogPalette.text }]}>
+                  {t('log_workout')}
+                </Text>
               </View>
               
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color={workoutLogPalette.text} />
               </TouchableOpacity>
             </View>
           </LinearGradient>
           
-          {/* Progress bar */}
+          {/* Smaller Progress bar */}
           <View style={styles.progressContainer}>
             {steps.map((step, index) => (
               <React.Fragment key={index}>
@@ -321,15 +410,17 @@ const WorkoutLogWizard = ({
                   {/* Circle indicator */}
                   <View style={[
                     styles.stepCircle,
-                    index < currentStep ? styles.stepCompleted : 
-                    index === currentStep ? styles.stepCurrent : 
-                    styles.stepUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: workoutLogPalette.background } : 
+                      index === currentStep ? 
+                        { backgroundColor: workoutLogPalette.highlight } : 
+                        { backgroundColor: palette.input_background }
                   ]}>
                     <Text style={[
                       styles.stepNumber,
-                      index < currentStep ? styles.stepCompletedText : 
-                      index === currentStep ? styles.stepCurrentText : 
-                      styles.stepUpcomingText
+                      index < currentStep || index === currentStep ? 
+                        { color: '#FFFFFF' } : 
+                        { color: palette.text_tertiary }
                     ]}>
                       {index + 1}
                     </Text>
@@ -337,9 +428,11 @@ const WorkoutLogWizard = ({
                   
                   <Text style={[
                     styles.stepName,
-                    index < currentStep ? styles.stepCompletedText : 
-                    index === currentStep ? styles.stepCurrentText : 
-                    styles.stepUpcomingText
+                    index < currentStep ? 
+                      { color: workoutLogPalette.text } : 
+                      index === currentStep ? 
+                        { color: workoutLogPalette.text } : 
+                        { color: palette.text_tertiary }
                   ]}>
                     {step.name}
                   </Text>
@@ -349,7 +442,9 @@ const WorkoutLogWizard = ({
                 {index < steps.length - 1 && (
                   <View style={[
                     styles.stepConnector,
-                    index < currentStep ? styles.stepConnectorCompleted : styles.stepConnectorUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: workoutLogPalette.background } : 
+                      { backgroundColor: palette.input_background }
                   ]} />
                 )}
               </React.Fragment>
@@ -366,24 +461,30 @@ const WorkoutLogWizard = ({
           />
         </View>
         
-        {/* Footer with navigation buttons */}
-        <View style={styles.footer}>
+        {/* Smaller Footer with navigation buttons */}
+        <View style={[
+          styles.footer, 
+          { 
+            borderTopColor: palette.border,
+            backgroundColor: palette.page_background
+          }
+        ]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: palette.input_background }]}
             onPress={currentStep === 0 ? onClose : goToPrevStep}
           >
-            <Text style={styles.backButtonText}>
+            <Text style={[styles.backButtonText, { color: palette.text }]}>
               {currentStep === 0 ? t('cancel') : t('back')}
             </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.nextButton}
+            style={[styles.nextButton, { backgroundColor: workoutLogPalette.highlight }]}
             onPress={goToNextStep}
           >
             {currentStep === steps.length - 1 ? (
               <View style={styles.buttonContent}>
-                <Ionicons name="save-outline" size={18} height={18} color="#FFFFFF" />
+                <Ionicons name="save-outline" size={16} height={16} color="#FFFFFF" />
                 <Text style={styles.nextButtonText}>
                   {t('save_workout')}
                 </Text>
@@ -403,16 +504,13 @@ const WorkoutLogWizard = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   headerGradient: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8, // Reduced from 12
   },
   headerContent: {
     flexDirection: 'row',
@@ -424,20 +522,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18, // Reduced from 20
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   closeButton: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 6, // Reduced from 8
+    borderRadius: 6,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 8, // Reduced from 12
   },
   stepIndicator: {
     flexDirection: 'column',
@@ -448,49 +545,25 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28, // Reduced from 32
+    height: 28, // Reduced from 32
+    borderRadius: 14, // Reduced from 16
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 3, // Reduced from 4
   },
   stepName: {
-    fontSize: 10, // Smaller text for 4 steps
+    fontSize: 9, // Reduced from 10
     fontWeight: '500',
   },
-  stepCompleted: {
-    backgroundColor: '#16a34a', // green-600
-  },
-  stepCurrent: {
-    backgroundColor: '#22c55e', // green-500
-  },
-  stepUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
-  },
   stepNumber: {
-    fontSize: 14,
+    fontSize: 12, // Reduced from 14
     fontWeight: '600',
-  },
-  stepCompletedText: {
-    color: '#FFFFFF',
-  },
-  stepCurrentText: {
-    color: '#FFFFFF',
-  },
-  stepUpcomingText: {
-    color: '#6B7280', // gray-500
   },
   stepConnector: {
     width: (width - 260) / 3, // Dynamic width based on screen size (adjusted for 4 steps)
     height: 2,
-    marginTop: -20, // Position in the middle of circles
-  },
-  stepConnectorCompleted: {
-    backgroundColor: '#16a34a', // green-600
-  },
-  stepConnectorUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
+    marginTop: -17, // Adjusted for smaller circles
   },
   content: {
     flex: 1,
@@ -500,27 +573,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 12, // Reduced from 16
     borderTopWidth: 1,
-    borderTopColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   backButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#1F2937', // gray-800
-    borderRadius: 8,
+    paddingVertical: 8, // Reduced from 10
+    paddingHorizontal: 14, // Reduced from 16
+    borderRadius: 6, // Reduced from 8
   },
   backButtonText: {
-    color: '#E5E7EB', // gray-200
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 13, // Reduced from 14
   },
   nextButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#16a34a', // green-600
-    borderRadius: 8,
+    paddingVertical: 8, // Reduced from 10
+    paddingHorizontal: 18, // Reduced from 20
+    borderRadius: 6, // Reduced from 8
   },
   buttonContent: {
     flexDirection: 'row',
@@ -529,8 +597,8 @@ const styles = StyleSheet.create({
   nextButtonText: {
     color: '#FFFFFF',
     fontWeight: '500',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 13, // Reduced from 14
+    marginLeft: 6, // Reduced from 8
   },
 });
 

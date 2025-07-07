@@ -114,9 +114,6 @@ const ProgramSelector: React.FC<ProgramSelectorProps> = ({
       <Text style={styles.emptyTitle}>
         {searchQuery ? t('no_matching_programs') : t('no_programs_created')}
       </Text>
-      <Text style={styles.emptyMessage}>
-        {searchQuery ? t('adjust_search_terms') : t('create_program_first')}
-      </Text>
     </View>
   );
 

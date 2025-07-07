@@ -1,13 +1,6 @@
 from rest_framework import serializers
-from .models import Gym, GymAnnouncement
+from .models import Gym
 
-class GymAnnouncementSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GymAnnouncement
-        fields = ['id', 'title', 'content', 'start_date', 'end_date', 'created_at']
-        read_only_fields = ['id', 'created_at']
-
-# In gyms/serializers.py
 class GymSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     active_users_today = serializers.SerializerMethodField()
@@ -20,18 +13,20 @@ class GymSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gym
         fields = [
-            'id', 'name', 'location', 'description',
+            'id', 'name', 'location', 'description', 'latitude', 'longitude',
+            'phone', 'website', 'external_id', 'source',
             'amenities', 'equipment', 'opening_hours', 
             'photos', 'member_count', 'active_users_today',
-            # 'announcements', 
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+        
     def get_member_count(self, obj):
         return getattr(obj, 'member_count', 0)
 
     def get_active_users_today(self, obj):
         return getattr(obj, 'active_users_today', 0)
+        
     def to_internal_value(self, data):
         # Ensure default values for JSON fields if not provided
         if 'amenities' not in data:
@@ -43,3 +38,12 @@ class GymSerializer(serializers.ModelSerializer):
         if 'photos' not in data:
             data['photos'] = []
         return super().to_internal_value(data)
+
+class GymCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Gym
+        fields = [
+            'name', 'location', 'description', 'latitude', 'longitude', 
+            'phone', 'website', 'external_id', 'source', 'amenities', 
+            'equipment', 'opening_hours', 'photos'
+        ]

@@ -1,8 +1,9 @@
-// app/(app)/_layout.tsx
+// app/(app)/_layout.tsx - Updated with WorkoutBanner
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 import BottomTabBar from '../../components/navigation/BottomTabBar';
+import WorkoutBanner from './realtime-workout/WorkoutBanner';
 import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles } from '../../utils/createThemedStyles';
 import { useNotificationSocket } from '../../hooks/useNotificationSocket';
@@ -31,10 +32,15 @@ export default function AppLayout() {
           contentStyle: {
             backgroundColor: palette.page_background,
           },
-          animation: 'slide_from_right',
-          animationDuration: 200,
+          animation: 'fade',
+          animationDuration: 100,
         }}
       />
+      
+      {/* Workout Banner - positioned above BottomTabBar */}
+      <WorkoutBanner bottomOffset={80} />
+      
+      {/* Bottom Tab Bar */}
       <BottomTabBar />
     </View>
   );

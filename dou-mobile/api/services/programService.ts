@@ -8,10 +8,20 @@ interface Exercise {
   equipment?: string;
   notes?: string;
   order: number;
+  effort_type?: 'reps' | 'time' | 'distance';
+  effort_type_display?: string;
+  superset_with?: number | null;
+  is_superset?: boolean;
+  superset_rest_time?: number;
   sets: Array<{
     id?: number;
-    reps: number;
-    weight: number;
+    reps?: number | null;
+    weight?: number | null;
+    weight_unit?: 'kg' | 'lbs';
+    weight_unit_display?: string;
+    weight_display?: string;
+    duration?: number | null;
+    distance?: number | null;
     rest_time: number;
     order: number;
   }>;
@@ -69,6 +79,7 @@ const programService = {
     const response = await apiClient.get(`/users/search/?q=${query}`);
     return extractData(response);
   },
+  
   getUserPrograms: async (userId?: number): Promise<Program[]> => {
     // Get programs created by a specific user (or current user if no userId)
     const url = userId 
@@ -77,16 +88,19 @@ const programService = {
     const response = await apiClient.get(url);
     return extractData(response);
   },
+  
   getSharedPrograms: async (): Promise<Program[]> => {
     // Get programs shared with current user
     const response = await apiClient.get('/workouts/programs/?filter=shared');
     return extractData(response);
   },
+  
   getPublicPrograms: async (): Promise<Program[]> => {
     // Get public programs
     const response = await apiClient.get('/workouts/programs/?filter=public');
     return extractData(response);
   },
+  
   getAllPrograms: async (): Promise<Program[]> => {
     // Get all programs relevant to the user (created, shared, public)
     const response = await apiClient.get('/workouts/programs/?filter=all');
@@ -190,67 +204,61 @@ const programService = {
   },
 
   updateProgramWorkout: async (programId: number, workoutId: number, updates: Partial<Workout>): Promise<Workout> => {
-    // Handle weekday-only updates
-    if (Object.keys(updates).length === 1 && 'preferred_weekday' in updates) {
-      // Get current workout data
-      const currentWorkout = await programService.getProgramWorkout(programId, workoutId);
-      
-      // Create updated workout with just the weekday changed
-      const updatedWorkout = {
-        ...currentWorkout,
-        preferred_weekday: updates.preferred_weekday
-      };
-      
-      // Send the update
-      const response = await apiClient.put(
-        `/workouts/programs/${programId}/workouts/${workoutId}/`,
-        updatedWorkout,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-      
-      return response.data;
-    }
+    // First get the current workout to preserve required fields
+    const currentWorkout = await apiClient.get(`/workouts/programs/${programId}/workouts/${workoutId}/`);
+    const existingData = currentWorkout.data;
     
-    // Handle full updates
-    const formattedUpdates: any = {
-      name: updates.name,
-      description: updates.description || '',
-      split_method: updates.split_method,
-      preferred_weekday: updates.preferred_weekday,
-      difficulty_level: updates.difficulty_level,
-      equipment_required: updates.equipment_required,
-      estimated_duration: updates.estimated_duration,
-      tags: updates.tags,
-      order: updates.order,
-      program: updates.program,
-      exercises: updates.exercises?.map(exercise => ({
+    // Create a complete workout object that includes all required fields
+    const completeUpdates = {
+      // Preserve these required fields from the existing data
+      name: updates.name || existingData.name,
+      split_method: updates.split_method || existingData.split_method,
+      order: existingData.order, // Always preserve the order
+      program: programId, // Always include the program ID
+      preferred_weekday: updates.preferred_weekday !== undefined 
+        ? updates.preferred_weekday 
+        : existingData.preferred_weekday,
+      difficulty_level: updates.difficulty_level || existingData.difficulty_level,
+      estimated_duration: updates.estimated_duration || existingData.estimated_duration,
+      description: updates.description !== undefined ? updates.description : existingData.description,
+      equipment_required: updates.equipment_required || existingData.equipment_required,
+      tags: updates.tags || existingData.tags,
+    };
+    
+    // If exercises are provided, format them properly with new fields
+    if (updates.exercises) {
+      completeUpdates.exercises = updates.exercises.map(exercise => ({
         name: exercise.name,
         equipment: exercise.equipment || '',
         notes: exercise.notes || '',
         order: exercise.order,
+        effort_type: exercise.effort_type || 'reps',
+        is_superset: !!exercise.is_superset,
+        superset_with: exercise.superset_with || null,
+        superset_rest_time: exercise.superset_rest_time || null,
         sets: exercise.sets.map((set, idx) => ({
-          reps: parseInt(String(set.reps)),
-          weight: parseFloat(String(set.weight)),
-          rest_time: parseInt(String(set.rest_time)),
+          reps: set.reps ? parseInt(String(set.reps)) : null,
+          weight: set.weight ? parseFloat(String(set.weight)) : null,
+          weight_unit: set.weight_unit || 'kg',
+          duration: set.duration ? parseInt(String(set.duration)) : null,
+          distance: set.distance ? parseFloat(String(set.distance)) : null,
+          rest_time: parseInt(String(set.rest_time) || '60'),
           order: idx
         }))
-      })) || []
-    };
-
+      }));
+    }
+  
+    // Send the complete update
     const response = await apiClient.put(
       `/workouts/programs/${programId}/workouts/${workoutId}/`,
-      formattedUpdates,
+      completeUpdates,
       {
         headers: {
           'Content-Type': 'application/json',
         }
       }
     );
-
+  
     return response.data;
   },
 
@@ -326,6 +334,67 @@ const programService = {
     }
 
     return null;
+  },
+
+  /**
+   * Utility functions for working with different exercise types in programs
+   */
+  getWorkoutVolume: (workout: Workout, targetUnit: 'kg' | 'lbs' = 'kg'): number => {
+    if (!workout.exercises) return 0;
+    
+    let totalVolume = 0;
+    
+    workout.exercises.forEach(exercise => {
+      if (exercise.effort_type === 'reps') {
+        exercise.sets.forEach(set => {
+          if (set.reps && set.weight) {
+            let weight = set.weight;
+            
+            // Convert weight if needed
+            if (set.weight_unit !== targetUnit) {
+              if (set.weight_unit === 'lbs' && targetUnit === 'kg') {
+                weight = weight * 0.453592;
+              } else if (set.weight_unit === 'kg' && targetUnit === 'lbs') {
+                weight = weight * 2.20462;
+              }
+            }
+            
+            totalVolume += weight * set.reps;
+          }
+        });
+      }
+    });
+    
+    return Math.round(totalVolume * 100) / 100; // Round to 2 decimal places
+  },
+
+  getWorkoutDuration: (workout: Workout): number => {
+    if (!workout.exercises) return workout.estimated_duration || 60;
+    
+    let totalDuration = 0;
+    
+    workout.exercises.forEach(exercise => {
+      exercise.sets.forEach(set => {
+        // Add set time based on effort type
+        switch (exercise.effort_type) {
+          case 'time':
+            totalDuration += set.duration || 0;
+            break;
+          case 'reps':
+            // Estimate 30 seconds per set for reps
+            totalDuration += 30;
+            break;
+          case 'distance':
+            totalDuration += set.duration || 60; // Default 1 minute if no time
+            break;
+        }
+        
+        // Add rest time
+        totalDuration += set.rest_time;
+      });
+    });
+    
+    return Math.round(totalDuration / 60); // Convert to minutes
   }
 };
 

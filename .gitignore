@@ -3,7 +3,6 @@
 *env*
 *.sqlite3
 *migrations*
-*.JPG
-*.jpeg
-*.png
 .DS_Store
+.log
+dou-mobile-backup/

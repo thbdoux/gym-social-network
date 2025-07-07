@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  LayoutAnimation,
   Platform,
   UIManager,
   Modal,
@@ -15,23 +14,25 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
+import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Get screen dimensions for positioning
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+// Get screen dimensions
+const { width: screenWidth } = Dimensions.get('window');
 
-// Available reaction types with emojis
+// Available reaction types - simple like Facebook
 const REACTIONS = [
-  { type: 'like', emoji: '👍' },
-  { type: 'love', emoji: '❤️' },
-  { type: 'laugh', emoji: '😂' },
-  { type: 'wow', emoji: '😮' },
-  { type: 'sad', emoji: '😢' },
-  { type: 'angry', emoji: '😡' }
+  { type: 'like', emoji: '👍', color: '#3B82F6' },
+  { type: 'love', emoji: '❤️', color: '#EF4444' },
+  { type: 'laugh', emoji: '😂', color: '#F59E0B' },
+  { type: 'wow', emoji: '😮', color: '#8B5CF6' },
+  { type: 'sad', emoji: '😢', color: '#06B6D4' },
+  { type: 'angry', emoji: '😡', color: '#F97316' }
 ];
 
 interface PostReactionButtonProps {
@@ -41,7 +42,6 @@ interface PostReactionButtonProps {
   reactionsCount: number;
   onReact: (postId: number, reactionType: string) => void;
   onUnreact: (postId: number) => void;
-  palette: any;
 }
 
 const PostReactionButton: React.FC<PostReactionButtonProps> = ({
@@ -50,87 +50,65 @@ const PostReactionButton: React.FC<PostReactionButtonProps> = ({
   reactionType,
   reactionsCount,
   onReact,
-  onUnreact,
-  palette
+  onUnreact
 }) => {
   const { t } = useLanguage();
+  const { palette } = useTheme();
   const [showReactions, setShowReactions] = useState(false);
   
   // Animation references
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const bgOpacityAnim = useRef(new Animated.Value(0)).current;
-  
-  // Reference to measure button position
   const buttonRef = useRef(null);
   const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
   
-  // Effect to animate reactions panel in/out
+  const styles = themedStyles(palette);
+  
+  // Effect to animate reactions panel
   useEffect(() => {
     if (showReactions) {
-      // Fade in and scale up - similar to comment section
       Animated.parallel([
         Animated.spring(scaleAnim, {
           toValue: 1,
           useNativeDriver: true,
-          tension: 80,
-          friction: 5
+          tension: 300,
+          friction: 20
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bgOpacityAnim, {
-          toValue: 1,
-          duration: 200,
+          duration: 150,
           useNativeDriver: true,
         })
       ]).start();
     } else {
-      // Fade out and scale down
       Animated.parallel([
         Animated.timing(scaleAnim, {
           toValue: 0,
-          duration: 150,
+          duration: 100,
           useNativeDriver: true,
         }),
         Animated.timing(opacityAnim, {
           toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bgOpacityAnim, {
-          toValue: 0,
-          duration: 150,
+          duration: 100,
           useNativeDriver: true,
         })
       ]).start();
     }
   }, [showReactions]);
   
-  // Function to measure button position
+  // Measure button position
   const measureButton = () => {
     if (buttonRef.current) {
       buttonRef.current.measure((fx, fy, width, height, px, py) => {
-        setButtonPosition({
-          x: px,
-          y: py,
-          width: width,
-          height: height
-        });
+        setButtonPosition({ x: px, y: py, width, height });
       });
     }
   };
   
   // Get current reaction details
   const getCurrentReaction = () => {
-    if (!isReacted || !reactionType) {
-      return { type: null, emoji: null };
-    }
-    
-    const reaction = REACTIONS.find(r => r.type === reactionType);
-    return reaction || { type: 'like', emoji: '👍' };
+    if (!isReacted || !reactionType) return null;
+    return REACTIONS.find(r => r.type === reactionType) || REACTIONS[0];
   };
   
   const currentReaction = getCurrentReaction();
@@ -138,24 +116,20 @@ const PostReactionButton: React.FC<PostReactionButtonProps> = ({
   // Toggle reaction panel
   const toggleReactionPanel = () => {
     measureButton();
-    
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowReactions(!showReactions);
   };
   
-  // Handle press on a reaction
-  const handleReactionPress = (reactionType: string) => {
-    // If already reacted with this type, unreact
-    if (isReacted && currentReaction.type === reactionType) {
+  // Handle reaction press
+  const handleReactionPress = (selectedReactionType: string) => {
+    if (isReacted && currentReaction?.type === selectedReactionType) {
       onUnreact(postId);
     } else {
-      onReact(postId, reactionType);
+      onReact(postId, selectedReactionType);
     }
-    
     setShowReactions(false);
   };
   
-  // Handle short press on button - like/unlike
+  // Handle button press
   const handleButtonPress = () => {
     if (isReacted) {
       onUnreact(postId);
@@ -164,64 +138,50 @@ const PostReactionButton: React.FC<PostReactionButtonProps> = ({
     }
   };
   
-  // Calculate reaction panel position to ensure it's fully visible on screen
-  const calculateReactionPanelPosition = () => {
-    // Calculate panel dimensions
-    const PANEL_WIDTH = 280;
+  // Calculate panel position
+  const calculatePanelPosition = () => {
+    const PANEL_WIDTH = 300;
     const PANEL_HEIGHT = 50;
     
-    // Start with centering the panel above the button
     let leftPosition = buttonPosition.x + (buttonPosition.width / 2) - (PANEL_WIDTH / 2);
-    let topPosition = buttonPosition.y - PANEL_HEIGHT - 10; // 10px gap above button
+    let topPosition = buttonPosition.y - PANEL_HEIGHT - 10;
     
-    // Adjust if panel would go off-screen to the left
-    if (leftPosition < 20) {
-      leftPosition = 20;
+    // Keep panel on screen
+    if (leftPosition < 16) leftPosition = 16;
+    if (leftPosition + PANEL_WIDTH > screenWidth - 16) {
+      leftPosition = screenWidth - PANEL_WIDTH - 16;
     }
-    
-    // Adjust if panel would go off-screen to the right
-    if (leftPosition + PANEL_WIDTH > screenWidth - 20) {
-      leftPosition = screenWidth - PANEL_WIDTH - 20;
-    }
-    
-    // Adjust if panel would go off-screen at the top
-    if (topPosition < 60) { // Account for status bar and header
-      // Position below the button instead
+    if (topPosition < 100) {
       topPosition = buttonPosition.y + buttonPosition.height + 10;
     }
     
-    return {
-      left: leftPosition,
-      top: topPosition
-    };
+    return { left: leftPosition, top: topPosition };
   };
 
   return (
     <View style={styles.container}>
-      {/* Long pressable reaction button */}
       <TouchableOpacity
         ref={buttonRef}
         style={styles.button}
         onPress={handleButtonPress}
         onLongPress={toggleReactionPanel}
-        delayLongPress={300}
+        delayLongPress={500}
         activeOpacity={0.7}
       >
         <View style={styles.buttonContent}>
-          {isReacted && currentReaction.emoji ? (
+          {currentReaction ? (
             <Text style={styles.reactionEmoji}>{currentReaction.emoji}</Text>
           ) : (
             <Ionicons 
               name="heart-outline" 
               size={20} 
-              color={palette.border} 
+              color={palette.text_secondary} 
             />
           )}
           <Text 
             style={[
               styles.actionText,
-              { color: palette.border },
-              isReacted && styles.activeText
+              currentReaction && { color: currentReaction.color }
             ]}
           >
             {reactionsCount || 0}
@@ -229,7 +189,7 @@ const PostReactionButton: React.FC<PostReactionButtonProps> = ({
         </View>
       </TouchableOpacity>
       
-      {/* Using Modal to ensure the reaction panel is in the foreground */}
+      {/* Simple horizontal reaction panel */}
       <Modal
         visible={showReactions}
         transparent={true}
@@ -238,25 +198,13 @@ const PostReactionButton: React.FC<PostReactionButtonProps> = ({
       >
         <TouchableWithoutFeedback onPress={() => setShowReactions(false)}>
           <View style={styles.modalOverlay}>
-            {/* Dark background overlay with animation */}
-            <Animated.View 
-              style={[
-                StyleSheet.absoluteFill,
-                styles.darkOverlay,
-                { opacity: bgOpacityAnim }
-              ]} 
-            />
-            
-            {/* Reaction panel with improved positioning */}
             <Animated.View 
               style={[
                 styles.reactionsPanel,
-                calculateReactionPanelPosition(),
+                calculatePanelPosition(),
                 {
                   opacity: opacityAnim,
                   transform: [{ scale: scaleAnim }],
-                  backgroundColor: palette.page_background,
-                  borderColor: palette.border,
                 }
               ]}
             >
@@ -265,14 +213,14 @@ const PostReactionButton: React.FC<PostReactionButtonProps> = ({
                   key={reaction.type}
                   style={[
                     styles.reactionItem,
-                    currentReaction.type === reaction.type && styles.activeReactionItem
+                    currentReaction?.type === reaction.type && styles.activeReactionItem
                   ]}
                   onPress={() => handleReactionPress(reaction.type)}
                 >
                   <Text 
                     style={[
-                      styles.reactionEmoji,
-                      currentReaction.type === reaction.type && styles.activeReactionText
+                      styles.reactionEmojiLarge,
+                      currentReaction?.type === reaction.type && styles.activeReactionEmoji
                     ]}
                   >
                     {reaction.emoji}
@@ -287,7 +235,8 @@ const PostReactionButton: React.FC<PostReactionButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+// Themed styles
+const themedStyles = createThemedStyles((palette) => ({
   container: {
     position: 'relative',
   },
@@ -303,64 +252,66 @@ const styles = StyleSheet.create({
   actionText: {
     marginLeft: 6,
     fontSize: 14,
+    color: palette.text_secondary,
+    fontWeight: '500',
   },
-  activeText: {
-    color: '#F87171',
+  reactionEmoji: {
+    fontSize: 20,
   },
-  // Modal overlay for handling touches outside reaction panel
+  
   modalOverlay: {
-    ...StyleSheet.absoluteFill,
+    flex: 1,
     backgroundColor: 'transparent',
   },
-  // Dark background overlay
-  darkOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  // Reaction panel styles - improved for positioning and appearance
+  
+  // Simple horizontal panel like Facebook
   reactionsPanel: {
     position: 'absolute',
-    width: 280,
+    width: 300,
     height: 50,
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: palette.card_background,
     borderRadius: 25,
     paddingHorizontal: 8,
-    paddingVertical: 4,
     borderWidth: 1,
-    zIndex: 9999,
-    elevation: 10, // High elevation for Android
+    borderColor: withAlpha(palette.border, 0.3),
     
-    // Add shadow for better visibility
+    // Shadow
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 10,
+        elevation: 8,
       },
     }),
   },
+  
   reactionItem: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 2,
   },
-  reactionEmoji: {
-    fontSize: 22,
-  },
+  
   activeReactionItem: {
-    backgroundColor: 'rgba(167, 139, 250, 0.1)',
+    backgroundColor: withAlpha(palette.accent, 0.2),
+    transform: [{ scale: 1.1 }],
   },
-  activeReactionText: {
-    fontSize: 24,
+  
+  reactionEmojiLarge: {
+    fontSize: 28,
   },
-});
+  
+  activeReactionEmoji: {
+    fontSize: 32,
+  },
+}));
 
 export default PostReactionButton;

@@ -22,7 +22,10 @@ import { programKeys } from '../../hooks/query/useProgramQuery';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
+import DouLoadingScreen from '../../components/shared/DouLoadingScreen';
 
+// Import workout service
+import workoutService from '../../api/services/workoutService';
 
 // Import custom components
 import ViewSelector, { VIEW_TYPES, VIEW_ORDER } from '../../components/workouts/ViewSelector';
@@ -31,10 +34,11 @@ import AnimatedCardList from '../../components/workouts/AnimatedCardList';
 import SelectionModeHeader from '../../components/workouts/SelectionModeHeader';
 import WorkoutsFabMenu from '../../components/workouts/WorkoutsFabMenu'; // Import the new FAB menu
 import LogWorkoutModal from '../../components/workouts/LogWorkoutModal';
-import ProgramSelectionModal from '../../components/workouts/ProgramSelectionModal';
-import TemplateSelectionModal from '../../components/workouts/TemplateSelectionModal';
+import ProgramSelectionBottomSheet from '../../components/workouts/ProgramSelectionBottomSheet';
+import TemplateSelectionBottomSheet from '../../components/workouts/TemplateSelectionBottomSheet';
 import GroupWorkoutSelectionModal from '../../components/workouts/GroupWorkoutSelectionModal';
 import DeleteConfirmationModal from '../../components/workouts/DeleteConfirmationModal';
+import LogSelectionBottomSheet from '../../components/workouts/LogSelectionBottomSheet'; // New import
 
 import WorkoutTabs from '@/components/workouts/WorkoutTabs';
 // Import Wizards
@@ -123,6 +127,11 @@ export default function WorkoutsScreen() {
   const [templateSelectionModalVisible, setTemplateSelectionModalVisible] = useState(false);
   const [groupWorkoutSelectionModalVisible, setGroupWorkoutSelectionModalVisible] = useState(false);
 
+  // New state for log selection modal
+  const [logSelectionModalVisible, setLogSelectionModalVisible] = useState(false);
+  const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
+  const [createTemplateFromLog, setCreateTemplateFromLog] = useState(false);
+
   // For selected program/template data
   const { data: selectedProgram } = useProgram(selectedProgramId);
   const { data: selectedTemplate } = useWorkoutTemplate(selectedTemplateId);
@@ -163,7 +172,7 @@ export default function WorkoutsScreen() {
     data: joinedGroupWorkouts = [],
     isLoading: joinedGroupWorkoutsLoading,
     refetch: refetchJoinedGroupWorkouts
-  } = useUserJoinedGroupWorkouts();
+  } = useUserJoinedGroupWorkouts(user?.id);
   
   const getAllGroupWorkouts = () => {
     const workoutsMap = new Map();
@@ -505,6 +514,12 @@ export default function WorkoutsScreen() {
   const handleCreateTemplate = () => {
     setWorkoutTemplateWizardVisible(true);
   };
+
+  // New handler for creating template from log
+  const handleCreateTemplateFromLog = () => {
+    setCreateTemplateFromLog(true);
+    setLogSelectionModalVisible(true);
+  };
   
   // New handler for group workouts
   const handleCreateGroupWorkout = () => {
@@ -521,6 +536,95 @@ export default function WorkoutsScreen() {
   // New handler for real-time workout
   const handleStartRealtimeWorkout = () => {
     router.push('/realtime-workout?source=custom');
+  };
+
+  // Handle log selection for template creation
+  const handleLogSelected = (log) => {
+    setLogSelectionModalVisible(false);
+    setSelectedLogId(log.id);
+    
+    if (createTemplateFromLog) {
+      // Create template directly from the selected log
+      handleCreateTemplateFromSelectedLog(log);
+    }
+  };
+
+  // Handle creating template from selected log
+  const handleCreateTemplateFromSelectedLog = async (log) => {
+    try {
+      // You might want to show a dialog to customize template name/description
+      const templateName = `${log.name}`;
+      const templateDescription = `${t('created_from_workout')}: ${log.name} (${log.date})`;
+      
+      await workoutService.createTemplateFromLog(log, templateName, templateDescription);
+      
+      // Reset state
+      setCreateTemplateFromLog(false);
+      setSelectedLogId(null);
+      
+      // Refresh templates and switch to templates view
+      await refetchTemplates();
+      
+      if (currentView !== VIEW_TYPES.TEMPLATES) {
+        setCurrentView(VIEW_TYPES.TEMPLATES);
+      }
+      
+      // Show success message
+      Alert.alert(
+        "Success",
+        "Template created successfully from workout log!",
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      console.error("Error creating template from log:", error);
+      
+      // Enhanced error handling based on error type
+      let errorTitle = "Error";
+      let errorMessage = "Failed to create template from workout log. Please try again.";
+      
+      if (error.name === 'ValidationError') {
+        errorTitle = "Validation Error";
+        errorMessage = error.message || "The workout log data is not valid for template creation.";
+      } else if (error.response?.status === 400) {
+        errorTitle = "Invalid Data";
+        const validationErrors = error.response.data;
+        
+        if (typeof validationErrors === 'object') {
+          // Format validation errors for user-friendly display
+          const errorDetails = Object.entries(validationErrors)
+            .map(([field, errors]) => {
+              const errorList = Array.isArray(errors) ? errors : [errors];
+              return `${field}: ${errorList.join(', ')}`;
+            })
+            .join('\n');
+          
+          errorMessage = `Please check the following:\n\n${errorDetails}`;
+        } else {
+          errorMessage = validationErrors.detail || validationErrors.message || errorMessage;
+        }
+      } else if (error.response?.status === 401) {
+        errorTitle = "Authentication Error";
+        errorMessage = "You need to be logged in to create templates.";
+      } else if (error.response?.status === 403) {
+        errorTitle = "Permission Error";
+        errorMessage = "You don't have permission to create templates.";
+      } else if (error.response?.status >= 500) {
+        errorTitle = "Server Error";
+        errorMessage = "A server error occurred. Please try again later.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert(
+        errorTitle,
+        errorMessage,
+        [{ text: "OK" }]
+      );
+      
+      // Reset state on error
+      setCreateTemplateFromLog(false);
+      setSelectedLogId(null);
+    }
   };
   
   // Handle program wizard submission
@@ -814,10 +918,10 @@ export default function WorkoutsScreen() {
   // Render loading state
   if (isLoading() && !refreshing) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
-        <ActivityIndicator size="large" color={palette.highlight} />
-        <Text style={[styles.loadingText, { color: palette.text }]}>Loading...</Text>
-      </View>
+      <DouLoadingScreen 
+        animationType="pulse"
+        size='large'
+      />
     );
   }
 
@@ -904,6 +1008,7 @@ export default function WorkoutsScreen() {
           currentView={currentView}
           onCreateProgram={handleCreateProgram}
           onCreateTemplate={handleCreateTemplate}
+          onCreateTemplateFromLog={handleCreateTemplateFromLog}
           onCreateGroupWorkout={handleCreateGroupWorkout}
           onCreateGroupWorkoutFromTemplate={handleCreateGroupWorkoutFromTemplate}
           onLogWorkout={handleLogWorkout}
@@ -924,7 +1029,7 @@ export default function WorkoutsScreen() {
           themePalette={palette}
         />
         
-        <ProgramSelectionModal
+        <ProgramSelectionBottomSheet
           visible={programSelectionModalVisible}
           onClose={() => setProgramSelectionModalVisible(false)}
           onWorkoutSelected={handleProgramWorkoutSelected}
@@ -934,7 +1039,7 @@ export default function WorkoutsScreen() {
           themePalette={palette}
         />
         
-        <TemplateSelectionModal
+        <TemplateSelectionBottomSheet
           visible={templateSelectionModalVisible}
           onClose={() => {
             setTemplateSelectionModalVisible(false);
@@ -947,7 +1052,6 @@ export default function WorkoutsScreen() {
           templatesLoading={templatesLoading}
           user={user}
           themePalette={palette}
-          modalTitle={fromTemplate ? 'Select Template for Group Workout' : 'Select Template'}
         />
         
         <GroupWorkoutSelectionModal
@@ -970,6 +1074,21 @@ export default function WorkoutsScreen() {
           onConfirm={handleDelete}
           selectedItems={selectedItems}
           currentView={currentView}
+          themePalette={palette}
+        />
+
+        {/* New Log Selection Modal */}
+        <LogSelectionBottomSheet
+          visible={logSelectionModalVisible}
+          onClose={() => {
+            setLogSelectionModalVisible(false);
+            setCreateTemplateFromLog(false);
+            setSelectedLogId(null);
+          }}
+          onLogSelected={handleLogSelected}
+          logs={logs.filter(log => log.username === user?.username)}
+          logsLoading={logsLoading}
+          user={user}
           themePalette={palette}
         />
         

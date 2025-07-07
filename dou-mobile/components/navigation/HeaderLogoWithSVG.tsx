@@ -13,13 +13,13 @@ interface HeaderLogoProps {
 }
 
 const HeaderLogoWithSVG: React.FC<HeaderLogoProps> = ({ 
-  width = 120, 
+  width = 80, 
   height = 45 
 }) => {
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../../assets/images/dou.png')} 
+        source={require('../../assets/images/dou-white.png')} 
         style={[styles.logo, { width, height }]}
         resizeMode="contain"
       />

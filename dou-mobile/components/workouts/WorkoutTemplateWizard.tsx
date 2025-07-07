@@ -9,16 +9,23 @@ import {
   StatusBar,
   Dimensions
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Using Ionicons instead of react-native-feather
+import { Ionicons } from '@expo/vector-icons';
 import Step1WorkoutName from './workout-steps/Step1WorkoutName';
 import StepExercises from './workout-steps/StepExercises';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// Define exercise type
+// Updated types to match the new structure
 export type ExerciseSet = {
-  reps: number;
-  weight: number;
+  id?: number;
+  reps?: number | null;
+  weight?: number | null;
+  weight_unit?: 'kg' | 'lbs';
+  weight_unit_display?: string;
+  weight_display?: string;
+  duration?: number | null;
+  distance?: number | null;
   rest_time: number;
   order?: number;
 };
@@ -26,13 +33,15 @@ export type ExerciseSet = {
 export type Exercise = {
   id?: number;
   name: string;
-  sets: ExerciseSet[];
+  equipment?: string;
   notes?: string;
   order?: number;
-  equipment?: string;
+  effort_type?: 'reps' | 'time' | 'distance';
+  effort_type_display?: string;
   superset_with?: number | null;
   is_superset?: boolean; 
   superset_rest_time?: number;
+  sets: ExerciseSet[];
 };
 
 // Define form data type
@@ -67,13 +76,12 @@ const initializeFormData = (template: WorkoutTemplateFormData | null | undefined
       focus: 'strength',
       is_active: true,
       exercises: [],
-      equipment_required: [],
       split_method : 'custom',
       tags: []
     };
   }
 
-  // Use existing template data if provided
+  // Use existing template data if provided, ensuring proper structure for updated types
   return {
     name: template.name || '',
     description: template.description || '',
@@ -81,7 +89,30 @@ const initializeFormData = (template: WorkoutTemplateFormData | null | undefined
     difficulty_level: template.difficulty_level || 'intermediate',
     focus: template.focus || 'strength',
     is_active: template.is_active ?? true,
-    exercises: template.exercises || [],
+    exercises: template.exercises ? template.exercises.map(exercise => ({
+      id: exercise.id,
+      name: exercise.name,
+      equipment: exercise.equipment || '',
+      notes: exercise.notes || '',
+      order: exercise.order || 0,
+      effort_type: exercise.effort_type || 'reps',
+      effort_type_display: exercise.effort_type_display,
+      superset_with: exercise.superset_with || null,
+      is_superset: exercise.is_superset || false,
+      superset_rest_time: exercise.superset_rest_time || 60,
+      sets: exercise.sets ? exercise.sets.map(set => ({
+        id: set.id,
+        reps: set.reps,
+        weight: set.weight,
+        weight_unit: set.weight_unit || 'kg',
+        weight_unit_display: set.weight_unit_display,
+        weight_display: set.weight_display,
+        duration: set.duration,
+        distance: set.distance,
+        rest_time: set.rest_time || 60,
+        order: set.order || 0
+      })) : []
+    })) : [],
     equipment_required: template.equipment_required || [],
     split_method: template.split_method || 'custom',
     tags: template.tags || []
@@ -92,6 +123,8 @@ const { width } = Dimensions.get('window');
 
 const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: WorkoutTemplateWizardProps) => {
   const { t } = useLanguage();
+  const { workoutPalette, palette } = useTheme();
+  
   const [formData, setFormData] = useState<WorkoutTemplateFormData>(() => initializeFormData(template));
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -184,8 +217,21 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
         updatedFormData.estimated_duration = Math.max(estimatedDuration, 15); // Minimum 15 minutes
       }
       
+      // Ensure exercises have proper structure for backend
+      const finalData = {
+        ...updatedFormData,
+        exercises: updatedFormData.exercises.map(exercise => ({
+          ...exercise,
+          effort_type: exercise.effort_type || 'reps',
+          sets: exercise.sets.map(set => ({
+            ...set,
+            weight_unit: set.weight_unit || 'kg'
+          }))
+        }))
+      };
+      
       // Submit the form data
-      onSubmit(updatedFormData);
+      onSubmit(finalData);
     }
   };
 
@@ -201,31 +247,31 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={palette.page_background} />
         
-        {/* Header with integrated progress bar */}
-        <View style={styles.header}>
+        {/* Smaller Header with integrated progress bar */}
+        <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.page_background }]}>
           <LinearGradient
-            colors={['#0ea5e9', '#0284c7']} // Blue gradient for workout theme
+            colors={[workoutPalette.background, workoutPalette.highlight]} // Blue gradient for workout theme
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerGradient}
           >
             <View style={styles.headerContent}>
               <View style={styles.titleContainer}>
-                <Text style={styles.title}>
+                <Text style={[styles.title, { color: workoutPalette.text }]}>
                   {template ? t('edit_workout_template') : t('create_new_workout')}
                 </Text>
               </View>
               
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color={workoutPalette.text} />
               </TouchableOpacity>
             </View>
           </LinearGradient>
           
-          {/* Progress bar */}
+          {/* Smaller Progress bar */}
           <View style={styles.progressContainer}>
             {steps.map((step, index) => (
               <React.Fragment key={index}>
@@ -241,15 +287,17 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
                   {/* Circle indicator */}
                   <View style={[
                     styles.stepCircle,
-                    index < currentStep ? styles.stepCompleted : 
-                    index === currentStep ? styles.stepCurrent : 
-                    styles.stepUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: workoutPalette.background } : 
+                      index === currentStep ? 
+                        { backgroundColor: workoutPalette.highlight } : 
+                        { backgroundColor: palette.input_background }
                   ]}>
                     <Text style={[
                       styles.stepNumber,
-                      index < currentStep ? styles.stepCompletedText : 
-                      index === currentStep ? styles.stepCurrentText : 
-                      styles.stepUpcomingText
+                      index < currentStep || index === currentStep ? 
+                        { color: '#FFFFFF' } : 
+                        { color: palette.text_tertiary }
                     ]}>
                       {index + 1}
                     </Text>
@@ -257,9 +305,11 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
                   
                   <Text style={[
                     styles.stepName,
-                    index < currentStep ? styles.stepCompletedText : 
-                    index === currentStep ? styles.stepCurrentText : 
-                    styles.stepUpcomingText
+                    index < currentStep ? 
+                      { color: workoutPalette.text } : 
+                      index === currentStep ? 
+                        { color: workoutPalette.text } : 
+                        { color: palette.text_tertiary }
                   ]}>
                     {step.name}
                   </Text>
@@ -269,7 +319,9 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
                 {index < steps.length - 1 && (
                   <View style={[
                     styles.stepConnector,
-                    index < currentStep ? styles.stepConnectorCompleted : styles.stepConnectorUpcoming
+                    index < currentStep ? 
+                      { backgroundColor: workoutPalette.background } : 
+                      { backgroundColor: palette.input_background }
                   ]} />
                 )}
               </React.Fragment>
@@ -286,24 +338,30 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
           />
         </View>
         
-        {/* Footer with navigation buttons */}
-        <View style={styles.footer}>
+        {/* Smaller Footer with navigation buttons */}
+        <View style={[
+          styles.footer, 
+          { 
+            borderTopColor: palette.border,
+            backgroundColor: palette.page_background
+          }
+        ]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: palette.input_background }]}
             onPress={currentStep === 0 ? onClose : goToPrevStep}
           >
-            <Text style={styles.backButtonText}>
+            <Text style={[styles.backButtonText, { color: palette.text }]}>
               {currentStep === 0 ? t('cancel') : t('back')}
             </Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.nextButton}
+            style={[styles.nextButton, { backgroundColor: workoutPalette.background }]}
             onPress={goToNextStep}
           >
             {currentStep === steps.length - 1 ? (
               <View style={styles.buttonContent}>
-                <Ionicons name="save-outline" size={18} color="#FFFFFF" />
+                <Ionicons name="save-outline" size={16} color="#FFFFFF" />
                 <Text style={styles.nextButtonText}>
                   {template ? t('update_template') : t('create_template')}
                 </Text>
@@ -323,16 +381,13 @@ const WorkoutTemplateWizard = ({ template = null, onSubmit, onClose, visible }: 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   headerGradient: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8, // Reduced from 12
   },
   headerContent: {
     flexDirection: 'row',
@@ -344,20 +399,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18, // Reduced from 20
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   closeButton: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 6, // Reduced from 8
+    borderRadius: 6,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 8, // Reduced from 12
   },
   stepIndicator: {
     flexDirection: 'column',
@@ -368,49 +422,25 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28, // Reduced from 32
+    height: 28, // Reduced from 32
+    borderRadius: 14, // Reduced from 16
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 3, // Reduced from 4
   },
   stepName: {
-    fontSize: 12,
+    fontSize: 10, // Reduced from 12
     fontWeight: '500',
   },
-  stepCompleted: {
-    backgroundColor: '#0ea5e9', // blue-500
-  },
-  stepCurrent: {
-    backgroundColor: '#0284c7', // blue-600
-  },
-  stepUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
-  },
   stepNumber: {
-    fontSize: 14,
+    fontSize: 12, // Reduced from 14
     fontWeight: '600',
-  },
-  stepCompletedText: {
-    color: '#FFFFFF',
-  },
-  stepCurrentText: {
-    color: '#FFFFFF',
-  },
-  stepUpcomingText: {
-    color: '#6B7280', // gray-500
   },
   stepConnector: {
     width: (width - 180) / 1, // Dynamic width based on screen size (adjusted for 2 steps)
     height: 2,
-    marginTop: -20, // Position in the middle of circles
-  },
-  stepConnectorCompleted: {
-    backgroundColor: '#0ea5e9', // blue-500
-  },
-  stepConnectorUpcoming: {
-    backgroundColor: '#1F2937', // gray-800
+    marginTop: -17, // Adjusted for smaller circles
   },
   content: {
     flex: 1,
@@ -420,27 +450,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 12, // Reduced from 16
     borderTopWidth: 1,
-    borderTopColor: '#1F2937',
-    backgroundColor: '#111827',
   },
   backButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#1F2937', // gray-800
-    borderRadius: 8,
+    paddingVertical: 8, // Reduced from 10
+    paddingHorizontal: 14, // Reduced from 16
+    borderRadius: 6, // Reduced from 8
   },
   backButtonText: {
-    color: '#E5E7EB', // gray-200
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 13, // Reduced from 14
   },
   nextButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#0284c7', // blue-600
-    borderRadius: 8,
+    paddingVertical: 8, // Reduced from 10
+    paddingHorizontal: 18, // Reduced from 20
+    borderRadius: 6, // Reduced from 8
   },
   buttonContent: {
     flexDirection: 'row',
@@ -449,8 +474,8 @@ const styles = StyleSheet.create({
   nextButtonText: {
     color: '#FFFFFF',
     fontWeight: '500',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 13, // Reduced from 14
+    marginLeft: 6, // Reduced from 8
   },
 });
 

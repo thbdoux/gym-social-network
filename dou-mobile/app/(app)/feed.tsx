@@ -8,9 +8,8 @@ import {
   SafeAreaView,
   Alert,
   Animated,
-  ImageBackground,
   TouchableOpacity,
-  Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,18 +17,18 @@ import { useHeaderAnimation } from '../../context/HeaderAnimationContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
-import FeedContainer from '../../components/feed/FeedContainer';
+import OptimizedFeedContainer from '../../components/feed/OptimizedFeedContainer';
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsModal from '../../components/profile/FriendsModal';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
-// Import our new PostTypeModal instead of FabMenu
 import PostTypeModal from '../../components/feed/PostTypeModal';
-import SidebarButton from '../../components/navigation/SidebarButton';
 import PostCreationModal from '../../components/feed/PostCreationModal';
-import FeedViewSelector, { FEED_VIEW_TYPES } from '../../components/feed/FeedViewSelector';
+import { getAvatarUrl } from '../../utils/imageUtils';
+import DouLoadingScreen from '../../components/shared/DouLoadingScreen';
 import {
   useLikePost,
   useCommentOnPost,
+  useUpdatePost,
   useSharePost,
   useDeletePost,
   useReactToPost,
@@ -39,6 +38,47 @@ import { useForkProgram } from '../../hooks/query/useProgramQuery';
 import { usePostsFeed } from '../../hooks/query/usePostQuery';
 import { imageManager, useImagePreloading } from '../../utils/imageManager';
 import { useNotificationCount } from '../../hooks/query/useNotificationQuery';
+
+// Enhanced Post Creation Row Component with Avatar Image
+const PostCreationRow: React.FC<{
+  user: any;
+  onAvatarPress: () => void;
+  onInputPress: () => void;
+  styles: any;
+  t: (key: string) => string;
+}> = ({ user, onAvatarPress, onInputPress, styles, t }) => {
+  const avatarUrl = getAvatarUrl(user?.avatar, 40);
+  
+  return (
+    <View style={styles.postCreationRow}>
+      <TouchableOpacity onPress={onAvatarPress} style={styles.postCreationAvatar}>
+        {user?.avatar ? (
+          <Image 
+            source={{ uri: avatarUrl }} 
+            style={styles.avatarImage}
+            defaultSource={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username?.[0] || 'U')}&size=40&background=random` }}
+          />
+        ) : (
+          <View style={styles.avatarContainer}>
+            <Text style={styles.avatarText}>
+              {user?.username?.[0]?.toUpperCase() || user?.displayName?.[0]?.toUpperCase() || 'U'}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.postCreationInput} 
+        onPress={onInputPress}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.postCreationInputText}>
+          {t('whats_on_your_mind') || "What's on your mind?"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -52,8 +92,7 @@ export default function FeedScreen() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPostType, setSelectedPostType] = useState<string>('regular');
-  const [currentFeedView, setCurrentFeedView] = useState(FEED_VIEW_TYPES.FRIENDS);
-  const [showPostTypeModal, setShowPostTypeModal] = useState(false); // New state for post type modal
+  const [showPostTypeModal, setShowPostTypeModal] = useState(false);
   const { isLoaded: imagesLoaded } = useImagePreloading(['personality']);
   const styles = themedStyles(palette);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -61,7 +100,7 @@ export default function FeedScreen() {
   
   // Get notification count
   const { data: notificationCount } = useNotificationCount();
-  const unreadCount = notificationCount?.unread_count || 0;
+  const unreadCount = notificationCount?.unread || 0;
 
   useEffect(() => {
     setScrollY(scrollY);
@@ -69,17 +108,13 @@ export default function FeedScreen() {
 
   const { refetch: refetchPosts, isLoading: postsLoading, error: postsError } = usePostsFeed();
   const { mutateAsync: likePost } = useLikePost();
+  const { mutateAsync: updatePost } = useUpdatePost();
   const { mutateAsync: commentOnPost } = useCommentOnPost();
   const { mutateAsync: sharePost } = useSharePost();
   const { mutateAsync: deletePost } = useDeletePost();
   const { mutateAsync: forkProgram } = useForkProgram();
   const { mutateAsync: reactToPost } = useReactToPost();
   const { mutateAsync: unreactToPost } = useUnreactToPost();
-
-  const changeView = (viewType: string) => {
-    setCurrentFeedView(viewType);
-    scrollY.setValue(0);
-  };
 
   const welcomeContent = useMemo(() => {
     const personalityType = (user?.personality_type || 'versatile').toLowerCase();
@@ -127,8 +162,16 @@ export default function FeedScreen() {
     catch (err) { console.error('Error deleting post:', err); Alert.alert('Error', 'Failed to delete post'); }
   };
   const handleEditPost = async (post: any, newContent: string) => {
-    try { await refetchPosts(); } // Placeholder for actual edit logic
-    catch (err) { console.error('Error editing post:', err); Alert.alert('Error', 'Failed to edit post'); }
+    try {
+      await updatePost({ 
+        id: post.id, 
+        updates: { content: newContent } 
+      });
+      refetchPosts();
+    } catch (err) {
+      console.error('Error editing post:', err);
+      Alert.alert('Error', 'Failed to edit post');
+    }
   };
   const handleForkProgram = async (programId: number) => {
     try { return await forkProgram(programId); }
@@ -138,10 +181,22 @@ export default function FeedScreen() {
   const handleProfileClick = (userId: number) => { setSelectedUserId(userId); setShowProfileModal(true); };
   const handleNavigateToProfile = (userId: number) => router.push(`/user/${userId}`);
   
-  // New handlers for our simplified UI
+  // Handlers for post creation
   const handleShowPostTypeModal = () => setShowPostTypeModal(true);
   const handlePostTypeSelect = (postType: string) => {
     setSelectedPostType(postType);
+    setShowPostModal(true);
+  };
+  
+  // Handlers for post creation row
+  const handleAvatarPress = () => {
+    if (user?.id) {
+      router.push(`/user/${user.id}`);
+    }
+  };
+  
+  const handlePostInputPress = () => {
+    setSelectedPostType('regular');
     setShowPostModal(true);
   };
   
@@ -149,17 +204,19 @@ export default function FeedScreen() {
   const handlePostCreated = () => refetchPosts();
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false });
 
-  const renderWelcomeHeader = useMemo(() => (
+  // Simplified header - just post creation row
+  const renderHeader = useMemo(() => (
     <View>
-      <View style={styles.welcomeContainer}>
-        <ImageBackground source={welcomeContent.backgroundImage} style={styles.welcomeBackground} imageStyle={styles.welcomeBackgroundImage}>
-          <Text style={styles.welcomeText}>{welcomeContent.message}</Text>
-          <Text style={styles.welcomeUsername}>{user?.displayName || user?.username || 'Friend'}?</Text>
-        </ImageBackground>
-      </View>
-      <FeedViewSelector currentView={currentFeedView} changeView={changeView} />
+      {/* Post Creation Row - Facebook style */}
+      <PostCreationRow
+        user={user}
+        onAvatarPress={handleAvatarPress}
+        onInputPress={handlePostInputPress}
+        styles={styles}
+        t={t}
+      />
     </View>
-  ), [welcomeContent, user?.displayName, user?.username, styles, currentFeedView, changeView, t]);
+  ), [user, styles, t]);
 
   const handleProgramSelect = (program: any) => {
     let programId: number | null = typeof program === 'number' ? program : (program?.id || program?.program_id || program?.programId || program?.program_details?.id);
@@ -195,10 +252,10 @@ export default function FeedScreen() {
                 )}
               </TouchableOpacity>
               
-              {/* Simple + Icon replacing FAB menu */}
-              <TouchableOpacity style={styles.createPostButton} onPress={handleShowPostTypeModal}>
+              {/* Create Post Button */}
+              {/* <TouchableOpacity style={styles.createPostButton} onPress={handleShowPostTypeModal}>
                 <Ionicons name="add" size={26} color={palette.text} />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </View>
         </Animated.View>
@@ -214,20 +271,31 @@ export default function FeedScreen() {
               </TouchableOpacity>
             </View>
           ) : (postsLoading && !refreshing) || !imagesLoaded ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={styles.loadingText}>{!imagesLoaded ? t('loading_images') : t('loading_posts')}</Text>
-            </View>
+            <DouLoadingScreen
+              animationType="pulse"
+              size='large'
+            />
           ) : (
-            <FeedContainer
-              onLike={handleLike} onReact={handleReactToPost} onUnreact={handleUnreactToPost}
-              onComment={handleComment} onShare={handleShare} onDelete={handleDeletePost} onEdit={handleEditPost}
-              onProgramSelect={handleProgramSelect} onWorkoutLogSelect={handleWorkoutLogSelect}
-              onForkProgram={handleForkProgram} onProfileClick={handleProfileClick}
-              onNavigateToProfile={handleNavigateToProfile} onPostClick={handlePostClick}
-              refreshing={refreshing} onRefresh={handleRefresh} onScroll={handleScroll}
-              scrollEventThrottle={16} contentContainerStyle={styles.feedContentContainer}
-              ListHeaderComponent={renderWelcomeHeader} filterMode={currentFeedView}
+            <OptimizedFeedContainer
+              onLike={handleLike} 
+              onReact={handleReactToPost} 
+              onUnreact={handleUnreactToPost}
+              onComment={handleComment} 
+              onShare={handleShare} 
+              onDelete={handleDeletePost} 
+              onEdit={handleEditPost}
+              onProgramSelect={handleProgramSelect} 
+              onWorkoutLogSelect={handleWorkoutLogSelect}
+              onForkProgram={handleForkProgram} 
+              onProfileClick={handleProfileClick}
+              onNavigateToProfile={handleNavigateToProfile} 
+              onPostClick={handlePostClick}
+              refreshing={refreshing} 
+              onRefresh={handleRefresh} 
+              onScroll={handleScroll}
+              scrollEventThrottle={16} 
+              contentContainerStyle={styles.feedContentContainer}
+              ListHeaderComponent={renderHeader}
             />
           )}
         </View>
@@ -238,7 +306,7 @@ export default function FeedScreen() {
       {selectedUserId && <ProfilePreviewModal isVisible={showProfileModal} onClose={() => setShowProfileModal(false)} userId={selectedUserId} />}
       <PostCreationModal visible={showPostModal} onClose={handleModalClose} onPostCreated={handlePostCreated} initialPostType={selectedPostType} />
       
-      {/* New Post Type Modal */}
+      {/* Post Type Modal */}
       <PostTypeModal 
         visible={showPostTypeModal} 
         onClose={() => setShowPostTypeModal(false)}
@@ -258,8 +326,9 @@ const themedStyles = createThemedStyles((palette) => ({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Space between logo and right icons
-    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
+    paddingLeft: 16,
     height: '100%',
   },
   headerRightContainer: {
@@ -273,15 +342,17 @@ const themedStyles = createThemedStyles((palette) => ({
   },
   notificationBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: 'red',
+    top: 2,
+    right: 2,
+    backgroundColor: '#FF3B30',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: palette.layout,
   },
   notificationBadgeText: {
     color: 'white',
@@ -293,10 +364,10 @@ const themedStyles = createThemedStyles((palette) => ({
     width: 40,
     height: 40,
     borderRadius: 20,
-    // backgroundColor: palette.highlight,
+    backgroundColor: palette.highlight,
     justifyContent: 'center',
     alignItems: 'center',
-    // Add shadow for better visibility
+    marginRight: 12,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -307,13 +378,54 @@ const themedStyles = createThemedStyles((palette) => ({
   feedContentContainer: { paddingBottom: 60 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, color: withAlpha(palette.text, 0.7) },
-  welcomeContainer: { overflow: 'hidden' },
-  welcomeBackground: { minHeight: 140, justifyContent: 'center', paddingVertical: 20 },
-  welcomeBackgroundImage: {}, // No specific style needed if default is fine
-  welcomeText: { fontSize: 18, fontWeight: '600', marginBottom: 4, paddingLeft: 16, color: palette.text, textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 10 },
-  welcomeUsername: { fontSize: 45, paddingLeft: 15, fontWeight: '700', color: palette.text, textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8 },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { marginTop: 10, marginBottom: 20, color: withAlpha(palette.text, 0.7), textAlign: 'center' },
   retryButton: { backgroundColor: palette.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   retryButtonText: { color: palette.page_background, fontWeight: '600' },
+  
+  // Post creation row styles
+  postCreationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: palette.layout,
+    marginBottom: 8,
+  },
+  postCreationAvatar: {
+    marginRight: 12,
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.text,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarText: {
+    color: palette.page_background,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  postCreationInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: withAlpha(palette.border, 0.2),
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: withAlpha(palette.text, 0.7),
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  postCreationInputText: {
+    color: palette.text,
+    fontSize: 16,
+  },
 }));

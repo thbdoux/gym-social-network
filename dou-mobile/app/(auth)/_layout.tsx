@@ -10,8 +10,9 @@ export default function AuthLayout() {
         contentStyle: {
           backgroundColor: '#080f19',
         },
-        animation: 'slide_from_right',
-        animationDuration: 200,
+        // Remove problematic animations
+        animation: 'none', // or remove this line entirely
+        // animationDuration: 200, // Remove this line
       }}
     >
       <Stack.Screen
@@ -24,10 +25,11 @@ export default function AuthLayout() {
         name="personality-wizard"
         options={{
           title: 'Create Account',
-          animation: 'slide_from_right',
+          // Remove animation here too
+          // animation: 'slide_from_right',
         }}
       />
-      <Stack.Screen
+      {/* <Stack.Screen
         name="verify-email"
         options={{
           title: 'Verify Email',
@@ -39,7 +41,7 @@ export default function AuthLayout() {
           title: 'Verify Email Reminder',
           gestureEnabled: false,
         }}
-      />
+      /> */}
     </Stack>
   );
 }

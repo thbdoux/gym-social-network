@@ -87,6 +87,7 @@ const postService = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    console.log("SUCESS : ", response.data)
     return response.data;
   },
 

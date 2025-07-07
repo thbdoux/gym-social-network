@@ -7,15 +7,14 @@ import {
   ScrollView,
   Platform,
   TextInput,
-  Modal,
-  Dimensions,
-  FlatList
 } from 'react-native';
 import { useLanguage } from '../../../context/LanguageContext';
 import { GroupWorkoutFormData } from '../GroupWorkoutWizard';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import { useGyms } from '../../../hooks/query/useGymQuery';
+import GymSelectionModal from '../GymSelectionModal';
 
 type Step3ScheduleProps = {
   formData: GroupWorkoutFormData;
@@ -31,19 +30,11 @@ type GymType = {
   [key: string]: any;
 };
 
-const { width } = Dimensions.get('window');
-
 const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3ScheduleProps) => {
-  const { t } = useLanguage();
-  
-  // State for Date & Time pickers
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const { t, language } = useLanguage();
   
   // State for gym selector
   const [gymSelectorVisible, setGymSelectorVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGymChain, setSelectedGymChain] = useState<string | null>(null);
   
   // Get preferred gym from user
   const [preferredGym, setPreferredGym] = useState<GymType | null>(null);
@@ -51,38 +42,29 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
   // Get gyms from hook
   const { data: gyms = [], isLoading: gymsLoading } = useGyms();
   
-  // Extract unique gym chains (names)
-  const gymChains = useMemo(() => {
-    if (!gyms.length) return [];
-    const uniqueGymNames = [...new Set(gyms.map(gym => gym.name))];
-    return uniqueGymNames.sort();
-  }, [gyms]);
+  // Generate duration options in 15-minute steps
+  const durationOptions = useMemo(() => {
+    const options = [];
+    for (let i = 15; i <= 180; i += 15) {
+      options.push({ value: i, label: formatDuration(i) });
+    }
+    return options;
+  }, []);
   
-  // Filter gyms based on search query and selected gym chain
-  const filteredGyms = useMemo(() => {
-    if (!gyms.length) return [];
-    
-    return gyms.filter(gym => {
-      const matchesSearch = searchQuery === '' || 
-        gym.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        gym.location.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesChain = selectedGymChain === null || gym.name === selectedGymChain;
-      
-      return matchesSearch && matchesChain;
-    });
-  }, [gyms, searchQuery, selectedGymChain]);
-  
-  // Filter locations based on selected gym chain
-  const locationsForSelectedChain = useMemo(() => {
-    if (!gyms.length || !selectedGymChain) return [];
-    
-    const locations = gyms
-      .filter(gym => gym.name === selectedGymChain)
-      .map(gym => gym.location);
-    
-    return [...new Set(locations)].sort();
-  }, [gyms, selectedGymChain]);
+  // Format duration for display
+  function formatDuration(minutes: number) {
+    if (minutes < 60) {
+      return `${minutes} ${t('minutes')}`;
+    } else {
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      if (remainingMinutes === 0) {
+        return `${hours}h`;
+      } else {
+        return `${hours}h ${remainingMinutes}m`;
+      }
+    }
+  }
   
   // Find preferred gym
   useEffect(() => {
@@ -103,67 +85,53 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
     }
   }, [gyms, user]);
   
-  // Format date for display
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-  
-  // Toggle date picker
-  const toggleDatePicker = () => {
-    setShowDatePicker(!showDatePicker);
-    if (showTimePicker) setShowTimePicker(false);
-  };
-  
-  // Toggle time picker
-  const toggleTimePicker = () => {
-    setShowTimePicker(!showTimePicker);
-    if (showDatePicker) setShowDatePicker(false);
-  };
-  
-  // Handle date change
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    
-    if (selectedDate) {
-      updateFormData({ scheduled_date: selectedDate });
+  // Get scheduled datetime from formData
+  const getScheduledDateTime = () => {
+    if (formData.scheduled_date && formData.time_string) {
+      const date = new Date(formData.scheduled_date);
+      const [hours, minutes] = formData.time_string.split(':').map(num => parseInt(num, 10));
+      date.setHours(hours || 12, minutes || 0, 0, 0);
+      return date;
     }
+    
+    if (formData.scheduled_datetime) {
+      return new Date(formData.scheduled_datetime);
+    }
+    
+    if (formData.scheduled_date) {
+      return new Date(formData.scheduled_date);
+    }
+    
+    // Default to current time + 1 hour
+    const defaultDateTime = new Date();
+    defaultDateTime.setHours(defaultDateTime.getHours() + 1, 0, 0, 0);
+    return defaultDateTime;
   };
   
-  // Handle time change
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    
-    if (selectedTime) {
-      // Format time for display and storage
-      const formattedTime = selectedTime.toLocaleTimeString([], { 
+  // Handle datetime change
+  const handleDateTimeChange = (event: any, selectedDateTime?: Date) => {
+    if (selectedDateTime) {
+      const timeString = selectedDateTime.toLocaleTimeString([], { 
         hour: '2-digit', 
         minute: '2-digit',
         hour12: false
       });
       
-      updateFormData({ time_string: formattedTime });
+      updateFormData({ 
+        scheduled_datetime: selectedDateTime,
+        scheduled_date: selectedDateTime,
+        time_string: timeString
+      });
     }
   };
   
-  // Handle duration change
-  const handleDurationChange = (minutes: number) => {
-    if (minutes >= 15 && minutes <= 180) {
-      updateFormData({ duration_minutes: minutes });
-    }
+  // Handle duration selection
+  const handleDurationChange = (duration: number) => {
+    updateFormData({ duration_minutes: duration });
   };
   
-  // Clear gym chain selection
-  const clearGymChainSelection = () => {
-    setSelectedGymChain(null);
-    setSearchQuery('');
-  };
-  
-  // Handle gym selection
-  const handleGymSelection = (gym?: GymType) => {
+  // Handle gym selection from modal
+  const handleGymSelection = (gym: GymType | null) => {
     if (gym) {
       updateFormData({ 
         gym: gym.id,
@@ -171,24 +139,14 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
         location: gym.location,
         custom_location: undefined
       });
-      setGymSelectorVisible(false);
     } else {
-      // Show gym selector modal
-      setGymSelectorVisible(true);
-      if (formData.gym_name) {
-        setSelectedGymChain(formData.gym_name);
-      }
+      updateFormData({ 
+        gym: undefined,
+        gym_name: undefined,
+        location: 'Home',
+        custom_location: undefined
+      });
     }
-  };
-  
-  // Handle home selection
-  const handleHomeSelection = () => {
-    updateFormData({ 
-      gym: undefined,
-      gym_name: undefined,
-      location: 'Home',
-      custom_location: undefined
-    });
   };
   
   // Handle custom location
@@ -196,758 +154,270 @@ const Step3Schedule = ({ formData, updateFormData, errors, user }: Step3Schedule
     updateFormData({
       gym: undefined,
       gym_name: undefined,
-      location: location
+      location: location,
+      custom_location: location
     });
+  };
+  
+  // Get currently selected gym for modal
+  const selectedGym = useMemo(() => {
+    if (!formData.gym || !gyms.length) return null;
+    return gyms.find(gym => gym.id === formData.gym) || null;
+  }, [formData.gym, gyms]);
+
+  // Format gym display text
+  const getGymDisplayText = () => {
+    if (formData.gym && formData.gym_name) {
+      return `${formData.gym_name} - ${formData.location}`;
+    } else if (formData.location === 'Home') {
+      return t('at_home');
+    } else if (formData.custom_location) {
+      return formData.custom_location;
+    } else {
+      return t('select_location');
+    }
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Date and Time cards (side by side) */}
-      <View style={styles.rowContainer}>
-        {/* Date card */}
-        <View style={[styles.card, styles.halfCard]}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="calendar-outline" size={20} color="#f97316" />
-            <Text style={styles.cardTitle}>{t('date')}</Text>
-          </View>
-          
-          <TouchableOpacity 
-            style={[
-              styles.dateTimeButton,
-              errors.scheduled_date && styles.inputError
-            ]}
-            onPress={toggleDatePicker}
-          >
-            <Text style={styles.dateTimeText}>
-              {formatDate(formData.scheduled_date)}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-          </TouchableOpacity>
-          
-          {errors.scheduled_date ? (
-            <Text style={styles.errorText}>{errors.scheduled_date}</Text>
-          ) : null}
-          
-          {showDatePicker && (
-            <DateTimePicker
-              value={formData.scheduled_date}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-              minimumDate={new Date()} // Can't schedule in the past
-            />
-          )}
-        </View>
-        
-        {/* Time card */}
-        <View style={[styles.card, styles.halfCard]}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="time-outline" size={20} color="#f97316" />
-            <Text style={styles.cardTitle}>{t('time')}</Text>
-          </View>
-          
-          <TouchableOpacity 
-            style={[
-              styles.dateTimeButton,
-              errors.time_string && styles.inputError
-            ]}
-            onPress={toggleTimePicker}
-          >
-            <Text style={styles.dateTimeText}>{formData.time_string}</Text>
-            <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-          </TouchableOpacity>
-          
-          {errors.time_string ? (
-            <Text style={styles.errorText}>{errors.time_string}</Text>
-          ) : null}
-          
-          {showTimePicker && (
-            <DateTimePicker
-              value={new Date(`2021-01-01T${formData.time_string}:00`)}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleTimeChange}
-            />
-          )}
-        </View>
-      </View>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       
-      {/* Location card */}
+      {/* DateTime Section */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Ionicons name="location-outline" size={20} color="#f97316" />
-          <Text style={styles.cardTitle}>{t('location')}</Text>
+          <Ionicons name="calendar-outline" size={20} color="#f97316" />
+          <Text style={styles.cardTitle}>{t('date_and_time')}</Text>
         </View>
-        
-        <View style={styles.locationOptions}>
-          <TouchableOpacity
-            style={[
-              styles.locationOption,
-              formData.gym && styles.locationOptionSelected
-            ]}
-            onPress={() => handleGymSelection()}
-          >
-            <Ionicons 
-              name="fitness-outline" 
-              size={24} 
-              color={formData.gym ? '#FFFFFF' : '#9CA3AF'} 
-            />
-            <Text style={[
-              styles.locationOptionText,
-              formData.gym && styles.locationOptionTextSelected
-            ]}>
-              {t('gym')}
-            </Text>
-            
-            {formData.gym && formData.gym_name && (
-              <View style={styles.selectedGymInfo}>
-                <Text style={styles.selectedGymName}>
-                  {formData.gym_name}
-                </Text>
-                <Text style={styles.selectedGymLocation}>
-                  {formData.location}
-                </Text>
-              </View>
-            )}
-            
-            {!formData.gym && preferredGym && (
-              <View style={styles.selectedGymInfo}>
-                <Text style={styles.preferredGymText}>
-                  {preferredGym.name}
-                </Text>
-                <Text style={styles.preferredGymLocation}>
-                  {preferredGym.location}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.locationOption,
-              formData.location === 'Home' && styles.locationOptionSelected
-            ]}
-            onPress={handleHomeSelection}
-          >
-            <Ionicons 
-              name="home-outline" 
-              size={24} 
-              color={formData.location === 'Home' ? '#FFFFFF' : '#9CA3AF'} 
-            />
-            <Text style={[
-              styles.locationOptionText,
-              formData.location === 'Home' && styles.locationOptionTextSelected
-            ]}>
-              {t('at_home')}
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.dateTimeContainer}>
+          <DateTimePicker
+            value={getScheduledDateTime()}
+            mode="datetime"
+            display="default"
+            locale={language}
+            onChange={handleDateTimeChange}
+            minimumDate={new Date()}
+            style={styles.dateTimePicker}
+            textColor="#FFFFFF"
+            accentColor="#f97316"
+          />
         </View>
-        
-        {/* Custom location input */}
-        <TouchableOpacity
-          style={[
-            styles.customLocationContainer,
-            !formData.gym && formData.location !== 'Home' && styles.customLocationContainerSelected
-          ]}
-          onPress={() => {
-            if (!formData.location || formData.location === 'Home' || formData.gym) {
-              handleCustomLocation('');
-            }
-          }}
-        >
-          <Ionicons 
-            name="location-outline" 
-            size={24} 
-            color={!formData.gym && formData.location !== 'Home' ? '#f97316' : '#9CA3AF'} 
-          />
-          
-          <TextInput
-            style={[
-              styles.customLocationInput,
-              !formData.gym && formData.location !== 'Home' && styles.customLocationInputActive
-            ]}
-            placeholder={t('enter_custom_location')}
-            placeholderTextColor="#9CA3AF"
-            value={!formData.gym && formData.location !== 'Home' ? formData.location : ''}
-            onChangeText={handleCustomLocation}
-            editable={!formData.gym && formData.location !== 'Home'}
-          />
-        </TouchableOpacity>
+        {(errors.scheduled_date || errors.time_string || errors.scheduled_datetime) && (
+          <Text style={styles.errorText}>
+            {errors.scheduled_date || errors.time_string || errors.scheduled_datetime}
+          </Text>
+        )}
       </View>
       
-      {/* Duration card - moved below location and made smaller */}
-      <View style={styles.smallCard}>
+      {/* Duration Section */}
+      <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Ionicons name="hourglass-outline" size={20} color="#f97316" />
           <Text style={styles.cardTitle}>{t('duration')}</Text>
         </View>
-        
-        <View style={styles.durationContainer}>
-          <TouchableOpacity
-            style={styles.durationButton}
-            onPress={() => handleDurationChange(formData.duration_minutes - 15)}
-            disabled={formData.duration_minutes <= 15}
-          >
-            <Ionicons 
-              name="remove" 
-              size={20} 
-              color={formData.duration_minutes <= 15 ? '#6B7280' : '#FFFFFF'} 
-            />
-          </TouchableOpacity>
-          
-          <View style={styles.durationDisplayContainer}>
-            <Text style={styles.durationDisplay}>{formData.duration_minutes}</Text>
-            <Text style={styles.durationUnit}>{t('minutes')}</Text>
-          </View>
-          
-          <TouchableOpacity
-            style={styles.durationButton}
-            onPress={() => handleDurationChange(formData.duration_minutes + 15)}
-            disabled={formData.duration_minutes >= 180}
-          >
-            <Ionicons 
-              name="add" 
-              size={20} 
-              color={formData.duration_minutes >= 180 ? '#6B7280' : '#FFFFFF'} 
-            />
-          </TouchableOpacity>
-        </View>
-        
-        {/* Quick duration selectors */}
-        <View style={styles.quickDurationContainer}>
-          {[30, 45, 60, 90].map(duration => (
-            <TouchableOpacity
-              key={duration}
-              style={[
-                styles.quickDurationButton,
-                formData.duration_minutes === duration && styles.quickDurationButtonSelected
-              ]}
-              onPress={() => handleDurationChange(duration)}
+        <View style={styles.pickerWrapper}>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={formData.duration_minutes}
+              onValueChange={handleDurationChange}
+              style={styles.picker}
+              dropdownIconColor="#f97316"
+              itemStyle={styles.pickerItem}
             >
-              <Text style={[
-                styles.quickDurationText,
-                formData.duration_minutes === duration && styles.quickDurationTextSelected
-              ]}>
-                {duration}
-              </Text>
-            </TouchableOpacity>
-          ))}
+              {durationOptions.map((option) => (
+                <Picker.Item 
+                  key={option.value} 
+                  label={option.label} 
+                  value={option.value}
+                  color={Platform.OS === 'ios' ? '#FFFFFF' : '#000000'}
+                />
+              ))}
+            </Picker>
+          </View>
         </View>
       </View>
       
-      {/* Enhanced Gym selector modal */}
-      <Modal
-        visible={gymSelectorVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setGymSelectorVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity
-                style={styles.modalBackButton}
-                onPress={() => selectedGymChain ? clearGymChainSelection() : setGymSelectorVisible(false)}
-              >
-                <Ionicons 
-                  name={selectedGymChain ? "arrow-back" : "close"} 
-                  size={24} 
-                  color="#FFFFFF" 
-                />
-              </TouchableOpacity>
-              
-              <Text style={styles.modalTitle}>
-                {selectedGymChain ? selectedGymChain : t('select_gym')}
+      {/* Location Section */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Ionicons name="location-outline" size={20} color="#f97316" />
+          <Text style={styles.cardTitle}>{t('gym_location')}</Text>
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.locationButton,
+            (formData.gym || formData.location === 'Home' || formData.custom_location) && styles.locationButtonSelected
+          ]}
+          onPress={() => setGymSelectorVisible(true)}
+        >
+          <View style={styles.locationContent}>
+            <Ionicons 
+              name={formData.location === 'Home' ? "home" : "fitness"} 
+              size={20} 
+              color={(formData.gym || formData.location === 'Home' || formData.custom_location) ? "#f97316" : "#6B7280"} 
+            />
+            <View style={styles.locationTextContainer}>
+              <Text style={[
+                styles.locationText,
+                !(formData.gym || formData.location === 'Home' || formData.custom_location) && styles.locationPlaceholder
+              ]}>
+                {getGymDisplayText()}
               </Text>
-              
-              <TouchableOpacity
-                style={styles.modalClose}
-                onPress={() => setGymSelectorVisible(false)}
-              >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={t('search_gyms')}
-                placeholderTextColor="#9CA3AF"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery !== '' && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
+              {preferredGym && !(formData.gym || formData.location === 'Home' || formData.custom_location) && (
+                <Text style={styles.preferredText}>
+                  {t('preferred')}: {preferredGym.name}
+                </Text>
               )}
             </View>
-            
-            {/* Gym List Content */}
-            {gymsLoading ? (
-              <View style={styles.loaderContainer}>
-                <Text style={styles.loadingText}>{t('loading_gyms')}</Text>
-              </View>
-            ) : (
-              <>
-                {/* Show gym chains or locations based on selection state */}
-                {!selectedGymChain ? (
-                  // Show list of gym chains (names)
-                  <>
-                    {filteredGyms.length === 0 ? (
-                      <View style={styles.noResultsContainer}>
-                        <Text style={styles.noResultsText}>{t('no_gyms_found')}</Text>
-                      </View>
-                    ) : (
-                      <>
-                        {searchQuery === '' ? (
-                          // Show categorized gym chains if no search
-                          <FlatList
-                            data={gymChains}
-                            keyExtractor={(item) => item}
-                            renderItem={({ item }) => (
-                              <TouchableOpacity
-                                style={styles.gymChainItem}
-                                onPress={() => setSelectedGymChain(item)}
-                              >
-                                <View style={styles.gymChainInfo}>
-                                  <Text style={styles.gymChainName}>{item}</Text>
-                                  <Text style={styles.gymChainCount}>
-                                    {gyms.filter(gym => gym.name === item).length} {t('locations')}
-                                  </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                              </TouchableOpacity>
-                            )}
-                            contentContainerStyle={styles.gymList}
-                          />
-                        ) : (
-                          // Show search results
-                          <FlatList
-                            data={filteredGyms}
-                            keyExtractor={(item) => item.id.toString()}
-                            renderItem={({ item }) => (
-                              <TouchableOpacity
-                                style={styles.gymItem}
-                                onPress={() => handleGymSelection(item)}
-                              >
-                                <View style={styles.gymInfo}>
-                                  <Text style={styles.gymName}>{item.name}</Text>
-                                  <Text style={styles.gymAddress}>{item.location}</Text>
-                                </View>
-                                {formData.gym === item.id && (
-                                  <Ionicons name="checkmark-circle" size={24} color="#f97316" />
-                                )}
-                              </TouchableOpacity>
-                            )}
-                            contentContainerStyle={styles.gymList}
-                          />
-                        )}
-                      </>
-                    )}
-                  </>
-                ) : (
-                  // Show locations for selected gym chain
-                  <>
-                    {filteredGyms.length === 0 ? (
-                      <View style={styles.noResultsContainer}>
-                        <Text style={styles.noResultsText}>{t('no_locations_found')}</Text>
-                      </View>
-                    ) : (
-                      <FlatList
-                        data={filteredGyms}
-                        keyExtractor={(item) => item.id.toString()}
-                        renderItem={({ item }) => (
-                          <TouchableOpacity
-                            style={styles.gymItem}
-                            onPress={() => handleGymSelection(item)}
-                          >
-                            <View style={styles.gymInfo}>
-                              <Text style={styles.gymAddress}>{item.location}</Text>
-                            </View>
-                            {formData.gym === item.id && (
-                              <Ionicons name="checkmark-circle" size={24} color="#f97316" />
-                            )}
-                          </TouchableOpacity>
-                        )}
-                        contentContainerStyle={styles.gymList}
-                      />
-                    )}
-                  </>
-                )}
-              </>
-            )}
-            
-            {/* Home option */}
-            <TouchableOpacity
-              style={styles.customLocationOption}
-              onPress={() => {
-                handleHomeSelection();
-                setGymSelectorVisible(false);
-              }}
-            >
-              <Ionicons name="home-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.customLocationOptionText}>
-                {t('workout_at_home')}
-              </Text>
-            </TouchableOpacity>
+            <Ionicons name="chevron-forward" size={16} color="#6B7280" />
           </View>
-        </View>
-      </Modal>
+        </TouchableOpacity>
+        
+        {/* Custom location input */}
+        {!formData.gym && formData.location !== 'Home' && (
+          <View style={styles.customLocationWrapper}>
+            <View style={styles.customLocationContainer}>
+              <Ionicons name="create-outline" size={16} color="#f97316" />
+              <TextInput
+                style={styles.customLocationInput}
+                placeholder={t('enter_custom_location')}
+                placeholderTextColor="#6B7280"
+                value={formData.custom_location || ''}
+                onChangeText={handleCustomLocation}
+              />
+            </View>
+          </View>
+        )}
+      </View>
+      
+      {/* Gym Selection Modal */}
+      <GymSelectionModal
+        visible={gymSelectorVisible}
+        onClose={() => setGymSelectorVisible(false)}
+        onSelectGym={handleGymSelection}
+        selectedGym={selectedGym}
+      />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    paddingBottom: 32,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    flex: 1,
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   card: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#1E293B',
     borderRadius: 16,
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#374151',
-  },
-  smallCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  halfCard: {
-    width: '48%',
+    borderColor: '#334155',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
+    color: '#F8FAFC',
+    marginLeft: 10,
   },
-  dateTimeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: '#374151',
+  dateTimeContainer: {
+    backgroundColor: '#0F172A',
     borderRadius: 12,
-    padding: 12,
-  },
-  dateTimeText: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-  inputError: {
-    borderColor: '#EF4444',
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  // Duration styles - smaller version
-  durationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    marginBottom: 12,
-  },
-  durationButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#374151',
-    borderRadius: 18,
-  },
-  durationDisplayContainer: {
-    alignItems: 'center',
-  },
-  durationDisplay: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  durationUnit: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  quickDurationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quickDurationButton: {
-    flex: 1,
-    paddingVertical: 6,
-    backgroundColor: '#111827',
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 2,
+    padding: 8,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: '#475569',
   },
-  quickDurationButtonSelected: {
-    backgroundColor: '#4B5563',
-    borderColor: '#9CA3AF',
+  dateTimePicker: {
+    backgroundColor: 'transparent',
+    height: Platform.OS === 'ios' ? 120 : 40,
   },
-  quickDurationText: {
-    fontSize: 12,
-    color: '#D1D5DB',
+  pickerWrapper: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#475569',
+    overflow: 'hidden',
   },
-  quickDurationTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+  pickerContainer: {
+    backgroundColor: 'transparent',
   },
-  // Location styles
-  locationOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  picker: {
+    color: '#F8FAFC',
+    backgroundColor: 'transparent',
+    height: Platform.OS === 'ios' ? 120 : 50,
   },
-  locationOption: {
-    width: '48%',
-    backgroundColor: '#111827',
+  pickerItem: {
+    fontSize: 16,
+    color: '#F8FAFC',
+    height: 120,
+  },
+  locationButton: {
+    backgroundColor: '#0F172A',
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#374151',
-    minHeight: 120,
-    justifyContent: 'center',
+    borderColor: '#475569',
   },
-  locationOptionSelected: {
-    backgroundColor: '#7c2d12',
+  locationButtonSelected: {
     borderColor: '#f97316',
+    backgroundColor: '#7c2d12',
   },
-  locationOptionText: {
-    fontSize: 16,
-    color: '#E5E7EB',
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  locationOptionTextSelected: {
-    color: '#FFFFFF',
-  },
-  selectedGymInfo: {
-    marginTop: 12,
+  locationContent: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  selectedGymName: {
-    fontSize: 14,
-    color: '#FFFFFF',
+  locationTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  locationText: {
+    fontSize: 16,
     fontWeight: '500',
-    textAlign: 'center',
+    color: '#F8FAFC',
   },
-  selectedGymLocation: {
-    fontSize: 12,
-    color: '#D1D5DB',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  preferredGymText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  preferredGymLocation: {
-    fontSize: 12,
+  locationPlaceholder: {
     color: '#6B7280',
-    marginTop: 4,
-    textAlign: 'center',
+    fontWeight: '400',
+  },
+  preferredText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  customLocationWrapper: {
+    marginTop: 12,
   },
   customLocationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#0F172A',
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#374151',
-  },
-  customLocationContainerSelected: {
     borderColor: '#f97316',
-    backgroundColor: '#7c2d12',
   },
   customLocationInput: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
     fontSize: 16,
-    color: '#9CA3AF',
+    color: '#F8FAFC',
+    fontWeight: '400',
   },
-  customLocationInputActive: {
-    color: '#FFFFFF',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#111827',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
-  },
-  modalBackButton: {
-    padding: 8,
-    borderRadius: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'center',
-  },
-  modalClose: {
-    padding: 8,
-  },
-  // Search styles
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    borderRadius: 16,
-    margin: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 16,
-    padding: 0,
-  },
-  // Gym list styles
-  gymList: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  gymChainItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    borderWidth: 1,
-    borderColor: '#374151',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-  },
-  gymChainInfo: {
-    flex: 1,
-  },
-  gymChainName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  gymChainCount: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 4,
-  },
-  gymItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    borderWidth: 1,
-    borderColor: '#374151',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-  },
-  gymInfo: {
-    flex: 1,
-  },
-  gymName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  gymAddress: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  customLocationOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f97316',
-    padding: 16,
-    borderRadius: 12,
-    margin: 16,
-    marginTop: 'auto',
-  },
-  customLocationOptionText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
-    marginLeft: 8,
-  },
-  // Additional styles from Step2DateLocation
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    color: '#9CA3AF',
-    fontSize: 16,
-  },
-  noResultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  noResultsText: {
-    color: '#9CA3AF',
-    fontSize: 16,
-    textAlign: 'center',
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 12,
+    fontWeight: '500',
   },
 });
 

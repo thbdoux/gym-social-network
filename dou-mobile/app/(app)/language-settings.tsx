@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -17,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles } from '../../utils/createThemedStyles';
+import userService from '../../api/services/userService'; // Add this import
 
 // Available languages
 const LANGUAGES = [
@@ -31,11 +33,38 @@ export default function LanguageSettingsScreen() {
   const styles = themedStyles(palette);
   
   const [selectedLanguage, setSelectedLanguage] = useState(language);
+  const [isSaving, setIsSaving] = useState(false);
   
-  // Handle language selection
+  // Handle language selection with backend update
   const handleLanguageSelect = async (langCode) => {
+    if (isSaving || langCode === selectedLanguage) return;
+    
+    setIsSaving(true);
     setSelectedLanguage(langCode);
-    await setLanguage(langCode);
+    
+    try {
+      // Update language preference in backend
+      await userService.updateLanguagePreference(langCode);
+      
+      // Update local language context
+      await setLanguage(langCode);
+      
+      console.log(`Language successfully updated to: ${langCode}`);
+    } catch (error) {
+      console.error('Error updating language preference:', error);
+      
+      // Revert selection on error
+      setSelectedLanguage(language);
+      
+      // Show error message to user
+      Alert.alert(
+        t('error') || 'Error',
+        t('language_update_error') || 'Failed to update language preference. Please try again.',
+        [{ text: t('ok') || 'OK' }]
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   // Go back to profile
@@ -71,7 +100,7 @@ export default function LanguageSettingsScreen() {
                 ]
               ]}
               onPress={() => handleLanguageSelect(lang.code)}
-              disabled={isUpdating}
+              disabled={isUpdating || isSaving}
             >
               <View style={styles.languageInfo}>
                 <Text style={[styles.languageName, { color: palette.text }]}>
@@ -82,20 +111,24 @@ export default function LanguageSettingsScreen() {
                 </Text>
               </View>
               
-              {selectedLanguage === lang.code && (
+              {selectedLanguage === lang.code && !isSaving && (
                 <View style={[styles.checkmark, { backgroundColor: palette.highlight }]}>
                   <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                 </View>
+              )}
+              
+              {selectedLanguage === lang.code && isSaving && (
+                <ActivityIndicator size="small" color={palette.highlight} />
               )}
             </TouchableOpacity>
           ))}
         </View>
         
-        {isUpdating && (
+        {(isUpdating || isSaving) && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={palette.highlight} />
             <Text style={[styles.loadingText, { color: palette.text }]}>
-              {t('updating_language')}
+              {t('updating_language') || 'Updating language...'}
             </Text>
           </View>
         )}

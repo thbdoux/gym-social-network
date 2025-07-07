@@ -13,7 +13,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-your-default-key-for-development')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DEBUG', 'True') == 'False'
+EXPO_PUSH_NOTIFICATIONS_ENABLED = os.getenv('EXPO_PUSH_NOTIFICATIONS_ENABLED', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']  # Configure properly in production
 
@@ -48,6 +49,18 @@ INSTALLED_APPS = [
     'channels',
     'notifications.apps.NotificationsConfig',
 ]
+
+# Cache configuration (reuse your Redis)
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.environ.get('REDIS_URL', 'redis://localhost:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'TIMEOUT': 86400,  # 24 hours default
+    }
+}
 
 ASGI_APPLICATION = 'config.asgi.application'
 CHANNEL_LAYERS = {
@@ -245,6 +258,7 @@ REST_AUTH_REGISTER_SERIALIZER = 'users.serializers.CustomRegisterSerializer'  # 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Only for development
 
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -255,9 +269,15 @@ LOGGING = {
         },
     },
     'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': 'push_notifications.log',
+        },
         'console': {
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            # 'formatter': 'verbose',
         },
     },
     'root': {
@@ -284,5 +304,17 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'notifications.expo_push_notification_service': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'gyms': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        }
     },
 }
+
+REQUESTS_TIMEOUT = 30

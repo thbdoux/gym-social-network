@@ -8,14 +8,14 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
-  ScrollView,
   Image
 } from 'react-native';
 import { useLanguage } from '../../../context/LanguageContext';
 import { GroupWorkoutFormData } from '../GroupWorkoutWizard';
 import { Ionicons } from '@expo/vector-icons';
-import { useUsers, useFriends, useUser } from '../../../hooks/query/useUserQuery';
+import { useUsers, useFriends } from '../../../hooks/query/useUserQuery';
 import { getAvatarUrl } from '../../../utils/imageUtils';
+import userService from '../../../api/services/userService';
 
 type Step2ParticipantsProps = {
   formData: GroupWorkoutFormData;
@@ -48,6 +48,16 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
   const { data: allUsers = [], isLoading: usersLoading } = useUsers();
   const { data: friends = [], isLoading: friendsLoading } = useFriends();
   
+  // Get user details directly from userService
+  const getUserDetail = async (id) => {
+    try {
+      return await userService.getUserById(id);
+    } catch (err) {
+      console.error(`Failed to load user ${id}:`, err);
+      return { id, username: `User ${id}` };
+    }
+  };
+
   // Fetch participant details for users that don't have full details
   useEffect(() => {
     // Only load details for participants that we don't already have details for
@@ -57,15 +67,26 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
     
     if (participantsToLoad.length > 0) {
       const loadParticipantDetails = async () => {
+        // Try to find users in multiple sources
         const loadedDetails = await Promise.all(
           participantsToLoad.map(async (id) => {
             try {
-              // Find in already loaded users or fetch
+              // Search strategy 1: Check allUsers list first
               const userFromList = allUsers.find(u => u.id === id);
               if (userFromList) return userFromList;
               
-              // If not found, use useUser hook (assuming it returns a promise-based API)
-              return await useUser(id).data;
+              // Search strategy 2: Check friends list
+              const userFromFriends = friends.find(f => 
+                (f.id === id) || 
+                (f.friend && f.friend.id === id)
+              );
+              if (userFromFriends) {
+                // Return either the friend object or the nested friend property
+                return userFromFriends.friend || userFromFriends;
+              }
+              
+              // Search strategy 3: Direct API call as last resort
+              return await getUserDetail(id);
             } catch (err) {
               console.error(`Failed to load user ${id}:`, err);
               return { id, username: `User ${id}` };
@@ -73,17 +94,33 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
           })
         );
         
-        setParticipantsDetails(prev => [...prev, ...loadedDetails]);
+        // Update local state and form data
+        setParticipantsDetails(prev => {
+          const newDetails = [...prev];
+          
+          // Add only users that aren't already in the list
+          loadedDetails.forEach(user => {
+            if (!newDetails.some(p => p.id === user.id)) {
+              newDetails.push(user);
+            }
+          });
+          
+          return newDetails;
+        });
         
-        // Update form data with the loaded details
+        // Update form data
         updateFormData({
-          participants_details: [...participantsDetails, ...loadedDetails]
+          participants_details: participantsDetails.concat(
+            loadedDetails.filter(user => 
+              !participantsDetails.some(p => p.id === user.id)
+            )
+          )
         });
       };
       
       loadParticipantDetails();
     }
-  }, [participantIds]);
+  }, [participantIds, allUsers, friends]);
   
   // Search users when query changes
   useEffect(() => {
@@ -130,6 +167,9 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
       newParticipantsDetails.push(userObj);
     }
     
+    // Update local state
+    setParticipantsDetails(newParticipantsDetails);
+    
     // Update form data
     updateFormData({
       invited_users: newInvitedUsers,
@@ -141,8 +181,8 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
     setSearchResults([]);
     setSearchQuery('');
   };
-  
-  // Remove user
+
+  // Remove user - FIXED VERSION
   const handleRemoveUser = (userId: number) => {
     // Cannot remove creator (first participant)
     if (userId === user.id) {
@@ -160,6 +200,9 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
     // Remove from participant details
     const newParticipantsDetails = participantsDetails.filter(p => p.id !== userId);
     
+    // Update local state - THIS WAS MISSING
+    setParticipantsDetails(newParticipantsDetails);
+    
     // Update form data
     updateFormData({
       invited_users: newInvitedUsers,
@@ -167,197 +210,217 @@ const Step2Participants = ({ formData, updateFormData, errors, user }: Step2Part
       participants_details: newParticipantsDetails
     });
   };
-  
-  // Render friend suggestion item
-  const renderFriendSuggestionItem = ({ item }) => {
-    // Skip if already invited or is the creator
-    const friendUser = item.friend || item;
+
+  // Create data for single FlatList to avoid nesting
+  const createListData = () => {
+    const data = [];
     
-    if (
-      participantIds.includes(friendUser.id) || 
-      invitedUsers.includes(friendUser.id) ||
-      friendUser.id === user.id
-    ) {
-      return null;
+    // Header section
+    data.push({ type: 'header', id: 'header' });
+    
+    // Search section
+    data.push({ type: 'search', id: 'search' });
+    
+    // Loading section
+    if (usersLoading || friendsLoading || isSearching) {
+      data.push({ type: 'loading', id: 'loading' });
     }
     
-    return (
-      <TouchableOpacity
-        style={styles.friendSuggestionItem}
-        onPress={() => handleInviteUser(friendUser.id, friendUser)}
-      >
-        <Image 
-          source={{ uri: getAvatarUrl(friendUser.avatar) }} 
-          style={styles.avatar} 
-          defaultSource={require('../../../assets/images/dou.png')}
-        />
-        <View style={styles.userInfo}>
-          <Text style={styles.displayName}>
-            {friendUser.display_name || friendUser.username}
-          </Text>
-          <Text style={styles.username}>@{friendUser.username}</Text>
-        </View>
-        <Ionicons name="add-circle" size={24} color="#f97316" />
-      </TouchableOpacity>
-    );
-  };
-  
-  // Render invited user item
-  const renderParticipantItem = ({ item }) => {
-    const isCreator = item.id === user.id;
+    // Friend suggestions or search results
+    if (!isSearching && searchQuery.length === 0 && friends.length > 0) {
+      data.push({ type: 'friendsHeader', id: 'friendsHeader' });
+      friends.forEach((friend, index) => {
+        const friendUser = friend.friend || friend;
+        if (
+          !participantIds.includes(friendUser.id) && 
+          !invitedUsers.includes(friendUser.id) &&
+          friendUser.id !== user.id
+        ) {
+          data.push({ type: 'friend', id: `friend_${friendUser.id}`, data: friendUser });
+        }
+      });
+    } else if (searchQuery.length > 0) {
+      if (searchResults.length > 0) {
+        data.push({ type: 'searchHeader', id: 'searchHeader' });
+        searchResults.forEach((result) => {
+          data.push({ type: 'searchResult', id: `search_${result.id}`, data: result });
+        });
+      } else if (searchQuery.length >= 2) {
+        data.push({ type: 'noResults', id: 'noResults' });
+      }
+    }
     
-    return (
-      <View style={styles.participantItem}>
-        <Image 
-          source={{ uri: getAvatarUrl(item.avatar) }} 
-          style={styles.avatar}
-          defaultSource={require('../../../assets/images/dou.png')}
-        />
-        <Text style={styles.participantName}>
-          {item.display_name || item.username}
-          {isCreator && (
-            <Text style={styles.creatorBadge}> • {t('creator')}</Text>
-          )}
-        </Text>
-        
-        {!isCreator && (
-          <TouchableOpacity
-            style={styles.removeButton}
-            onPress={() => handleRemoveUser(item.id)}
-          >
-            <Ionicons name="close-circle" size={20} color="#EF4444" />
-          </TouchableOpacity>
-        )}
-      </View>
-    );
+    // Participants section
+    data.push({ type: 'participantsHeader', id: 'participantsHeader' });
+    if (participantsDetails.length > 0) {
+      participantsDetails.forEach((participant) => {
+        data.push({ type: 'participant', id: `participant_${participant.id}`, data: participant });
+      });
+    } else {
+      data.push({ type: 'emptyParticipants', id: 'emptyParticipants' });
+    }
+    
+    return data;
   };
-  
-  // Render search result item
-  const renderSearchResultItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.searchResultItem}
-      onPress={() => handleInviteUser(item.id, item)}
-    >
-      <Image 
-        source={{ uri: getAvatarUrl(item.avatar) }} 
-        style={styles.avatar} 
-        defaultSource={require('../../../assets/images/dou.png')}
-      />
-      <View style={styles.userInfo}>
-        <Text style={styles.displayName}>{item.display_name || item.username}</Text>
-        <Text style={styles.username}>@{item.username}</Text>
-      </View>
-      <Ionicons name="add-circle" size={24} color="#f97316" />
-    </TouchableOpacity>
-  );
 
-  return (
-    <ScrollView 
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.sectionTitle}>{t('invite_participants')}</Text>
+  const renderItem = ({ item }) => {
+    switch (item.type) {
+      case 'header':
+        return (
+          <Text style={styles.sectionTitle}>{t('invite_participants')}</Text>
+        );
       
-      {/* Search input */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('search_users')}
-          placeholderTextColor="#9CA3AF"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery !== '' && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-      </View>
+      case 'search':
+        return (
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('search_users')}
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        );
       
-      {/* Loading indicator */}
-      {(usersLoading || friendsLoading) && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#f97316" />
-          <Text style={styles.loadingText}>{t('loading_users')}</Text>
-        </View>
-      )}
+      case 'loading':
+        return (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#f97316" />
+            <Text style={styles.loadingText}>
+              {isSearching ? t('searching') : t('loading_users')}
+            </Text>
+          </View>
+        );
       
-      {/* Friend suggestions - Vertical layout */}
-      {!isSearching && searchQuery.length === 0 && friends.length > 0 && (
-        <View style={styles.friendSuggestionsContainer}>
-          <Text style={styles.friendSuggestionsTitle}>
-            {t('friend_suggestions')}
-          </Text>
-          <FlatList
-            data={friends}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderFriendSuggestionItem}
-            style={styles.friendSuggestionsList}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.friendSuggestionsContent}
-          />
-        </View>
-      )}
+      case 'friendsHeader':
+        return (
+          <Text style={styles.sectionSubtitle}>{t('friend_suggestions')}</Text>
+        );
       
-      {/* Search results */}
-      {isSearching ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#f97316" />
-          <Text style={styles.loadingText}>{t('searching')}</Text>
-        </View>
-      ) : searchQuery.length > 0 && (
-        <>
-          {searchResults.length > 0 ? (
-            <View style={styles.searchResultsContainer}>
-              <Text style={styles.searchResultsTitle}>
-                {t('search_results')}
+      case 'friend':
+        return (
+          <TouchableOpacity
+            style={styles.userItem}
+            onPress={() => handleInviteUser(item.data.id, item.data)}
+          >
+            <Image 
+              source={{ uri: getAvatarUrl(item.data.avatar) }} 
+              style={styles.avatar} 
+              defaultSource={require('../../../assets/images/dou.png')}
+            />
+            <View style={styles.userInfo}>
+              <Text style={styles.displayName}>
+                {item.data.display_name || item.data.username}
               </Text>
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderSearchResultItem}
-                style={styles.searchResultsList}
-                nestedScrollEnabled={true}
-              />
+              <Text style={styles.username}>@{item.data.username}</Text>
             </View>
-          ) : searchQuery.length >= 2 && (
-            <View style={styles.noResultsContainer}>
-              <Text style={styles.noResultsText}>{t('no_users_found')}</Text>
-            </View>
-          )}
-        </>
-      )}
+            <Ionicons name="add-circle" size={24} color="#f97316" />
+          </TouchableOpacity>
+        );
       
-      {/* Participants list */}
-      <View style={styles.participantsContainer}>
-        <View style={styles.participantsHeader}>
-          <Text style={styles.participantsTitle}>
-            {t('participants')} ({participantsDetails.length})
-          </Text>
-          {errors.participants && (
-            <Text style={styles.errorText}>{errors.participants}</Text>
-          )}
-        </View>
-        
-        {participantsDetails.length > 0 ? (
-          <FlatList
-            data={participantsDetails}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderParticipantItem}
-            style={styles.participantsList}
-            nestedScrollEnabled={true}
-          />
-        ) : (
+      case 'searchHeader':
+        return (
+          <Text style={styles.sectionSubtitle}>{t('search_results')}</Text>
+        );
+      
+      case 'searchResult':
+        return (
+          <TouchableOpacity
+            style={styles.userItem}
+            onPress={() => handleInviteUser(item.data.id, item.data)}
+          >
+            <Image 
+              source={{ uri: getAvatarUrl(item.data.avatar) }} 
+              style={styles.avatar} 
+              defaultSource={require('../../../assets/images/dou.png')}
+            />
+            <View style={styles.userInfo}>
+              <Text style={styles.displayName}>
+                {item.data.display_name || item.data.username}
+              </Text>
+              <Text style={styles.username}>@{item.data.username}</Text>
+            </View>
+            <Ionicons name="add-circle" size={24} color="#f97316" />
+          </TouchableOpacity>
+        );
+      
+      case 'noResults':
+        return (
+          <View style={styles.noResultsContainer}>
+            <Text style={styles.noResultsText}>{t('no_users_found')}</Text>
+          </View>
+        );
+      
+      case 'participantsHeader':
+        return (
+          <View style={styles.participantsHeader}>
+            <Text style={styles.sectionSubtitle}>
+              {t('participants')} ({participantsDetails.length})
+            </Text>
+            {errors.participants && (
+              <Text style={styles.errorText}>{errors.participants}</Text>
+            )}
+          </View>
+        );
+      
+      case 'participant':
+        const isCreator = item.data.id === user.id;
+        return (
+          <View style={styles.participantItem}>
+            <Image 
+              source={{ uri: getAvatarUrl(item.data.avatar) }} 
+              style={styles.avatar}
+              defaultSource={require('../../../assets/images/dou.png')}
+            />
+            <Text style={styles.participantName}>
+              {item.data.display_name || item.data.username}
+              {isCreator && (
+                <Text style={styles.creatorBadge}> • {t('creator')}</Text>
+              )}
+            </Text>
+            
+            {!isCreator && (
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => handleRemoveUser(item.data.id)}
+              >
+                <Ionicons name="close-circle" size={20} color="#EF4444" />
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      
+      case 'emptyParticipants':
+        return (
           <View style={styles.emptyParticipantsContainer}>
             <Text style={styles.emptyParticipantsText}>
               {t('no_participants_yet')}
             </Text>
           </View>
-        )}
-      </View>
-    </ScrollView>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <FlatList
+      data={createListData()}
+      keyExtractor={(item) => item.id}
+      renderItem={renderItem}
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    />
   );
 };
 
@@ -373,6 +436,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 16,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginBottom: 8,
+    marginTop: 16,
+    marginLeft: 4,
   },
   // Search styles
   searchContainer: {
@@ -404,50 +475,8 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginLeft: 8,
   },
-  // Friend suggestions - vertical layout
-  friendSuggestionsContainer: {
-    marginBottom: 24,
-    maxHeight: 300,
-  },
-  friendSuggestionsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  friendSuggestionsList: {
-    maxHeight: 280,
-  },
-  friendSuggestionsContent: {
-    paddingBottom: 8,
-  },
-  friendSuggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  // Search results
-  searchResultsContainer: {
-    marginBottom: 16,
-    maxHeight: 200,
-  },
-  searchResultsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  searchResultsList: {
-    maxHeight: 180,
-  },
-  searchResultItem: {
+  // User item styles (shared between friends and search results)
+  userItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1F2937',
@@ -478,23 +507,12 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   // Participants styles
-  participantsContainer: {
-    flex: 1,
-  },
   participantsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-  },
-  participantsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#E5E7EB',
-    marginLeft: 4,
-  },
-  participantsList: {
-    maxHeight: 300,
+    marginTop: 16,
   },
   participantItem: {
     flexDirection: 'row',
@@ -534,7 +552,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#374151',
-    marginTop: 16,
+    marginTop: 8,
   },
   emptyParticipantsText: {
     color: '#9CA3AF',

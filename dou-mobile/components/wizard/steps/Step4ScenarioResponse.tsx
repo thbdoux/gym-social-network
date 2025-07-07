@@ -1,4 +1,4 @@
-// components/wizard/steps/Step4ScenarioResponse.tsx
+// components/wizard/steps/Step4ScenarioResponse.tsx - Simplified clean version
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -29,7 +29,7 @@ type ScenarioResponseType = {
 };
 
 interface Step4ScenarioResponseProps {
-  onComplete: (data: ScoreType) => void;
+  onComplete: (data: ScoreType & { responses: any }) => void;
   initialScores?: ScoreType;
 }
 
@@ -47,35 +47,35 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
   // Preload the scenario images
   const { isLoaded } = useImagePreloading(['scenarios', 'icons']);
   
-// Define responses
+  // Original 4 responses - removed the creative one
   const scenarioResponses: ScenarioResponseType[] = [
     {
       id: 'ignore',
       name: 'scenario_response_ignore',
       description: 'scenario_response_ignore_desc',
       icon: 'barbell',
-      score: { optimizer: 3, diplomate: 0, mentor: 0, versatile: 1 }
+      score: { optimizer: 2, diplomate: 0, mentor: 0, versatile: 1 }
     },
     {
       id: 'standby',
       name: 'scenario_response_standby',
       description: 'scenario_response_standby_desc',
-      icon: 'time',
-      score: { optimizer: 1, diplomate: 2, mentor: 1, versatile: 2 }
+      icon: 'eye',
+      score: { optimizer: 1, diplomate: 2, mentor: 2, versatile: 2 }
     },
     {
       id: 'encourage',
       name: 'scenario_response_encourage',
       description: 'scenario_response_encourage_desc',
-      icon: 'people',
-      score: { optimizer: 0, diplomate: 3, mentor: 2, versatile: 0 }
+      icon: 'megaphone',
+      score: { optimizer: 0, diplomate: 3, mentor: 1, versatile: 1 }
     },
     {
       id: 'explain',
       name: 'scenario_response_explain',
       description: 'scenario_response_explain_desc',
       icon: 'school',
-      score: { optimizer: 2, diplomate: 0, mentor: 3, versatile: 0 }
+      score: { optimizer: 1, diplomate: 1, mentor: 3, versatile: 0 }
     }
   ];
   
@@ -108,9 +108,7 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
   
   // Animation for scenario visualization
   useEffect(() => {
-    // Animate scale based on animation stage
     let targetScale = 0.9;
-    let targetRotation = 0;
     
     switch (animationStage) {
       case 1:
@@ -118,11 +116,9 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
         break;
       case 2:
         targetScale = 1.05;
-        targetRotation = 3;
         break;
       case 3:
         targetScale = 1.05;
-        targetRotation = 0;
         break;
       case 4:
         targetScale = 1;
@@ -145,7 +141,14 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
   
   const handleContinue = () => {
     if (selectedResponse !== null) {
-      onComplete(scenarioResponses[selectedResponse].score);
+      const response = scenarioResponses[selectedResponse];
+      
+      // Store user responses (simplified)
+      const responses = {
+        selected_response: response.id,
+      };
+      
+      onComplete({ ...response.score, responses });
     }
   };
   
@@ -159,18 +162,15 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
       <Text style={styles.title}>{t('scenario_title')}</Text>
       <Text style={styles.subtitle}>{t('scenario_subtitle')}</Text>
       
-      {/* Animated scenario illustration with image placeholder */}
+      {/* Scenario illustration */}
       <Animated.View 
         style={[
           styles.scenarioBox,
           {
-            transform: [
-              { scale: scaleAnim }
-            ]
+            transform: [{ scale: scaleAnim }]
           }
         ]}
       >
-        {/* Replace emoji and text containers with a single image placeholder */}
         <Animated.View style={[
           styles.scenarioImageContainer,
           { opacity: animationStage >= 1 ? 1 : 0 }
@@ -195,33 +195,54 @@ const Step4ScenarioResponse: React.FC<Step4ScenarioResponseProps> = ({ onComplet
       {/* Response options */}
       {showScenario && (
         <View style={styles.responsesContainer}>
-          {scenarioResponses.map((response, index) => (
-            <TouchableOpacity
-              key={response.id}
-              style={[
-                styles.responseOption,
-                selectedResponse === index && styles.selectedResponseOption
-              ]}
-              onPress={() => handleSelect(index)}
-              activeOpacity={0.8}
-            >
-              {selectedResponse === index && (
-                <View style={styles.selectedIndicator} />
-              )}
-              
-              <View style={styles.responseIconContainer}>
-                <Text style={styles.responseIconText}>{response.icon === 'barbell' ? '🏋️' : 
-                                          response.icon === 'time' ? '⏱️' : 
-                                          response.icon === 'people' ? '🙌' : 
-                                          response.icon === 'school' ? '👨‍🏫' : '❓'}</Text>
-              </View>
-              
-              <View style={styles.responseTextContainer}>
-                <Text style={styles.responseTitle}>{t(response.name)}</Text>
-                <Text style={styles.responseDescription}>{t(response.description)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {scenarioResponses.map((response, index) => {
+            const isSelected = selectedResponse === index;
+            
+            return (
+              <TouchableOpacity
+                key={response.id}
+                style={[
+                  styles.responseOption,
+                  isSelected && styles.selectedResponseOption
+                ]}
+                onPress={() => handleSelect(index)}
+                activeOpacity={0.8}
+              >
+                {isSelected && (
+                  <View style={styles.selectedIndicator} />
+                )}
+                
+                <View style={styles.responseIconContainer}>
+                  <Ionicons 
+                    name={response.icon as any} 
+                    size={20} 
+                    color={isSelected ? "#3B82F6" : "#9CA3AF"} 
+                  />
+                </View>
+                
+                <View style={styles.responseTextContainer}>
+                  <Text style={[
+                    styles.responseTitle,
+                    isSelected && styles.selectedResponseTitle
+                  ]}>
+                    {t(response.name)}
+                  </Text>
+                  <Text style={[
+                    styles.responseDescription,
+                    isSelected && styles.selectedResponseDescription
+                  ]}>
+                    {t(response.description)}
+                  </Text>
+                </View>
+                
+                {isSelected && (
+                  <View style={styles.checkmark}>
+                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
       
@@ -295,6 +316,7 @@ const styles = StyleSheet.create({
   },
   responsesContainer: {
     marginBottom: 16,
+    flex: 1,
   },
   responseOption: {
     flexDirection: 'row',
@@ -311,6 +333,7 @@ const styles = StyleSheet.create({
   selectedResponseOption: {
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
     borderColor: 'rgba(59, 130, 246, 0.3)',
+    transform: [{ scale: 1.01 }],
   },
   selectedIndicator: {
     position: 'absolute',
@@ -329,21 +352,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  responseIconText: {
-    fontSize: 20,
-  },
   responseTextContainer: {
     flex: 1,
   },
   responseTitle: {
-    color: 'white',
+    color: '#D1D5DB',
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 2,
   },
+  selectedResponseTitle: {
+    color: 'white',
+  },
   responseDescription: {
     color: '#9CA3AF',
     fontSize: 12,
+  },
+  selectedResponseDescription: {
+    color: '#D1D5DB',
+  },
+  checkmark: {
+    marginLeft: 8,
   },
   continueButton: {
     flexDirection: 'row',
@@ -364,5 +393,4 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
 });
-
 export default Step4ScenarioResponse;

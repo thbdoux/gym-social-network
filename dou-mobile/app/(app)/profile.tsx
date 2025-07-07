@@ -22,11 +22,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
+import { safeParseDate } from '../../utils/dateUtils';
 import { useLanguage } from '../../context/LanguageContext';
 import { useCurrentUser, useLogout } from '../../hooks/query/useUserQuery';
-import { useGymDisplay } from '../../hooks/query/useGymQuery';
+import { useGym } from '../../hooks/query/useGymQuery';
 import { useProgram } from '../../hooks/query/useProgramQuery';
 import { useUserLogs, useWorkoutStats } from '../../hooks/query/useLogQuery';
+import { useUserJoinedGroupWorkouts, useUserGroupWorkouts } from '../../hooks/query/useGroupWorkoutQuery';
 // Import ThemeContext
 import { useTheme } from '../../context/ThemeContext';
 import { createThemedStyles, withAlpha } from '../../utils/createThemedStyles';
@@ -37,6 +39,10 @@ import { getAvatarUrl } from '../../utils/imageUtils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parse, subMonths, addMonths } from 'date-fns';
 // Import the TrainingConsistencyChart component
 import TrainingConsistencyChart from '../../components/profile/TrainingConsistencyChart';
+// Import the new ProfessionalCalendar component instead
+import ProfessionalCalendar from '../../components/profile/ProfessionalCalendar';
+
+import DouLoadingScreen from '../../components/shared/DouLoadingScreen';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -48,11 +54,11 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
   
   // Use the theme context
   const { palette, personality } = useTheme();
   const styles = themedStyles(palette);
+  
   // Use React Query hooks
   const { 
     data: profile, 
@@ -62,8 +68,10 @@ export default function ProfileScreen() {
   } = useCurrentUser();
   
   // Get logs for workout data
-  const { data: logs, isLoading: logsLoading } = useUserLogs(user?.username);
+  const { data: logs, isLoading: logsLoading, refetch: refetchLogs } = useUserLogs(user?.username);
 
+  // Get group workouts for calendar
+  const { data: groupWorkouts, isLoading: groupWorkoutsLoading, refetch: refetchGroupWorkouts } = useUserGroupWorkouts(user?.id, { participation: 'joined' });
   // Get workout stats for chart data
   const { data: workoutStats, isLoading: statsLoading } = useWorkoutStats();
   
@@ -75,6 +83,8 @@ export default function ProfileScreen() {
     useCallback(() => {
       // Force refetch profile data when screen is focused
       refetchProfile();
+      refetchLogs();
+      refetchGroupWorkouts();
       
       return () => {
         // Cleanup if needed
@@ -84,11 +94,10 @@ export default function ProfileScreen() {
   
   // Get preferred gym info
   const {
-    displayText: gymDisplayText,
+    data: userGym,
     isLoading: gymLoading,
-    gym
-  } = useGymDisplay(user?.id, profile?.preferred_gym);
-  
+  } = useGym(user?.preferred_gym);
+  console.log(userGym)
   // Get current program data
   const {
     data: programData,
@@ -96,24 +105,6 @@ export default function ProfileScreen() {
   } = useProgram(profile?.current_program?.id, {
     enabled: !!profile?.current_program?.id
   });
-
-  // Process logs data for the calendar
-  const workoutDays = useMemo(() => {
-    if (!logs) return [];
-    
-    return logs.map(log => {
-      if (log.date) {
-        try {
-          // Parse French format date (DD/MM/YYYY)
-          return parse(log.date, 'dd/MM/yyyy', new Date());
-        } catch (error) {
-          console.error("Error parsing date:", error);
-          return null;
-        }
-      }
-      return null;
-    }).filter(date => date !== null);
-  }, [logs]);
   
   // Process logs data for the chart by month
   const sessionData = useMemo(() => {
@@ -129,12 +120,17 @@ export default function ProfileScreen() {
     });
     
     if (logs && logs.length > 0) {
-      logs.forEach(log => {
+      logs.forEach((log, index) => {
         try {
           if (!log.date) return;
           
-          // Parse French format date (DD/MM/YYYY)
-          const logDate = parse(log.date, 'dd/MM/yyyy', new Date());
+          // Use safeParseDate to handle various date formats (ISO, dd/MM/yyyy, etc.)
+          const logDate = safeParseDate(log.date);
+          
+          if (!logDate) {
+            console.warn(`Failed to parse log date: ${log.date} at index ${index}`);
+            return;
+          }
           
           const monthIndex = last6Months.findIndex(item => 
             format(item.date, 'MMM yyyy') === format(logDate, 'MMM yyyy')
@@ -144,7 +140,11 @@ export default function ProfileScreen() {
             last6Months[monthIndex].sessions += 1;
           }
         } catch (error) {
-          console.error("Error processing log date:", error, log.date);
+          console.error("Error processing log date:", error, {
+            logDate: log.date,
+            logIndex: index,
+            logName: log.name || 'Unknown'
+          });
         }
       });
     }
@@ -152,15 +152,86 @@ export default function ProfileScreen() {
     return last6Months;
   }, [logs]);
 
+  // Transform logs for calendar component
+  const calendarLogs = useMemo(() => {
+    if (!logs) return [];
+    
+    return logs.map((log, index) => {
+      try {
+        // Validate that the date can be parsed before adding to calendar
+        const parsedDate = safeParseDate(log.date);
+        if (!parsedDate) {
+          console.warn(`Skipping log with invalid date: ${log.date} at index ${index}`);
+          return null;
+        }
+        
+        return {
+          ...log,
+          type: 'log' as const
+        };
+      } catch (error) {
+        console.error('Error processing calendar log:', error, log);
+        return null;
+      }
+    }).filter(Boolean); // Remove null entries
+  }, [logs]);
+
+  // Transform group workouts for calendar component
+  const calendarGroupWorkouts = useMemo(() => {
+    if (!groupWorkouts) return [];
+    
+    return groupWorkouts.map((workout, index) => {
+      try {
+        // Validate that the date can be parsed before adding to calendar
+        const dateSource = workout.scheduled_date || workout.scheduled_time;
+        const parsedDate = safeParseDate(dateSource);
+        if (!parsedDate) {
+          console.warn(`Skipping group workout with invalid date: ${dateSource} at index ${index}`);
+          return null;
+        }
+        
+        return {
+          ...workout,
+          type: 'group' as const
+        };
+      } catch (error) {
+        console.error('Error processing calendar group workout:', error, workout);
+        return null;
+      }
+    }).filter(Boolean); // Remove null entries
+  }, [groupWorkouts]);
+
+  // Calendar day click handler for current user
+  const handleCalendarDayClick = (item: any) => {
+    if (!item) return;
+    
+    if (item.type === 'log') {
+      // Navigate to current user's specific workout log
+      router.push(`/workout-log/${item.id}`);
+    } else if (item.type === 'group') {
+      // Navigate to group workout
+      router.push(`/group-workout/${item.id}`);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetchProfile();
+      await Promise.all([
+        refetchProfile(),
+        refetchLogs(),
+        refetchGroupWorkouts()
+      ]);
     } catch (error) {
       console.error('Error refreshing profile data:', error);
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handleCalendarRefresh = () => {
+    refetchLogs();
+    refetchGroupWorkouts();
   };
 
   // Navigation functions
@@ -204,27 +275,8 @@ export default function ProfileScreen() {
     );
   };
 
-  // Calendar functions
-  const getDaysInMonth = (date) => {
-    const start = startOfMonth(date);
-    const end = endOfMonth(date);
-    return eachDayOfInterval({ start, end });
-  };
-
-  const changeMonth = (direction) => {
-    setCurrentMonth(prevMonth => {
-      return direction === 'next' 
-        ? addMonths(prevMonth, 1) 
-        : subMonths(prevMonth, 1);
-    });
-  };
-
-  const isWorkoutDay = (day) => {
-    return workoutDays.some(date => date && isSameDay(day, date));
-  };
-
   // Format gym info
-  const gymInfo = gym ? `${gym.name}${gym.location ? ` - ${gym.location}` : ''}` : '';
+  const gymInfo = userGym ? `${userGym.name}${userGym.location ? ` - ${userGym.location}` : ''}` : '';
 
   // Get personality-based gradient for avatar
   const getPersonalityGradient = () => {
@@ -249,15 +301,15 @@ export default function ProfileScreen() {
   // Combine loading states
   const isLoading = profileLoading || (profile?.preferred_gym && gymLoading) || 
                  (profile?.current_program?.id && programLoading) ||
-                 logsLoading || statsLoading || 
+                 logsLoading || statsLoading || groupWorkoutsLoading ||
                  friendsCountLoading || postsCountLoading || workoutsCountLoading;
   
   if (isLoading && !refreshing) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: palette.page_background }]}>
-        <ActivityIndicator size="large" color={palette.highlight} />
-        <Text style={[styles.loadingText, { color: palette.text }]}>{t('loading_profile')}</Text>
-      </View>
+      <DouLoadingScreen 
+        animationType='pulse'
+        size="large"
+      />
     );
   }
 
@@ -308,11 +360,11 @@ export default function ProfileScreen() {
               <Text style={[styles.optionText, { color: palette.text }]}>{t('edit_profile')}</Text>
             </TouchableOpacity>
             {/* New Language Option */}
-      <View style={[styles.optionDivider, { backgroundColor: palette.border }]} />
-      <TouchableOpacity style={styles.optionItem} onPress={navigateToLanguageSettings}>
-        <Ionicons name="language-outline" size={24} color={palette.text} />
-        <Text style={[styles.optionText, { color: palette.text }]}>{t('edit_language')}</Text>
-      </TouchableOpacity>
+            <View style={[styles.optionDivider, { backgroundColor: palette.border }]} />
+            <TouchableOpacity style={styles.optionItem} onPress={navigateToLanguageSettings}>
+              <Ionicons name="language-outline" size={24} color={palette.text} />
+              <Text style={[styles.optionText, { color: palette.text }]}>{t('edit_language')}</Text>
+            </TouchableOpacity>
             <View style={[styles.optionDivider, { backgroundColor: palette.border }]} />
             <TouchableOpacity style={styles.optionItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={24} color="#ef4444" />
@@ -403,6 +455,15 @@ export default function ProfileScreen() {
             </View>
           </View>
           
+          {/* Bio Section */}
+          {profile?.bio && (
+            <View style={styles.bioContainer}>
+              <Text style={[styles.bioText, { color: `${palette.text}CC` }]}>
+                {profile.bio}
+              </Text>
+            </View>
+          )}
+          
           {/* Stats row (below profile info) */}
           <View style={styles.statsRow}>
             <TouchableOpacity 
@@ -431,91 +492,17 @@ export default function ProfileScreen() {
           </View>
         </View>
         
-        {/* Monthly Workout Calendar */}
-        <View style={styles.calendarCard}>
-          <BlurView intensity={10} tint="dark" style={styles.blurBackground} />
-          
-          <View style={styles.calendarHeader}>
-            <Text style={[styles.cardTitle, { color: palette.text }]}>{t('workout_calendar')}</Text>
-            <View style={styles.monthSelectorContainer}>
-              <TouchableOpacity 
-                onPress={() => changeMonth('prev')} 
-                style={[styles.monthButton, { backgroundColor: `${palette.accent}80` }]}
-              >
-                <Ionicons name="chevron-back" size={24} color={palette.text} />
-              </TouchableOpacity>
-              <Text style={[styles.monthDisplay, { color: palette.text }]}>
-                {format(currentMonth, 'MMMM yyyy')}
-              </Text>
-              <TouchableOpacity 
-                onPress={() => changeMonth('next')} 
-                style={[styles.monthButton, { backgroundColor: `${palette.accent}80` }]}
-              >
-                <Ionicons name="chevron-forward" size={24} color={palette.text} />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          <View style={styles.weekdaysHeader}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-              <Text key={index} style={[styles.weekdayLabel, { color: `${palette.text}B3` }]}>{day}</Text>
-            ))}
-          </View>
-          
-          <View style={styles.calendarGrid}>
-            {getDaysInMonth(currentMonth).map((day, index) => {
-              const isWorkout = isWorkoutDay(day);
-              const isCurrent = isToday(day);
-              
-              return (
-                <TouchableOpacity 
-                  key={index}
-                  style={[
-                    styles.calendarDay,
-                    { backgroundColor: `${palette.accent}4D` },
-                    isWorkout && [styles.workoutDay, { backgroundColor: `${palette.highlight}4D`, borderColor: `${palette.highlight}80` }],
-                    isCurrent && [styles.currentDay, { backgroundColor: `${palette.highlight}4D`, borderColor: `${palette.highlight}B3` }]
-                  ]}
-                  onPress={() => {
-                    if (isWorkout) {
-                      // Navigate to workout details for this day
-                      // router.push(`/workout-log/${format(day, 'yyyy-MM-dd')}`);
-                      Alert.alert('Workout', `You worked out on ${format(day, 'MMMM d, yyyy')}`);
-                    }
-                  }}
-                >
-                  <Text 
-                    style={[
-                      styles.dayNumber,
-                      { color: palette.text },
-                      isWorkout && [styles.workoutDayNumber, { color: palette.text, fontWeight: 'bold' }],
-                      isCurrent && [styles.currentDayNumber, { color: palette.text, fontWeight: 'bold' }]
-                    ]}
-                  >
-                    {format(day, 'd')}
-                  </Text>
-                  
-                  {isWorkout && (
-                    <View style={[styles.workoutIndicator, { backgroundColor: palette.highlight }]} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          
-          <View style={styles.calendarLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: palette.highlight }]} />
-              <Text style={[styles.legendText, { color: `${palette.text}B3` }]}>{t('workout_day')}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: palette.highlight }]} />
-              <Text style={[styles.legendText, { color: `${palette.text}B3` }]}>{t('today')}</Text>
-            </View>
-          </View>
-        </View>
+        {/* Monthly Workout Calendar - Now using ProfessionalCalendar */}
+        <ProfessionalCalendar
+          workoutLogs={calendarLogs}
+          groupWorkouts={calendarGroupWorkouts}
+          isLoading={logsLoading || groupWorkoutsLoading}
+          onRefresh={handleCalendarRefresh}
+          onDayClick={handleCalendarDayClick}
+          palette={palette}
+        />
         
-        {/* Training Consistency Chart - Using the new component */}
+        {/* Training Consistency Chart - Using Victory-Native component */}
         <TrainingConsistencyChart sessionData={sessionData} palette={palette} />
         
         {/* Current Program */}
@@ -535,7 +522,7 @@ export default function ProfileScreen() {
             <View style={styles.emptyProgram}>
               <Ionicons name="barbell-outline" size={48} color={palette.border} />
               <Text style={[styles.emptyProgramText, { color: palette.border }]}>{t('no_active_program')}</Text>
-              <TouchableOpacity onPress={() => router.push('/programs')}>
+              <TouchableOpacity onPress={() => router.push('/workouts')}>
                 <LinearGradient
                   colors={[palette.layout, palette.highlight]}
                   start={{ x: 0, y: 0 }}
@@ -677,6 +664,17 @@ const themedStyles = createThemedStyles((palette) => ({
     fontSize: 13,
     fontWeight: '500',
   },
+  // Bio styles
+  bioContainer: {
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  bioText: {
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'left',
+  },
   statsRow: {
     flexDirection: 'row',
     marginTop: 16,
@@ -699,106 +697,6 @@ const themedStyles = createThemedStyles((palette) => ({
     textTransform: 'uppercase',
     fontWeight: '500',
     marginTop: 2,
-  },
-  
-  // Calendar styles
-  calendarCard: {
-    position: 'relative',
-    borderRadius: 0,
-    padding: 16,
-    marginVertical: 0,
-    borderWidth: 0,
-    overflow: 'hidden',
-  },
-  calendarHeader: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  monthSelectorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginTop: 8,
-  },
-  monthDisplay: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginHorizontal: 12,
-    width: 150,
-    textAlign: 'center',
-  },
-  monthButton: {
-    padding: 5,
-    borderRadius: 20,
-  },
-  weekdaysHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 12,
-    paddingHorizontal: 8,
-  },
-  weekdayLabel: {
-    width: 32,
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
-  },
-  calendarDay: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 4,
-    borderRadius: 16,
-    position: 'relative',
-  },
-  dayNumber: {
-    fontSize: 14,
-  },
-  workoutDay: {
-    borderWidth: 1,
-  },
-  workoutDayNumber: {
-    fontWeight: 'bold',
-  },
-  currentDay: {
-    borderWidth: 1,
-  },
-  currentDayNumber: {
-    fontWeight: 'bold',
-  },
-  workoutIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  calendarLegend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 16,
-    gap: 20,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  legendText: {
-    fontSize: 12,
   },
   
   // Options modal styles

@@ -5,53 +5,66 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   TextInput,
-  Image,
-  ActivityIndicator,
   SafeAreaView,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTheme } from '../../../context/ThemeContext';
 import {
   useUser,
   useCurrentUser,
+  useFriends,
+  useSendFriendRequest,
+  useRespondToFriendRequest,
+  useRemoveFriend,
 } from '../../../hooks/query/useUserQuery';
 import {
   useUserFriends,
 } from '../../../hooks/query/useProfilePreviewQuery';
-import { getAvatarUrl } from '../../../utils/imageUtils';
-// Import ThemeContext
-import { useTheme } from '../../../context/ThemeContext';
+
+// Import components
+import FriendsList from '../../../components/friends/FriendsList';
 
 // Types
-interface Friend {
+export interface User {
   id: number;
   username: string;
   avatar?: string;
   training_level?: string;
   personality_type?: string;
-  [key: string]: any;
 }
 
+export interface FriendData {
+  id: number;
+  friend: User;
+}
+
+const HEADER_HEIGHT = 80;
+
 export default function UserFriendsPage() {
-  // Get translation function
   const { t } = useLanguage();
   const router = useRouter();
+  const { palette } = useTheme();
   const { id } = useLocalSearchParams();
   const userId = typeof id === 'string' ? parseInt(id) : 0;
   
-  // Use the theme context
-  const { palette } = useTheme();
-  
   // State
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   
   // Get current user
   const { data: currentUser } = useCurrentUser();
+
+  // Get current user's friends for friend action logic
+  const {
+    data: currentUserFriends = [],
+    refetch: refetchCurrentUserFriends,
+  } = useFriends({
+    refetchOnMount: true,
+  });
 
   // Get the user data whose friends we're viewing
   const {
@@ -63,7 +76,7 @@ export default function UserFriendsPage() {
 
   // Fetch friends data using React Query hooks
   const {
-    data: friends = [],
+    data: userFriends = [],
     isLoading: friendsLoading,
     refetch: refetchFriends,
   } = useUserFriends(userId, {
@@ -72,142 +85,134 @@ export default function UserFriendsPage() {
     refetchOnWindowFocus: true,
   });
 
+  // Mutations for friend actions
+  const sendFriendRequestMutation = useSendFriendRequest();
+  const respondToFriendRequestMutation = useRespondToFriendRequest();
+  const removeFriendMutation = useRemoveFriend();
+
   // Effect to refresh data when component mounts
   useEffect(() => {
     refetchFriends();
-  }, [refetchFriends]);
+    refetchCurrentUserFriends();
+  }, [refetchFriends, refetchCurrentUserFriends]);
 
   // Combined loading state
   const loading = userLoading || friendsLoading;
 
-  // Format text utility
-  const formatText = (text?: string): string => {
-    if (!text) return '';
-    return text
-      .split('_')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  // Convert user friends to the format expected by FriendsList
+  const formattedFriends: FriendData[] = userFriends.map((friend: User) => ({
+    id: friend.id,
+    friend: friend,
+  }));
+
+  // Check if current user is friends with this friend
+  const isCurrentUserFriend = (friendId: number): boolean => {
+    return currentUserFriends.some((f: any) => f.friend?.id === friendId);
   };
 
-  // Get initials for avatar fallback
-  const getInitials = (name?: string): string => {
-    if (!name) return '?';
-    return name.charAt(0).toUpperCase();
+  // Friend request actions - only allow removing if it's current user's own friend
+  const handleFriendAction = async (actionType: string, friendId: number) => {
+    try {
+      // Only allow remove action if viewing own friends or if current user is friends with this person
+      if (actionType === 'remove') {
+        if (userId === currentUser?.id || isCurrentUserFriend(friendId)) {
+          await removeFriendMutation.mutateAsync(friendId, {
+            onSuccess: () => {
+              refetchFriends();
+              refetchCurrentUserFriends();
+            },
+          });
+        }
+      }
+      // Add other friend actions as needed for mutual friends
+    } catch (error) {
+      console.error(`Error with friend action ${actionType}:`, error);
+    }
   };
 
-  // Filter friends based on search query
-  const filteredFriends = friends.filter((friend: Friend) =>
-    friend.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Navigate to a user's profile
+  // Profile viewing
   const navigateToProfile = (userId: number) => {
     router.push(`/user/${userId}`);
   };
 
-  // Components for rendering list items
-  const FriendItem = ({ friend, onViewProfile }: { 
-    friend: Friend,
-    onViewProfile: () => void, 
-  }) => {
-    return (
-      <View style={[styles.itemContainer, { backgroundColor: `${palette.accent}B3` }]}>
-        {friend.avatar ? (
-          <Image source={{ uri: getAvatarUrl(friend.avatar, 80) }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: palette.highlight }]}>
-            <Text style={styles.avatarText}>{getInitials(friend.username)}</Text>
-          </View>
-        )}
-        
-        <View style={styles.userInfo}>
-          <Text style={[styles.username, { color: palette.text }]}>{friend.username}</Text>
-          <Text style={[styles.userDetail, { color: `${palette.text}80` }]}>
-            {formatText(friend.training_level || '')}
-            {friend.training_level && friend.personality_type && " • "}
-            {formatText(friend.personality_type || '')}
-          </Text>
-        </View>
-        
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: palette.highlight }]}
-            onPress={onViewProfile}
-          >
-            <Ionicons name="eye" size={18} color={palette.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+  // Filter friends based on search query
+  const filteredFriends = formattedFriends.filter((friendData: FriendData) =>
+    friendData.friend.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const toggleSearch = () => {
+    setShowSearch(!showSearch);
+    if (showSearch) {
+      setSearchQuery(''); // Clear search when hiding
+    }
   };
 
-  const EmptyState = ({ 
-    icon, 
-    message 
-  }: { 
-    icon: React.ReactNode, 
-    message: string
-  }) => (
-    <View style={styles.emptyContainer}>
-      {icon}
-      <Text style={[styles.emptyMessage, { color: `${palette.text}80` }]}>{message}</Text>
-    </View>
-  );
+  // Determine if we should show friend actions (only for own friends or mutual friends)
+  const shouldShowFriendActions = userId === currentUser?.id;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: palette.page_background }]}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View style={[styles.header, { borderColor: `${palette.border}66` }]}>
-        <TouchableOpacity 
-          style={[styles.backButton, { backgroundColor: `${palette.accent}B3` }]} 
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={palette.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>
-          {userData?.username ? `${userData.username} - ${t('friends').toLowerCase()}` : t('friends')}
-        </Text>
-      </View>
+      {/* Fixed Header */}
+      <View 
+        style={[
+          styles.headerContainer,
+          { 
+            backgroundColor: palette.page_background,
+            borderColor: `${palette.border}66`,
+          }
+        ]}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={[styles.backButton, { backgroundColor: `${palette.accent}B3` }]} 
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: palette.text }]}>
+            {userData?.username ? `${userData.username} - ${t('friends').toLowerCase()}` : t('friends')}
+          </Text>
+          <TouchableOpacity 
+            style={[styles.searchButton, { backgroundColor: `${palette.accent}B3` }]} 
+            onPress={toggleSearch}
+          >
+            <Ionicons name="search" size={20} color={palette.text} />
+          </TouchableOpacity>
+        </View>
 
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
-        <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
-        <TextInput
-          style={[styles.searchInput, { color: palette.text }]}
-          placeholder={t('search_friends')}
-          placeholderTextColor={`${palette.text}80`}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        {/* Conditional Search Bar */}
+        {showSearch && (
+          <View style={[styles.searchContainer, { backgroundColor: `${palette.accent}B3` }]}>
+            <Ionicons name="search" size={20} color={`${palette.text}80`} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: palette.text }]}
+              placeholder={t('search_friends')}
+              placeholderTextColor={`${palette.text}80`}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+            />
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close" size={20} color={`${palette.text}80`} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Content */}
-      <View style={styles.content}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={palette.highlight} />
-            <Text style={[styles.loadingText, { color: `${palette.text}80` }]}>{t('loading')}</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredFriends}
-            keyExtractor={(item) => `friend-${item.id}`}
-            renderItem={({ item }) => (
-              <FriendItem
-                friend={item}
-                onViewProfile={() => navigateToProfile(item.id)}
-              />
-            )}
-            ListEmptyComponent={
-              <EmptyState
-                icon={<Ionicons name="people" size={48} color={`${palette.text}4D`} />}
-                message={searchQuery ? t('no_friends_match_search') : t('no_friends')}
-              />
-            }
-          />
-        )}
+      <View style={[styles.content, { marginTop: showSearch ? HEADER_HEIGHT + 60 + 44 : HEADER_HEIGHT + 44 }]}>
+        <FriendsList
+          friends={filteredFriends}
+          loading={loading}
+          searchQuery={searchQuery}
+          onNavigateToProfile={navigateToProfile}
+          onFriendAction={shouldShowFriendActions ? handleFriendAction : () => {}}
+          onDiscoverPress={() => router.push('/friends')}
+          removeFriendMutation={shouldShowFriendActions ? removeFriendMutation : { isLoading: false, variables: null }}
+        />
       </View>
     </SafeAreaView>
   );
@@ -217,12 +222,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    borderBottomWidth: 1,
+    paddingTop: 44, // Status bar height
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    height: HEADER_HEIGHT,
   },
   backButton: {
     width: 40,
@@ -230,18 +245,29 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 16,
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
     paddingHorizontal: 12,
+    height: 60,
   },
   searchIcon: {
     marginRight: 8,
@@ -253,72 +279,5 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyMessage: {
-    fontSize: 16,
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  itemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  userInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  username: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  userDetail: {
-    fontSize: 14,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

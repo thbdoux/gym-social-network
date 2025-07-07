@@ -18,7 +18,7 @@ export const MetricInsights: React.FC<MetricInsightsProps> = memo(({ metricType 
   const { t } = useLanguage();
   const { weeklyMetrics } = useAnalytics();
 
-  // Calculate insights
+  // Calculate insights with support for weighted muscle groups
   const insights = useMemo(() => {
     if (!weeklyMetrics || weeklyMetrics.length < 2) {
       return {
@@ -27,7 +27,9 @@ export const MetricInsights: React.FC<MetricInsightsProps> = memo(({ metricType 
         min: { value: 0, week: '' },
         trend: 'stable' as 'increasing' | 'decreasing' | 'stable',
         averageGrowth: 0,
-        consistency: 0
+        consistency: 0,
+        totalMuscleGroups: 0,
+        mostTargetedMuscle: ''
       };
     }
 
@@ -41,6 +43,10 @@ export const MetricInsights: React.FC<MetricInsightsProps> = memo(({ metricType 
     let nonZeroWeeks = 0;
     let streakWeeks = 0;
     let currentStreak = 0;
+    
+    // Track muscle group engagement across all weeks
+    const muscleGroupTotals: Record<string, number> = {};
+    let totalMuscleGroupsEngaged = new Set<string>();
 
     for (let i = 0; i < weeklyMetrics.length; i++) {
       const week = weeklyMetrics[i];
@@ -86,7 +92,27 @@ export const MetricInsights: React.FC<MetricInsightsProps> = memo(({ metricType 
       } else {
         currentStreak = 1;
       }
+
+      // Track muscle group engagement (for totalSets metric specifically)
+      if (metricType === 'totalSets' && week.setsPerMuscleGroup) {
+        Object.entries(week.setsPerMuscleGroup).forEach(([muscleGroup, sets]) => {
+          if (sets > 0) {
+            totalMuscleGroupsEngaged.add(muscleGroup);
+            muscleGroupTotals[muscleGroup] = (muscleGroupTotals[muscleGroup] || 0) + sets;
+          }
+        });
+      }
     }
+
+    // Find most targeted muscle group
+    let mostTargetedMuscle = '';
+    let maxSets = 0;
+    Object.entries(muscleGroupTotals).forEach(([muscle, totalSets]) => {
+      if (totalSets > maxSets) {
+        maxSets = totalSets;
+        mostTargetedMuscle = muscle.charAt(0).toUpperCase() + muscle.slice(1).replace(/_/g, ' ');
+      }
+    });
 
     // Calculate results
     const average = count > 0 ? sum / count : 0;
@@ -101,16 +127,19 @@ export const MetricInsights: React.FC<MetricInsightsProps> = memo(({ metricType 
       trend,
       averageGrowth,
       consistency,
-      streakWeeks
+      streakWeeks,
+      totalMuscleGroups: totalMuscleGroupsEngaged.size,
+      mostTargetedMuscle
     };
   }, [weeklyMetrics, metricType]);
 
-  // Format insight value based on metric type
+  // Format insight value based on metric type with support for decimal places
   const formatInsightValue = (value: number) => {
     if (metricType === 'totalWeightLifted' || metricType === 'averageWeightPerRep') {
-      return formatWeight(value, t);
+      return formatWeight(value);
     }
-    return value.toString();
+    // For totalSets, show decimal places since we now have weighted contributions
+    return value.toFixed(1);
   };
 
   // Get color for trend
@@ -131,10 +160,39 @@ export const MetricInsights: React.FC<MetricInsightsProps> = memo(({ metricType 
     }
   };
 
+  // Get specific insight card for muscle diversity (only for totalSets)
+  const renderMuscleGroupInsight = () => {
+    if (metricType !== 'totalSets' || insights.totalMuscleGroups === 0) return null;
+    
+    return (
+      <View style={[styles.insightCard, { backgroundColor: '#8b5cf6' + '10' }]}>
+        <Text style={[styles.insightLabel, { color: palette.text + '90' }]}>
+          {t('muscle_diversity')}
+        </Text>
+        <Text style={[styles.insightValue, { color: palette.text }]}>
+          {insights.totalMuscleGroups}
+        </Text>
+        <Text style={[styles.insightSubtext, { color: palette.text + '70' }]}>
+          {t('muscle_groups_targeted')}
+        </Text>
+        {insights.mostTargetedMuscle && (
+          <Text style={[styles.insightSubtext, { color: '#8b5cf6', marginTop: 2 }]}>
+            {t('top')}: {insights.mostTargetedMuscle}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: palette.page_background, borderColor: palette.border }]}>
       <Text style={[styles.title, { color: palette.text }]}>
         {t('key_insights')}
+        {metricType === 'totalSets' && (
+          <Text style={[styles.subtitle, { color: palette.text + '70' }]}>
+            {' '}• {t('weighted_by_muscle_involvement')}
+          </Text>
+        )}
       </Text>
       
       <View style={styles.insightsGrid}>
@@ -189,7 +247,28 @@ export const MetricInsights: React.FC<MetricInsightsProps> = memo(({ metricType 
             {insights.streakWeeks > 0 && `${insights.streakWeeks} ${t('week_streak')}`}
           </Text>
         </View>
+
+        {/* Muscle Group Diversity (only for totalSets) */}
+        {renderMuscleGroupInsight()}
       </View>
+
+      {/* Enhanced explanation for weighted sets */}
+      {metricType === 'totalSets' && (
+        <View style={styles.explanationContainer}>
+          <View style={styles.explanationRow}>
+            <View style={styles.explanationDot} />
+            <Text style={[styles.explanationText, { color: palette.text + '80' }]}>
+              {t('primary_muscles_full_credit')}
+            </Text>
+          </View>
+          <View style={styles.explanationRow}>
+            <View style={[styles.explanationDot, { backgroundColor: palette.warning }]} />
+            <Text style={[styles.explanationText, { color: palette.text + '80' }]}>
+              {t('secondary_muscles_half_credit')}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 });
@@ -205,6 +284,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 16,
+    flexDirection: 'row',
+  },
+  subtitle: {
+    fontSize: 12,
+    fontWeight: '400',
   },
   insightsGrid: {
     flexDirection: 'row',
@@ -240,7 +324,29 @@ const styles = StyleSheet.create({
   trendValue: {
     fontSize: 18,
     fontWeight: '700',
-  }
+  },
+  explanationContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  explanationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  explanationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10b981',
+    marginRight: 8,
+  },
+  explanationText: {
+    fontSize: 11,
+    flex: 1,
+  },
 });
 
 export default MetricInsights;

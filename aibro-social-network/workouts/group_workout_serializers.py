@@ -1,14 +1,18 @@
 # workouts/group_workout_serializers.py
 from rest_framework import serializers
+from django.db.models import Count
+
 from .group_workouts import (
     GroupWorkout, 
     GroupWorkoutParticipant, 
     GroupWorkoutJoinRequest, 
-    GroupWorkoutMessage
+    GroupWorkoutMessage,
+    GroupWorkoutProposal,
+    GroupWorkoutVote,
 )
 from users.serializers import UserSerializer
 from gyms.serializers import GymSerializer
-from .serializers import WorkoutInstanceSerializer
+from .serializers import WorkoutTemplateSerializer
 
 class GroupWorkoutMessageSerializer(serializers.ModelSerializer):
     user_details = UserSerializer(source='user', read_only=True, fields=['id', 'username', 'avatar'])
@@ -50,7 +54,7 @@ class GroupWorkoutSerializer(serializers.ModelSerializer):
     participants_count = serializers.SerializerMethodField()
     creator_details = UserSerializer(source='creator', read_only=True, fields=['id', 'username', 'avatar'])
     gym_details = GymSerializer(source='gym', read_only=True)
-    workout_template_details = WorkoutInstanceSerializer(source='workout_template', read_only=True)
+    workout_template_details = WorkoutTemplateSerializer(source='workout_template', read_only=True)
     is_creator = serializers.SerializerMethodField()
     current_user_status = serializers.SerializerMethodField()
     is_full = serializers.SerializerMethodField()
@@ -99,9 +103,10 @@ class GroupWorkoutDetailSerializer(GroupWorkoutSerializer):
     participants = serializers.SerializerMethodField()
     join_requests = serializers.SerializerMethodField()
     messages = GroupWorkoutMessageSerializer(many=True, read_only=True)
+    most_voted_proposal = serializers.SerializerMethodField()
     
     class Meta(GroupWorkoutSerializer.Meta):
-        fields = GroupWorkoutSerializer.Meta.fields + ['participants', 'join_requests', 'messages']
+        fields = GroupWorkoutSerializer.Meta.fields + ['participants', 'join_requests', 'messages','most_voted_proposal']
     
     def get_participants(self, obj):
         participants = obj.participants.all()
@@ -114,3 +119,50 @@ class GroupWorkoutDetailSerializer(GroupWorkoutSerializer):
             join_requests = obj.join_requests.filter(status='pending')
             return GroupWorkoutJoinRequestSerializer(join_requests, many=True).data
         return []
+    
+    def get_most_voted_proposal(self, obj):
+        most_voted = obj.proposals.annotate(
+            votes_count=Count('votes')
+        ).order_by('-votes_count').first()
+        
+        if most_voted:
+            return GroupWorkoutProposalSerializer(most_voted, context=self.context).data
+        return None
+
+class GroupWorkoutProposalSerializer(serializers.ModelSerializer):
+    workout_template_details = WorkoutTemplateSerializer(source='workout_template', read_only=True)
+    proposed_by_details = UserSerializer(source='proposed_by', read_only=True, fields=['id', 'username', 'avatar'])
+    vote_count = serializers.SerializerMethodField()
+    has_voted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = GroupWorkoutProposal
+        fields = [
+            'id', 'group_workout', 'workout_template', 'workout_template_details',
+            'proposed_by', 'proposed_by_details', 'created_at', 'vote_count', 'has_voted'
+        ]
+        read_only_fields = ['id', 'created_at', 'vote_count']
+        extra_kwargs = {
+            'proposed_by': {'write_only': True},
+            'group_workout': {'write_only': True},
+        }
+    
+    def get_vote_count(self, obj):
+        return obj.votes.count()
+    
+    def get_has_voted(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.votes.filter(user=request.user).exists()
+        return False
+
+class GroupWorkoutVoteSerializer(serializers.ModelSerializer):
+    user_details = UserSerializer(source='user', read_only=True, fields=['id', 'username', 'avatar'])
+    
+    class Meta:
+        model = GroupWorkoutVote
+        fields = ['id', 'proposal', 'user', 'user_details', 'created_at']
+        read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'user': {'write_only': True},
+        }

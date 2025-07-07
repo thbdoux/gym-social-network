@@ -1,33 +1,13 @@
-// context/AuthContext.tsx
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+// context/AuthContext.tsx - Final fix with complete request blocking
+
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import userService from '../api/services/userService';
 import { useQueryClient } from '@tanstack/react-query';
 import { userKeys } from '../hooks/query/useUserQuery';
 import { authEvents } from '../api/utils/authEvents';
-// import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { Platform } from 'react-native';
-
-// Initialize GoogleSignin with the correct client IDs
-// You'll need to replace these with your actual client IDs from Google Cloud Console
-// GoogleSignin.configure({
-//   // The web client ID is required for all platforms
-//   webClientId: '38465928219-lnt8gkdkhn1id2vh93a54j41h8516op9.apps.googleusercontent.com',
-  
-//   // Only include iOS client ID when running on iOS
-//   ...(Platform.OS === 'ios' && {
-//     iosClientId: '38465928219-ouf41lc4o75ruaspr62s7o0bqr99fi22.apps.googleusercontent.com',
-//   }),
-  
-//   // Only include Android client ID when running on Android
-//   ...(Platform.OS === 'android' && {
-//     androidClientId: '123456789012-androidabcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
-//   }),
-  
-//   offlineAccess: true,
-//   forceCodeForRefreshToken: true,
-// });
+import { resetApiClient, setUserLoggedOut, setUserLoggedIn } from '../api/index'; // Import new functions
 
 interface User {
   id: number;
@@ -41,296 +21,331 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitialized: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   setUser: (user: User | null) => void;
   registerUser: (userData: any) => Promise<{ success: boolean; message: string }>;
-  // googleLogin: () => Promise<boolean>;
-  resendVerification: (email: string) => Promise<boolean>;
+  error: string | null;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Social login handler - commented out for now
-  const handleSocialLogin = async (provider: string, token: string) => {
-    try {
-      console.log(`Sending ${provider} token to backend...`);
-      const response = await userService.socialLogin(provider, token);
-      
-      if (response?.access) {
-        // Store the JWT token
-        await SecureStore.setItemAsync('token', response.access);
-        
-        // Update user state
-        setUser(response.user);
-        setIsAuthenticated(true);
-        
-        // Cache the user data
-        queryClient.setQueryData(userKeys.current(), response.user);
-        
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error(`${provider} login error:`, error);
-      return false;
-    }
-  };
+  const initializationComplete = useRef(false);
+  const isLoggingOut = useRef(false);
 
-  // Google login implementation
-  // const googleLogin = async (): Promise<boolean> => {
-  //   try {
-  //     setIsLoading(true);
-      
-  //     // Make sure Google Play Services are available (Android only)
-  //     if (Platform.OS === 'android') {
-  //       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  //     }
-      
-  //     // Check if user is already signed in
-  //     const isSignedIn = await GoogleSignin.isSignedIn();
-  //     if (isSignedIn) {
-  //       await GoogleSignin.signOut();
-  //     }
-      
-  //     console.log('Starting Google Sign-In...');
-      
-  //     // Perform Google Sign-In
-  //     const userInfo = await GoogleSignin.signIn();
-  //     console.log('Google Sign-In successful, getting token...');
-      
-  //     // Get the ID token to send to our backend
-  //     const { idToken } = await GoogleSignin.getTokens();
-      
-  //     if (idToken) {
-  //       console.log('Got Google ID token, authenticating with backend...');
-  //       // Send the ID token to your backend for verification
-  //       return await handleSocialLogin('google', idToken);
-  //     } else {
-  //       console.error('No ID token received from Google');
-  //       return false;
-  //     }
-  //   } catch (error: any) {
-  //     // Handle specific Google Sign-In errors
-  //     if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-  //       console.log('User cancelled the login flow');
-  //     } else if (error.code === statusCodes.IN_PROGRESS) {
-  //       console.log('Sign in is in progress already');
-  //     } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-  //       console.log('Play services not available or outdated');
-  //     } else {
-  //       console.error('Google sign in error:', error);
-  //     }
-  //     return false;
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
-  // Register new user
-  const registerUser = async (userData: any): Promise<{ success: boolean; message: string }> => {
-    try {
-      setIsLoading(true);
-      await userService.register(userData);
-      return {
-        success: true,
-        message: "Registration successful! You can now log in."
-        // Changed from: "Registration successful! Please check your email to verify your account."
-      };
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      return {
-        success: false,
-        message: error.response?.data?.detail || "Registration failed. Please try again."
-      };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Resend verification email
-  const resendVerification = async (email: string): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      await userService.resendVerification(email);
-      return true;
-    } catch (error) {
-      console.error('Resend verification error:', error);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Define a reusable logout function
-  const handleLogout = useCallback(async () => {
-    try {
-      console.log('AuthContext: Logging out user', user?.id);
-      
-      // Sign out from Google if signed in - commented out for now
-      // const isSignedIn = await GoogleSignin.isSignedIn();
-      // if (isSignedIn) {
-      //   await GoogleSignin.signOut();
-      //   console.log('Signed out from Google');
-      // }
-      
-      // STEP 1: Clear token
-      await SecureStore.deleteItemAsync('token');
-      
-      // STEP 2: Update authentication state
-      setUser(null);
-      setIsAuthenticated(false);
-      
-      // STEP 3: Clear all cached queries
-      const allQueryKeys = [
-        userKeys.all,
-        userKeys.current(),
-        ['posts'], 
-        ['programs'],
-        ['workouts'],
-        ['logs'],
-        ['gyms'],
-        ['profilePreviews']
-      ];
-      
-      // Invalidate each query key
-      allQueryKeys.forEach(key => {
-        queryClient.invalidateQueries({ queryKey: key, exact: key === userKeys.current() });
-        queryClient.removeQueries({ queryKey: key, exact: key === userKeys.current() });
-      });
-      
-      // STEP 4: Complete cache purge
-      queryClient.clear();
-      
-      // STEP 5: Reset query cache
-      queryClient.resetQueries();
-      
-      // STEP 6: Add a small delay to ensure cache operations complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // STEP 7: Navigate to login
-      router.replace('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still try to navigate to login in case of error
-      router.replace('/login');
-    }
-  }, [queryClient, user?.id]);
-
-  // Load user data on mount or token change
+  // Debug logging for state changes
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const token = await SecureStore.getItemAsync('token');
-        if (token) {
-          try {
-            // Clear cache before fetching fresh user data
-            queryClient.invalidateQueries({ queryKey: userKeys.current() });
-            
-            const userData = await userService.getCurrentUser();
-            console.log('AuthContext: Loaded user data', userData?.id);
-            setUser(userData);
-            setIsAuthenticated(true);
-            
-            // Cache the user data
-            queryClient.setQueryData(userKeys.current(), userData);
-          
-          } catch (error) {
-            // If token is invalid or expired, clear it and reset auth state
-            console.error('Error fetching user:', error);
-            await SecureStore.deleteItemAsync('token');
-            setUser(null);
-            setIsAuthenticated(false);
-            
-            // Clear any cached data
-            queryClient.clear();
-            
-            // Redirect to login screen
-            router.replace('/login');
-          }
-        } else {
-          console.log('AuthContext: No token found');
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('Error loading user:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    console.log('🔄 AuthContext state:', { 
+      isAuthenticated, 
+      isLoading, 
+      isInitialized, 
+      hasUser: !!user,
+      error: !!error 
+    });
+  }, [isAuthenticated, isLoading, isInitialized, user, error]);
 
-    loadUser();
+  // ENHANCED logout function with complete request blocking
+  const performLogout = useCallback(async (reason = 'Manual logout') => {
+    if (isLoggingOut.current) return;
+    isLoggingOut.current = true;
+    
+    console.log('🚪 AuthContext logout:', reason);
+    
+    try {
+      // STEP 1: IMMEDIATELY block all API requests
+      console.log('🚫 Blocking all API requests...');
+      setUserLoggedOut();
+      
+      // STEP 2: Update auth state immediately
+      console.log('🔒 Updating auth state...');
+      setIsAuthenticated(false);
+      setUser(null);
+      setError(null);
+      setIsLoading(true);
+      
+      // STEP 3: Cancel ALL ongoing queries and mutations
+      console.log('🛑 Cancelling all queries and mutations...');
+      await queryClient.cancelQueries();
+      // await queryClient.cancelMutations();
+      
+      // STEP 4: Clear tokens
+      console.log('🗑️ Clearing secure tokens...');
+      await SecureStore.deleteItemAsync('token');
+      await SecureStore.deleteItemAsync('refreshToken');
+      
+      // STEP 5: Wait for any remaining requests to fail/complete
+      console.log('⏳ Waiting for request cleanup...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // STEP 6: Clear all query cache
+      console.log('🧹 Clearing query cache...');
+      queryClient.clear();
+      queryClient.removeQueries();
+      
+      // STEP 7: Reset query client completely
+      await queryClient.resetQueries();
+      
+      // STEP 8: Reset API client state
+      console.log('🔄 Resetting API client...');
+      resetApiClient();
+      
+      // STEP 9: Final state update
+      console.log('✅ Finalizing logout state...');
+      setIsInitialized(true);
+      setIsLoading(false);
+      
+      // STEP 10: Extra cleanup delay
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      console.log('✅ AuthContext logout completed successfully');
+      
+    } catch (error) {
+      console.error('❌ Error during AuthContext logout:', error);
+      
+      // Emergency cleanup
+      setUserLoggedOut();
+      setIsAuthenticated(false);
+      setUser(null);
+      setError(null);
+      setIsInitialized(true);
+      setIsLoading(false);
+      
+      try {
+        await queryClient.cancelQueries();
+        queryClient.clear();
+        resetApiClient();
+      } catch (cleanupError) {
+        console.error('❌ Emergency cleanup error:', cleanupError);
+      }
+    } finally {
+      isLoggingOut.current = false;
+    }
   }, [queryClient]);
+
+  // Enhanced login function
+  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Mark user as logged in to allow API requests
+      setUserLoggedIn();
+      
+      const tokenData = await userService.login(username, password);
+      await SecureStore.setItemAsync('token', tokenData.access);
+      
+      if (tokenData.refresh) {
+        await SecureStore.setItemAsync('refreshToken', tokenData.refresh);
+      }
+
+      const userData = await userService.getCurrentUser();
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      setIsInitialized(true);
+      setError(null);
+      queryClient.setQueryData(userKeys.current(), userData);
+      
+      return true;
+      
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      setUserLoggedOut(); // Block requests on login failure
+      setError(error?.response?.data?.detail || 'Login failed');
+      setIsInitialized(true);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [queryClient]);
+
+  // Enhanced manual logout with proper timing
+  const logout = useCallback(async () => {
+    console.log('🚪 Manual logout initiated');
+    
+    try {
+      // Perform logout and wait for complete cleanup
+      await performLogout('Manual logout');
+      
+      // Extra delay to ensure all cleanup is absolutely complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Navigate after everything is cleaned up
+      console.log('🚀 Navigating to login after complete cleanup...');
+      router.replace('/(auth)/login');
+      
+    } catch (error) {
+      console.error('❌ Manual logout error:', error);
+      // Force navigation with longer delay
+      setTimeout(() => {
+        router.replace('/(auth)/login');
+      }, 1000);
+    }
+  }, [performLogout]);
+
+  // Check auth status with login state management
+  const checkAuthStatus = useCallback(async () => {
+    if (initializationComplete.current) return;
+    
+    console.log('🔍 AuthContext checking auth status...');
+    setIsLoading(true);
+    setIsInitialized(false);
+    
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      
+      if (!token) {
+        console.log('❌ No token found in AuthContext');
+        setUserLoggedOut(); // Block requests if no token
+        setIsAuthenticated(false);
+        setUser(null);
+        setError(null);
+        setIsInitialized(true);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('📱 Token found, verifying user...');
+      setUserLoggedIn(); // Allow requests for verification
+      
+      const userData = await userService.getCurrentUser();
+      
+      if (userData && typeof userData === 'object' && 
+          (userData.code === 'token_not_valid' || userData.detail || userData.error)) {
+        console.log('🚨 Token verification returned error object:', userData);
+        throw new Error(`Token validation failed: ${userData.detail || userData.error || 'Invalid token'}`);
+      }
+      
+      if (!userData || !userData.id || !userData.username) {
+        console.log('🚨 Invalid user data structure:', userData);
+        throw new Error('Invalid user data received');
+      }
+      
+      console.log('✅ User verified in AuthContext:', userData);
+      setUser(userData);
+      setIsAuthenticated(true);
+      setError(null);
+      queryClient.setQueryData(userKeys.current(), userData);
+      
+    } catch (error: any) {
+      console.log('🚨 Auth verification failed in AuthContext:', error?.response?.status, error?.response?.data);
+      
+      setUserLoggedOut(); // Block requests on auth failure
+      
+      if (error?.response?.status === 401 || error?.response?.data?.code === 'token_not_valid') {
+        console.log('🧹 Token invalid - clearing auth state immediately');
+        
+        try {
+          await SecureStore.deleteItemAsync('token');
+          await SecureStore.deleteItemAsync('refreshToken');
+        } catch (clearError) {
+          console.error('Error clearing tokens:', clearError);
+        }
+        
+        setUser(null);
+        setIsAuthenticated(false);
+        setError(null);
+        queryClient.clear();
+      } else {
+        setError('Authentication verification failed');
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      
+    } finally {
+      setIsLoading(false);
+      setIsInitialized(true);
+      initializationComplete.current = true;
+    }
+  }, [queryClient]);
+
+  // Register user function
+  const registerUser = useCallback(async (userData: any): Promise<{ success: boolean; message: string }> => {
+    try {
+      await userService.register(userData);
+      return { success: true, message: "Registration successful" };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        message: error.response?.data?.detail || "Registration failed" 
+      };
+    }
+  }, []);
+
+  // Handle token expired event
+  const handleTokenExpired = useCallback(async () => {
+    console.log('🚨 AuthContext received tokenExpired event');
+    await performLogout('Token expired');
+  }, [performLogout]);
+
+  // Exposed setUser function
+  const setUserCallback = useCallback((newUser: User | null) => {
+    setUser(newUser);
+    if (newUser) {
+      setIsAuthenticated(true);
+      setUserLoggedIn();
+      queryClient.setQueryData(userKeys.current(), newUser);
+    } else {
+      setIsAuthenticated(false);
+      setUserLoggedOut();
+      queryClient.removeQueries({ queryKey: userKeys.current() });
+    }
+  }, [queryClient]);
+
+  // Initialize auth on mount
+  useEffect(() => {
+    checkAuthStatus();
+    
+    const failsafeTimer = setTimeout(() => {
+      if (!initializationComplete.current) {
+        console.log('⚠️ Auth initialization timeout, forcing completion');
+        setIsLoading(false);
+        setIsInitialized(true);
+        setIsAuthenticated(false);
+        setUser(null);
+        setUserLoggedOut();
+        initializationComplete.current = true;
+      }
+    }, 10000);
+    
+    return () => clearTimeout(failsafeTimer);
+  }, [checkAuthStatus]);
 
   // Listen for auth events
   useEffect(() => {
     const unsubscribe = authEvents.subscribe((eventType) => {
       if (eventType === 'tokenExpired') {
-        console.log('Token expired event received, logging out...');
-        handleLogout();
+        console.log('🚨 AuthContext received tokenExpired event from API interceptor');
+        handleTokenExpired();
       }
     });
     
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [handleLogout]);
+    return unsubscribe;
+  }, [handleTokenExpired]);
 
-  // Regular username/password login
-  const login = async (username: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-
-      queryClient.clear();
-      const tokenData = await userService.login(username, password);
-      await SecureStore.setItemAsync('token', tokenData.access);
-
-      queryClient.invalidateQueries({ queryKey: userKeys.all });
-      queryClient.invalidateQueries({ queryKey: userKeys.current() });
-      
-      const userData = await userService.getCurrentUser();
-      
-      setUser(userData);
-      setIsAuthenticated(true);
-      
-      queryClient.setQueryData(userKeys.current(), userData);
-      return true;
-    } catch (error) {
-      console.error('Login error:', error);
-      setUser(null);
-      setIsAuthenticated(false);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = handleLogout;
+  const contextValue = useMemo(() => ({
+    user,
+    isAuthenticated,
+    isLoading,
+    isInitialized,
+    login,
+    logout,
+    setUser: setUserCallback,
+    registerUser,
+    error,
+  }), [user, isAuthenticated, isLoading, isInitialized, error, login, logout, setUserCallback, registerUser]);
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isAuthenticated, 
-        isLoading, 
-        login, 
-        logout,
-        setUser,
-        registerUser,
-        // googleLogin,
-        resendVerification
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

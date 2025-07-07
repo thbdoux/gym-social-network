@@ -3,11 +3,7 @@ from django.contrib import admin
 from django.db.models import Count
 from django.utils import timezone
 from django.db.models import Q
-from .models import Gym, GymAnnouncement
-
-class GymAnnouncementInline(admin.TabularInline):
-    model = GymAnnouncement
-    extra = 1
+from .models import Gym
 
 @admin.register(Gym)
 class GymAdmin(admin.ModelAdmin):
@@ -15,7 +11,6 @@ class GymAdmin(admin.ModelAdmin):
     list_filter = ('location', 'created_at')
     search_fields = ('name', 'location', 'description')
     ordering = ('name', 'location')
-    inlines = [GymAnnouncementInline]
 
     def get_queryset(self, request):
         today = timezone.now().date()
@@ -37,9 +32,3 @@ class GymAdmin(admin.ModelAdmin):
         return obj.active_users_count
     get_active_users_today.short_description = 'Active Users Today'
     get_active_users_today.admin_order_field = 'active_users_count'
-
-@admin.register(GymAnnouncement)
-class GymAnnouncementAdmin(admin.ModelAdmin):
-    list_display = ('gym', 'title', 'start_date', 'end_date')
-    list_filter = ('start_date', 'end_date', 'gym')
-    search_fields = ('title', 'content', 'gym__name')

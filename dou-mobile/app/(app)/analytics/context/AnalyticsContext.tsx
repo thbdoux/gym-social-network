@@ -6,12 +6,20 @@ import {
   calculateWeeklyMetrics, 
   getMuscleGroups, 
   getExercises,
+  calculateBodyweightAnalytics,
+  calculateDurationDistanceAnalytics,
+  calculateWorkoutInsights,
   WeeklyMetrics,
   MuscleGroupData,
   ExerciseData,
   WorkoutLog,
+  BodyweightAnalytics,
+  DurationDistanceAnalytics,
+  WorkoutInsights,
 } from '../utils/analyticsUtils';
 import { inspectWorkoutLogs } from '../utils/debugUtils';
+import { useExerciseHelpers } from '@/components/workouts/data/exerciseData';
+import { useLanguage} from '@/context/LanguageContext';
 
 interface AnalyticsContextType {
   isLoading: boolean;
@@ -28,12 +36,18 @@ interface AnalyticsContextType {
   resetFilters: () => void;
   dataError: string | null;
   logs: WorkoutLog[]; // Expose logs for new components
+  // New analytics data
+  bodyweightAnalytics: BodyweightAnalytics | null;
+  enduranceAnalytics: DurationDistanceAnalytics | null;
+  workoutInsights: WorkoutInsights | null;
 }
 
 const AnalyticsContext = createContext<AnalyticsContextType | undefined>(undefined);
 
 export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const { calculateMuscleGroupContribution, getExerciseName } = useExerciseHelpers();
   const { data: logs, isLoading, error } = useUserLogs(user?.username);
   
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | undefined>(undefined);
@@ -66,24 +80,24 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!logs || logs.length === 0) return [];
     
     try {
-      return getMuscleGroups(logs);
+      return getMuscleGroups(logs, t);
     } catch (err) {
       console.error('Error getting muscle groups:', err);
       return [];
     }
-  }, [logs]);
+  }, [logs, t]);
   
   // Memoize exercises to prevent recalculation
   const exercises = useMemo(() => {
     if (!logs || logs.length === 0) return [];
     
     try {
-      return getExercises(logs, selectedMuscleGroup);
+      return getExercises(logs, selectedMuscleGroup, t);
     } catch (err) {
       console.error('Error getting exercises:', err);
       return [];
     }
-  }, [logs, selectedMuscleGroup]);
+  }, [logs, selectedMuscleGroup, t]);
   
   // Memoize weekly metrics to prevent recalculation
   const weeklyMetrics = useMemo(() => {
@@ -92,6 +106,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       return calculateWeeklyMetrics(
         logs,
+        t,
         timeRange,
         selectedMuscleGroup,
         selectedExercise
@@ -101,13 +116,47 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setDataError('Error calculating metrics. Please try again later.');
       return [];
     }
-  }, [logs, selectedMuscleGroup, selectedExercise, timeRange]);
+  }, [logs, selectedMuscleGroup, selectedExercise, timeRange, t]);
+
+  // Memoize enhanced analytics
+  const bodyweightAnalytics = useMemo(() => {
+    if (!logs || logs.length === 0 || !weeklyMetrics.length) return null;
+    
+    try {
+      return calculateBodyweightAnalytics(logs, weeklyMetrics, t);
+    } catch (err) {
+      console.error('Error calculating bodyweight analytics:', err);
+      return null;
+    }
+  }, [logs, weeklyMetrics, t]);
+
+  const enduranceAnalytics = useMemo(() => {
+    if (!logs || logs.length === 0 || !weeklyMetrics.length) return null;
+    
+    try {
+      return calculateDurationDistanceAnalytics(logs, weeklyMetrics, t);
+    } catch (err) {
+      console.error('Error calculating endurance analytics:', err);
+      return null;
+    }
+  }, [logs, weeklyMetrics, t]);
+
+  const workoutInsights = useMemo(() => {
+    if (!logs || logs.length === 0 || !weeklyMetrics.length) return null;
+    
+    try {
+      return calculateWorkoutInsights(logs, weeklyMetrics, t);
+    } catch (err) {
+      console.error('Error calculating workout insights:', err);
+      return null;
+    }
+  }, [logs, weeklyMetrics, t]);
   
   // Memoize resetFilters to prevent recreation
   const resetFilters = useCallback(() => {
     setSelectedMuscleGroup(undefined);
     setSelectedExercise(undefined);
-    setTimeRange(8);
+    setTimeRange(12);
   }, []);
   
   // Memoize context value to prevent unnecessary renders
@@ -126,6 +175,10 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     resetFilters,
     dataError,
     logs: logs || [], // Provide logs to components that need them
+    // New analytics data
+    bodyweightAnalytics,
+    enduranceAnalytics,
+    workoutInsights,
   }), [
     isLoading, 
     error, 
@@ -138,6 +191,9 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     resetFilters,
     dataError,
     logs,
+    bodyweightAnalytics,
+    enduranceAnalytics,
+    workoutInsights,
   ]);
   
   return (

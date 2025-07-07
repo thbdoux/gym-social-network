@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { router } from 'expo-router';
 import { VIEW_TYPES } from './ViewSelector';
+import { useTheme } from '../../context/ThemeContext';
 
 interface FabMenuItem {
   id: string;
@@ -25,6 +26,7 @@ interface WorkoutsFabMenuProps {
   currentView: string;
   onCreateProgram: () => void;
   onCreateTemplate: () => void;
+  onCreateTemplateFromLog: () => void; // New prop for creating template from log
   onCreateGroupWorkout: () => void;
   onCreateGroupWorkoutFromTemplate: () => void;
   onLogWorkout: () => void;
@@ -32,13 +34,13 @@ interface WorkoutsFabMenuProps {
   onLogFromTemplate: () => void;
   onLogFromScratch: () => void;
   onStartRealtimeWorkout: () => void;
-  themePalette: any;
 }
 
 const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({ 
   currentView,
   onCreateProgram,
   onCreateTemplate,
+  onCreateTemplateFromLog, // New prop
   onCreateGroupWorkout,
   onCreateGroupWorkoutFromTemplate,
   onLogWorkout,
@@ -46,11 +48,10 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
   onLogFromTemplate,
   onLogFromScratch,
   onStartRealtimeWorkout,
-  themePalette
 }) => {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
-  
+  const { workoutPalette, workoutLogPalette, programPalette, groupWorkoutPalette, palette } = useTheme();
   // Animation values
   const animation = useRef(new Animated.Value(0)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -64,7 +65,7 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
             id: 'create_program',
             label: t('create_program'),
             icon: 'add-circle',
-            color: '#7e22ce',
+            color: programPalette.background,
             action: onCreateProgram
           }
         ];
@@ -74,38 +75,45 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
             id: 'realtime_workout',
             label: t('realtime_workout'),
             icon: 'stopwatch-outline',
-            color: '#16a34a',
+            color: workoutLogPalette.background,
             action: onStartRealtimeWorkout
           },
           {
             id: 'log_from_program',
             label: t('from_program'),
             icon: 'albums-outline',
-            color: '#16a34a',
+            color: workoutLogPalette.background,
             action: onLogFromProgram
           },
           {
             id: 'log_from_template',
             label: t('from_template'),
             icon: 'document-text-outline',
-            color: '#16a34a',
+            color: workoutLogPalette.background,
             action: onLogFromTemplate
           },
           {
             id: 'log_from_scratch',
             label: t('from_scratch'),
             icon: 'create-outline',
-            color: '#16a34a',
+            color: workoutLogPalette.background,
             action: onLogFromScratch
           }
         ];
       case VIEW_TYPES.TEMPLATES:
         return [
           {
+            id: 'create_template_from_log',
+            label: t('from_workout_log'),
+            icon: 'barbell',
+            color: workoutPalette.background,
+            action: onCreateTemplateFromLog
+          },
+          {
             id: 'create_template',
             label: t('create_template'),
             icon: 'add-circle',
-            color: '#2563eb',
+            color: workoutPalette.background,
             action: onCreateTemplate
           }
         ];
@@ -115,7 +123,7 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
             id: 'create_group_workout',
             label: t('create_group_workout'),
             icon: 'add-circle',
-            color: '#f97316',
+            color: groupWorkoutPalette.background,
             action: onCreateGroupWorkout
           },
           // {
@@ -186,15 +194,15 @@ const WorkoutsFabMenu: React.FC<WorkoutsFabMenuProps> = ({
   const getFabColor = () => {
     switch (currentView) {
       case VIEW_TYPES.PROGRAMS:
-        return '#7e22ce';
+        return programPalette.background;
       case VIEW_TYPES.WORKOUT_HISTORY:
-        return '#16a34a';
+        return workoutLogPalette.background;
       case VIEW_TYPES.TEMPLATES:
-        return '#2563eb';
+        return workoutPalette.background;
       case VIEW_TYPES.GROUP_WORKOUTS:
-        return '#f97316';
+        return groupWorkoutPalette.background;
       default:
-        return themePalette.highlight;
+        return palette.highlight;
     }
   };
   
