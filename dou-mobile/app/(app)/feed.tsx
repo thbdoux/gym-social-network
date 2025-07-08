@@ -21,6 +21,8 @@ import OptimizedFeedContainer from '../../components/feed/OptimizedFeedContainer
 import ProfilePreviewModal from '../../components/profile/ProfilePreviewModal';
 import FriendsModal from '../../components/profile/FriendsModal';
 import HeaderLogoWithSVG from '../../components/navigation/HeaderLogoWithSVG';
+import CoachingHeaderIcon from '@/components/navigation/CoachingHeaderIcon';
+
 import PostTypeModal from '../../components/feed/PostTypeModal';
 import PostCreationModal from '../../components/feed/PostCreationModal';
 import { getAvatarUrl } from '../../utils/imageUtils';
@@ -240,6 +242,7 @@ export default function FeedScreen() {
             
             {/* Icons on the right */}
             <View style={styles.headerRightContainer}>
+              <CoachingHeaderIcon/>
               {/* Notification Icon with Badge */}
               <TouchableOpacity style={styles.headerIconTouchable} onPress={() => router.push('/notifications')}>
                 <Ionicons name="notifications-outline" size={26} color={palette.text} />

@@ -15,6 +15,13 @@ type Translations = {
 // Common translations used across the app
 const common = {
   en: {
+    saved: 'Saved',
+    search_gym_name_brand: 'Gym name brand',
+    search_location:'Gym location',
+    search_for_gyms:'Search for gyms',
+    enter_gym_name_or_location:'Enter a gym name or location',
+    no_gyms_found:'No gyms found',
+    clear:'Clear',
     "loading":"tout dou, it's loading...",
     "loading.authenticating": "tout dou, it's loading...",
     "loading.preparing": "almost ready...",
@@ -100,6 +107,13 @@ const common = {
     no_workout_partners_yet:'No partners yet...',
   },
   fr: {
+    saved: 'Sauvegardées',
+    search_gym_name_brand: 'Nom de la salle de sport',
+    search_location:'Localisation : ville, quartier',
+    search_for_gyms:'Recherche de salle de sport',
+    enter_gym_name_or_location:'Renseignez un nom ou un lieu',
+    no_gyms_found:'Aucune salle n\'a été trouvé',
+    clear:'Réinitialiser',
     "loading":"tout dou, ça charge...",
     "loading.authenticating": "tout dou, ça charge...",
     "loading.preparing": "encore un petit effort...",

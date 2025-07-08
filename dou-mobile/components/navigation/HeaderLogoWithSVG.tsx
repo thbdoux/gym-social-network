@@ -1,7 +1,6 @@
 // components/navigation/HeaderLogoWithSVG.tsx
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
-
 /*
  * Updated component to use PNG image instead of SVG
  * Accepts width and height as parameters for flexibility

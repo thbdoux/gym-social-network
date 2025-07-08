@@ -1,0 +1,95 @@
+{
+  "expo": {
+    "name": "Dou",
+    "slug": "dou-social-network-mobile-app",
+    "version": "1.0.8",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon2.png",
+    "scheme": "dou",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.doucompany.dou",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allow %@ to pick images for your posts.",
+        "NSPhotoLibraryAddUsageDescription": "Allow %@ to save the edited picture.",
+        "NSCameraUsageDescription": "Allow %@ to take a new photo and analyze your workout form.",
+        "NSMicrophoneUsageDescription": "Needed for video posts with sound, and voice coaching feedback during workouts.",
+        "NSFaceIDUsageDescription": "Use Face ID to quickly and securely access your account."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-icon2.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.doucompany.dou",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "$(PRODUCT_NAME) needs access to your Camera for pose detection.",
+          "enableMicrophonePermission": false
+        }
+      ],
+      [
+        "react-native-fast-tflite",
+        {
+          "enableCoreMLDelegate": true,
+          "enableAndroidGpuLibraries": true
+        }
+      ],
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/dou-white.png",
+          "imageWidth": 300,
+          "resizeMode": "contain",
+          "backgroundColor": "#080f19"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to quickly and securely access your account."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/app-icon2.png",
+          "color": "#6366F1",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Let %@ access your photos."
+        }
+      ],
+      "expo-localization",
+      "expo-build-properties",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2297eb90-1775-4516-8c5c-3f6f0fe9b1d4"
+      }
+    }
+  }
+}

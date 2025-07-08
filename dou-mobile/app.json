@@ -14,8 +14,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Allow %@ to pick images for your posts.",
         "NSPhotoLibraryAddUsageDescription": "Allow %@ to save the edited picture.",
-        "NSCameraUsageDescription": "Allow %@ to take a new photo.",
-        "NSMicrophoneUsageDescription": "Needed for video posts with sound.",
+        "NSCameraUsageDescription": "Allow %@ to take a new photo and analyze your workout form.",
+        "NSMicrophoneUsageDescription": "Needed for video posts with sound, and voice coaching feedback during workouts.",
         "NSFaceIDUsageDescription": "Use Face ID to quickly and securely access your account."
       }
     },
@@ -27,10 +27,26 @@
       "package": "com.doucompany.dou",
       "permissions": [
         "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "USE_FINGERPRINT",
+        "CAMERA",
+        "RECORD_AUDIO"
       ]
     },
     "plugins": [
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "$(PRODUCT_NAME) needs access to your Camera for pose detection.",
+          "enableMicrophonePermission": false
+        }
+      ],
+      [
+        "react-native-fast-tflite",
+        {
+          "enableCoreMLDelegate": true,
+          "enableAndroidGpuLibraries": true
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
@@ -62,7 +78,9 @@
           "photosPermission": "Let %@ access your photos."
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-build-properties",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
